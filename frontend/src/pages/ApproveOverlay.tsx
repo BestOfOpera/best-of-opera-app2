@@ -94,7 +94,7 @@ export default function ApproveOverlay() {
                 onChange={(e) => updateEntry(i, 'text', e.target.value)}
                 placeholder="Subtitle text"
               />
-              <CharCounter value={entry.text} max={50} />
+              <CharCounter value={entry.text} max={70} />
             </div>
             <button className="btn-danger btn-small" onClick={() => removeEntry(i)} style={{ padding: '6px 10px' }}>
               X

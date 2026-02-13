@@ -99,7 +99,10 @@ export default function ApproveYoutube() {
         <div className="form-group">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <label>Tags (comma-separated)</label>
-            <CopyButton text={tags} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <CharCounter value={tags} max={450} />
+              <CopyButton text={tags} />
+            </div>
           </div>
           <textarea
             value={tags}

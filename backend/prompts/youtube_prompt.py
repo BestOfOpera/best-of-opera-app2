@@ -17,10 +17,12 @@ TITLE RULES:
 5. Format: "[Hook/Emotional angle] — [Artist] in [Work] by [Composer]" or similar
 
 TAGS RULES:
-1. 15-25 tags, comma-separated
-2. Mix of broad (opera, classical music) and specific (artist name, work name)
-3. Include common misspellings of artist/composer names if applicable
-4. Include genre tags, era tags, and voice type tags
+1. Comma-separated tags
+2. The TOTAL tags string must be under 450 characters
+3. Mix of broad (opera, classical music) and specific (artist name, work name)
+4. Include common misspellings of artist/composer names if applicable
+5. Include genre tags, era tags, and voice type tags
+6. Pack as many relevant tags as possible within the 450-character limit
 
 Return EXACTLY two lines:
 Line 1: The title

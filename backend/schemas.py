@@ -9,6 +9,7 @@ class ProjectCreate(BaseModel):
     composer: str
     composition_year: str = ""
     nationality: str = ""
+    nationality_flag: str = ""
     voice_type: str = ""
     birth_date: str = ""
     death_date: str = ""
@@ -27,6 +28,7 @@ class ProjectUpdate(BaseModel):
     composer: Optional[str] = None
     composition_year: Optional[str] = None
     nationality: Optional[str] = None
+    nationality_flag: Optional[str] = None
     voice_type: Optional[str] = None
     birth_date: Optional[str] = None
     death_date: Optional[str] = None
@@ -60,6 +62,7 @@ class ProjectOut(BaseModel):
     composer: str
     composition_year: str
     nationality: str
+    nationality_flag: str
     voice_type: str
     birth_date: str
     death_date: str

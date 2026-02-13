@@ -21,6 +21,7 @@ export interface Project {
   composer: string;
   composition_year: string;
   nationality: string;
+  nationality_flag: string;
   voice_type: string;
   birth_date: string;
   death_date: string;

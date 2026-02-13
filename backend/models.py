@@ -24,6 +24,7 @@ class Project(Base):
     composer: Mapped[str] = mapped_column(String(255))
     composition_year: Mapped[str] = mapped_column(String(50), default="")
     nationality: Mapped[str] = mapped_column(String(100), default="")
+    nationality_flag: Mapped[str] = mapped_column(String(10), default="")
     voice_type: Mapped[str] = mapped_column(String(100), default="")
     birth_date: Mapped[str] = mapped_column(String(50), default="")
     death_date: Mapped[str] = mapped_column(String(50), default="")

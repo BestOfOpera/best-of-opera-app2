@@ -13,7 +13,7 @@ export default function NewProject() {
   const [error, setError] = useState('')
   const [form, setForm] = useState({
     artist: '', work: '', composer: '', composition_year: '',
-    nationality: '', voice_type: '', birth_date: '', death_date: '',
+    nationality: '', nationality_flag: '', voice_type: '', birth_date: '', death_date: '',
     album_opera: '', category: '', hook: '', highlights: '',
     original_duration: '', cut_start: '', cut_end: '',
   })
@@ -73,6 +73,12 @@ export default function NewProject() {
               <label>Nationality</label>
               <input value={form.nationality} onChange={set('nationality')} placeholder="e.g. Greek-American" />
             </div>
+            <div className="form-group">
+              <label>Flag Emoji</label>
+              <input value={form.nationality_flag} onChange={set('nationality_flag')} placeholder="🇬🇷" style={{ fontSize: 20 }} />
+            </div>
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label>Voice Type</label>
               <input value={form.voice_type} onChange={set('voice_type')} placeholder="e.g. Soprano" />
