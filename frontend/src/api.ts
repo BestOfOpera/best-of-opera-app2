@@ -77,11 +77,20 @@ export interface ExportData {
 }
 
 export const api = {
-  detectMetadata: (youtubeUrl: string) =>
-    request<DetectedMetadata>('/projects/detect-metadata', {
+  detectMetadata: async (screenshot: File, youtubeUrl: string): Promise<DetectedMetadata> => {
+    const formData = new FormData();
+    formData.append('screenshot', screenshot);
+    formData.append('youtube_url', youtubeUrl);
+    const res = await fetch(`${BASE}/projects/detect-metadata`, {
       method: 'POST',
-      body: JSON.stringify({ youtube_url: youtubeUrl }),
-    }),
+      body: formData,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail || 'Detection failed');
+    }
+    return res.json();
+  },
   listProjects: () => request<Project[]>('/projects'),
   getProject: (id: number) => request<Project>(`/projects/${id}`),
   createProject: (data: Record<string, string>) =>

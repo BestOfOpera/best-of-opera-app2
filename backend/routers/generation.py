@@ -1,18 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException
+import base64
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project
-from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataRequest, DetectMetadataResponse
+from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse  # noqa: F401
 from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
 
 
 @router.post("/detect-metadata", response_model=DetectMetadataResponse)
-def detect_metadata_endpoint(body: DetectMetadataRequest):
+async def detect_metadata_endpoint(
+    screenshot: UploadFile = File(...),
+    youtube_url: str = Form(""),
+):
     try:
-        result = detect_metadata(body.youtube_url)
+        image_bytes = await screenshot.read()
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        media_type = screenshot.content_type or "image/png"
+        result = detect_metadata(youtube_url, image_b64, media_type)
         return DetectMetadataResponse(**result)
     except Exception as e:
         raise HTTPException(500, f"Detection failed: {e}")

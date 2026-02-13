@@ -3,10 +3,6 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 
-class DetectMetadataRequest(BaseModel):
-    youtube_url: str
-
-
 class DetectMetadataResponse(BaseModel):
     artist: str = ""
     work: str = ""

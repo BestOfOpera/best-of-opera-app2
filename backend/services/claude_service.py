@@ -37,11 +37,9 @@ def _strip_json_fences(raw: str) -> str:
     return text.strip()
 
 
-def detect_metadata(youtube_url: str) -> dict:
-    """Use Claude to extract opera metadata from a YouTube URL."""
-    prompt = f"""Given this YouTube video URL, analyze the title, description, and any metadata you can infer to extract information about this opera/classical music performance.
-
-URL: {youtube_url}
+def detect_metadata(youtube_url: str, screenshot_base64: Optional[str] = None, screenshot_media_type: str = "image/png") -> dict:
+    """Use Claude to extract opera metadata from a YouTube screenshot and/or URL."""
+    prompt_text = """Look at this screenshot of a YouTube video page. Extract information about this opera/classical music performance from the title, description, and any visible metadata.
 
 Extract the following fields. If you cannot determine a field with confidence, leave it as an empty string "".
 
@@ -60,9 +58,24 @@ Return ONLY a JSON object with these exact keys:
 
 Return the JSON object and nothing else."""
 
-    raw = _call_claude(prompt)
-    text = _strip_json_fences(raw)
-    return json.loads(text)
+    if youtube_url:
+        prompt_text += f"\n\nYouTube URL for additional context: {youtube_url}"
+
+    if screenshot_base64:
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": screenshot_media_type, "data": screenshot_base64}},
+            {"type": "text", "text": prompt_text},
+        ]
+    else:
+        content = prompt_text
+
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": content}],
+    )
+    raw = message.content[0].text.strip()
+    return json.loads(_strip_json_fences(raw))
 
 
 def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]:

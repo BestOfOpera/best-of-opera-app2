@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, DetectedMetadata } from '../api'
 
@@ -11,6 +11,7 @@ export default function NewProject() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Step A — human input
   const [youtubeUrl, setYoutubeUrl] = useState('')
@@ -19,11 +20,12 @@ export default function NewProject() {
   const [cutStart, setCutStart] = useState('')
   const [cutEnd, setCutEnd] = useState('')
 
-  // Detection state
+  // Screenshot & detection
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
+  const [screenshotPreview, setScreenshotPreview] = useState('')
   const [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState(false)
   const [confidence, setConfidence] = useState('')
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Step B — auto-detected fields (editable)
   const [meta, setMeta] = useState({
@@ -35,49 +37,44 @@ export default function NewProject() {
   const setField = (key: string, value: string) =>
     setMeta(prev => ({ ...prev, [key]: value }))
 
-  // Auto-detect when YouTube URL changes
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+  const handleScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setScreenshotFile(file)
+    setScreenshotPreview(URL.createObjectURL(file))
+    setDetected(false)
+  }
 
-    if (youtubeUrl.length < 15) {
-      setDetected(false)
-      return
+  const handleDetect = async () => {
+    if (!screenshotFile) return
+    setDetecting(true)
+    setError('')
+    try {
+      const result: DetectedMetadata = await api.detectMetadata(screenshotFile, youtubeUrl)
+      setMeta({
+        artist: result.artist || '',
+        work: result.work || '',
+        composer: result.composer || '',
+        composition_year: result.composition_year || '',
+        nationality: result.nationality || '',
+        nationality_flag: result.nationality_flag || '',
+        voice_type: result.voice_type || '',
+        birth_date: result.birth_date || '',
+        death_date: result.death_date || '',
+        album_opera: result.album_opera || '',
+      })
+      setConfidence(result.confidence || 'high')
+      setDetected(true)
+    } catch (err: any) {
+      setError('Auto-detection failed. Please fill in the fields manually.')
+      setDetected(true)
+      setConfidence('low')
+    } finally {
+      setDetecting(false)
     }
+  }
 
-    debounceRef.current = setTimeout(async () => {
-      setDetecting(true)
-      setError('')
-      try {
-        const result: DetectedMetadata = await api.detectMetadata(youtubeUrl)
-        setMeta({
-          artist: result.artist || '',
-          work: result.work || '',
-          composer: result.composer || '',
-          composition_year: result.composition_year || '',
-          nationality: result.nationality || '',
-          nationality_flag: result.nationality_flag || '',
-          voice_type: result.voice_type || '',
-          birth_date: result.birth_date || '',
-          death_date: result.death_date || '',
-          album_opera: result.album_opera || '',
-        })
-        setConfidence(result.confidence || 'high')
-        setDetected(true)
-      } catch (err: any) {
-        setError('Auto-detection failed. Please fill in the fields manually.')
-        setDetected(true)
-        setConfidence('low')
-      } finally {
-        setDetecting(false)
-      }
-    }, 1500)
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-    }
-  }, [youtubeUrl])
-
-  const stepAComplete = youtubeUrl.length > 10 && hook.trim() && category && cutStart && cutEnd
+  const stepAComplete = hook.trim() && category && cutStart && cutEnd
   const canSubmit = stepAComplete && detected && meta.artist && meta.work && meta.composer
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,18 +109,60 @@ export default function NewProject() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ marginBottom: 16, fontSize: 16 }}>Step A — Your Input</h3>
 
+          {/* Screenshot upload */}
           <div className="form-group">
-            <label>YouTube Link *</label>
+            <label>YouTube Screenshot *</label>
+            <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 8 }}>
+              Take a screenshot of the YouTube video page (showing title, description, channel name)
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleScreenshot}
+              style={{ display: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {screenshotFile ? 'Change Screenshot' : 'Upload Screenshot'}
+              </button>
+              {screenshotFile && !detected && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleDetect}
+                  disabled={detecting}
+                >
+                  {detecting ? 'Detecting...' : 'Detect Metadata'}
+                </button>
+              )}
+            </div>
+            {screenshotPreview && (
+              <img
+                src={screenshotPreview}
+                alt="YouTube screenshot"
+                style={{
+                  marginTop: 12,
+                  maxWidth: '100%',
+                  maxHeight: 250,
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                }}
+              />
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>YouTube Link (optional)</label>
             <input
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=..."
             />
-            {detecting && (
-              <span style={{ fontSize: 13, color: 'var(--purple)', marginTop: 4, display: 'block' }}>
-                Detecting metadata from video...
-              </span>
-            )}
           </div>
 
           <div className="form-group">
@@ -178,7 +217,7 @@ export default function NewProject() {
 
             {detecting && (
               <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-light)' }}>
-                Analyzing video metadata...
+                Analyzing screenshot...
               </div>
             )}
 
