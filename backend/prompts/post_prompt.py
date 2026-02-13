@@ -33,12 +33,12 @@ Include historical context, emotional details, what makes this performance uniqu
 
 SECTION 3 — CREDITS (exact format below, line by line)
 [Fun emoji] [Artist Full Name] {flag}
-Tipo de voz: [voice type]
-Nascimento: [birth date in dd/mm/yyyy format]
+Voice type: [voice type]
+Date of Birth: [birth date in dd/mm/yyyy format]
 
 [Fun emoji] [Work Name] — [Album or Opera name]
-Compositor: [Composer name]
-Data da composição: [composition year]
+Composer: [Composer name]
+Composition date: [composition year]
 
 SECTION 4 — SENSORY CTA (1-2 lines)
 A sensory call-to-action using contrasting emojis.
@@ -51,8 +51,8 @@ Example: "#BestOfOpera #MariaCallas #Opera #CastaDiva"
 CRITICAL RULES:
 - The TOTAL post text MUST be between 1600 and 1800 characters. This is NON-NEGOTIABLE. Count your characters carefully. If the text is under 1600, expand the storytelling section with more vivid details. If over 1800, trim.
 - Each section must be separated by a blank line.
-- Section 3 credits must use the EXACT format shown above (with "Tipo de voz:", "Nascimento:", "Compositor:", "Data da composição:" labels).
-- ALL text must be in ENGLISH (except Section 3 credit labels which are in Portuguese as shown).
+- Section 3 credits must use the EXACT format shown above (with "Voice type:", "Date of Birth:", "Composer:", "Composition date:" labels in English).
+- ALL text must be in ENGLISH. The credit labels will be translated to other languages in a separate step.
 - Return ONLY the post text, no explanations or commentary."""
 
 

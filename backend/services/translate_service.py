@@ -42,13 +42,19 @@ def extract_post_section2(post_text: str) -> tuple[str, str, str]:
             section2_start = i
             break
 
-    # Find section 2 end: line starting with 🎵 or metadata emoji pattern
+    # Find section 2 end: look for the credit block (Section 3).
+    # Section 3 starts with an emoji line followed by "Voice type:" on the next line.
     section2_end = None
     if section2_start is not None:
         for i in range(section2_start, len(lines)):
-            if re.match(r"^[🎵🎼🎤📀]", lines[i].strip()):
-                section2_end = i
-                break
+            stripped = lines[i].strip()
+            # Check if next line contains a credit label
+            if i + 1 < len(lines):
+                next_line = lines[i + 1].strip().lower()
+                if next_line.startswith("voice type:") or next_line.startswith("tipo de voz:"):
+                    # This line is the artist credit line — start of Section 3
+                    section2_end = i
+                    break
 
     if section2_start is None or section2_end is None:
         return post_text, "", ""
