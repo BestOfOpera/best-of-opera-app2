@@ -1,33 +1,35 @@
 from __future__ import annotations
-import re
-from typing import Dict, List, Tuple
+import html
+import requests
+from typing import List
+
+from backend.config import GOOGLE_TRANSLATE_API_KEY
 
 LANGUAGES = ["pt", "es", "de", "fr", "it", "pl"]
 
-_client = None
+TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        from google.cloud import translate_v2 as translate
-        _client = translate.Client()
-    return _client
-
-
-def translate_text(text: str, target_lang: str) -> str:
-    if not text:
+def translate_text(text: str, target_lang: str, source_lang: str = "en") -> str:
+    if not text or not text.strip():
         return ""
-    client = _get_client()
-    result = client.translate(text, target_language=target_lang, source_language="en")
-    return result["translatedText"]
+    resp = requests.post(TRANSLATE_URL, data={
+        "q": text,
+        "target": target_lang,
+        "source": source_lang,
+        "format": "text",
+        "key": GOOGLE_TRANSLATE_API_KEY,
+    })
+    resp.raise_for_status()
+    translated = resp.json()["data"]["translations"][0]["translatedText"]
+    return html.unescape(translated)
 
 
-def extract_post_section2(post_text: str) -> tuple[str, str, str]:
+def extract_post_section2(post_text: str) -> tuple:
     """Split post into (before_section2, section2, after_section2).
 
     Section 2 is the storytelling block between the emoji intro (Section 1)
-    and the metadata block (Section 3 starting with 🎵).
+    and the metadata block (Section 3).
     """
     lines = post_text.split("\n")
 
@@ -47,12 +49,9 @@ def extract_post_section2(post_text: str) -> tuple[str, str, str]:
     section2_end = None
     if section2_start is not None:
         for i in range(section2_start, len(lines)):
-            stripped = lines[i].strip()
-            # Check if next line contains a credit label
             if i + 1 < len(lines):
                 next_line = lines[i + 1].strip().lower()
                 if next_line.startswith("voice type:") or next_line.startswith("tipo de voz:"):
-                    # This line is the artist credit line — start of Section 3
                     section2_end = i
                     break
 
@@ -65,16 +64,37 @@ def extract_post_section2(post_text: str) -> tuple[str, str, str]:
     return before, section2, after
 
 
+CREDIT_LABELS = {
+    "pt": {"Voice type": "Tipo de voz", "Date of Birth": "Data de nascimento", "Composer": "Compositor", "Composition date": "Data de composição"},
+    "es": {"Voice type": "Tipo de voz", "Date of Birth": "Fecha de nacimiento", "Composer": "Compositor", "Composition date": "Fecha de composición"},
+    "de": {"Voice type": "Stimmtyp", "Date of Birth": "Geburtsdatum", "Composer": "Komponist", "Composition date": "Kompositionsdatum"},
+    "fr": {"Voice type": "Type de voix", "Date of Birth": "Date de naissance", "Composer": "Compositeur", "Composition date": "Date de composition"},
+    "it": {"Voice type": "Tipo di voce", "Date of Birth": "Data di nascita", "Composer": "Compositore", "Composition date": "Data di composizione"},
+    "pl": {"Voice type": "Typ głosu", "Date of Birth": "Data urodzenia", "Composer": "Kompozytor", "Composition date": "Data kompozycji"},
+}
+
+
+def _translate_credit_labels(section3_and_rest: str, target_lang: str) -> str:
+    """Translate credit labels in Section 3 using hardcoded translations."""
+    label_map = CREDIT_LABELS.get(target_lang)
+    if not label_map:
+        return section3_and_rest
+    for en_label, translated_label in label_map.items():
+        section3_and_rest = section3_and_rest.replace(f"{en_label}:", f"{translated_label}:")
+    return section3_and_rest
+
+
 def translate_post_text(post_text: str, target_lang: str) -> str:
-    """Translate only Section 2 (storytelling) of the post, keep rest in English."""
+    """Translate Section 2 (storytelling) and credit labels in Section 3."""
     before, section2, after = extract_post_section2(post_text)
     if not section2:
         return post_text
     translated_section2 = translate_text(section2, target_lang)
-    return f"{before}\n{translated_section2}\n{after}"
+    translated_after = _translate_credit_labels(after, target_lang)
+    return f"{before}\n{translated_section2}\n{translated_after}"
 
 
-def translate_overlay_json(overlay_json: list[dict], target_lang: str) -> list[dict]:
+def translate_overlay_json(overlay_json: list, target_lang: str) -> list:
     """Translate the text field of each overlay subtitle."""
     result = []
     for entry in overlay_json:

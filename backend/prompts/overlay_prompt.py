@@ -62,5 +62,5 @@ def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:
     base = build_overlay_prompt(project)
     return f"""{base}
 
-ADDITIONAL INSTRUCTIONS FROM THE USER:
+ADDITIONAL INSTRUCTIONS FROM THE USER (these may be in any language — interpret them but ALWAYS write the output in ENGLISH):
 {custom_prompt}"""

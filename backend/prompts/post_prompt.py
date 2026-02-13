@@ -32,13 +32,37 @@ This section should be the BULK of the post — aim for 1000-1200 characters in 
 Include historical context, emotional details, what makes this performance unique, and vivid sensory descriptions.
 
 SECTION 3 — CREDITS (exact format below, line by line)
-[Fun emoji] [Artist Full Name] {flag}
-Voice type: [voice type]
-Date of Birth: [birth date in dd/mm/yyyy format]
+For EACH artist/performer (if multiple artists separated by " & ", create a credit block for EACH one):
+[Fun emoji] [Artist Full Name] [their flag emoji]
+Voice type: [their voice type]
+Date of Birth: [their birth date in dd/mm/yyyy format]
 
+Then the work credits:
 [Fun emoji] [Work Name] — [Album or Opera name]
 Composer: [Composer name]
 Composition date: [composition year]
+
+EXAMPLE for a single artist:
+🎤 Maria Callas 🇬🇷
+Voice type: Soprano
+Date of Birth: 02/12/1923
+
+🎼 Casta Diva — Norma
+Composer: Vincenzo Bellini
+Composition date: 1831
+
+EXAMPLE for a duet (TWO artist blocks + work block):
+🎤 Nicolai Gedda 🇸🇪
+Voice type: Tenor
+Date of Birth: 11/07/1925
+
+🎤 Mirella Freni 🇮🇹
+Voice type: Soprano
+Date of Birth: 27/02/1935
+
+🎼 Là ci darem la mano — Don Giovanni
+Composer: Wolfgang Amadeus Mozart
+Composition date: 1787
 
 SECTION 4 — SENSORY CTA (1-2 lines)
 A sensory call-to-action using contrasting emojis.
@@ -60,5 +84,5 @@ def build_post_prompt_with_custom(project, custom_prompt: str) -> str:
     base = build_post_prompt(project)
     return f"""{base}
 
-ADDITIONAL INSTRUCTIONS FROM THE USER:
+ADDITIONAL INSTRUCTIONS FROM THE USER (these may be in any language — interpret them but ALWAYS write the output in ENGLISH):
 {custom_prompt}"""

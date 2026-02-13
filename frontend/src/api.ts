@@ -16,6 +16,7 @@ export interface Project {
   id: number;
   created_at: string;
   updated_at: string;
+  youtube_url: string;
   artist: string;
   work: string;
   composer: string;

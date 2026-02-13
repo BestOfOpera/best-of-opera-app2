@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project, Translation
-from backend.schemas import TranslationOut
 from backend.services.srt_service import generate_srt
 from backend.services.export_service import build_export_zip
 

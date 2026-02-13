@@ -41,6 +41,7 @@ export default function NewProject() {
     const file = e.target.files?.[0]
     if (!file) return
     setScreenshotFile(file)
+    if (screenshotPreview) URL.revokeObjectURL(screenshotPreview)
     setScreenshotPreview(URL.createObjectURL(file))
     setDetected(false)
   }
@@ -66,7 +67,7 @@ export default function NewProject() {
       setConfidence(result.confidence || 'high')
       setDetected(true)
     } catch (err: any) {
-      setError('Auto-detection failed. Please fill in the fields manually.')
+      setError(`Auto-detection failed: ${err.message}. Please fill in the fields manually.`)
       setDetected(true)
       setConfidence('low')
     } finally {
@@ -130,14 +131,14 @@ export default function NewProject() {
               >
                 {screenshotFile ? 'Change Screenshot' : 'Upload Screenshot'}
               </button>
-              {screenshotFile && !detected && (
+              {screenshotFile && (
                 <button
                   type="button"
                   className="btn-primary"
                   onClick={handleDetect}
                   disabled={detecting}
                 >
-                  {detecting ? 'Detecting...' : 'Detect Metadata'}
+                  {detecting ? 'Detecting...' : detected ? 'Re-detect' : 'Detect Metadata'}
                 </button>
               )}
             </div>

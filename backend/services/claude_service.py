@@ -39,22 +39,43 @@ def _strip_json_fences(raw: str) -> str:
 
 def detect_metadata(youtube_url: str, screenshot_base64: Optional[str] = None, screenshot_media_type: str = "image/png") -> dict:
     """Use Claude to extract opera metadata from a YouTube screenshot and/or URL."""
-    prompt_text = """Look at this screenshot of a YouTube video page. Extract information about this opera/classical music performance from the title, description, and any visible metadata.
+    prompt_text = """Look at this screenshot of a YouTube video page about an opera or classical music performance.
 
-Extract the following fields. If you cannot determine a field with confidence, leave it as an empty string "".
+STEP 1: Read CAREFULLY the video title, description, channel name, and ALL visible text. Identify:
+- The EXACT title of the piece/aria being performed (read it precisely from the screenshot, do not guess)
+- ALL performers/artists visible (singers, musicians — NOT the composer)
+
+STEP 2: Determine the performance type:
+- SOLO: One performer (aria, recital, etc.)
+- DUET: Two performers singing together — you MUST list BOTH names
+- ENSEMBLE/TRIO: Multiple performers — list ALL names
+- CHORUS: A choir — use the choir/ensemble name as artist, conductor if visible
+
+STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in ALL fields. You are an expert — you know composers, operas, voice types, biographies. DO NOT leave fields empty if you can determine them.
+
+FORMATTING RULES FOR MULTIPLE ARTISTS:
+- Separate multiple artist names with " & " (e.g. "Nicolai Gedda & Mirella Freni")
+- For voice_type, list each voice type matching each artist, separated by " / " (e.g. "Tenor / Soprano")
+- For nationality, list each nationality separated by " / " (e.g. "Sweden / Italy")
+- For nationality_flag, list each flag separated by " " (e.g. "🇸🇪 🇮🇹")
+- For birth_date and death_date, list each separated by " / " matching artist order
+- For choruses: voice_type = "Choir" or "Choir & [Conductor voice/role]"
+
+EXAMPLE for a duet — if you see "Nicolai Gedda & Mirella Freni - Là ci darem la mano":
+{{"artist": "Nicolai Gedda & Mirella Freni", "work": "Là ci darem la mano", "composer": "Wolfgang Amadeus Mozart", "composition_year": "1787", "nationality": "Sweden / Italy", "nationality_flag": "🇸🇪 🇮🇹", "voice_type": "Tenor / Soprano", "birth_date": "11/07/1925 / 27/02/1935", "death_date": "08/01/2017 / 09/02/2020", "album_opera": "Don Giovanni", "confidence": "high"}}
 
 Return ONLY a JSON object with these exact keys:
-- "artist": The performer's full name
-- "work": The name of the piece/aria/song being performed
+- "artist": Performer name(s) — use " & " for multiple
+- "work": The EXACT name of the piece/aria (read from screenshot, don't guess)
 - "composer": The composer's full name
-- "composition_year": Year the piece was composed (just the year, e.g. "1831")
-- "nationality": The artist's nationality/country (e.g. "Greece", "Italy")
-- "nationality_flag": The flag emoji for the artist's country (e.g. "🇬🇷", "🇮🇹")
-- "voice_type": Voice type or instrument (e.g. "Soprano", "Tenor", "Piano")
-- "birth_date": Artist's date of birth in dd/mm/yyyy format if known, otherwise just the year
-- "death_date": Artist's date of death in dd/mm/yyyy format if known, empty string if still alive
-- "album_opera": The album or opera this piece belongs to
-- "confidence": "high" if you are confident in most fields, "low" if you had to guess significantly
+- "composition_year": Year composed (e.g. "1832")
+- "nationality": Artist nationality/ies separated by " / "
+- "nationality_flag": Flag emoji(s) separated by space
+- "voice_type": Voice type(s) separated by " / "
+- "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
+- "death_date": Death date(s) in dd/mm/yyyy separated by " / ", "" if alive
+- "album_opera": The opera or album this belongs to
+- "confidence": "high" if you identified artist and work clearly from screenshot
 
 Return the JSON object and nothing else."""
 
@@ -102,6 +123,12 @@ def generate_youtube(project, custom_prompt: Optional[str] = None) -> tuple[str,
         prompt = build_youtube_prompt(project)
     raw = _call_claude(prompt)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
-    title = lines[0] if lines else ""
-    tags = lines[1] if len(lines) > 1 else ""
+    if not lines:
+        return "", ""
+    title = lines[0]
+    # Tags are the last line if multiple lines, or second line
+    tags = lines[-1] if len(lines) > 1 else ""
+    # If title and tags ended up the same (single line), try splitting by comma count
+    if title == tags:
+        tags = ""
     return title, tags
