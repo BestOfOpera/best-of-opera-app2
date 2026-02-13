@@ -53,6 +53,20 @@ export interface Translation {
   youtube_tags: string | null;
 }
 
+export interface DetectedMetadata {
+  artist: string;
+  work: string;
+  composer: string;
+  composition_year: string;
+  nationality: string;
+  nationality_flag: string;
+  voice_type: string;
+  birth_date: string;
+  death_date: string;
+  album_opera: string;
+  confidence: string;
+}
+
 export interface ExportData {
   language: string;
   overlay_json: { timestamp: string; text: string }[] | null;
@@ -63,6 +77,11 @@ export interface ExportData {
 }
 
 export const api = {
+  detectMetadata: (youtubeUrl: string) =>
+    request<DetectedMetadata>('/projects/detect-metadata', {
+      method: 'POST',
+      body: JSON.stringify({ youtube_url: youtubeUrl }),
+    }),
   listProjects: () => request<Project[]>('/projects'),
   getProject: (id: number) => request<Project>(`/projects/${id}`),
   createProject: (data: Record<string, string>) =>

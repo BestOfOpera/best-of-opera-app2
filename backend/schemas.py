@@ -3,7 +3,26 @@ from typing import Optional, List
 from pydantic import BaseModel
 
 
+class DetectMetadataRequest(BaseModel):
+    youtube_url: str
+
+
+class DetectMetadataResponse(BaseModel):
+    artist: str = ""
+    work: str = ""
+    composer: str = ""
+    composition_year: str = ""
+    nationality: str = ""
+    nationality_flag: str = ""
+    voice_type: str = ""
+    birth_date: str = ""
+    death_date: str = ""
+    album_opera: str = ""
+    confidence: str = "high"
+
+
 class ProjectCreate(BaseModel):
+    youtube_url: str = ""
     artist: str
     work: str
     composer: str
@@ -23,6 +42,7 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
+    youtube_url: Optional[str] = None
     artist: Optional[str] = None
     work: Optional[str] = None
     composer: Optional[str] = None
@@ -57,6 +77,7 @@ class ProjectOut(BaseModel):
     id: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
+    youtube_url: str
     artist: str
     work: str
     composer: str

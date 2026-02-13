@@ -18,6 +18,9 @@ class Project(Base):
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow
     )
 
+    # Source
+    youtube_url: Mapped[str] = mapped_column(String(500), default="")
+
     # Project info
     artist: Mapped[str] = mapped_column(String(255))
     work: Mapped[str] = mapped_column(String(255))

@@ -3,10 +3,19 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project
-from backend.schemas import ProjectOut, RegenerateRequest
-from backend.services.claude_service import generate_overlay, generate_post, generate_youtube
+from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataRequest, DetectMetadataResponse
+from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
+
+
+@router.post("/detect-metadata", response_model=DetectMetadataResponse)
+def detect_metadata_endpoint(body: DetectMetadataRequest):
+    try:
+        result = detect_metadata(body.youtube_url)
+        return DetectMetadataResponse(**result)
+    except Exception as e:
+        raise HTTPException(500, f"Detection failed: {e}")
 
 
 @router.post("/{project_id}/generate", response_model=ProjectOut)

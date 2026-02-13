@@ -27,18 +27,51 @@ def _call_claude(prompt: str) -> str:
     return message.content[0].text.strip()
 
 
+def _strip_json_fences(raw: str) -> str:
+    """Remove markdown code fences from JSON response."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        if "```" in text:
+            text = text[: text.rfind("```")]
+    return text.strip()
+
+
+def detect_metadata(youtube_url: str) -> dict:
+    """Use Claude to extract opera metadata from a YouTube URL."""
+    prompt = f"""Given this YouTube video URL, analyze the title, description, and any metadata you can infer to extract information about this opera/classical music performance.
+
+URL: {youtube_url}
+
+Extract the following fields. If you cannot determine a field with confidence, leave it as an empty string "".
+
+Return ONLY a JSON object with these exact keys:
+- "artist": The performer's full name
+- "work": The name of the piece/aria/song being performed
+- "composer": The composer's full name
+- "composition_year": Year the piece was composed (just the year, e.g. "1831")
+- "nationality": The artist's nationality/country (e.g. "Greece", "Italy")
+- "nationality_flag": The flag emoji for the artist's country (e.g. "🇬🇷", "🇮🇹")
+- "voice_type": Voice type or instrument (e.g. "Soprano", "Tenor", "Piano")
+- "birth_date": Artist's date of birth in dd/mm/yyyy format if known, otherwise just the year
+- "death_date": Artist's date of death in dd/mm/yyyy format if known, empty string if still alive
+- "album_opera": The album or opera this piece belongs to
+- "confidence": "high" if you are confident in most fields, "low" if you had to guess significantly
+
+Return the JSON object and nothing else."""
+
+    raw = _call_claude(prompt)
+    text = _strip_json_fences(raw)
+    return json.loads(text)
+
+
 def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]:
     if custom_prompt:
         prompt = build_overlay_prompt_with_custom(project, custom_prompt)
     else:
         prompt = build_overlay_prompt(project)
     raw = _call_claude(prompt)
-    # Strip markdown code fences if present
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1]
-        if raw.endswith("```"):
-            raw = raw[: raw.rfind("```")]
-    return json.loads(raw)
+    return json.loads(_strip_json_fences(raw))
 
 
 def generate_post(project, custom_prompt: Optional[str] = None) -> str:
