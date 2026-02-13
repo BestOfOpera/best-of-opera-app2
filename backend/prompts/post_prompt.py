@@ -23,11 +23,13 @@ SECTION 1 — OPENING (exactly 1 line)
 [Fun/playful emoji] [Artist Name] — [Work Name]
 Example: "🎭 Maria Callas — Casta Diva"
 
-SECTION 2 — STORYTELLING (2-4 short paragraphs)
-The heart of the post. Tell a compelling mini-story about this performance/artist.
+SECTION 2 — STORYTELLING (3-5 rich paragraphs)
+The heart of the post. Tell a compelling, DETAILED mini-story about this performance/artist.
 Use strategic emojis at the start of some paragraphs to add visual rhythm.
 This is the ONLY section that will be translated to other languages.
 Keep it emotional, vivid, and accessible to non-opera fans.
+This section should be the BULK of the post — aim for 1000-1200 characters in this section alone.
+Include historical context, emotional details, what makes this performance unique, and vivid sensory descriptions.
 
 SECTION 3 — CREDITS (exact format below, line by line)
 [Fun emoji] [Artist Full Name] {flag}
@@ -47,9 +49,10 @@ Exactly 4 hashtags. Always include #BestOfOpera. Add 3 more relevant ones.
 Example: "#BestOfOpera #MariaCallas #Opera #CastaDiva"
 
 CRITICAL RULES:
-- The TOTAL post text must be between 1600 and 1800 characters.
+- The TOTAL post text MUST be between 1600 and 1800 characters. This is NON-NEGOTIABLE. Count your characters carefully. If the text is under 1600, expand the storytelling section with more vivid details. If over 1800, trim.
 - Each section must be separated by a blank line.
 - Section 3 credits must use the EXACT format shown above (with "Tipo de voz:", "Nascimento:", "Compositor:", "Data da composição:" labels).
+- ALL text must be in ENGLISH (except Section 3 credit labels which are in Portuguese as shown).
 - Return ONLY the post text, no explanations or commentary."""
 
 
