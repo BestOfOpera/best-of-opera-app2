@@ -1,0 +1,85 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+from backend.database import get_db
+from backend.models import Project
+from backend.schemas import ProjectOut, RegenerateRequest
+from backend.services.claude_service import generate_overlay, generate_post, generate_youtube
+
+router = APIRouter(prefix="/api/projects", tags=["generation"])
+
+
+@router.post("/{project_id}/generate", response_model=ProjectOut)
+def generate_all(project_id: int, db: Session = Depends(get_db)):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    project.status = "generating"
+    db.commit()
+
+    try:
+        project.overlay_json = generate_overlay(project)
+        project.post_text = generate_post(project)
+        title, tags = generate_youtube(project)
+        project.youtube_title = title
+        project.youtube_tags = tags
+        project.status = "awaiting_approval"
+        project.overlay_approved = False
+        project.post_approved = False
+        project.youtube_approved = False
+    except Exception as e:
+        project.status = "input_complete"
+        db.commit()
+        raise HTTPException(500, f"Generation failed: {e}")
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post("/{project_id}/regenerate-overlay", response_model=ProjectOut)
+def regenerate_overlay(
+    project_id: int, body: RegenerateRequest = RegenerateRequest(), db: Session = Depends(get_db)
+):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    project.overlay_json = generate_overlay(project, body.custom_prompt)
+    project.overlay_approved = False
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post("/{project_id}/regenerate-post", response_model=ProjectOut)
+def regenerate_post(
+    project_id: int, body: RegenerateRequest = RegenerateRequest(), db: Session = Depends(get_db)
+):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    project.post_text = generate_post(project, body.custom_prompt)
+    project.post_approved = False
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post("/{project_id}/regenerate-youtube", response_model=ProjectOut)
+def regenerate_youtube(
+    project_id: int, body: RegenerateRequest = RegenerateRequest(), db: Session = Depends(get_db)
+):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    title, tags = generate_youtube(project, body.custom_prompt)
+    project.youtube_title = title
+    project.youtube_tags = tags
+    project.youtube_approved = False
+    db.commit()
+    db.refresh(project)
+    return project
