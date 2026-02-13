@@ -280,15 +280,20 @@ export default function NewProject() {
         )}
 
         {/* Submit */}
-        {canSubmit && (
+        {detected && (
           <button
             type="submit"
             className="btn-primary"
-            disabled={loading}
-            style={{ width: '100%', padding: 14, fontSize: 16 }}
+            disabled={loading || !canSubmit}
+            style={{ width: '100%', padding: 14, fontSize: 16, opacity: canSubmit ? 1 : 0.5 }}
           >
             {loading ? 'Creating & Generating Content...' : 'Create Project & Generate Content'}
           </button>
+        )}
+        {detected && !canSubmit && !loading && (
+          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-light)', marginTop: 8 }}>
+            Fill in all required fields (*) to continue
+          </p>
         )}
       </form>
     </div>
