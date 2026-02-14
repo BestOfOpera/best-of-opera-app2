@@ -53,6 +53,10 @@ class EdicaoOut(BaseModel):
     janela_inicio_sec: Optional[float] = None
     janela_fim_sec: Optional[float] = None
     duracao_corte_sec: Optional[float] = None
+    corte_original_inicio: Optional[str] = None
+    corte_original_fim: Optional[str] = None
+    arquivo_audio_completo: Optional[str] = None
+    arquivo_video_completo: Optional[str] = None
     rota_alinhamento: Optional[str] = None
     confianca_alinhamento: Optional[float] = None
     created_at: Optional[datetime] = None
