@@ -1,5 +1,6 @@
 """Serviço de busca de letras no Genius."""
 import logging
+from typing import Optional
 
 from app.config import GENIUS_API_TOKEN
 
@@ -22,7 +23,7 @@ def _get_client():
     return _client
 
 
-def buscar_letra_genius(musica: str, artista: str = "") -> str | None:
+def buscar_letra_genius(musica: str, artista: str = "") -> Optional[str]:
     """Busca letra no Genius. Retorna o texto ou None se não encontrar."""
     genius = _get_client()
     if not genius:
