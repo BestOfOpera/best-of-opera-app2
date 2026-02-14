@@ -55,18 +55,20 @@ LETRA ORIGINAL (texto correto e oficial):
 ---
 
 TAREFA:
-Ouça o áudio COMPLETO e marque os TIMESTAMPS de cada verso da letra.
+Ouça o áudio COMPLETO do início ao fim e marque os TIMESTAMPS de CADA verso da letra.
+TODOS os versos da letra devem aparecer no resultado — a música está sendo cantada neste áudio.
 
 REGRAS:
 1. Use EXATAMENTE o texto da letra original fornecida
 2. NÃO modifique nenhuma palavra
 3. Marque QUANDO cada frase começa e termina no áudio
 4. Timestamps relativos ao INÍCIO do áudio (00:00:00 = início do vídeo)
-5. Ignore trechos instrumentais, aplausos e silêncios
-6. Se uma frase NÃO APARECE no áudio, OMITA-a
+5. TODOS os versos da letra DEVEM ter timestamps — ouça o áudio inteiro com atenção
+6. Se há trechos instrumentais ENTRE versos, pule o intervalo mas continue marcando os versos seguintes
 7. Se há repetições não escritas na letra, adicione com [REPETIÇÃO]
-8. Se não tem certeza do alinhamento, adicione [?]
-9. Marque [TEXTO NÃO IDENTIFICADO] se ouvir algo fora da letra
+8. Se não tem certeza do timestamp exato, marque sua melhor estimativa com [?]
+9. Se ouvir algo cantado que não está na letra, marque como [TEXTO NÃO IDENTIFICADO]
+10. NÃO omita versos — se um verso está na letra, ele está no áudio. Ouça com atenção.
 
 FORMATO JSON:
 [
