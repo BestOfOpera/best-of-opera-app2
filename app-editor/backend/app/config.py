@@ -12,3 +12,4 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", '["http://localhost:5174","http://local
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
 IDIOMAS_ALVO = ["en", "pt", "es", "de", "fr", "it", "pl"]
 REDATOR_API_URL = os.getenv("REDATOR_API_URL", "https://app-production-870c.up.railway.app")
+EXPORT_PATH = os.getenv("EXPORT_PATH", "")

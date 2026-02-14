@@ -15,7 +15,8 @@ from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela
 from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo
 from app.services.alinhamento import alinhar_letra_com_timestamps
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
-from app.config import STORAGE_PATH, IDIOMAS_ALVO
+import shutil
+from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
 
@@ -478,12 +479,45 @@ async def _render_task(edicao_id: int):
         edicao.status = "concluido"
         edicao.passo_atual = 9
         db.commit()
+
+        # Exportar para pasta local (se configurado)
+        _exportar_renders(edicao, db)
     except Exception as e:
         edicao.status = "erro"
         edicao.erro_msg = f"Renderização falhou: {e}"
         db.commit()
     finally:
         db.close()
+
+
+def _exportar_renders(edicao, db):
+    """Copia renders concluídos para EXPORT_PATH/{Artista - Música}/."""
+    if not EXPORT_PATH:
+        return
+    export_base = FilePath(EXPORT_PATH)
+    if not export_base.exists():
+        logger.warning(f"EXPORT_PATH não existe: {EXPORT_PATH}")
+        return
+
+    pasta_projeto = export_base / f"{edicao.artista} - {edicao.musica}"
+    pasta_projeto.mkdir(parents=True, exist_ok=True)
+
+    renders = db.query(Render).filter(
+        Render.edicao_id == edicao.id, Render.status == "concluido"
+    ).all()
+
+    for render in renders:
+        if not render.arquivo:
+            continue
+        origem = FilePath(render.arquivo)
+        if not origem.exists():
+            continue
+        destino = pasta_projeto / f"{edicao.artista} - {edicao.musica} [{render.idioma.upper()}].mp4"
+        try:
+            shutil.copy2(str(origem), str(destino))
+            logger.info(f"Exportado: {destino}")
+        except Exception as e:
+            logger.warning(f"Erro ao exportar {render.idioma}: {e}")
 
 
 # --- Passo 9: Pacote ---
