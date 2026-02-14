@@ -173,11 +173,30 @@ def gerar_ass(
         event.style = "Overlay"
         subs.events.append(event)
 
-    # Track 2: Lyrics
+    # Preparar mapa de traduções por index (para sincronizar lyrics ↔ tradução)
+    precisa_traducao = idioma_versao != idioma_musica and traducao
+    traducao_por_index = {}
+    if precisa_traducao:
+        for seg in traducao:
+            idx = seg.get("index")
+            if idx is not None and seg.get("traducao"):
+                traducao_por_index[idx] = seg
+
+    # Tracks 2 e 3: Lyrics + Tradução (sincronizados)
+    # Regra: se a versão precisa de tradução, lyrics SÓ aparece quando
+    # tiver tradução correspondente. Nunca lyrics sem tradução.
     for seg in lyrics:
         text = seg.get("texto_final", seg.get("text", ""))
         if not text:
             continue
+
+        idx = seg.get("index")
+
+        # Se precisa tradução mas não tem para este segmento, pular
+        if precisa_traducao and idx not in traducao_por_index:
+            continue
+
+        # Lyrics
         event = pysubs2.SSAEvent()
         event.start = seg_to_ms(seg.get("start", 0))
         event.end = seg_to_ms(seg.get("end", 0))
@@ -185,33 +204,14 @@ def gerar_ass(
         event.style = "Lyrics"
         subs.events.append(event)
 
-    # Track 3: Tradução (herda timestamps dos lyrics pelo index)
-    if idioma_versao != idioma_musica and traducao:
-        # Mapear lyrics por index para herdar timestamps
-        lyrics_por_index = {}
-        for seg in lyrics:
-            idx = seg.get("index")
-            if idx is not None:
-                lyrics_por_index[idx] = seg
-
-        for seg in traducao:
-            text = seg.get("traducao", "")
-            if not text:
-                continue
-            event = pysubs2.SSAEvent()
-            # Usar timestamps do próprio segmento, ou herdar dos lyrics
-            if seg.get("start") and seg.get("end"):
-                event.start = seg_to_ms(seg["start"])
-                event.end = seg_to_ms(seg["end"])
-            else:
-                lyric_ref = lyrics_por_index.get(seg.get("index"))
-                if lyric_ref:
-                    event.start = seg_to_ms(lyric_ref.get("start", 0))
-                    event.end = seg_to_ms(lyric_ref.get("end", 0))
-                else:
-                    continue  # sem timestamp, pular
-            event.text = text
-            event.style = "Traducao"
-            subs.events.append(event)
+        # Tradução (mesmo timing que lyrics)
+        if precisa_traducao and idx in traducao_por_index:
+            trad_seg = traducao_por_index[idx]
+            event_trad = pysubs2.SSAEvent()
+            event_trad.start = event.start
+            event_trad.end = event.end
+            event_trad.text = trad_seg["traducao"]
+            event_trad.style = "Traducao"
+            subs.events.append(event_trad)
 
     return subs

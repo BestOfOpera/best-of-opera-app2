@@ -121,15 +121,24 @@ def alinhar_letra_com_timestamps(letra_original: str, srt_gemini: list) -> dict:
 
 
 def _parse_timestamp_sec(ts: str) -> float:
-    """Converte timestamp string para segundos. Suporta HH:MM:SS,mmm e MM:SS:mmm."""
+    """Converte timestamp string para segundos.
+    Suporta: HH:MM:SS,mmm | MM:SS,mmm | MM:SS:mmm (Gemini às vezes usa : no ms)."""
     if not ts:
         return 0.0
     ts = ts.replace(",", ".")
     parts = ts.split(":")
     try:
         if len(parts) == 3:
-            h, m, s = parts
-            return int(h) * 3600 + int(m) * 60 + float(s)
+            a, b, c = parts
+            c_val = float(c)
+            # Se c >= 100, é milissegundos (formato MM:SS:mmm do Gemini)
+            # Se c < 60, é segundos (formato HH:MM:SS)
+            if c_val >= 100:
+                # MM:SS:mmm → minutos:segundos:milissegundos
+                return int(a) * 60 + int(b) + c_val / 1000.0
+            else:
+                # HH:MM:SS.frac
+                return int(a) * 3600 + int(b) * 60 + c_val
         elif len(parts) == 2:
             m, s = parts
             return int(m) * 60 + float(s)
@@ -139,135 +148,205 @@ def _parse_timestamp_sec(ts: str) -> float:
         return 0.0
 
 
-def merge_transcricoes(cega: list, guiada: list, letra_original: str) -> dict:
-    """Merge inteligente: texto da guiada + timestamps da cega.
+def _seconds_to_ts(sec: float) -> str:
+    """Converte segundos para MM:SS,mmm."""
+    m = int(sec) // 60
+    s = sec - m * 60
+    whole = int(s)
+    ms = int(round((s - whole) * 1000))
+    return f"{m:02d}:{whole:02d},{ms:03d}"
 
-    Para cada segmento guiado, busca o melhor match na transcrição cega
-    via fuzzy matching de texto + proximidade temporal.
-    Usa timestamps da cega (mais precisos) com texto da guiada (correto).
+
+def merge_transcricoes(cega: list, guiada: list, letra_original: str) -> dict:
+    """Merge inteligente com âncoras + interpolação.
+
+    Estratégia:
+    1. Ordenar ambas por tempo
+    2. Matching sequencial monotônico: cada guiado tenta match no próximo cego
+    3. Segmentos guiados que matcham → âncoras (timestamp da cega)
+    4. Segmentos guiados sem match → timestamps interpolados entre âncoras vizinhas
+    5. Nunca usa timestamps "crus" da guiada (são imprecisos)
     """
     versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
     versos_limpos = [re.sub(r"^\[.*?\]\s*", "", v) for v in versos]
 
-    # Pré-processar segmentos cegos com timestamps em segundos
+    # Ordenar ambas por tempo
+    def _sort_key(seg):
+        return _parse_timestamp_sec(seg.get("start", "0"))
+
+    guiada_sorted = sorted(guiada, key=_sort_key)
+    cega_sorted = sorted(cega, key=_sort_key)
+
+    # Pré-processar cegos
     cegos_info = []
-    for seg in cega:
+    for seg in cega_sorted:
         cegos_info.append({
             "seg": seg,
             "text_norm": normalizar(seg.get("text", "")),
             "start_sec": _parse_timestamp_sec(seg.get("start", "")),
             "end_sec": _parse_timestamp_sec(seg.get("end", "")),
-            "usado": False,
         })
 
+    n_cegos = len(cegos_info)
+    n_guiados = len(guiada_sorted)
+
+    # ===== FASE 1: Matching sequencial monotônico =====
+    # Para cada guiado, tentar match no próximo cego disponível (janela forward)
+    matches = []  # lista de (guiado_idx, cego_idx, score)
+    cursor_cego = 0
+
+    for gi, seg_guiado in enumerate(guiada_sorted):
+        texto_guiado = seg_guiado.get("text", "")
+        guiado_norm = normalizar(texto_guiado.replace("[REPETIÇÃO]", "").strip())
+
+        WINDOW = 6
+        melhor_score = 0
+        melhor_ci = None
+
+        for ci in range(cursor_cego, min(n_cegos, cursor_cego + WINDOW)):
+            info = cegos_info[ci]
+            score = SequenceMatcher(None, guiado_norm, info["text_norm"]).ratio()
+            # Bonus containment
+            if info["text_norm"] and guiado_norm:
+                if info["text_norm"] in guiado_norm or guiado_norm in info["text_norm"]:
+                    score = max(score, 0.8)
+            if score > melhor_score:
+                melhor_score = score
+                melhor_ci = ci
+
+        if melhor_ci is not None and melhor_score >= 0.35:
+            matches.append((gi, melhor_ci, melhor_score))
+            cursor_cego = melhor_ci + 1
+            logger.debug(
+                f"ANCHOR gi={gi} ↔ ci={melhor_ci} score={melhor_score:.2f} | "
+                f"'{guiado_norm[:30]}' ↔ '{cegos_info[melhor_ci]['text_norm'][:30]}'"
+            )
+
+    logger.info(f"MERGE fase 1: {len(matches)} âncoras de {n_guiados} guiados × {n_cegos} cegos")
+
+    # ===== FASE 2: Construir resultado com interpolação =====
+    # Cada guiado recebe timestamps: âncora direta ou interpolado entre âncoras
+
+    # Criar mapa gi → (start_sec, end_sec, flag, confianca, fonte)
+    anchor_map = {}
+    for gi, ci, score in matches:
+        info = cegos_info[ci]
+        anchor_map[gi] = {
+            "start_sec": info["start_sec"],
+            "end_sec": info["end_sec"],
+            "score": score,
+        }
+
+    # Para cada guiado não-âncora, interpolar entre âncoras vizinhas
+    # Encontrar âncoras anterior e posterior
+    anchor_gis = sorted(anchor_map.keys())
+
+    def _find_prev_next_anchor(gi):
+        prev_anchor = None
+        next_anchor = None
+        for a in anchor_gis:
+            if a < gi:
+                prev_anchor = a
+            elif a > gi:
+                next_anchor = a
+                break
+        return prev_anchor, next_anchor
+
     resultado = []
-
-    for segmento_guiado in guiada:
-        texto_guiado = segmento_guiado.get("text", "")
-        guiado_start = _parse_timestamp_sec(segmento_guiado.get("start", ""))
-        guiado_norm = normalizar(texto_guiado)
-
-        # Encontrar melhor match na transcrição cega
-        melhor_score_total = 0
-        melhor_cego_idx = None
-
-        for i, ci in enumerate(cegos_info):
-            if ci["usado"]:
-                continue
-
-            # Score de similaridade textual
-            score_texto = SequenceMatcher(None, guiado_norm, ci["text_norm"]).ratio()
-
-            # Bonus se um contém o outro
-            if ci["text_norm"] in guiado_norm or guiado_norm in ci["text_norm"]:
-                score_texto = max(score_texto, 0.85)
-
-            # Score de proximidade temporal (penaliza distância > 10s)
-            dist_temporal = abs(guiado_start - ci["start_sec"])
-            score_temporal = max(0, 1.0 - dist_temporal / 30.0)
-
-            # Score combinado: texto pesa mais (70%) que temporal (30%)
-            score_total = score_texto * 0.7 + score_temporal * 0.3
-
-            if score_total > melhor_score_total:
-                melhor_score_total = score_total
-                melhor_cego_idx = i
-
-        # Determinar texto final via match com letra original
+    for gi, seg_guiado in enumerate(guiada_sorted):
+        texto_guiado = seg_guiado.get("text", "")
         eh_repeticao = "[REPETIÇÃO]" in texto_guiado
         texto_limpo = texto_guiado.replace("[REPETIÇÃO]", "").strip() if eh_repeticao else texto_guiado
+
+        # Match com letra original
         match_letra, score_letra, indice_letra = encontrar_melhor_match(texto_limpo, versos_limpos)
         texto_final = versos[indice_letra] if indice_letra is not None else texto_guiado
 
-        if melhor_cego_idx is not None and melhor_score_total >= 0.5:
-            # Match bom: usar timestamps da cega, texto da guiada
-            cego_seg = cegos_info[melhor_cego_idx]["seg"]
-            cegos_info[melhor_cego_idx]["usado"] = True
-
-            score_texto_puro = SequenceMatcher(
-                None, guiado_norm, cegos_info[melhor_cego_idx]["text_norm"]
-            ).ratio()
-
+        if gi in anchor_map:
+            # Âncora direta: timestamp da cega
+            anc = anchor_map[gi]
+            flag = "VERDE" if anc["score"] >= 0.5 else "AMARELO"
             resultado.append({
-                "index": segmento_guiado.get("index"),
-                "start": cego_seg.get("start"),
-                "end": cego_seg.get("end"),
-                "text": texto_guiado,
-                "texto_final": texto_final,
-                "flag": "VERDE",
-                "confianca": round(score_texto_puro, 3),
-                "eh_repeticao": eh_repeticao,
-                "fonte_timestamp": "cega",
-            })
-            logger.debug(
-                f"MERGE #{segmento_guiado.get('index')}: "
-                f"match={score_texto_puro:.2f} | "
-                f"cego='{cego_seg.get('text', '')[:40]}' → guiado='{texto_guiado[:40]}'"
-            )
-        else:
-            # Match fraco: fallback para timestamps da guiada
-            flag = "AMARELO"
-            if score_letra < 0.5:
-                flag = "VERMELHO"
-
-            resultado.append({
-                "index": segmento_guiado.get("index"),
-                "start": segmento_guiado.get("start"),
-                "end": segmento_guiado.get("end"),
+                "index": gi + 1,
+                "start": _seconds_to_ts(anc["start_sec"]),
+                "end": _seconds_to_ts(anc["end_sec"]),
                 "text": texto_guiado,
                 "texto_final": texto_final,
                 "flag": flag,
-                "confianca": round(melhor_score_total, 3),
+                "confianca": round(anc["score"], 3),
                 "eh_repeticao": eh_repeticao,
-                "fonte_timestamp": "guiada",
+                "fonte_timestamp": "cega",
             })
-            logger.debug(
-                f"MERGE #{segmento_guiado.get('index')}: SEM MATCH (score={melhor_score_total:.2f}) | "
-                f"fallback guiada='{texto_guiado[:40]}'"
-            )
+        else:
+            # Interpolar entre âncoras vizinhas
+            prev_gi, next_gi = _find_prev_next_anchor(gi)
 
-    # Segmentos da cega sem correspondência na guiada → ROXO (possível texto extra)
-    for ci in cegos_info:
-        if not ci["usado"]:
-            texto_cego = ci["seg"].get("text", "")
-            if normalizar(texto_cego):  # ignorar segmentos vazios
-                resultado.append({
-                    "index": None,
-                    "start": ci["seg"].get("start"),
-                    "end": ci["seg"].get("end"),
-                    "text": texto_cego,
-                    "texto_final": texto_cego,
-                    "flag": "ROXO",
-                    "confianca": 0.0,
-                    "fonte_timestamp": "cega",
-                })
+            if prev_gi is not None and next_gi is not None:
+                # Interpolação linear entre duas âncoras
+                prev_end = anchor_map[prev_gi]["end_sec"]
+                next_start = anchor_map[next_gi]["start_sec"]
+                span = next_start - prev_end
+                # Quantos segmentos sem âncora existem entre prev e next?
+                n_between = next_gi - prev_gi - 1
+                if n_between > 0 and span > 0:
+                    pos_in_gap = gi - prev_gi  # 1-based position in gap
+                    seg_duration = span / (n_between + 1)
+                    start_sec = prev_end + (pos_in_gap - 0.5) * seg_duration
+                    end_sec = start_sec + seg_duration * 0.9
+                else:
+                    start_sec = prev_end + 0.5
+                    end_sec = start_sec + 3.0
+                flag = "AMARELO"
+                conf = 0.3
+            elif prev_gi is not None:
+                # Só âncora anterior: extrapolar para frente
+                prev_end = anchor_map[prev_gi]["end_sec"]
+                pos_after = gi - prev_gi
+                start_sec = prev_end + pos_after * 3.0
+                end_sec = start_sec + 3.0
+                flag = "AMARELO"
+                conf = 0.2
+            elif next_gi is not None:
+                # Só âncora posterior: extrapolar para trás
+                next_start = anchor_map[next_gi]["start_sec"]
+                pos_before = next_gi - gi
+                start_sec = max(0, next_start - pos_before * 3.0)
+                end_sec = start_sec + 3.0
+                flag = "AMARELO"
+                conf = 0.2
+            else:
+                # Nenhuma âncora: fallback para guiada
+                start_sec = _parse_timestamp_sec(seg_guiado.get("start", "0"))
+                end_sec = _parse_timestamp_sec(seg_guiado.get("end", "0"))
+                flag = "VERMELHO"
+                conf = 0.1
+
+            resultado.append({
+                "index": gi + 1,
+                "start": _seconds_to_ts(start_sec),
+                "end": _seconds_to_ts(end_sec),
+                "text": texto_guiado,
+                "texto_final": texto_final,
+                "flag": flag,
+                "confianca": round(conf, 3),
+                "eh_repeticao": eh_repeticao,
+                "fonte_timestamp": "interpolado",
+            })
+
+    # Garantir ordenação por tempo e sem sobreposições
+    resultado.sort(key=lambda s: _parse_timestamp_sec(s.get("start", "0")))
+    for i in range(len(resultado) - 1):
+        cur_end = _parse_timestamp_sec(resultado[i]["end"])
+        next_start = _parse_timestamp_sec(resultado[i + 1]["start"])
+        if cur_end > next_start:
+            resultado[i]["end"] = _seconds_to_ts(max(0, next_start - 0.1))
 
     # Reindexar
     for i, seg in enumerate(resultado):
         seg["index"] = i + 1
 
     # Estatísticas
-    confiancas = [s["confianca"] for s in resultado if s["flag"] not in ("ROXO",)]
+    confiancas = [s["confianca"] for s in resultado]
     media = sum(confiancas) / len(confiancas) if confiancas else 0
     vermelhos = sum(1 for s in resultado if s["flag"] == "VERMELHO")
     total = len(resultado)
@@ -285,7 +364,7 @@ def merge_transcricoes(cega: list, guiada: list, letra_original: str) -> dict:
 
     logger.info(
         f"MERGE resultado: {total_verde}V {total_amarelo}A {vermelhos}R {total_roxo}X | "
-        f"confiança={media:.3f} rota={rota}"
+        f"confiança={media:.3f} rota={rota} | {len(matches)} âncoras"
     )
 
     return {
