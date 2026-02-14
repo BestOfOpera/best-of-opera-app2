@@ -458,8 +458,18 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             ov.segmentos_original, janela["janela_inicio_sec"]
         )
 
-    # Cortar vídeo se disponível E arquivo existe no disco
+    # Cortar vídeo — re-baixar se arquivo sumiu (storage efêmero Railway)
     video_path = edicao.arquivo_video_completo
+    if video_path and not FilePath(video_path).exists() and edicao.youtube_url:
+        logger.info(f"Vídeo {video_path} não existe no disco — re-baixando...")
+        try:
+            resultado_dl = await download_video(edicao.youtube_url, edicao_id, STORAGE_PATH)
+            edicao.arquivo_video_completo = resultado_dl["arquivo"]
+            video_path = resultado_dl["arquivo"]
+        except Exception as e:
+            logger.error(f"Falha ao re-baixar vídeo: {e}")
+            video_path = None
+
     if video_path and FilePath(video_path).exists():
         resultado = await cortar_na_janela_overlay(
             video_path,
@@ -471,7 +481,7 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
         edicao.arquivo_video_cortado = resultado["arquivo_cortado"]
         edicao.arquivo_video_cru = resultado["arquivo_cru"]
     elif video_path:
-        logger.warning(f"Vídeo {video_path} não existe no disco (storage efêmero?) — pulando corte FFmpeg")
+        logger.warning(f"Vídeo {video_path} ainda não existe após tentativa de download")
 
     # Recortar lyrics se houver alinhamento (usar o mais recente validado)
     alinhamento = db.query(Alinhamento).filter(
