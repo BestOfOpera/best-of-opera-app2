@@ -100,18 +100,32 @@ def aprovar_letra(edicao_id: int, body: LetraAprovar, db: Session = Depends(get_
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    # Salvar no banco de letras
     from app.models import Letra
-    letra = Letra(
-        musica=edicao.musica,
-        compositor=edicao.compositor,
-        opera=edicao.opera,
-        idioma=edicao.idioma,
-        letra=body.letra,
-        fonte=body.fonte,
-        validado_por=body.validado_por,
-    )
-    db.add(letra)
+
+    # Verificar se já existe letra para esta música (evitar duplicatas)
+    letra = db.query(Letra).filter(
+        Letra.musica == edicao.musica,
+        Letra.idioma == edicao.idioma,
+    ).first()
+
+    if letra:
+        # Atualizar letra existente
+        letra.letra = body.letra
+        letra.fonte = body.fonte
+        letra.validado_por = body.validado_por
+    else:
+        # Criar nova
+        letra = Letra(
+            musica=edicao.musica,
+            compositor=edicao.compositor,
+            opera=edicao.opera,
+            idioma=edicao.idioma,
+            letra=body.letra,
+            fonte=body.fonte,
+            validado_por=body.validado_por,
+        )
+        db.add(letra)
+
     edicao.passo_atual = 3
     edicao.status = "transcricao"
     db.commit()
@@ -126,8 +140,14 @@ async def iniciar_transcricao(edicao_id: int, background_tasks: BackgroundTasks,
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
+    # Verificar se o vídeo já foi baixado
+    if not edicao.arquivo_video_completo:
+        raise HTTPException(
+            409, "Vídeo ainda não foi baixado. Aguarde o download completar."
+        )
+
     # Extrair áudio se necessário
-    if not edicao.arquivo_audio_completo and edicao.arquivo_video_completo:
+    if not edicao.arquivo_audio_completo:
         audio_path = await extrair_audio_completo(
             edicao.arquivo_video_completo, edicao_id, STORAGE_PATH
         )
@@ -146,10 +166,11 @@ async def _transcricao_task(edicao_id: int):
     db = SessionLocal()
     try:
         edicao = db.get(Edicao, edicao_id)
-        # Buscar letra associada
+        # Buscar letra associada (match exato por musica + idioma)
         from app.models import Letra
         letra = db.query(Letra).filter(
-            Letra.musica.ilike(f"%{edicao.musica}%"),
+            Letra.musica == edicao.musica,
+            Letra.idioma == edicao.idioma,
         ).first()
 
         if not letra:

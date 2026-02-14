@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Search, Check, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Search, Check, RefreshCw, Download, Loader2 } from 'lucide-react'
 
 export default function ValidarLetra() {
   const { id } = useParams()
@@ -13,6 +13,7 @@ export default function ValidarLetra() {
   const [buscando, setBuscando] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [error, setError] = useState('')
+  const [videoStatus, setVideoStatus] = useState(null)
 
   useEffect(() => {
     editorApi.obterEdicao(id).then(e => {
@@ -22,8 +23,23 @@ export default function ValidarLetra() {
         return
       }
       setLoading(false)
+      // Iniciar download do vídeo em background se ainda não foi feito
+      if (!e.arquivo_video_completo) {
+        editorApi.garantirVideo(id).catch(() => {})
+      }
     })
   }, [id])
+
+  // Polling do status do vídeo
+  useEffect(() => {
+    if (!edicao) return
+    const check = () => {
+      editorApi.statusVideo(id).then(s => setVideoStatus(s)).catch(() => {})
+    }
+    check()
+    const interval = setInterval(check, 5000)
+    return () => clearInterval(interval)
+  }, [edicao, id])
 
   const buscarLetra = async () => {
     setBuscando(true)
@@ -45,18 +61,27 @@ export default function ValidarLetra() {
     setError('')
     try {
       await editorApi.aprovarLetra(id, { letra, fonte: fonte || 'manual' })
-      // Iniciar download de vídeo + transcrição
-      try { await editorApi.garantirVideo(id) } catch {}
-      try { await editorApi.iniciarTranscricao(id) } catch {}
+
+      // Tentar iniciar transcrição (só funciona se o vídeo já está pronto)
+      try {
+        await editorApi.iniciarTranscricao(id)
+      } catch (err) {
+        // Se vídeo ainda não está pronto (409), tudo bem — transcrição será feita depois
+        if (err.response?.status !== 409) {
+          console.warn('Transcrição não iniciada:', err.message)
+        }
+      }
+
       navigate(`/edicao/${id}/alinhamento`)
     } catch (err) {
       setError('Erro ao salvar: ' + (err.response?.data?.detail || err.message))
-    } finally {
       setSalvando(false)
     }
   }
 
   if (loading || !edicao) return <div className="text-center py-16 text-gray-400">Carregando...</div>
+
+  const videoReady = videoStatus?.video_completo
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -69,6 +94,15 @@ export default function ValidarLetra() {
         <p className="text-sm text-gray-400 mt-1">
           {edicao.compositor} {edicao.opera ? `· ${edicao.opera}` : ''} · {edicao.idioma?.toUpperCase()}
         </p>
+      </div>
+
+      {/* Status do vídeo */}
+      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${videoReady ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+        {videoReady ? (
+          <><Check size={14} /> Vídeo disponível</>
+        ) : (
+          <><Loader2 size={14} className="animate-spin" /> Baixando vídeo em background...</>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border p-6">
