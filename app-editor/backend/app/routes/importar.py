@@ -20,23 +20,21 @@ def _extract_video_id(url: str) -> str:
     return match.group(1) if match else ""
 
 
-def _detect_lang_from_hook(hook: str) -> str:
-    """Detecta idioma do hook. Heurística simples baseada em palavras-chave."""
-    if not hook:
-        return "it"
-    hook_lower = hook.lower()
-    indicators = {
-        "de": ["der", "die", "das", "und", "ich", "ein"],
-        "fr": ["le", "la", "les", "une", "des", "que", "est"],
-        "en": ["the", "and", "is", "are", "this", "that"],
-        "es": ["el", "la", "los", "las", "una", "del"],
-        "pt": ["o ", "os ", "as ", "uma", "dos", "das"],
-        "ru": ["и", "в", "на", "что", "это"],
-        "cs": ["je", "na", "se", "že", "to"],
-    }
-    for lang, words in indicators.items():
-        if any(f" {w} " in f" {hook_lower} " for w in words):
-            return lang
+def _detect_music_lang(proj: dict) -> str:
+    """Detecta o idioma da MÚSICA (não do conteúdo editorial).
+
+    O conteúdo original do Redator (overlay, post, hook) é editorial em PT.
+    As traduções cobrem outros idiomas. O idioma da música é inferido
+    pelo que NÃO está nas traduções (excluindo PT que é editorial).
+    Fallback: "it" (maioria das óperas).
+    """
+    all_target = {"en", "pt", "es", "de", "fr", "it", "pl"}
+    translation_langs = {t["language"] for t in proj.get("translations", [])}
+    # O idioma original da música não é traduzido para si mesmo
+    # e PT é o idioma editorial, não conta
+    missing = all_target - translation_langs - {"pt"}
+    if len(missing) == 1:
+        return missing.pop()
     return "it"
 
 
@@ -86,12 +84,15 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
     if not video_id:
         raise HTTPException(400, "Projeto do Redator não tem URL do YouTube válida")
 
-    original_lang = _detect_lang_from_hook(proj.get("hook", ""))
+    music_lang = _detect_music_lang(proj)
+
+    # O conteúdo original do Redator (overlay, post, seo) é editorial em PT
+    editorial_lang = "pt"
 
     # Montar overlays: {idioma: segmentos}
     overlays = {}
     if proj.get("overlay_json"):
-        overlays[original_lang] = proj["overlay_json"]
+        overlays[editorial_lang] = proj["overlay_json"]
     for t in proj.get("translations", []):
         if t.get("overlay_json"):
             overlays[t["language"]] = t["overlay_json"]
@@ -99,7 +100,7 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
     # Montar posts: {idioma: texto}
     posts = {}
     if proj.get("post_text"):
-        posts[original_lang] = proj["post_text"]
+        posts[editorial_lang] = proj["post_text"]
     for t in proj.get("translations", []):
         if t.get("post_text"):
             posts[t["language"]] = t["post_text"]
@@ -107,7 +108,7 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
     # Montar SEO: {idioma: {titulo, tags}}
     seo = {}
     if proj.get("youtube_title") or proj.get("youtube_tags"):
-        seo[original_lang] = {
+        seo[editorial_lang] = {
             "titulo": proj.get("youtube_title", ""),
             "tags": proj.get("youtube_tags", ""),
         }
@@ -127,7 +128,7 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
         compositor=proj.get("composer", ""),
         opera=proj.get("album_opera", ""),
         categoria=proj.get("category", ""),
-        idioma=original_lang,
+        idioma=music_lang,
     )
     db.add(edicao)
     db.flush()
