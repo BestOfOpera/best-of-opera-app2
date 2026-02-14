@@ -1,6 +1,10 @@
 import axios from 'axios'
 
-const api = axios.create({ baseURL: '/api/v1/editor' })
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/v1/editor`
+  : '/api/v1/editor'
+
+const api = axios.create({ baseURL })
 
 export const editorApi = {
   // Edições
