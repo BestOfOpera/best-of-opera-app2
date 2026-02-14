@@ -28,6 +28,7 @@ export const editorApi = {
   obterTraducoes: (id) => api.get(`/edicoes/${id}/traducao-lyrics`).then(r => r.data),
   renderizar: (id) => api.post(`/edicoes/${id}/renderizar`).then(r => r.data),
   listarRenders: (id) => api.get(`/edicoes/${id}/renders`).then(r => r.data),
+  downloadRenderUrl: (edicaoId, renderId) => `${baseURL}/edicoes/${edicaoId}/renders/${renderId}/download`,
 
   // Importar do Redator
   listarProjetosRedator: () => api.get('/redator/projetos').then(r => r.data),

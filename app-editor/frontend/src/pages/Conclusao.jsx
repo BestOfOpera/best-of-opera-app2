@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle, PartyPopper, ExternalLink } from 'lucide-react'
 
 const IDIOMAS = [
   { code: 'en', flag: '🇬🇧', label: 'Inglês' },
@@ -88,6 +88,8 @@ export default function Conclusao() {
 
   const concluidos = renders.filter(r => r.status === 'concluido')
   const erros = renders.filter(r => r.status === 'erro')
+  const todosOk = concluidos.length === 7 && erros.length === 0
+  const isConcluido = edicao.status === 'concluido'
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -95,10 +97,26 @@ export default function Conclusao() {
         <ArrowLeft size={16} /> Voltar à fila
       </button>
 
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold">{edicao.artista} — {edicao.musica}</h2>
-        <p className="text-sm text-gray-400 mt-1">Conclusão</p>
-      </div>
+      {/* Header com status de conclusão */}
+      {isConcluido && todosOk ? (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6 text-center">
+          <CheckCircle size={48} className="mx-auto mb-3 text-green-500" />
+          <h2 className="text-2xl font-bold text-green-800">{edicao.artista} — {edicao.musica}</h2>
+          <p className="text-green-600 mt-1">Edição concluída com sucesso! {concluidos.length} vídeos renderizados.</p>
+        </div>
+      ) : (
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold">{edicao.artista} — {edicao.musica}</h2>
+          <p className="text-sm text-gray-400 mt-1">
+            Conclusão
+            {edicao.youtube_url && (
+              <a href={edicao.youtube_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-purple hover:underline">
+                <ExternalLink size={12} /> YouTube
+              </a>
+            )}
+          </p>
+        </div>
+      )}
 
       {error && <div className="bg-red-50 text-red-600 text-sm rounded-lg p-3 mb-4">{error}</div>}
 
@@ -131,7 +149,7 @@ export default function Conclusao() {
             className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition disabled:opacity-50"
           >
             {traduzindo ? <RefreshCw size={14} className="animate-spin" /> : null}
-            {traduzindo ? 'Traduzindo...' : 'Traduzir Lyrics ×7 idiomas'}
+            {traduzindo ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
           </button>
         )}
         <button
@@ -140,32 +158,43 @@ export default function Conclusao() {
           className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
         >
           {renderizando || edicao.status === 'renderizando' ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
-          {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : 'Renderizar 7 Vídeos'}
+          {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : renders.length > 0 ? 'Re-renderizar' : 'Renderizar 7 Vídeos'}
         </button>
       </div>
 
-      {/* Renders */}
+      {/* Renders com download */}
       {renders.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border p-6">
-          <h3 className="font-semibold mb-4">Renders ({concluidos.length}/{renders.length})</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Vídeos Renderizados ({concluidos.length}/{IDIOMAS.length})</h3>
+            {concluidos.length > 0 && (
+              <span className="text-xs text-gray-400">Clique para baixar</span>
+            )}
+          </div>
           <div className="space-y-2">
             {IDIOMAS.map(({ code, flag, label }) => {
               const render = renders.find(r => r.idioma === code)
               if (!render) return (
-                <div key={code} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-gray-50 text-gray-400 text-sm">
+                <div key={code} className="flex items-center gap-3 py-3 px-4 rounded-lg bg-gray-50 text-gray-400 text-sm">
                   <span className="text-lg">{flag}</span>
                   <span className="flex-1">{label}</span>
                   <span className="text-xs">Pendente</span>
                 </div>
               )
               return (
-                <div key={code} className={`flex items-center gap-3 py-2 px-3 rounded-lg text-sm ${render.status === 'concluido' ? 'bg-green-50' : 'bg-red-50'}`}>
+                <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${render.status === 'concluido' ? 'bg-green-50 hover:bg-green-100 transition' : 'bg-red-50'}`}>
                   <span className="text-lg">{flag}</span>
                   <span className="flex-1 font-medium">{label}</span>
                   {render.status === 'concluido' ? (
                     <>
                       <span className="text-xs text-gray-400">{formatBytes(render.tamanho_bytes)}</span>
-                      <CheckCircle size={16} className="text-green-500" />
+                      <a
+                        href={editorApi.downloadRenderUrl(id, render.id)}
+                        download
+                        className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-green-700 transition"
+                      >
+                        <Download size={14} /> Baixar
+                      </a>
                     </>
                   ) : (
                     <>
@@ -180,10 +209,10 @@ export default function Conclusao() {
         </div>
       )}
 
-      {/* Próximo vídeo */}
-      <div className="mt-8 text-center">
-        <Link to="/" className="text-purple hover:underline text-sm font-medium">
-          ← Voltar à Fila de Edição
+      {/* Rodapé */}
+      <div className="mt-8 text-center pb-8">
+        <Link to="/" className="bg-purple-bg text-purple px-6 py-3 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition inline-flex items-center gap-2">
+          <ArrowLeft size={14} /> Voltar à Fila de Edição
         </Link>
       </div>
     </div>

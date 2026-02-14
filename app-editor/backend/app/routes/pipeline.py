@@ -1,6 +1,8 @@
 """Rotas do pipeline de edição (passos 1-9)."""
 import logging
+from pathlib import Path as FilePath
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -500,6 +502,30 @@ def listar_renders(edicao_id: int, db: Session = Depends(get_db)):
         }
         for r in renders
     ]
+
+
+@router.get("/edicoes/{edicao_id}/renders/{render_id}/download")
+def download_render(edicao_id: int, render_id: int, db: Session = Depends(get_db)):
+    render = db.query(Render).filter(
+        Render.id == render_id, Render.edicao_id == edicao_id
+    ).first()
+    if not render:
+        raise HTTPException(404, "Render não encontrado")
+    if render.status != "concluido" or not render.arquivo:
+        raise HTTPException(400, "Render não está disponível para download")
+
+    path = FilePath(render.arquivo)
+    if not path.exists():
+        raise HTTPException(404, "Arquivo não encontrado no servidor")
+
+    edicao = db.get(Edicao, edicao_id)
+    filename = f"{edicao.artista} - {edicao.musica} [{render.idioma.upper()}].mp4" if edicao else path.name
+
+    return FileResponse(
+        path=str(path),
+        media_type="video/mp4",
+        filename=filename,
+    )
 
 
 @router.get("/edicoes/{edicao_id}/video/status")
