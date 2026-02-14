@@ -458,10 +458,11 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             ov.segmentos_original, janela["janela_inicio_sec"]
         )
 
-    # Cortar vídeo se disponível
-    if edicao.arquivo_video_completo:
+    # Cortar vídeo se disponível E arquivo existe no disco
+    video_path = edicao.arquivo_video_completo
+    if video_path and FilePath(video_path).exists():
         resultado = await cortar_na_janela_overlay(
-            edicao.arquivo_video_completo,
+            video_path,
             janela["janela_inicio_sec"],
             janela["janela_fim_sec"],
             edicao_id,
@@ -469,6 +470,8 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
         )
         edicao.arquivo_video_cortado = resultado["arquivo_cortado"]
         edicao.arquivo_video_cru = resultado["arquivo_cru"]
+    elif video_path:
+        logger.warning(f"Vídeo {video_path} não existe no disco (storage efêmero?) — pulando corte FFmpeg")
 
     # Recortar lyrics se houver alinhamento (usar o mais recente validado)
     alinhamento = db.query(Alinhamento).filter(
