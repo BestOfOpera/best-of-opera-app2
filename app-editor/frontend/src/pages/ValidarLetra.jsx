@@ -104,22 +104,6 @@ export default function ValidarLetra() {
         )}
       </div>
 
-      {/* Mini player YouTube */}
-      {edicao.youtube_video_id && (
-        <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
-          <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida a letra:</p>
-          <iframe
-            width="100%"
-            height="80"
-            src={`https://www.youtube.com/embed/${edicao.youtube_video_id}?rel=0`}
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            className="rounded-lg"
-            style={{ maxWidth: '100%' }}
-          />
-        </div>
-      )}
-
       <div className="bg-white rounded-xl shadow-sm border p-6">
         <h3 className="font-semibold text-lg mb-4">Passo 2 — Validar Letra</h3>
 
@@ -131,8 +115,17 @@ export default function ValidarLetra() {
             className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
           >
             {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-            {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente' : 'Buscar Letra (Gemini)'}
+            {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente (Gemini)' : 'Buscar Letra (Gemini)'}
           </button>
+          <a
+            href={`https://genius.com/search?q=${encodeURIComponent(`${edicao.artista} ${edicao.musica}`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-500 transition"
+          >
+            <ExternalLink size={14} />
+            Conferir no Genius
+          </a>
         </div>
 
         {fonte && (
