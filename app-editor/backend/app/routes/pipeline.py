@@ -2,7 +2,7 @@
 import logging
 from pathlib import Path as FilePath
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Body
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -401,7 +401,7 @@ async def _buscar_corte_do_redator(edicao) -> tuple:
 @router.post("/edicoes/{edicao_id}/aplicar-corte")
 async def aplicar_corte(
     edicao_id: int,
-    body: Optional[CorteParams] = Body(default=None),
+    body: CorteParams = CorteParams(),
     db: Session = Depends(get_db),
 ):
     edicao = db.get(Edicao, edicao_id)
