@@ -520,6 +520,26 @@ def _exportar_renders(edicao, db):
             logger.warning(f"Erro ao exportar {render.idioma}: {e}")
 
 
+@router.post("/edicoes/{edicao_id}/exportar")
+def exportar_renders(edicao_id: int, db: Session = Depends(get_db)):
+    """Exporta renders para EXPORT_PATH manualmente."""
+    if not EXPORT_PATH:
+        raise HTTPException(400, "EXPORT_PATH não configurado. Defina a variável de ambiente.")
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    _exportar_renders(edicao, db)
+
+    pasta = FilePath(EXPORT_PATH) / f"{edicao.artista} - {edicao.musica}"
+    arquivos = list(pasta.glob("*.mp4")) if pasta.exists() else []
+    return {
+        "pasta": str(pasta),
+        "arquivos_exportados": len(arquivos),
+        "nomes": [f.name for f in arquivos],
+    }
+
+
 # --- Passo 9: Pacote ---
 @router.get("/edicoes/{edicao_id}/renders")
 def listar_renders(edicao_id: int, db: Session = Depends(get_db)):
@@ -550,7 +570,12 @@ def download_render(edicao_id: int, render_id: int, db: Session = Depends(get_db
 
     path = FilePath(render.arquivo)
     if not path.exists():
-        raise HTTPException(404, "Arquivo não encontrado no servidor")
+        raise HTTPException(
+            404,
+            "Arquivo não encontrado no servidor. O Railway usa storage efêmero — "
+            "os arquivos são perdidos quando o container reinicia. "
+            "Re-renderize para gerar novamente."
+        )
 
     edicao = db.get(Edicao, edicao_id)
     filename = f"{edicao.artista} - {edicao.musica} [{render.idioma.upper()}].mp4" if edicao else path.name

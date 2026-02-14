@@ -34,6 +34,8 @@ export default function Conclusao() {
   const [loading, setLoading] = useState(true)
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
+  const [exportando, setExportando] = useState(false)
+  const [exportResult, setExportResult] = useState(null)
   const [error, setError] = useState('')
 
   const load = async () => {
@@ -81,6 +83,20 @@ export default function Conclusao() {
       setError('Erro na renderização: ' + (err.response?.data?.detail || err.message))
     } finally {
       setRenderizando(false)
+    }
+  }
+
+  const handleExportar = async () => {
+    setExportando(true)
+    setError('')
+    setExportResult(null)
+    try {
+      const result = await editorApi.exportarRenders(id)
+      setExportResult(result)
+    } catch (err) {
+      setError('Erro ao exportar: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setExportando(false)
     }
   }
 
@@ -160,7 +176,24 @@ export default function Conclusao() {
           {renderizando || edicao.status === 'renderizando' ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
           {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : renders.length > 0 ? 'Re-renderizar' : 'Renderizar 7 Vídeos'}
         </button>
+        {concluidos.length > 0 && (
+          <button
+            onClick={handleExportar}
+            disabled={exportando}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+          >
+            {exportando ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+            {exportando ? 'Exportando...' : 'Salvar no iCloud'}
+          </button>
+        )}
       </div>
+
+      {exportResult && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-4 mb-6">
+          <p className="font-medium">{exportResult.arquivos_exportados} vídeos exportados para:</p>
+          <p className="text-xs mt-1 font-mono break-all">{exportResult.pasta}</p>
+        </div>
+      )}
 
       {/* Renders com download */}
       {renders.length > 0 && (
