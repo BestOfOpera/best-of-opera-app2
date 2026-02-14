@@ -13,6 +13,7 @@ from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
 from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo
+from app.services.genius import buscar_letra_genius
 from app.services.alinhamento import alinhar_letra_com_timestamps
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
 import shutil
@@ -82,7 +83,12 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"fonte": "banco", "letra": letra_existente.letra, "letra_id": letra_existente.id}
 
-    # Buscar via Gemini
+    # Buscar no Genius primeiro (fonte confiável)
+    letra_genius = buscar_letra_genius(edicao.musica)
+    if letra_genius:
+        return {"fonte": "genius", "letra": letra_genius}
+
+    # Fallback: Gemini
     try:
         metadados = {
             "artista": edicao.artista,
