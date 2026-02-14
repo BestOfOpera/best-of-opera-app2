@@ -12,10 +12,10 @@ def build_export_zip(project: Project) -> bytes:
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         slug = f"{project.artist}_{project.work}".replace(" ", "_")
 
-        # English (original)
+        # Original content (hook language)
         _write_language_folder(
             zf,
-            folder=f"{slug}/en",
+            folder=f"{slug}/original",
             overlay_json=project.overlay_json,
             post_text=project.post_text,
             youtube_title=project.youtube_title,

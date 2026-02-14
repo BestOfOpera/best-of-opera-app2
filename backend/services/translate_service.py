@@ -5,9 +5,28 @@ from typing import List
 
 from backend.config import GOOGLE_TRANSLATE_API_KEY
 
-LANGUAGES = ["pt", "es", "de", "fr", "it", "pl"]
+ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
 TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
+DETECT_URL = "https://translation.googleapis.com/language/translate/v2/detect"
+
+
+def detect_language(text: str) -> str:
+    """Detect the language of text using Google Translate API."""
+    if not text or not text.strip():
+        return "en"
+    resp = requests.post(DETECT_URL, data={
+        "q": text[:200],
+        "key": GOOGLE_TRANSLATE_API_KEY,
+    })
+    resp.raise_for_status()
+    detections = resp.json()["data"]["detections"][0]
+    return detections[0]["language"] if detections else "en"
+
+
+def get_target_languages(source_lang: str) -> list[str]:
+    """Return list of target languages excluding the source language."""
+    return [lang for lang in ALL_LANGUAGES if lang != source_lang]
 
 
 def translate_text(text: str, target_lang: str) -> str:
@@ -64,12 +83,20 @@ def extract_post_section2(post_text: str) -> tuple:
 
 
 CREDIT_LABELS = {
-    "pt": {"Voice type": "Tipo de voz", "Date of Birth": "Data de nascimento", "Composer": "Compositor", "Composition date": "Data de composição"},
-    "es": {"Voice type": "Tipo de voz", "Date of Birth": "Fecha de nacimiento", "Composer": "Compositor", "Composition date": "Fecha de composición"},
-    "de": {"Voice type": "Stimmtyp", "Date of Birth": "Geburtsdatum", "Composer": "Komponist", "Composition date": "Kompositionsdatum"},
-    "fr": {"Voice type": "Type de voix", "Date of Birth": "Date de naissance", "Composer": "Compositeur", "Composition date": "Date de composition"},
-    "it": {"Voice type": "Tipo di voce", "Date of Birth": "Data di nascita", "Composer": "Compositore", "Composition date": "Data di composizione"},
-    "pl": {"Voice type": "Typ głosu", "Date of Birth": "Data urodzenia", "Composer": "Kompozytor", "Composition date": "Data kompozycji"},
+    "en": {"Tipo de voz": "Voice type", "Data de nascimento": "Date of Birth", "Compositor": "Composer", "Data de composição": "Composition date",
+           "Voice type": "Voice type", "Date of Birth": "Date of Birth", "Composer": "Composer", "Composition date": "Composition date"},
+    "pt": {"Voice type": "Tipo de voz", "Date of Birth": "Data de nascimento", "Composer": "Compositor", "Composition date": "Data de composição",
+           "Tipo de voz": "Tipo de voz", "Data de nascimento": "Data de nascimento", "Compositor": "Compositor", "Data de composição": "Data de composição"},
+    "es": {"Voice type": "Tipo de voz", "Date of Birth": "Fecha de nacimiento", "Composer": "Compositor", "Composition date": "Fecha de composición",
+           "Tipo de voz": "Tipo de voz", "Data de nascimento": "Fecha de nacimiento", "Compositor": "Compositor", "Data de composição": "Fecha de composición"},
+    "de": {"Voice type": "Stimmtyp", "Date of Birth": "Geburtsdatum", "Composer": "Komponist", "Composition date": "Kompositionsdatum",
+           "Tipo de voz": "Stimmtyp", "Data de nascimento": "Geburtsdatum", "Compositor": "Komponist", "Data de composição": "Kompositionsdatum"},
+    "fr": {"Voice type": "Type de voix", "Date of Birth": "Date de naissance", "Composer": "Compositeur", "Composition date": "Date de composition",
+           "Tipo de voz": "Type de voix", "Data de nascimento": "Date de naissance", "Compositor": "Compositeur", "Data de composição": "Date de composition"},
+    "it": {"Voice type": "Tipo di voce", "Date of Birth": "Data di nascita", "Composer": "Compositore", "Composition date": "Data di composizione",
+           "Tipo de voz": "Tipo di voce", "Data de nascimento": "Data di nascita", "Compositor": "Compositore", "Data de composição": "Data di composizione"},
+    "pl": {"Voice type": "Typ głosu", "Date of Birth": "Data urodzenia", "Composer": "Kompozytor", "Composition date": "Data kompozycji",
+           "Tipo de voz": "Typ głosu", "Data de nascimento": "Data urodzenia", "Compositor": "Kompozytor", "Data de composição": "Data kompozycji"},
 }
 
 

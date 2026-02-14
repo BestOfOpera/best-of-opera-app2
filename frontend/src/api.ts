@@ -135,6 +135,13 @@ export const api = {
 
   translate: (id: number) =>
     request<Project>(`/projects/${id}/translate`, { method: 'POST' }),
+  retranslate: (id: number, lang: string) =>
+    request<ExportData>(`/projects/${id}/retranslate/${lang}`, { method: 'POST' }),
+  updateTranslation: (id: number, lang: string, data: Partial<ExportData>) =>
+    request<ExportData>(`/projects/${id}/translation/${lang}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 
   exportLang: (id: number, lang: string) =>
     request<ExportData>(`/projects/${id}/export/${lang}`),

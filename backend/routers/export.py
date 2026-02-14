@@ -16,9 +16,10 @@ def export_language(project_id: int, lang: str, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(404, "Project not found")
 
-    if lang == "en":
+    # "original" means the project's own content (whatever language the hook was in)
+    if lang == "original":
         return {
-            "language": "en",
+            "language": "original",
             "overlay_json": project.overlay_json,
             "post_text": project.post_text,
             "youtube_title": project.youtube_title,
