@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Search, Check, RefreshCw, Download, Loader2 } from 'lucide-react'
+import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink } from 'lucide-react'
 
 export default function ValidarLetra() {
   const { id } = useParams()
@@ -82,6 +82,7 @@ export default function ValidarLetra() {
   if (loading || !edicao) return <div className="text-center py-16 text-gray-400">Carregando...</div>
 
   const videoReady = videoStatus?.video_completo
+  const jaTemLetra = letra.trim().length > 0
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -93,6 +94,11 @@ export default function ValidarLetra() {
         <h2 className="text-2xl font-bold">{edicao.artista} — {edicao.musica}</h2>
         <p className="text-sm text-gray-400 mt-1">
           {edicao.compositor} {edicao.opera ? `· ${edicao.opera}` : ''} · {edicao.idioma?.toUpperCase()}
+          {edicao.youtube_url && (
+            <a href={edicao.youtube_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-purple hover:underline">
+              <ExternalLink size={12} /> Abrir no YouTube
+            </a>
+          )}
         </p>
       </div>
 
@@ -122,23 +128,24 @@ export default function ValidarLetra() {
       )}
 
       <div className="bg-white rounded-xl shadow-sm border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-lg">Passo 2 — Validar Letra</h3>
-          <div className="flex gap-2">
-            <button
-              onClick={buscarLetra}
-              disabled={buscando}
-              className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition disabled:opacity-50"
-            >
-              {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-              {buscando ? 'Buscando...' : 'Buscar Letra'}
-            </button>
-          </div>
+        <h3 className="font-semibold text-lg mb-4">Passo 2 — Validar Letra</h3>
+
+        {/* Botões de ação - bem visíveis */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={buscarLetra}
+            disabled={buscando}
+            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
+          >
+            {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+            {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente' : 'Buscar Letra (Gemini)'}
+          </button>
         </div>
 
         {fonte && (
           <div className="mb-3 text-xs text-gray-400">
             Fonte: <span className="font-medium">{fonte}</span>
+            {fonte === 'gemini' && <span className="ml-2 text-yellow-600">— Verifique a letra antes de aprovar</span>}
           </div>
         )}
 
@@ -146,7 +153,7 @@ export default function ValidarLetra() {
 
         <textarea
           value={letra}
-          onChange={e => setLetra(e.target.value)}
+          onChange={e => { setLetra(e.target.value); if (!fonte) setFonte('manual') }}
           placeholder="Cole ou busque a letra original aqui..."
           className="w-full border rounded-lg px-4 py-3 text-sm font-mono min-h-[400px] resize-y"
         />
