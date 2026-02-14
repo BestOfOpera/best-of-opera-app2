@@ -62,15 +62,8 @@ export default function ValidarLetra() {
     try {
       await editorApi.aprovarLetra(id, { letra, fonte: fonte || 'manual' })
 
-      // Tentar iniciar transcrição (só funciona se o vídeo já está pronto)
-      try {
-        await editorApi.iniciarTranscricao(id)
-      } catch (err) {
-        // Se vídeo ainda não está pronto (409), tudo bem — transcrição será feita depois
-        if (err.response?.status !== 409) {
-          console.warn('Transcrição não iniciada:', err.message)
-        }
-      }
+      // Disparar transcrição em background (não esperar — extração de áudio pode demorar)
+      editorApi.iniciarTranscricao(id).catch(() => {})
 
       navigate(`/edicao/${id}/alinhamento`)
     } catch (err) {
