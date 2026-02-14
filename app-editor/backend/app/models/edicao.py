@@ -29,6 +29,9 @@ class Edicao(Base):
     janela_fim_sec = Column(Float)
     duracao_corte_sec = Column(Float)
 
+    corte_original_inicio = Column(String(20))
+    corte_original_fim = Column(String(20))
+
     arquivo_video_completo = Column(String(500))
     arquivo_video_cortado = Column(String(500))
     arquivo_audio_completo = Column(String(500))

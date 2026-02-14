@@ -141,13 +141,13 @@ export default function ValidarLetra() {
             className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
           >
             {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-            {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente (Gemini)' : 'Buscar Letra (Gemini)'}
+            {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente' : 'Buscar Letra'}
           </button>
           <a
-            href={`https://genius.com/search?q=${encodeURIComponent(edicao.musica)}`}
+            href={`https://genius.com/search?q=${encodeURIComponent((edicao.artista || '') + ' ' + (edicao.musica || ''))}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-500 transition"
+            className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition"
           >
             <ExternalLink size={14} />
             Conferir no Genius
@@ -155,9 +155,17 @@ export default function ValidarLetra() {
         </div>
 
         {fonte && (
-          <div className="mb-3 text-xs text-gray-400">
-            Fonte: <span className="font-medium">{fonte}</span>
-            {fonte === 'gemini' && <span className="ml-2 text-yellow-600">— Verifique a letra antes de aprovar</span>}
+          <div className="mb-3 flex items-center gap-2 text-xs">
+            <span className="text-gray-400">Fonte:</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
+              fonte === 'banco' ? 'bg-green-100 text-green-700' :
+              fonte === 'genius' ? 'bg-blue-100 text-blue-700' :
+              fonte === 'gemini' ? 'bg-yellow-100 text-yellow-700' :
+              'bg-gray-100 text-gray-600'
+            }`}>
+              {fonte === 'banco' ? 'Banco de dados' : fonte === 'genius' ? 'Genius' : fonte === 'gemini' ? 'Gemini (IA)' : fonte}
+            </span>
+            {fonte === 'gemini' && <span className="text-yellow-600">— Verifique a letra antes de aprovar</span>}
           </div>
         )}
 

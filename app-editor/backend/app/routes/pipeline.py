@@ -1,8 +1,10 @@
 """Rotas do pipeline de edição (passos 1-9)."""
 import logging
 from pathlib import Path as FilePath
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File, Body
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -17,9 +19,14 @@ from app.services.genius import buscar_letra_genius
 from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
 import shutil
-from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH
+from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
+
+
+class CorteParams(BaseModel):
+    janela_inicio: Optional[float] = None
+    janela_fim: Optional[float] = None
 
 
 # --- Passo 1: Garantir vídeo ---
@@ -347,9 +354,34 @@ def validar_alinhamento(edicao_id: int, body: AlinhamentoValidar, db: Session = 
     return {"ok": True}
 
 
+async def _buscar_corte_do_redator(edicao) -> tuple:
+    """Busca cut_start/cut_end do Redator (APP2) para projetos importados sem esses campos."""
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get(f"{REDATOR_API_URL}/api/projects")
+            resp.raise_for_status()
+        for p in resp.json():
+            # Match por artista + obra
+            if (p.get("artist", "").lower() == edicao.artista.lower()
+                    and p.get("work", "").lower() == edicao.musica.lower()):
+                cs = p.get("cut_start")
+                ce = p.get("cut_end")
+                if cs and ce:
+                    logger.info(f"[{edicao.id}] Corte do Redator: {cs} → {ce}")
+                    return cs, ce
+    except Exception as e:
+        logger.warning(f"[{edicao.id}] Falha ao buscar corte do Redator: {e}")
+    return None, None
+
+
 # --- Passo 5: Aplicar corte (régua do overlay) ---
 @router.post("/edicoes/{edicao_id}/aplicar-corte")
-async def aplicar_corte(edicao_id: int, db: Session = Depends(get_db)):
+async def aplicar_corte(
+    edicao_id: int,
+    body: Optional[CorteParams] = Body(default=None),
+    db: Session = Depends(get_db),
+):
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
@@ -359,9 +391,29 @@ async def aplicar_corte(edicao_id: int, db: Session = Depends(get_db)):
     if not overlays:
         raise HTTPException(400, "Nenhum overlay encontrado. Adicione overlays primeiro.")
 
-    # Extrair janela do primeiro overlay
-    primeiro = overlays[0]
-    janela = extrair_janela_do_overlay(primeiro.segmentos_original)
+    # Se body fornecido com valores explícitos, usar diretamente
+    if body and body.janela_inicio is not None and body.janela_fim is not None:
+        janela = {
+            "janela_inicio_sec": body.janela_inicio,
+            "janela_fim_sec": body.janela_fim,
+            "duracao_corte_sec": body.janela_fim - body.janela_inicio,
+        }
+    else:
+        # Se não tem corte_original, tentar buscar do Redator em tempo real
+        corte_inicio_ov = edicao.corte_original_inicio
+        corte_fim_ov = edicao.corte_original_fim
+        if not corte_inicio_ov or not corte_fim_ov:
+            corte_inicio_ov, corte_fim_ov = await _buscar_corte_do_redator(edicao)
+            if corte_inicio_ov and corte_fim_ov:
+                edicao.corte_original_inicio = corte_inicio_ov
+                edicao.corte_original_fim = corte_fim_ov
+
+        primeiro = overlays[0]
+        janela = extrair_janela_do_overlay(
+            primeiro.segmentos_original,
+            corte_inicio_override=corte_inicio_ov,
+            corte_fim_override=corte_fim_ov,
+        )
 
     edicao.janela_inicio_sec = janela["janela_inicio_sec"]
     edicao.janela_fim_sec = janela["janela_fim_sec"]
@@ -385,10 +437,10 @@ async def aplicar_corte(edicao_id: int, db: Session = Depends(get_db)):
         edicao.arquivo_video_cortado = resultado["arquivo_cortado"]
         edicao.arquivo_video_cru = resultado["arquivo_cru"]
 
-    # Recortar lyrics se houver alinhamento
+    # Recortar lyrics se houver alinhamento (usar o mais recente validado)
     alinhamento = db.query(Alinhamento).filter(
         Alinhamento.edicao_id == edicao_id, Alinhamento.validado == True
-    ).first()
+    ).order_by(Alinhamento.id.desc()).first()
     if alinhamento:
         alinhamento.segmentos_cortado = recortar_lyrics_na_janela(
             alinhamento.segmentos_completo,
@@ -669,6 +721,24 @@ def download_render(edicao_id: int, render_id: int, db: Session = Depends(get_db
         path=str(path),
         media_type="video/mp4",
         filename=filename,
+    )
+
+
+@router.get("/edicoes/{edicao_id}/audio")
+def servir_audio(edicao_id: int, db: Session = Depends(get_db)):
+    """Serve o arquivo de áudio completo (OGG/Opus) para player HTML5."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+    if not edicao.arquivo_audio_completo:
+        raise HTTPException(404, "Áudio não disponível. Execute a transcrição primeiro.")
+    path = FilePath(edicao.arquivo_audio_completo)
+    if not path.exists():
+        raise HTTPException(404, "Arquivo de áudio não encontrado no servidor.")
+    return FileResponse(
+        path=str(path),
+        media_type="audio/ogg",
+        filename=f"{edicao.artista} - {edicao.musica}.ogg",
     )
 
 

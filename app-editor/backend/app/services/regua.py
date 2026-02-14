@@ -37,9 +37,18 @@ def seconds_to_timestamp(sec: float) -> str:
     return f"{h:02d}:{m:02d}:{int(s):02d},{ms:03d}"
 
 
-def extrair_janela_do_overlay(overlay_srt: list) -> dict:
-    """Lê overlay e extrai início/fim da janela de corte."""
-    if not overlay_srt:
+def extrair_janela_do_overlay(
+    overlay_srt: list,
+    corte_inicio_override: str = None,
+    corte_fim_override: str = None,
+) -> dict:
+    """Lê overlay e extrai início/fim da janela de corte.
+
+    Se corte_inicio_override / corte_fim_override forem fornecidos
+    (timestamps string do APP2 cut_start/cut_end), usam-se esses
+    valores em vez dos calculados a partir do overlay.
+    """
+    if not overlay_srt and not corte_inicio_override:
         return {"janela_inicio_sec": 0, "janela_fim_sec": 0, "duracao_corte_sec": 0}
 
     # Aceitar formatos variados de campo de timestamp
@@ -58,8 +67,15 @@ def extrair_janela_do_overlay(overlay_srt: list) -> dict:
             return timestamp_to_seconds(seg["timestamp"]) + 4
         return get_start(seg) + 4
 
-    inicio = get_start(overlay_srt[0])
-    fim = get_end(overlay_srt[-1])
+    inicio = get_start(overlay_srt[0]) if overlay_srt else 0
+    fim = get_end(overlay_srt[-1]) if overlay_srt else 0
+
+    # Override com valores originais do APP2 (cut_start / cut_end)
+    if corte_inicio_override:
+        inicio = timestamp_to_seconds(corte_inicio_override)
+    if corte_fim_override:
+        fim = timestamp_to_seconds(corte_fim_override)
+
     return {
         "janela_inicio_sec": inicio,
         "janela_fim_sec": fim,

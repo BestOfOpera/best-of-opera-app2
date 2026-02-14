@@ -129,6 +129,8 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
         opera=proj.get("album_opera", ""),
         categoria=proj.get("category", ""),
         idioma=music_lang,
+        corte_original_inicio=proj.get("cut_start"),
+        corte_original_fim=proj.get("cut_end"),
     )
     db.add(edicao)
     db.flush()

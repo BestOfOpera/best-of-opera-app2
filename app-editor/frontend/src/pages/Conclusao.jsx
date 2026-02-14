@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle, PartyPopper, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle, PartyPopper, ExternalLink, Pencil, RotateCcw } from 'lucide-react'
 
 const IDIOMAS = [
   { code: 'en', flag: '🇬🇧', label: 'Inglês' },
@@ -37,6 +37,10 @@ export default function Conclusao() {
   const [exportando, setExportando] = useState(false)
   const [exportResult, setExportResult] = useState(null)
   const [error, setError] = useState('')
+  const [editandoCorte, setEditandoCorte] = useState(false)
+  const [corteInicio, setCorteInicio] = useState('')
+  const [corteFim, setCorteFim] = useState('')
+  const [reaplicando, setReaplicando] = useState(false)
 
   const load = async () => {
     try {
@@ -100,6 +104,26 @@ export default function Conclusao() {
     }
   }
 
+  const parseMMSS = (val) => {
+    const parts = val.split(':')
+    if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1])
+    return parseFloat(val) || 0
+  }
+
+  const handleReaplicarCorte = async (params) => {
+    setReaplicando(true)
+    setError('')
+    try {
+      await editorApi.aplicarCorte(id, params)
+      await load()
+      setEditandoCorte(false)
+    } catch (err) {
+      setError('Erro ao reaplicar corte: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setReaplicando(false)
+    }
+  }
+
   if (loading || !edicao) return <div className="text-center py-16 text-gray-400">Carregando...</div>
 
   const concluidos = renders.filter(r => r.status === 'concluido')
@@ -143,8 +167,54 @@ export default function Conclusao() {
           <div className="font-semibold text-sm capitalize">{edicao.status}</div>
         </div>
         <div className="bg-white rounded-xl border p-4">
-          <div className="text-xs text-gray-400 mb-1">Duração do Corte</div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-gray-400">Duração do Corte</span>
+            <button
+              onClick={() => {
+                setEditandoCorte(!editandoCorte)
+                if (!editandoCorte && edicao) {
+                  const toMMSS = (sec) => { const m = Math.floor(sec / 60); const s = Math.floor(sec % 60); return `${m}:${String(s).padStart(2, '0')}` }
+                  setCorteInicio(toMMSS(edicao.janela_inicio_sec || 0))
+                  setCorteFim(toMMSS(edicao.janela_fim_sec || 0))
+                }
+              }}
+              className="text-purple hover:text-purple/70"
+              title="Editar corte"
+            >
+              <Pencil size={12} />
+            </button>
+          </div>
           <div className="font-semibold text-sm">{formatSec(edicao.duracao_corte_sec)}</div>
+          <div className="text-xs text-gray-400">{formatSec(edicao.janela_inicio_sec)} → {formatSec(edicao.janela_fim_sec)}</div>
+          {editandoCorte && (
+            <div className="mt-2 space-y-2 border-t pt-2">
+              <div className="flex gap-2 items-center">
+                <input
+                  value={corteInicio}
+                  onChange={e => setCorteInicio(e.target.value)}
+                  placeholder="MM:SS"
+                  className="w-20 border rounded px-2 py-1 text-xs font-mono"
+                />
+                <span className="text-xs text-gray-400">→</span>
+                <input
+                  value={corteFim}
+                  onChange={e => setCorteFim(e.target.value)}
+                  placeholder="MM:SS"
+                  className="w-20 border rounded px-2 py-1 text-xs font-mono"
+                />
+              </div>
+              <button
+                onClick={() => handleReaplicarCorte({
+                  janela_inicio: parseMMSS(corteInicio),
+                  janela_fim: parseMMSS(corteFim),
+                })}
+                disabled={reaplicando}
+                className="w-full bg-purple text-white text-xs px-2 py-1 rounded hover:bg-purple/90 disabled:opacity-50"
+              >
+                {reaplicando ? 'Reaplicando...' : 'Reaplicar Corte'}
+              </button>
+            </div>
+          )}
         </div>
         <div className="bg-white rounded-xl border p-4">
           <div className="text-xs text-gray-400 mb-1">Rota</div>
@@ -158,6 +228,21 @@ export default function Conclusao() {
 
       {/* Ações */}
       <div className="flex gap-3 mb-6 flex-wrap">
+        <button
+          onClick={() => navigate(`/edicao/${id}/alinhamento`)}
+          className="flex items-center gap-2 bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+        >
+          <ArrowLeft size={14} />
+          Voltar ao Alinhamento
+        </button>
+        <button
+          onClick={() => handleReaplicarCorte()}
+          disabled={reaplicando}
+          className="flex items-center gap-2 bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition disabled:opacity-50"
+        >
+          <RotateCcw size={14} />
+          {reaplicando ? 'Recalculando...' : 'Refazer Corte'}
+        </button>
         {!edicao.eh_instrumental && (
           <button
             onClick={handleTraduzir}

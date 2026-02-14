@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { editorApi } from '../api'
 import { ArrowLeft, Check, RefreshCw, Scissors } from 'lucide-react'
@@ -29,6 +29,7 @@ export default function ValidarAlinhamento() {
   const [cortando, setCortando] = useState(false)
   const [error, setError] = useState('')
   const [polling, setPolling] = useState(false)
+  const audioRef = useRef(null)
 
   const load = async () => {
     try {
@@ -154,18 +155,15 @@ export default function ValidarAlinhamento() {
         <p className="text-sm text-gray-400 mt-1">Passo 4 — Validar Alinhamento</p>
       </div>
 
-      {/* Mini player YouTube */}
-      {edicao.youtube_video_id && (
+      {/* Player de áudio */}
+      {edicao.arquivo_audio_completo && (
         <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
-          <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento:</p>
-          <iframe
-            width="100%"
-            height="80"
-            src={`https://www.youtube.com/embed/${edicao.youtube_video_id}?rel=0`}
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            className="rounded-lg"
-            style={{ maxWidth: '100%' }}
+          <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento (clique nos timestamps para pular):</p>
+          <audio
+            ref={audioRef}
+            controls
+            src={editorApi.audioUrl(id)}
+            className="w-full"
           />
         </div>
       )}
@@ -207,7 +205,16 @@ export default function ValidarAlinhamento() {
               >
                 <div className="flex items-start gap-3">
                   <span className="text-xs mt-1">{FLAG_DOTS[seg.flag]}</span>
-                  <span className="text-xs text-gray-400 mt-1 font-mono w-24 shrink-0">
+                  <span
+                    className="text-xs text-purple mt-1 font-mono w-24 shrink-0 cursor-pointer hover:underline"
+                    title="Clique para ouvir"
+                    onClick={() => {
+                      if (audioRef.current) {
+                        audioRef.current.currentTime = parseTimestamp(seg.start)
+                        audioRef.current.play()
+                      }
+                    }}
+                  >
                     {seg.start} → {seg.end}
                   </span>
                   <div className="flex-1">
