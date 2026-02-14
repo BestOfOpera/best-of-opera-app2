@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink } from 'lucide-react'
+import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink, Upload } from 'lucide-react'
 
 export default function ValidarLetra() {
   const { id } = useParams()
@@ -14,6 +14,7 @@ export default function ValidarLetra() {
   const [salvando, setSalvando] = useState(false)
   const [error, setError] = useState('')
   const [videoStatus, setVideoStatus] = useState(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     editorApi.obterEdicao(id).then(e => {
@@ -101,8 +102,31 @@ export default function ValidarLetra() {
           <><Check size={14} /> Vídeo disponível</>
         ) : edicao.erro_msg ? (
           <><span className="font-bold">Erro no download:</span> {edicao.erro_msg}</>
+        ) : uploading ? (
+          <><Loader2 size={14} className="animate-spin" /> Enviando vídeo...</>
         ) : (
           <><Loader2 size={14} className="animate-spin" /> Baixando vídeo em background...</>
+        )}
+        {!videoReady && (
+          <label className="ml-auto cursor-pointer flex items-center gap-1 bg-white border px-3 py-1 rounded text-gray-600 hover:bg-gray-50">
+            <Upload size={12} />
+            {uploading ? 'Enviando...' : 'Subir vídeo'}
+            <input type="file" accept="video/*" className="hidden" disabled={uploading} onChange={async (e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              setUploading(true)
+              setError('')
+              try {
+                await editorApi.uploadVideo(id, file)
+                const e2 = await editorApi.obterEdicao(id)
+                setEdicao(e2)
+              } catch (err) {
+                setError('Erro no upload: ' + (err.response?.data?.detail || err.message))
+              } finally {
+                setUploading(false)
+              }
+            }} />
+          </label>
         )}
       </div>
 

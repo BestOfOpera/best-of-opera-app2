@@ -16,6 +16,11 @@ export const editorApi = {
 
   // Pipeline
   garantirVideo: (id) => api.post(`/edicoes/${id}/garantir-video`).then(r => r.data),
+  uploadVideo: (id, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post(`/edicoes/${id}/upload-video`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data)
+  },
   statusVideo: (id) => api.get(`/edicoes/${id}/video/status`).then(r => r.data),
   buscarLetra: (id) => api.post(`/edicoes/${id}/letra`).then(r => r.data),
   aprovarLetra: (id, data) => api.put(`/edicoes/${id}/letra`, data).then(r => r.data),

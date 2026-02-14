@@ -1,7 +1,7 @@
 """Rotas do pipeline de edição (passos 1-9)."""
 import logging
 from pathlib import Path as FilePath
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -38,6 +38,28 @@ async def garantir_video(edicao_id: int, background_tasks: BackgroundTasks, db: 
 
     background_tasks.add_task(_download_video_task, edicao_id, edicao.youtube_url)
     return {"status": "download iniciado"}
+
+
+@router.post("/edicoes/{edicao_id}/upload-video")
+async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    output_dir = FilePath(STORAGE_PATH) / str(edicao_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    destino = output_dir / "original.mp4"
+
+    with open(str(destino), "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+
+    edicao.arquivo_video_completo = str(destino)
+    edicao.status = "letra"
+    edicao.passo_atual = 2
+    edicao.erro_msg = None
+    db.commit()
+    return {"status": "ok", "arquivo": str(destino)}
 
 
 def _find_video_in_export(edicao):
