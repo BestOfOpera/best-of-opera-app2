@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { editorApi } from '../api'
-import { Plus, Play, Trash2, Clock, Music, Mic } from 'lucide-react'
+import { Plus, Play, Trash2, Clock, Music, Mic, Clapperboard } from 'lucide-react'
 
 const STATUS_LABELS = {
   aguardando: { label: 'Aguardando', color: 'bg-gray-200 text-gray-700' },
@@ -157,7 +157,7 @@ export default function FilaEdicao() {
             Instrumental (sem letra)
           </label>
           <div className="flex gap-3">
-            <button type="submit" disabled={saving} className="bg-purple text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50">
+            <button type="submit" disabled={saving || !form.youtube_url || !form.artista || !form.musica || !form.idioma} className="bg-purple text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50">
               {saving ? 'Criando...' : 'Criar Edição'}
             </button>
             <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 text-sm hover:text-gray-700">Cancelar</button>

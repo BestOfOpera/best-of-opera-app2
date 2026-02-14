@@ -110,3 +110,9 @@ class AlinhamentoOut(BaseModel):
 class AlinhamentoValidar(BaseModel):
     segmentos: list
     validado_por: Optional[str] = "operador"
+
+
+class LetraAprovar(BaseModel):
+    letra: str
+    fonte: Optional[str] = "manual"
+    validado_por: Optional[str] = "operador"

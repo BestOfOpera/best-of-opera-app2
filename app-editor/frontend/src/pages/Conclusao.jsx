@@ -42,7 +42,8 @@ export default function Conclusao() {
       setEdicao(e)
       const r = await editorApi.listarRenders(id)
       setRenders(r)
-    } catch {
+    } catch (err) {
+      setError('Erro ao carregar dados: ' + (err.response?.data?.detail || err.message))
     } finally {
       setLoading(false)
     }

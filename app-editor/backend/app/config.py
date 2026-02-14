@@ -10,3 +10,4 @@ STORAGE_PATH = os.getenv("STORAGE_PATH", "/tmp/editor_storage")
 MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", "500"))
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", '["http://localhost:5174","http://localhost:3000"]')
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+IDIOMAS_ALVO = ["en", "pt", "es", "de", "fr", "it", "pl"]

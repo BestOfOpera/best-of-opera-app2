@@ -1,5 +1,5 @@
 """Modelo: editor_alinhamentos — alinhamento lyrics × timestamps."""
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, func
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, JSON, ForeignKey, func
 
 from app.database import Base
 
@@ -8,8 +8,8 @@ class Alinhamento(Base):
     __tablename__ = "editor_alinhamentos"
 
     id = Column(Integer, primary_key=True, index=True)
-    edicao_id = Column(Integer, nullable=False, index=True)
-    letra_id = Column(Integer)
+    edicao_id = Column(Integer, ForeignKey("editor_edicoes.id", ondelete="CASCADE"), nullable=False, index=True)
+    letra_id = Column(Integer, ForeignKey("editor_letras.id", ondelete="SET NULL"))
     segmentos_completo = Column(JSON, nullable=False)
     segmentos_cortado = Column(JSON)
     confianca_media = Column(Float)

@@ -1,16 +1,19 @@
 """Rotas do pipeline de edição (passos 1-9)."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+
+logger = logging.getLogger(__name__)
 from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
-from app.schemas import AlinhamentoOut, AlinhamentoValidar
+from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
 from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo
 from app.services.alinhamento import alinhar_letra_com_timestamps
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
-from app.config import STORAGE_PATH
+from app.config import STORAGE_PATH, IDIOMAS_ALVO
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
 
@@ -92,7 +95,7 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/edicoes/{edicao_id}/letra")
-def aprovar_letra(edicao_id: int, body: dict, db: Session = Depends(get_db)):
+def aprovar_letra(edicao_id: int, body: LetraAprovar, db: Session = Depends(get_db)):
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
@@ -104,9 +107,9 @@ def aprovar_letra(edicao_id: int, body: dict, db: Session = Depends(get_db)):
         compositor=edicao.compositor,
         opera=edicao.opera,
         idioma=edicao.idioma,
-        letra=body["letra"],
-        fonte=body.get("fonte", "manual"),
-        validado_por=body.get("validado_por", "operador"),
+        letra=body.letra,
+        fonte=body.fonte,
+        validado_por=body.validado_por,
     )
     db.add(letra)
     edicao.passo_atual = 3
@@ -330,7 +333,7 @@ async def _traducao_task(edicao_id: int):
             db.commit()
             return
 
-        idiomas_alvo = ["en", "pt", "es", "de", "fr", "it", "pl"]
+        idiomas_alvo = IDIOMAS_ALVO
         metadados = {"musica": edicao.musica, "compositor": edicao.compositor}
 
         for idioma in idiomas_alvo:
@@ -346,8 +349,8 @@ async def _traducao_task(edicao_id: int):
                     segmentos=resultado,
                 )
                 db.add(trad)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Tradução para {idioma} falhou: {e}")
 
         edicao.passo_atual = 7
         edicao.status = "montagem"
@@ -388,7 +391,7 @@ async def _render_task(edicao_id: int):
             db.commit()
             return
 
-        idiomas = ["en", "pt", "es", "de", "fr", "it", "pl"]
+        idiomas = IDIOMAS_ALVO
         for idioma in idiomas:
             try:
                 # Buscar overlay reindexado

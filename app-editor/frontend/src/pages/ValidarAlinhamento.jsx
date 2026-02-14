@@ -45,8 +45,9 @@ export default function ValidarAlinhamento() {
       setAlinhamento(result.alinhamento)
       setJanela(result.janela)
       setSegmentos(result.alinhamento?.segmentos || [])
-    } catch {
+    } catch (err) {
       if (polling) return
+      setError('Erro ao carregar alinhamento: ' + (err.response?.data?.detail || err.message))
     } finally {
       setLoading(false)
     }
