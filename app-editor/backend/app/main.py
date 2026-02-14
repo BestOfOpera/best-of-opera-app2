@@ -9,7 +9,7 @@ from pathlib import Path
 
 from app.config import CORS_ORIGINS, STORAGE_PATH
 from app.database import engine, Base
-from app.routes import edicoes, letras, pipeline, health
+from app.routes import edicoes, letras, pipeline, health, importar
 
 
 @asynccontextmanager
@@ -43,3 +43,4 @@ app.include_router(health.router)
 app.include_router(edicoes.router)
 app.include_router(letras.router)
 app.include_router(pipeline.router)
+app.include_router(importar.router)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { editorApi } from '../api'
-import { Plus, Play, Trash2, Clock, Music, Mic, Clapperboard } from 'lucide-react'
+import { Plus, Play, Trash2, Clock, Music, Mic, Clapperboard, Download, ChevronDown, ChevronUp, Loader2, Globe, CheckCircle } from 'lucide-react'
 
 const STATUS_LABELS = {
   aguardando: { label: 'Aguardando', color: 'bg-gray-200 text-gray-700' },
@@ -15,6 +15,14 @@ const STATUS_LABELS = {
   renderizando: { label: 'Renderizando...', color: 'bg-amber-100 text-amber-700' },
   concluido: { label: 'Concluído', color: 'bg-green-100 text-green-700' },
   erro: { label: 'Erro', color: 'bg-red-100 text-red-700' },
+}
+
+const REDATOR_STATUS_LABELS = {
+  input_complete: { label: 'Input', color: 'bg-gray-200 text-gray-700' },
+  generating: { label: 'Gerando...', color: 'bg-blue-100 text-blue-700' },
+  awaiting_approval: { label: 'Aprovação', color: 'bg-yellow-100 text-yellow-700' },
+  translating: { label: 'Traduzindo...', color: 'bg-cyan-100 text-cyan-700' },
+  export_ready: { label: 'Pronto', color: 'bg-green-100 text-green-700' },
 }
 
 function formatDuration(sec) {
@@ -41,6 +49,13 @@ export default function FilaEdicao() {
     compositor: '', opera: '', categoria: '', idioma: 'it', eh_instrumental: false,
   })
   const [saving, setSaving] = useState(false)
+
+  // Importar do Redator
+  const [showImportar, setShowImportar] = useState(false)
+  const [projetosRedator, setProjetosRedator] = useState([])
+  const [loadingRedator, setLoadingRedator] = useState(false)
+  const [importando, setImportando] = useState(null)
+  const [erroRedator, setErroRedator] = useState('')
 
   const loadEdicoes = () => {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
@@ -79,24 +94,133 @@ export default function FilaEdicao() {
     loadEdicoes()
   }
 
+  const carregarProjetosRedator = async () => {
+    setLoadingRedator(true)
+    setErroRedator('')
+    try {
+      const data = await editorApi.listarProjetosRedator()
+      setProjetosRedator(data)
+    } catch (err) {
+      setErroRedator('Erro ao conectar com o Redator: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setLoadingRedator(false)
+    }
+  }
+
+  const handleImportar = async (projectId) => {
+    setImportando(projectId)
+    try {
+      const result = await editorApi.importarDoRedator(projectId)
+      setShowImportar(false)
+      loadEdicoes()
+      alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
+    } catch (err) {
+      alert('Erro ao importar: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setImportando(null)
+    }
+  }
+
+  const toggleImportar = () => {
+    const next = !showImportar
+    setShowImportar(next)
+    if (next && projetosRedator.length === 0) {
+      carregarProjetosRedator()
+    }
+    if (next) setShowForm(false)
+  }
+
   if (loading) return <div className="text-center py-16 text-gray-400">Carregando...</div>
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">Fila de Edição</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition"
-        >
-          <Plus size={16} /> Nova Edição
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleImportar}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition"
+          >
+            <Download size={16} /> Importar do Redator
+          </button>
+          <button
+            onClick={() => { setShowForm(!showForm); if (!showForm) setShowImportar(false) }}
+            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition"
+          >
+            <Plus size={16} /> Criar Manual
+          </button>
+        </div>
       </div>
 
-      {/* Formulário nova edição */}
+      {/* Painel Importar do Redator */}
+      {showImportar && (
+        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <Globe size={20} className="text-green-600" />
+              Projetos do Redator
+            </h3>
+            <button
+              onClick={carregarProjetosRedator}
+              disabled={loadingRedator}
+              className="text-sm text-gray-500 hover:text-gray-700 transition"
+            >
+              {loadingRedator ? 'Carregando...' : 'Atualizar'}
+            </button>
+          </div>
+
+          {erroRedator && (
+            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{erroRedator}</div>
+          )}
+
+          {loadingRedator && projetosRedator.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Loader2 size={24} className="mx-auto mb-2 animate-spin" />
+              Conectando ao Redator...
+            </div>
+          ) : projetosRedator.length === 0 && !loadingRedator && !erroRedator ? (
+            <div className="text-center py-8 text-gray-400">Nenhum projeto encontrado no Redator.</div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {projetosRedator.map(p => {
+                const st = REDATOR_STATUS_LABELS[p.status] || REDATOR_STATUS_LABELS.input_complete
+                return (
+                  <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-gray-50 transition">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-medium truncate">{p.artist} — {p.work}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        {p.composer && <span>{p.composer}</span>}
+                        {p.album_opera && <span>· {p.album_opera}</span>}
+                        {p.category && <span>· {p.category}</span>}
+                        <span>· {p.translations_count} traduções</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleImportar(p.id)}
+                      disabled={importando !== null}
+                      className="flex items-center gap-1.5 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {importando === p.id ? (
+                        <><Loader2 size={14} className="animate-spin" /> Importando...</>
+                      ) : (
+                        <><Download size={14} /> Importar</>
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Formulário nova edição manual */}
       {showForm && (
         <form onSubmit={handleCreate} className="bg-white rounded-xl shadow-sm border p-6 mb-6 space-y-4">
-          <h3 className="font-semibold text-lg mb-2">Nova Edição</h3>
+          <h3 className="font-semibold text-lg mb-2">Nova Edição (Manual)</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-600 mb-1">URL do YouTube *</label>
@@ -170,7 +294,7 @@ export default function FilaEdicao() {
         <div className="text-center py-16 text-gray-400">
           <Clapperboard size={48} className="mx-auto mb-4 opacity-50" />
           <p>Nenhuma edição ainda.</p>
-          <p className="text-sm mt-1">Clique em "Nova Edição" para começar.</p>
+          <p className="text-sm mt-1">Clique em "Importar do Redator" ou "Criar Manual" para começar.</p>
         </div>
       ) : (
         <div className="space-y-3">

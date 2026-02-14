@@ -28,4 +28,8 @@ export const editorApi = {
   obterTraducoes: (id) => api.get(`/edicoes/${id}/traducao-lyrics`).then(r => r.data),
   renderizar: (id) => api.post(`/edicoes/${id}/renderizar`).then(r => r.data),
   listarRenders: (id) => api.get(`/edicoes/${id}/renders`).then(r => r.data),
+
+  // Importar do Redator
+  listarProjetosRedator: () => api.get('/redator/projetos').then(r => r.data),
+  importarDoRedator: (projectId) => api.post(`/redator/importar/${projectId}`).then(r => r.data),
 }
