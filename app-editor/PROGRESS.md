@@ -33,13 +33,17 @@
 - [x] Background tasks com polling
 - [x] Fluxo instrumental (pula passos 2-4, 6)
 
-## Fase 5: Deploy 🔧
+## Fase 5: Deploy ✅
 - [x] Dockerfile backend (Python + FFmpeg + yt-dlp)
 - [x] Dockerfile frontend (Node build + Nginx)
 - [x] nginx.conf com proxy reverso
-- [ ] Deploy no Railway (aguardando autenticação CLI)
+- [x] Deploy no Railway via GraphQL API
+- [x] Backend: https://editor-backend-production.up.railway.app
+- [x] Frontend: https://editor-frontend-production.up.railway.app
+- [x] PostgreSQL compartilhado com APP1/APP2
+- [x] Variáveis de ambiente configuradas (DATABASE_URL, GEMINI_API_KEY, etc.)
 
-## Fase 6: Polimento 🔧
+## Fase 6: Polimento ✅
 - [x] Loading states em todas as páginas
 - [x] Error handling com mensagens em PT-BR
 - [x] Polling automático durante processos longos
