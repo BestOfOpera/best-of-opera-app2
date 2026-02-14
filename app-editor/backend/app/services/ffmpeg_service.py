@@ -1,7 +1,13 @@
 """Serviço de processamento de vídeo via FFmpeg."""
 import asyncio
+import os
 import shutil
 from pathlib import Path
+
+# Garantir que ffmpeg está no PATH
+_ffmpeg_dir = "/Users/administrator/bin"
+if _ffmpeg_dir not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _ffmpeg_dir + ":" + os.environ.get("PATH", "")
 
 
 async def run_ffmpeg(cmd: str):

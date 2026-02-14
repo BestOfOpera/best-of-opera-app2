@@ -24,21 +24,78 @@ def parse_json_response(text: str) -> list:
     return json.loads(text)
 
 
+def _detect_mime_type(path: str) -> str:
+    if path.endswith(".wav"):
+        return "audio/wav"
+    elif path.endswith(".ogg"):
+        return "audio/ogg"
+    elif path.endswith(".flac"):
+        return "audio/flac"
+    return "audio/mpeg"
+
+
+async def transcrever_cego(
+    audio_file_ref, idioma: str, metadados: dict
+) -> list:
+    """Transcrição cega: Gemini recebe apenas o áudio, sem letra.
+    Timestamps mais precisos pois o modelo precisa ouvir de verdade.
+    audio_file_ref: arquivo já uploaded via genai.upload_file."""
+    genai = _get_client()
+    model = genai.GenerativeModel("gemini-2.5-pro")
+
+    nomes_idiomas = {
+        "en": "inglês", "pt": "português", "es": "espanhol",
+        "de": "alemão", "fr": "francês", "it": "italiano", "pl": "polonês",
+    }
+    nome_idioma = nomes_idiomas.get(idioma, idioma)
+
+    prompt = f"""
+Você é um assistente de legendagem de vídeos de ópera.
+
+CONTEXTO:
+- Artista: {metadados.get("artista", "Desconhecido")}
+- Música: {metadados.get("musica", "Desconhecida")}
+- Idioma cantado: {nome_idioma}
+- Compositor: {metadados.get("compositor", "N/A")}
+
+TAREFA:
+Ouça o áudio COMPLETO do início ao fim e transcreva TUDO que é cantado, com timestamps PRECISOS.
+Preste atenção especial ao MOMENTO EXATO em que cada frase começa e termina.
+
+REGRAS:
+1. Transcreva exatamente o que ouve — não invente texto
+2. Marque QUANDO cada frase começa e termina no áudio com precisão
+3. Timestamps relativos ao INÍCIO do áudio (00:00:00 = início)
+4. Inclua TODAS as frases cantadas, mesmo repetições
+5. Se há trechos instrumentais, pule o intervalo
+6. NÃO omita versos — ouça o áudio inteiro com atenção
+7. Foque na PRECISÃO dos timestamps acima de tudo
+
+FORMATO JSON:
+[
+  {{"index": 1, "start": "00:01:25,300", "end": "00:01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
+  {{"index": 2, "start": "00:01:30,200", "end": "00:01:35,400", "text": "Tu pure, o Principessa,"}}
+]
+
+Retorne APENAS o JSON, sem markdown, sem explicação.
+"""
+    response = model.generate_content([audio_file_ref, prompt])
+    return parse_json_response(response.text)
+
+
 async def transcrever_guiado_completo(
-    audio_completo_path: str, letra_original: str, idioma: str, metadados: dict
+    audio_completo_path: str, letra_original: str, idioma: str, metadados: dict,
+    audio_file_ref=None,
 ) -> list:
     """Envia áudio COMPLETO + letra ao Gemini para obter timestamps."""
     genai = _get_client()
     model = genai.GenerativeModel("gemini-2.5-pro")
 
-    mime_type = "audio/mpeg"
-    if audio_completo_path.endswith(".wav"):
-        mime_type = "audio/wav"
-    elif audio_completo_path.endswith(".ogg"):
-        mime_type = "audio/ogg"
-    elif audio_completo_path.endswith(".flac"):
-        mime_type = "audio/flac"
-    audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
+    if audio_file_ref is not None:
+        audio_file = audio_file_ref
+    else:
+        mime_type = _detect_mime_type(audio_completo_path)
+        audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
 
     prompt = f"""
 Você é um assistente de legendagem de vídeos de ópera.

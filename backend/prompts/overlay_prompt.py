@@ -44,13 +44,13 @@ Generate overlay subtitles (captions that appear on screen) for a video featurin
 
 RULES:
 1. Each subtitle must be maximum 70 characters.
-2. {count_info} The spacing does NOT need to be uniform — the first subtitle can appear quickly to grab attention, then subsequent ones can be more spread out. Use your judgment for dramatic pacing.
+2. {count_info} Distribute subtitles so they COVER the entire video duration — there must NEVER be long gaps without a subtitle on screen. Each subtitle stays visible until ~1 second before the next one appears. The LAST subtitle must appear close enough to the end so it stays on screen until the video ends.
 3. Subtitles should tell a mini-story: hook the viewer, build intrigue, deliver emotional payoff.
-4. First subtitle MUST be a short, punchy attention-grabbing hook (ideally under 30 characters).
+4. First subtitle MUST start at "00:00" — a short, punchy attention-grabbing hook (ideally under 30 characters).
 5. Use simple, powerful language.
 6. NEVER use generic phrases like "beautiful performance", "amazing voice", "stunning rendition", "incredible talent". Be SPECIFIC and evocative.
 7. NEVER use technical opera jargon (no "bel canto", "coloratura", "tessitura", "libretto", etc). Write for a general audience.
-8. Timestamps should be distributed across the video duration with natural dramatic pacing.
+8. Space subtitles evenly across the ENTIRE video duration. The gap between one subtitle's end and the next subtitle's start should be approximately 1 second. No large empty gaps.
 
 Return ONLY a JSON array with objects having "timestamp" (in "MM:SS" format) and "text" fields.
 Example: [{{"timestamp": "00:00", "text": "This voice changed everything"}}, {{"timestamp": "00:05", "text": "Maria Callas in 1958"}}]

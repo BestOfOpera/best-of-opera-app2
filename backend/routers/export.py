@@ -24,7 +24,7 @@ def export_language(project_id: int, lang: str, db: Session = Depends(get_db)):
             "post_text": project.post_text,
             "youtube_title": project.youtube_title,
             "youtube_tags": project.youtube_tags,
-            "srt": generate_srt(project.overlay_json) if project.overlay_json else "",
+            "srt": generate_srt(project.overlay_json, project.cut_end) if project.overlay_json else "",
         }
 
     translation = (
@@ -41,7 +41,7 @@ def export_language(project_id: int, lang: str, db: Session = Depends(get_db)):
         "post_text": translation.post_text,
         "youtube_title": translation.youtube_title,
         "youtube_tags": translation.youtube_tags,
-        "srt": generate_srt(translation.overlay_json) if translation.overlay_json else "",
+        "srt": generate_srt(translation.overlay_json, project.cut_end) if translation.overlay_json else "",
     }
 
 

@@ -20,6 +20,7 @@ def build_export_zip(project: Project) -> bytes:
             post_text=project.post_text,
             youtube_title=project.youtube_title,
             youtube_tags=project.youtube_tags,
+            cut_end=project.cut_end,
         )
 
         # Translations
@@ -31,6 +32,7 @@ def build_export_zip(project: Project) -> bytes:
                 post_text=t.post_text,
                 youtube_title=t.youtube_title,
                 youtube_tags=t.youtube_tags,
+                cut_end=project.cut_end,
             )
 
     return buffer.getvalue()
@@ -43,9 +45,10 @@ def _write_language_folder(
     post_text,
     youtube_title,
     youtube_tags,
+    cut_end=None,
 ):
     if overlay_json:
-        srt_content = generate_srt(overlay_json)
+        srt_content = generate_srt(overlay_json, cut_end)
         zf.writestr(f"{folder}/subtitles.srt", srt_content)
 
     if post_text:

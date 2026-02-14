@@ -12,9 +12,9 @@ from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
-from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo
+from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, _detect_mime_type, _get_client
 from app.services.genius import buscar_letra_genius
-from app.services.alinhamento import alinhar_letra_com_timestamps
+from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
 import shutil
 from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH
@@ -248,12 +248,31 @@ async def _transcricao_task(edicao_id: int):
             "musica": edicao.musica,
             "compositor": edicao.compositor,
         }
-        segmentos = await transcrever_guiado_completo(
-            edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados
-        )
 
-        # Alinhar com letra original
-        resultado = alinhar_letra_com_timestamps(letra.letra, segmentos)
+        # Upload do áudio ao Gemini (1 vez, reutilizado nas 2 transcrições)
+        genai = _get_client()
+        mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
+        audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
+        logger.info(f"[{edicao_id}] Áudio uploaded ao Gemini, iniciando transcrição dupla")
+
+        # Rota 1: Transcrição cega (timestamps precisos)
+        logger.info(f"[{edicao_id}] Iniciando transcrição CEGA...")
+        segmentos_cegos = await transcrever_cego(
+            audio_file_ref, edicao.idioma, metadados
+        )
+        logger.info(f"[{edicao_id}] Transcrição cega: {len(segmentos_cegos)} segmentos")
+
+        # Rota 2: Alinhamento guiado (texto correto)
+        logger.info(f"[{edicao_id}] Iniciando transcrição GUIADA...")
+        segmentos_guiados = await transcrever_guiado_completo(
+            edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
+            audio_file_ref=audio_file_ref,
+        )
+        logger.info(f"[{edicao_id}] Transcrição guiada: {len(segmentos_guiados)} segmentos")
+
+        # Merge: texto da guiada + timestamps da cega
+        logger.info(f"[{edicao_id}] Executando merge inteligente...")
+        resultado = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
 
         alinhamento = Alinhamento(
             edicao_id=edicao_id,
@@ -269,10 +288,15 @@ async def _transcricao_task(edicao_id: int):
         edicao.status = "alinhamento"
         edicao.passo_atual = 4
         db.commit()
+        logger.info(
+            f"[{edicao_id}] Transcrição dupla concluída: "
+            f"rota={resultado['rota']} confiança={resultado['confianca_media']}"
+        )
     except Exception as e:
         edicao.status = "erro"
         edicao.erro_msg = f"Transcrição falhou: {e}"
         db.commit()
+        logger.error(f"[{edicao_id}] Transcrição falhou: {e}")
     finally:
         db.close()
 
