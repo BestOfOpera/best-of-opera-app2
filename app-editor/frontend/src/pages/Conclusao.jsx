@@ -53,9 +53,9 @@ export default function Conclusao() {
 
   useEffect(() => { load() }, [id])
 
-  // Polling durante renderização
+  // Polling durante tradução ou renderização
   useEffect(() => {
-    if (!edicao || edicao.status !== 'renderizando') return
+    if (!edicao || !['renderizando', 'traducao'].includes(edicao.status)) return
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
   }, [edicao?.status])
@@ -161,20 +161,20 @@ export default function Conclusao() {
         {!edicao.eh_instrumental && (
           <button
             onClick={handleTraduzir}
-            disabled={traduzindo}
+            disabled={traduzindo || edicao.status === 'traducao'}
             className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition disabled:opacity-50"
           >
-            {traduzindo ? <RefreshCw size={14} className="animate-spin" /> : null}
-            {traduzindo ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
+            {traduzindo || edicao.status === 'traducao' ? <RefreshCw size={14} className="animate-spin" /> : null}
+            {traduzindo || edicao.status === 'traducao' ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
           </button>
         )}
         <button
           onClick={handleRenderizar}
-          disabled={renderizando || edicao.status === 'renderizando'}
+          disabled={renderizando || traduzindo || edicao.status === 'renderizando' || edicao.status === 'traducao'}
           className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
         >
           {renderizando || edicao.status === 'renderizando' ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
-          {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : renders.length > 0 ? 'Re-renderizar' : 'Renderizar 7 Vídeos'}
+          {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : edicao.status === 'traducao' || traduzindo ? 'Aguardando tradução...' : renders.length > 0 ? 'Re-renderizar' : 'Renderizar 7 Vídeos'}
         </button>
         {concluidos.length > 0 && (
           <button
