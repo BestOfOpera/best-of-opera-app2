@@ -404,6 +404,17 @@ async def aplicar_corte(
     body: CorteParams = CorteParams(),
     db: Session = Depends(get_db),
 ):
+    import traceback as _tb
+    try:
+        return await _aplicar_corte_impl(edicao_id, body, db)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"aplicar_corte ERRO: {exc}\n{_tb.format_exc()}")
+        raise HTTPException(500, f"Erro interno: {exc}")
+
+
+async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
