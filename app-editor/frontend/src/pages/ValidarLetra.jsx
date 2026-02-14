@@ -105,6 +105,22 @@ export default function ValidarLetra() {
         )}
       </div>
 
+      {/* Mini player YouTube */}
+      {edicao.youtube_video_id && (
+        <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
+          <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida a letra:</p>
+          <iframe
+            width="100%"
+            height="80"
+            src={`https://www.youtube.com/embed/${edicao.youtube_video_id}?rel=0`}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            className="rounded-lg"
+            style={{ maxWidth: '100%' }}
+          />
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-lg">Passo 2 — Validar Letra</h3>
