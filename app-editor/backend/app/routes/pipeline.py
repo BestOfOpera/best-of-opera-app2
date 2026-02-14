@@ -256,20 +256,16 @@ async def _transcricao_task(edicao_id: int):
             "compositor": edicao.compositor,
         }
 
-        # Upload do áudio ao Gemini (1 vez, reutilizado nas 2 transcrições)
+        # Upload do áudio ao Gemini
         genai = _get_client()
         mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
         audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
-        logger.info(f"[{edicao_id}] Áudio uploaded ao Gemini, iniciando transcrição dupla")
+        logger.info(f"[{edicao_id}] Áudio uploaded ao Gemini")
 
-        # Rota 1: Transcrição cega (timestamps precisos)
-        logger.info(f"[{edicao_id}] Iniciando transcrição CEGA...")
-        segmentos_cegos = await transcrever_cego(
-            audio_file_ref, edicao.idioma, metadados
-        )
-        logger.info(f"[{edicao_id}] Transcrição cega: {len(segmentos_cegos)} segmentos")
+        # Estratégia: guiada primeiro (comprovadamente funciona bem)
+        # Se resultado bom → usar direto. Senão → tentar refinar com cega.
 
-        # Rota 2: Alinhamento guiado (texto correto)
+        # Passo 1: Transcrição guiada (texto + timestamps)
         logger.info(f"[{edicao_id}] Iniciando transcrição GUIADA...")
         segmentos_guiados = await transcrever_guiado_completo(
             edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
@@ -277,9 +273,33 @@ async def _transcricao_task(edicao_id: int):
         )
         logger.info(f"[{edicao_id}] Transcrição guiada: {len(segmentos_guiados)} segmentos")
 
-        # Merge: texto da guiada + timestamps da cega
-        logger.info(f"[{edicao_id}] Executando merge inteligente...")
-        resultado = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
+        # Passo 2: Alinhar guiada com letra original (método comprovado)
+        resultado = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
+        logger.info(
+            f"[{edicao_id}] Alinhamento guiado: rota={resultado['rota']} "
+            f"confiança={resultado['confianca_media']}"
+        )
+
+        # Passo 3: Se resultado fraco, tentar refinar com transcrição cega
+        if resultado["rota"] == "C":
+            logger.info(f"[{edicao_id}] Rota C detectada, tentando merge com transcrição cega...")
+            try:
+                segmentos_cegos = await transcrever_cego(
+                    audio_file_ref, edicao.idioma, metadados
+                )
+                logger.info(f"[{edicao_id}] Transcrição cega: {len(segmentos_cegos)} segmentos")
+                resultado_merge = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
+                # Usar merge só se melhorou
+                if resultado_merge["confianca_media"] > resultado["confianca_media"]:
+                    logger.info(
+                        f"[{edicao_id}] Merge melhorou: {resultado['confianca_media']:.3f} → "
+                        f"{resultado_merge['confianca_media']:.3f}"
+                    )
+                    resultado = resultado_merge
+                else:
+                    logger.info(f"[{edicao_id}] Merge não melhorou, mantendo guiada direta")
+            except Exception as e:
+                logger.warning(f"[{edicao_id}] Cega falhou, mantendo guiada: {e}")
 
         alinhamento = Alinhamento(
             edicao_id=edicao_id,
@@ -296,7 +316,7 @@ async def _transcricao_task(edicao_id: int):
         edicao.passo_atual = 4
         db.commit()
         logger.info(
-            f"[{edicao_id}] Transcrição dupla concluída: "
+            f"[{edicao_id}] Transcrição concluída: "
             f"rota={resultado['rota']} confiança={resultado['confianca_media']}"
         )
     except Exception as e:

@@ -73,6 +73,28 @@ export default function ValidarAlinhamento() {
   const updateSegmento = (index, field, value) => {
     const updated = [...segmentos]
     updated[index] = { ...updated[index], [field]: value }
+
+    // Auto-ajustar adjacentes para evitar sobreposição de timestamps
+    if (field === 'start' || field === 'end') {
+      const sec = parseTimestamp(value)
+      if (!isNaN(sec) && sec > 0) {
+        if (field === 'start' && index > 0) {
+          // Se novo start < end do anterior, ajustar end do anterior
+          const prevEnd = parseTimestamp(updated[index - 1].end)
+          if (prevEnd > sec) {
+            updated[index - 1] = { ...updated[index - 1], end: value }
+          }
+        }
+        if (field === 'end' && index < updated.length - 1) {
+          // Se novo end > start do próximo, ajustar start do próximo
+          const nextStart = parseTimestamp(updated[index + 1].start)
+          if (sec > nextStart) {
+            updated[index + 1] = { ...updated[index + 1], start: value }
+          }
+        }
+      }
+    }
+
     setSegmentos(updated)
   }
 
@@ -158,7 +180,7 @@ export default function ValidarAlinhamento() {
       </div>
 
       {/* Player de áudio / YouTube fallback */}
-      <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
+      <div className="bg-white rounded-xl shadow-sm border p-4 mb-4 sticky top-0 z-10">
         <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento{edicao.arquivo_audio_completo ? ' (clique nos timestamps para pular)' : ''}:</p>
         {edicao.arquivo_audio_completo && !audioFailed ? (
           <audio
