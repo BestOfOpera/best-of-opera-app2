@@ -118,7 +118,7 @@ export default function ValidarLetra() {
             {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente (Gemini)' : 'Buscar Letra (Gemini)'}
           </button>
           <a
-            href={`https://genius.com/search?q=${encodeURIComponent(`${edicao.artista} ${edicao.musica}`)}`}
+            href={`https://genius.com/search?q=${encodeURIComponent(edicao.musica)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 bg-yellow-400 text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-500 transition"
