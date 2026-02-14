@@ -31,7 +31,14 @@ async def transcrever_guiado_completo(
     genai = _get_client()
     model = genai.GenerativeModel("gemini-2.5-pro")
 
-    audio_file = genai.upload_file(audio_completo_path)
+    mime_type = "audio/mpeg"
+    if audio_completo_path.endswith(".wav"):
+        mime_type = "audio/wav"
+    elif audio_completo_path.endswith(".ogg"):
+        mime_type = "audio/ogg"
+    elif audio_completo_path.endswith(".flac"):
+        mime_type = "audio/flac"
+    audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
 
     prompt = f"""
 Você é um assistente de legendagem de vídeos de ópera.
