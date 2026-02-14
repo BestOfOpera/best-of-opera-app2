@@ -41,7 +41,10 @@ async def transcrever_cego(
     Timestamps mais precisos pois o modelo precisa ouvir de verdade.
     audio_file_ref: arquivo já uploaded via genai.upload_file."""
     genai = _get_client()
-    model = genai.GenerativeModel("gemini-2.5-pro")
+    model = genai.GenerativeModel(
+        "gemini-2.5-pro",
+        generation_config=genai.GenerationConfig(temperature=0),
+    )
 
     nomes_idiomas = {
         "en": "inglês", "pt": "português", "es": "espanhol",
@@ -89,7 +92,10 @@ async def transcrever_guiado_completo(
 ) -> list:
     """Envia áudio COMPLETO + letra ao Gemini para obter timestamps."""
     genai = _get_client()
-    model = genai.GenerativeModel("gemini-2.5-pro")
+    model = genai.GenerativeModel(
+        "gemini-2.5-pro",
+        generation_config=genai.GenerationConfig(temperature=0),
+    )
 
     if audio_file_ref is not None:
         audio_file = audio_file_ref
@@ -118,8 +124,8 @@ TODOS os versos da letra devem aparecer no resultado — a música está sendo c
 REGRAS:
 1. Use EXATAMENTE o texto da letra original fornecida
 2. NÃO modifique nenhuma palavra
-3. Marque QUANDO cada frase começa e termina no áudio com a MAIOR PRECISÃO possível
-4. Timestamps relativos ao INÍCIO do áudio (00:00:00 = início do vídeo)
+3. Marque QUANDO cada frase começa e termina no áudio com a MAIOR PRECISÃO possível (erro máximo tolerado: 0.5 segundos)
+4. Timestamps relativos ao INÍCIO do áudio (00:00:00,000 = primeiro milissegundo do arquivo de áudio)
 5. TODOS os versos da letra DEVEM ter timestamps — ouça o áudio inteiro com atenção
 6. Se há trechos instrumentais ENTRE versos, pule o intervalo mas continue marcando os versos seguintes
 7. Se há repetições não escritas na letra, adicione com [REPETIÇÃO]
