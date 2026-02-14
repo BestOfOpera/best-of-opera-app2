@@ -66,12 +66,12 @@ export default function ApproveOverlay() {
     }
   }
 
-  if (loading || !project) return <div className="loading">Loading...</div>
+  if (loading || !project) return <div className="loading">Carregando...</div>
 
   return (
     <div>
       <ProjectHeader project={project} />
-      <h3 style={{ marginBottom: 16 }}>Step 2 — Approve Overlay Subtitles</h3>
+      <h3 style={{ marginBottom: 16 }}>Etapa 2 — Aprovar Legendas</h3>
       {error && <div className="error-msg">{error}</div>}
 
       <div style={{ marginBottom: 16 }}>
@@ -92,7 +92,7 @@ export default function ApproveOverlay() {
               <input
                 value={entry.text}
                 onChange={(e) => updateEntry(i, 'text', e.target.value)}
-                placeholder="Subtitle text"
+                placeholder="Texto da legenda"
               />
               <CharCounter value={entry.text} max={70} />
             </div>
@@ -102,13 +102,13 @@ export default function ApproveOverlay() {
           </div>
         ))}
         <button className="btn-secondary btn-small" onClick={addEntry} style={{ marginTop: 8 }}>
-          + Add Subtitle
+          + Adicionar Legenda
         </button>
       </div>
 
       <div style={{ display: 'flex', gap: 12 }}>
         <button className="btn-success" onClick={handleApprove} disabled={saving || overlay.length === 0} style={{ flex: 1, padding: 14 }}>
-          {saving ? 'Saving...' : 'Approve & Continue to Post'}
+          {saving ? 'Salvando...' : 'Aprovar e Continuar para o Post'}
         </button>
       </div>
     </div>

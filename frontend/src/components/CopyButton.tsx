@@ -11,7 +11,7 @@ export default function CopyButton({ text }: { text: string }) {
 
   return (
     <button className="btn-secondary btn-small" onClick={handleCopy}>
-      {copied ? 'Copied!' : 'Copy'}
+      {copied ? 'Copiado!' : 'Copiar'}
     </button>
   )
 }

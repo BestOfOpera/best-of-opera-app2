@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { api, Project } from '../api'
 
 const STATUS_LABELS: Record<string, string> = {
-  input_complete: 'Input Complete',
-  generating: 'Generating...',
-  awaiting_approval: 'Awaiting Approval',
-  translating: 'Translating...',
-  export_ready: 'Export Ready',
+  input_complete: 'Dados Completos',
+  generating: 'Gerando...',
+  awaiting_approval: 'Aguardando Aprovação',
+  translating: 'Traduzindo...',
+  export_ready: 'Pronto para Exportar',
 }
 
 function nextStepLink(p: Project): string {
@@ -26,16 +26,16 @@ export default function Dashboard() {
     api.listProjects().then(setProjects).finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="loading">Loading projects...</div>
+  if (loading) return <div className="loading">Carregando projetos...</div>
 
   return (
     <div>
-      <h2 style={{ marginBottom: 24 }}>Projects</h2>
+      <h2 style={{ marginBottom: 24 }}>Projetos</h2>
       {projects.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: 48 }}>
-          <p style={{ color: 'var(--text-light)', marginBottom: 16 }}>No projects yet.</p>
+          <p style={{ color: 'var(--text-light)', marginBottom: 16 }}>Nenhum projeto ainda.</p>
           <Link to="/new-project">
-            <button className="btn-primary">Create your first project</button>
+            <button className="btn-primary">Crie seu primeiro projeto</button>
           </Link>
         </div>
       ) : (
@@ -51,7 +51,7 @@ export default function Dashboard() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ textAlign: 'right', fontSize: 12, color: 'var(--text-light)' }}>
-                    {p.overlay_approved && <div style={{ color: 'var(--success)' }}>Overlay OK</div>}
+                    {p.overlay_approved && <div style={{ color: 'var(--success)' }}>Legendas OK</div>}
                     {p.post_approved && <div style={{ color: 'var(--success)' }}>Post OK</div>}
                     {p.youtube_approved && <div style={{ color: 'var(--success)' }}>YouTube OK</div>}
                   </div>

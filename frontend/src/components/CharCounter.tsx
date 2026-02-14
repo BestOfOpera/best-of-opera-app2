@@ -4,7 +4,7 @@ export default function CharCounter({ value, max }: { value: string; max?: numbe
 
   return (
     <span style={{ fontSize: 12, color, fontWeight: 500 }}>
-      {len}{max ? ` / ${max}` : ''} chars
+      {len}{max ? ` / ${max}` : ''} caracteres
     </span>
   )
 }

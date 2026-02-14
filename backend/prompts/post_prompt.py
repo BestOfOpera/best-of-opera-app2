@@ -76,7 +76,8 @@ CRITICAL RULES:
 - The TOTAL post text MUST be between 1600 and 1800 characters. This is NON-NEGOTIABLE. Count your characters carefully. If the text is under 1600, expand the storytelling section with more vivid details. If over 1800, trim.
 - Each section must be separated by a blank line.
 - Section 3 credits must use the EXACT format shown above (with "Voice type:", "Date of Birth:", "Composer:", "Composition date:" labels in English).
-- ALL text must be in ENGLISH. The credit labels will be translated to other languages in a separate step.
+- Write ALL content in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
+- Section 3 credit labels (Voice type, Date of Birth, Composer, Composition date) must always be in English regardless of hook language, as they will be translated separately.
 - Return ONLY the post text, no explanations or commentary."""
 
 
@@ -84,5 +85,5 @@ def build_post_prompt_with_custom(project, custom_prompt: str) -> str:
     base = build_post_prompt(project)
     return f"""{base}
 
-ADDITIONAL INSTRUCTIONS FROM THE USER (these may be in any language — interpret them but ALWAYS write the output in ENGLISH):
+ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
 {custom_prompt}"""

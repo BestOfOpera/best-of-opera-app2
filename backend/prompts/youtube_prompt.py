@@ -28,6 +28,8 @@ Return EXACTLY two lines:
 Line 1: The title
 Line 2: The tags (comma-separated)
 
+Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
+
 Nothing else."""
 
 
@@ -35,5 +37,5 @@ def build_youtube_prompt_with_custom(project, custom_prompt: str) -> str:
     base = build_youtube_prompt(project)
     return f"""{base}
 
-ADDITIONAL INSTRUCTIONS FROM THE USER (these may be in any language — interpret them but ALWAYS write the output in ENGLISH):
+ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
 {custom_prompt}"""

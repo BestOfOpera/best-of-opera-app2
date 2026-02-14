@@ -1,11 +1,11 @@
 import type { Project } from '../api'
 
 const STATUS_LABELS: Record<string, string> = {
-  input_complete: 'Input Complete',
-  generating: 'Generating...',
-  awaiting_approval: 'Awaiting Approval',
-  translating: 'Translating...',
-  export_ready: 'Export Ready',
+  input_complete: 'Dados Completos',
+  generating: 'Gerando...',
+  awaiting_approval: 'Aguardando Aprovação',
+  translating: 'Traduzindo...',
+  export_ready: 'Pronto para Exportar',
 }
 
 export default function ProjectHeader({ project }: { project: Project }) {

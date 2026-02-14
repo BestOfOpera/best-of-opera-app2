@@ -17,14 +17,14 @@ export default function RegenerateButton({ onRegenerate, loading }: Props) {
           disabled={loading}
           onClick={() => onRegenerate()}
         >
-          {loading ? 'Regenerating...' : 'Regenerate'}
+          {loading ? 'Regenerando...' : 'Regenerar'}
         </button>
         <button
           className="btn-secondary btn-small"
           onClick={() => setShowPrompt(!showPrompt)}
           style={{ fontSize: 12 }}
         >
-          {showPrompt ? 'Hide prompt' : 'Custom prompt'}
+          {showPrompt ? 'Ocultar prompt' : 'Prompt personalizado'}
         </button>
       </div>
       {showPrompt && (
@@ -32,7 +32,7 @@ export default function RegenerateButton({ onRegenerate, loading }: Props) {
           <textarea
             value={customPrompt}
             onChange={(e) => setCustomPrompt(e.target.value)}
-            placeholder="Add custom instructions for regeneration..."
+            placeholder="Adicione instruções personalizadas..."
             style={{ minHeight: 60, flex: 1 }}
           />
           <button
@@ -41,7 +41,7 @@ export default function RegenerateButton({ onRegenerate, loading }: Props) {
             onClick={() => onRegenerate(customPrompt)}
             style={{ alignSelf: 'flex-end' }}
           >
-            Go
+            Enviar
           </button>
         </div>
       )}

@@ -67,7 +67,7 @@ export default function NewProject() {
       setConfidence(result.confidence || 'high')
       setDetected(true)
     } catch (err: any) {
-      setError(`Auto-detection failed: ${err.message}. Please fill in the fields manually.`)
+      setError(`Falha na detecção automática: ${err.message}. Preencha os campos manualmente.`)
       setDetected(true)
       setConfidence('low')
     } finally {
@@ -103,18 +103,18 @@ export default function NewProject() {
 
   return (
     <div>
-      <h2 style={{ marginBottom: 24 }}>New Project</h2>
+      <h2 style={{ marginBottom: 24 }}>Novo Projeto</h2>
       {error && <div className="error-msg">{error}</div>}
       <form onSubmit={handleSubmit}>
         {/* STEP A — Human input */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <h3 style={{ marginBottom: 16, fontSize: 16 }}>Step A — Your Input</h3>
+          <h3 style={{ marginBottom: 16, fontSize: 16 }}>Etapa A — Seus Dados</h3>
 
           {/* Screenshot upload */}
           <div className="form-group">
-            <label>YouTube Screenshot *</label>
+            <label>Screenshot do YouTube *</label>
             <p style={{ fontSize: 13, color: 'var(--text-light)', marginBottom: 8 }}>
-              Take a screenshot of the YouTube video page (showing title, description, channel name)
+              Tire um screenshot da página do vídeo no YouTube (mostrando título, descrição, nome do canal)
             </p>
             <input
               ref={fileInputRef}
@@ -129,7 +129,7 @@ export default function NewProject() {
                 className="btn-secondary"
                 onClick={() => fileInputRef.current?.click()}
               >
-                {screenshotFile ? 'Change Screenshot' : 'Upload Screenshot'}
+                {screenshotFile ? 'Trocar Screenshot' : 'Enviar Screenshot'}
               </button>
               {screenshotFile && (
                 <button
@@ -138,7 +138,7 @@ export default function NewProject() {
                   onClick={handleDetect}
                   disabled={detecting}
                 >
-                  {detecting ? 'Detecting...' : detected ? 'Re-detect' : 'Detect Metadata'}
+                  {detecting ? 'Detectando...' : detected ? 'Re-detectar' : 'Detectar Metadados'}
                 </button>
               )}
             </div>
@@ -158,7 +158,7 @@ export default function NewProject() {
           </div>
 
           <div className="form-group">
-            <label>YouTube Link (optional)</label>
+            <label>Link do YouTube (opcional)</label>
             <input
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
@@ -167,31 +167,31 @@ export default function NewProject() {
           </div>
 
           <div className="form-group">
-            <label>Hook / Creative Angle *</label>
+            <label>Gancho / Ângulo Criativo *</label>
             <textarea
               value={hook}
               onChange={(e) => setHook(e.target.value)}
-              placeholder="What makes this performance special? The emotional angle for the post..."
+              placeholder="O que torna esta performance especial? O ângulo emocional para o post..."
               style={{ minHeight: 80 }}
             />
           </div>
 
           <div className="form-row">
             <div className="form-group">
-              <label>Category *</label>
+              <label>Categoria *</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
                 {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c || '— Select —'}</option>
+                  <option key={c} value={c}>{c || '— Selecionar —'}</option>
                 ))}
               </select>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="form-group">
-                <label>Cut Start *</label>
+                <label>Início do Corte *</label>
                 <input value={cutStart} onChange={(e) => setCutStart(e.target.value)} placeholder="1:15" />
               </div>
               <div className="form-group">
-                <label>Cut End *</label>
+                <label>Fim do Corte *</label>
                 <input value={cutEnd} onChange={(e) => setCutEnd(e.target.value)} placeholder="2:45" />
               </div>
             </div>
@@ -202,7 +202,7 @@ export default function NewProject() {
         {(detected || detecting) && (
           <div className="card" style={{ marginBottom: 24, opacity: detecting ? 0.6 : 1, transition: 'opacity 0.3s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ fontSize: 16 }}>Step B — Detected Metadata</h3>
+              <h3 style={{ fontSize: 16 }}>Etapa B — Metadados Detectados</h3>
               {detected && !detecting && (
                 <span style={{
                   fontSize: 13,
@@ -211,14 +211,14 @@ export default function NewProject() {
                   background: confidence === 'high' ? '#D1FAE5' : '#FEF3C7',
                   color: confidence === 'high' ? '#065F46' : '#92400E',
                 }}>
-                  {confidence === 'high' ? 'Detected' : 'Low confidence — please review'}
+                  {confidence === 'high' ? 'Detectado' : 'Baixa confiança — por favor revise'}
                 </span>
               )}
             </div>
 
             {detecting && (
               <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-light)' }}>
-                Analyzing screenshot...
+                Analisando screenshot...
               </div>
             )}
 
@@ -226,52 +226,52 @@ export default function NewProject() {
               <>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Artist *</label>
+                    <label>Artista *</label>
                     <input value={meta.artist} onChange={(e) => setField('artist', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label>Work *</label>
+                    <label>Obra *</label>
                     <input value={meta.work} onChange={(e) => setField('work', e.target.value)} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Composer *</label>
+                    <label>Compositor *</label>
                     <input value={meta.composer} onChange={(e) => setField('composer', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label>Composition Year</label>
+                    <label>Ano de Composição</label>
                     <input value={meta.composition_year} onChange={(e) => setField('composition_year', e.target.value)} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Nationality</label>
+                    <label>Nacionalidade</label>
                     <input value={meta.nationality} onChange={(e) => setField('nationality', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label>Flag Emoji</label>
+                    <label>Emoji da Bandeira</label>
                     <input value={meta.nationality_flag} onChange={(e) => setField('nationality_flag', e.target.value)} style={{ fontSize: 20 }} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Voice Type / Instrument</label>
+                    <label>Tipo de Voz / Instrumento</label>
                     <input value={meta.voice_type} onChange={(e) => setField('voice_type', e.target.value)} />
                   </div>
                   <div className="form-group">
-                    <label>Album / Opera</label>
+                    <label>Álbum / Ópera</label>
                     <input value={meta.album_opera} onChange={(e) => setField('album_opera', e.target.value)} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Date of Birth</label>
+                    <label>Data de Nascimento</label>
                     <input value={meta.birth_date} onChange={(e) => setField('birth_date', e.target.value)} placeholder="dd/mm/yyyy" />
                   </div>
                   <div className="form-group">
-                    <label>Date of Death</label>
-                    <input value={meta.death_date} onChange={(e) => setField('death_date', e.target.value)} placeholder="Empty if alive" />
+                    <label>Data de Falecimento</label>
+                    <input value={meta.death_date} onChange={(e) => setField('death_date', e.target.value)} placeholder="Vazio se vivo" />
                   </div>
                 </div>
               </>
@@ -287,12 +287,12 @@ export default function NewProject() {
             disabled={loading || !canSubmit}
             style={{ width: '100%', padding: 14, fontSize: 16, opacity: canSubmit ? 1 : 0.5 }}
           >
-            {loading ? 'Creating & Generating Content...' : 'Create Project & Generate Content'}
+            {loading ? 'Criando & Gerando Conteúdo...' : 'Criar Projeto e Gerar Conteúdo'}
           </button>
         )}
         {detected && !canSubmit && !loading && (
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-light)', marginTop: 8 }}>
-            Fill in all required fields (*) to continue
+            Preencha todos os campos obrigatórios (*) para continuar
           </p>
         )}
       </form>

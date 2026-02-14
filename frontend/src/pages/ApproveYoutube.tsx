@@ -72,12 +72,12 @@ export default function ApproveYoutube() {
     }
   }
 
-  if (loading || !project) return <div className="loading">Loading...</div>
+  if (loading || !project) return <div className="loading">Carregando...</div>
 
   return (
     <div>
       <ProjectHeader project={project} />
-      <h3 style={{ marginBottom: 16 }}>Step 4 — Approve YouTube Title & Tags</h3>
+      <h3 style={{ marginBottom: 16 }}>Etapa 4 — Aprovar YouTube</h3>
       {error && <div className="error-msg">{error}</div>}
 
       <div style={{ marginBottom: 16 }}>
@@ -87,7 +87,7 @@ export default function ApproveYoutube() {
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="form-group">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <label>YouTube Title</label>
+            <label>Título do YouTube</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <CharCounter value={title} max={100} />
               <CopyButton text={title} />
@@ -98,7 +98,7 @@ export default function ApproveYoutube() {
 
         <div className="form-group">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <label>Tags (comma-separated)</label>
+            <label>Tags (separadas por vírgula)</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <CharCounter value={tags} max={450} />
               <CopyButton text={tags} />
@@ -118,7 +118,7 @@ export default function ApproveYoutube() {
         disabled={saving || translating || !title.trim()}
         style={{ width: '100%', padding: 14 }}
       >
-        {translating ? 'Translating to 6 languages...' : saving ? 'Saving...' : 'Approve & Translate'}
+        {translating ? 'Traduzindo para 6 idiomas...' : saving ? 'Salvando...' : 'Aprovar e Traduzir'}
       </button>
     </div>
   )

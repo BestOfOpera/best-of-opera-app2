@@ -55,6 +55,8 @@ RULES:
 Return ONLY a JSON array with objects having "timestamp" (in "MM:SS" format) and "text" fields.
 Example: [{{"timestamp": "00:00", "text": "This voice changed everything"}}, {{"timestamp": "00:05", "text": "Maria Callas in 1958"}}]
 
+Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
+
 Return the JSON array and nothing else."""
 
 
@@ -62,5 +64,5 @@ def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:
     base = build_overlay_prompt(project)
     return f"""{base}
 
-ADDITIONAL INSTRUCTIONS FROM THE USER (these may be in any language — interpret them but ALWAYS write the output in ENGLISH):
+ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
 {custom_prompt}"""

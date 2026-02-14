@@ -10,13 +10,12 @@ LANGUAGES = ["pt", "es", "de", "fr", "it", "pl"]
 TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
 
 
-def translate_text(text: str, target_lang: str, source_lang: str = "en") -> str:
+def translate_text(text: str, target_lang: str) -> str:
     if not text or not text.strip():
         return ""
     resp = requests.post(TRANSLATE_URL, data={
         "q": text,
         "target": target_lang,
-        "source": source_lang,
         "format": "text",
         "key": GOOGLE_TRANSLATE_API_KEY,
     })

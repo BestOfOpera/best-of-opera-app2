@@ -5,13 +5,13 @@ import ProjectHeader from '../components/ProjectHeader'
 import CopyButton from '../components/CopyButton'
 
 const LANGUAGES = [
-  { code: 'en', label: 'English (Original)' },
-  { code: 'pt', label: 'Portuguese' },
-  { code: 'es', label: 'Spanish' },
-  { code: 'de', label: 'German' },
-  { code: 'fr', label: 'French' },
-  { code: 'it', label: 'Italian' },
-  { code: 'pl', label: 'Polish' },
+  { code: 'en', label: 'Original' },
+  { code: 'pt', label: 'Português' },
+  { code: 'es', label: 'Espanhol' },
+  { code: 'de', label: 'Alemão' },
+  { code: 'fr', label: 'Francês' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'pl', label: 'Polonês' },
 ]
 
 export default function Export() {
@@ -65,24 +65,24 @@ export default function Export() {
     URL.revokeObjectURL(url)
   }
 
-  if (loading || !project) return <div className="loading">Loading...</div>
+  if (loading || !project) return <div className="loading">Carregando...</div>
 
   const hasTranslations = project.translations.length > 0
 
   return (
     <div>
       <ProjectHeader project={project} />
-      <h3 style={{ marginBottom: 16 }}>Step 6 — Export</h3>
+      <h3 style={{ marginBottom: 16 }}>Etapa 6 — Exportar</h3>
       {error && <div className="error-msg">{error}</div>}
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {!hasTranslations && (
           <button className="btn-primary" onClick={handleTranslate} disabled={translating}>
-            {translating ? 'Translating...' : 'Translate to 6 languages'}
+            {translating ? 'Traduzindo...' : 'Traduzir para 6 idiomas'}
           </button>
         )}
         <a href={api.exportZipUrl(projectId)} download>
-          <button className="btn-primary">Download ZIP</button>
+          <button className="btn-primary">Baixar ZIP</button>
         </a>
       </div>
 
@@ -111,13 +111,13 @@ export default function Export() {
       </div>
 
       {loadingLang ? (
-        <div className="loading">Loading {activeLang}...</div>
+        <div className="loading">Carregando {activeLang}...</div>
       ) : exportData ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Post */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <h4 style={{ fontSize: 14 }}>Post Text</h4>
+              <h4 style={{ fontSize: 14 }}>Texto do Post</h4>
               <CopyButton text={exportData.post_text || ''} />
             </div>
             <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, background: '#FAFAFA', padding: 16, borderRadius: 8 }}>
@@ -132,7 +132,7 @@ export default function Export() {
               <CopyButton text={`${exportData.youtube_title}\n\n${exportData.youtube_tags}`} />
             </div>
             <div style={{ fontSize: 14 }}>
-              <p><strong>Title:</strong> {exportData.youtube_title || '—'}</p>
+              <p><strong>Título:</strong> {exportData.youtube_title || '—'}</p>
               <p style={{ marginTop: 8 }}><strong>Tags:</strong> {exportData.youtube_tags || '—'}</p>
             </div>
           </div>
@@ -140,10 +140,10 @@ export default function Export() {
           {/* SRT */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <h4 style={{ fontSize: 14 }}>Subtitles (SRT)</h4>
+              <h4 style={{ fontSize: 14 }}>Legendas (SRT)</h4>
               <div style={{ display: 'flex', gap: 8 }}>
                 <CopyButton text={exportData.srt || ''} />
-                <button className="btn-secondary btn-small" onClick={downloadSrt}>Download .srt</button>
+                <button className="btn-secondary btn-small" onClick={downloadSrt}>Baixar .srt</button>
               </div>
             </div>
             <pre style={{ fontSize: 13, background: '#FAFAFA', padding: 16, borderRadius: 8, overflow: 'auto', maxHeight: 300 }}>
@@ -155,7 +155,7 @@ export default function Export() {
           {exportData.overlay_json && (
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <h4 style={{ fontSize: 14 }}>Overlay Subtitles</h4>
+                <h4 style={{ fontSize: 14 }}>Legendas Overlay</h4>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {exportData.overlay_json.map((entry, i) => (
@@ -170,7 +170,7 @@ export default function Export() {
         </div>
       ) : (
         <div className="card" style={{ textAlign: 'center', padding: 32, color: 'var(--text-light)' }}>
-          No data available for this language. Run translations first.
+          Nenhum dado disponível para este idioma. Execute as traduções primeiro.
         </div>
       )}
     </div>
