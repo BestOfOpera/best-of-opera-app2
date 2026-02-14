@@ -4,7 +4,7 @@ from app.services.regua import timestamp_to_seconds
 
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "Montserrat",
+        "fontname": "Georgia",
         "fontsize": 42,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
