@@ -30,6 +30,7 @@ export default function ValidarAlinhamento() {
   const [error, setError] = useState('')
   const [polling, setPolling] = useState(false)
   const [retranscrevendo, setRetranscrevendo] = useState(false)
+  const [audioFailed, setAudioFailed] = useState(false)
   const audioRef = useRef(null)
 
   const load = async () => {
@@ -159,12 +160,13 @@ export default function ValidarAlinhamento() {
       {/* Player de áudio / YouTube fallback */}
       <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
         <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento{edicao.arquivo_audio_completo ? ' (clique nos timestamps para pular)' : ''}:</p>
-        {edicao.arquivo_audio_completo ? (
+        {edicao.arquivo_audio_completo && !audioFailed ? (
           <audio
             ref={audioRef}
             controls
             src={editorApi.audioUrl(id)}
             className="w-full"
+            onError={() => setAudioFailed(true)}
           />
         ) : edicao.youtube_video_id ? (
           <iframe
