@@ -29,6 +29,7 @@ export default function ValidarAlinhamento() {
   const [cortando, setCortando] = useState(false)
   const [error, setError] = useState('')
   const [polling, setPolling] = useState(false)
+  const [retranscrevendo, setRetranscrevendo] = useState(false)
   const audioRef = useRef(null)
 
   const load = async () => {
@@ -155,18 +156,30 @@ export default function ValidarAlinhamento() {
         <p className="text-sm text-gray-400 mt-1">Passo 4 — Validar Alinhamento</p>
       </div>
 
-      {/* Player de áudio */}
-      {edicao.arquivo_audio_completo && (
-        <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
-          <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento (clique nos timestamps para pular):</p>
+      {/* Player de áudio / YouTube fallback */}
+      <div className="bg-white rounded-xl shadow-sm border p-4 mb-4">
+        <p className="text-xs text-gray-400 mb-2">Ouça enquanto valida o alinhamento{edicao.arquivo_audio_completo ? ' (clique nos timestamps para pular)' : ''}:</p>
+        {edicao.arquivo_audio_completo ? (
           <audio
             ref={audioRef}
             controls
             src={editorApi.audioUrl(id)}
             className="w-full"
           />
-        </div>
-      )}
+        ) : edicao.youtube_video_id ? (
+          <iframe
+            width="100%"
+            height="80"
+            src={`https://www.youtube.com/embed/${edicao.youtube_video_id}?rel=0`}
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+            className="rounded-lg"
+            style={{ maxWidth: '100%' }}
+          />
+        ) : (
+          <p className="text-xs text-gray-400">Nenhuma fonte de áudio disponível.</p>
+        )}
+      </div>
 
       {/* Info bar */}
       <div className="flex items-center gap-4 mb-6 flex-wrap">
@@ -205,18 +218,37 @@ export default function ValidarAlinhamento() {
               >
                 <div className="flex items-start gap-3">
                   <span className="text-xs mt-1">{FLAG_DOTS[seg.flag]}</span>
-                  <span
-                    className="text-xs text-purple mt-1 font-mono w-24 shrink-0 cursor-pointer hover:underline"
-                    title="Clique para ouvir"
-                    onClick={() => {
-                      if (audioRef.current) {
-                        audioRef.current.currentTime = parseTimestamp(seg.start)
-                        audioRef.current.play()
-                      }
-                    }}
-                  >
-                    {seg.start} → {seg.end}
-                  </span>
+                  <div className="flex flex-col gap-0.5 shrink-0">
+                    <div className="flex items-center gap-1">
+                      <input
+                        value={seg.start || ''}
+                        onChange={e => updateSegmento(i, 'start', e.target.value)}
+                        className="w-[85px] text-xs font-mono bg-transparent border-b border-dashed border-gray-300 hover:border-purple focus:border-purple outline-none py-0.5"
+                        title="Início (editável)"
+                      />
+                      <span className="text-xs text-gray-300">→</span>
+                      <input
+                        value={seg.end || ''}
+                        onChange={e => updateSegmento(i, 'end', e.target.value)}
+                        className="w-[85px] text-xs font-mono bg-transparent border-b border-dashed border-gray-300 hover:border-purple focus:border-purple outline-none py-0.5"
+                        title="Fim (editável)"
+                      />
+                    </div>
+                    {edicao.arquivo_audio_completo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (audioRef.current) {
+                            audioRef.current.currentTime = parseTimestamp(seg.start)
+                            audioRef.current.play()
+                          }
+                        }}
+                        className="text-[10px] text-purple hover:underline text-left cursor-pointer"
+                      >
+                        Ouvir
+                      </button>
+                    )}
+                  </div>
                   <div className="flex-1">
                     <input
                       value={seg.texto_final || ''}
@@ -240,6 +272,26 @@ export default function ValidarAlinhamento() {
 
       {/* Ações */}
       <div className="flex gap-3 mt-6 sticky bottom-4">
+        <button
+          onClick={async () => {
+            setRetranscrevendo(true)
+            setError('')
+            try {
+              await editorApi.iniciarTranscricao(id)
+              setPolling(true)
+              setAlinhamento(null)
+            } catch (err) {
+              setError('Erro ao retranscrever: ' + (err.response?.data?.detail || err.message))
+            } finally {
+              setRetranscrevendo(false)
+            }
+          }}
+          disabled={retranscrevendo || salvando}
+          className="flex items-center justify-center gap-2 bg-gray-100 text-gray-600 px-4 py-3 rounded-lg font-medium hover:bg-gray-200 transition disabled:opacity-50"
+        >
+          <RefreshCw size={16} className={retranscrevendo ? 'animate-spin' : ''} />
+          Retranscrever
+        </button>
         <button
           onClick={handleValidar}
           disabled={salvando || cortando}

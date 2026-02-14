@@ -147,10 +147,10 @@ export default function ValidarLetra() {
             href={`https://genius.com/search?q=${encodeURIComponent((edicao.artista || '') + ' ' + (edicao.musica || ''))}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition"
+            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition"
           >
             <ExternalLink size={14} />
-            Conferir no Genius
+            Buscar no Genius
           </a>
         </div>
 
