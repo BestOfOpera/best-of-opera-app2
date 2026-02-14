@@ -118,7 +118,7 @@ TODOS os versos da letra devem aparecer no resultado — a música está sendo c
 REGRAS:
 1. Use EXATAMENTE o texto da letra original fornecida
 2. NÃO modifique nenhuma palavra
-3. Marque QUANDO cada frase começa e termina no áudio
+3. Marque QUANDO cada frase começa e termina no áudio com a MAIOR PRECISÃO possível
 4. Timestamps relativos ao INÍCIO do áudio (00:00:00 = início do vídeo)
 5. TODOS os versos da letra DEVEM ter timestamps — ouça o áudio inteiro com atenção
 6. Se há trechos instrumentais ENTRE versos, pule o intervalo mas continue marcando os versos seguintes
@@ -126,6 +126,8 @@ REGRAS:
 8. Se não tem certeza do timestamp exato, marque sua melhor estimativa com [?]
 9. Se ouvir algo cantado que não está na letra, marque como [TEXTO NÃO IDENTIFICADO]
 10. NÃO omita versos — se um verso está na letra, ele está no áudio. Ouça com atenção.
+11. Em trechos de CORO ou ENSEMBLE (várias vozes cantando juntas), preste atenção redobrada ao INÍCIO EXATO de cada verso — muitas vezes o coro começa uma fração de segundo depois do solista
+12. Ouça o áudio pelo menos DUAS VEZES mentalmente antes de responder para garantir precisão nos timestamps
 
 FORMATO JSON:
 [

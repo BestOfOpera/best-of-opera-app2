@@ -256,20 +256,13 @@ async def _transcricao_task(edicao_id: int):
             "compositor": edicao.compositor,
         }
 
-        # Upload do áudio ao Gemini
-        genai = _get_client()
-        mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
-        audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
-        logger.info(f"[{edicao_id}] Áudio uploaded ao Gemini")
-
         # Estratégia: guiada primeiro (comprovadamente funciona bem)
-        # Se resultado bom → usar direto. Senão → tentar refinar com cega.
+        # Upload próprio — não reutilizar file ref (funciona melhor assim)
 
         # Passo 1: Transcrição guiada (texto + timestamps)
-        logger.info(f"[{edicao_id}] Iniciando transcrição GUIADA...")
+        logger.info(f"[{edicao_id}] Iniciando transcrição GUIADA (upload próprio)...")
         segmentos_guiados = await transcrever_guiado_completo(
             edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
-            audio_file_ref=audio_file_ref,
         )
         logger.info(f"[{edicao_id}] Transcrição guiada: {len(segmentos_guiados)} segmentos")
 
@@ -284,6 +277,9 @@ async def _transcricao_task(edicao_id: int):
         if resultado["rota"] == "C":
             logger.info(f"[{edicao_id}] Rota C detectada, tentando merge com transcrição cega...")
             try:
+                genai = _get_client()
+                mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
+                audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
                 segmentos_cegos = await transcrever_cego(
                     audio_file_ref, edicao.idioma, metadados
                 )
