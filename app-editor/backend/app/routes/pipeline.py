@@ -17,7 +17,7 @@ from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela
 from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, _detect_mime_type, _get_client
 from app.services.genius import buscar_letra_genius
 from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
-from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela
+from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
 import shutil
 from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL
 
@@ -266,6 +266,9 @@ async def _transcricao_task(edicao_id: int):
         )
         logger.info(f"[{edicao_id}] Transcrição guiada: {len(segmentos_guiados)} segmentos")
 
+        # Normalizar timestamps do Gemini (formato canônico + validação)
+        segmentos_guiados = normalizar_segmentos(segmentos_guiados)
+
         # Passo 2: Alinhar guiada com letra original (método comprovado)
         resultado = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
         logger.info(
@@ -296,6 +299,9 @@ async def _transcricao_task(edicao_id: int):
                     logger.info(f"[{edicao_id}] Merge não melhorou, mantendo guiada direta")
             except Exception as e:
                 logger.warning(f"[{edicao_id}] Cega falhou, mantendo guiada: {e}")
+
+        # Normalizar resultado final antes de salvar
+        resultado["segmentos"] = normalizar_segmentos(resultado["segmentos"])
 
         alinhamento = Alinhamento(
             edicao_id=edicao_id,

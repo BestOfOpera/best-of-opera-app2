@@ -143,15 +143,6 @@ export default function ValidarLetra() {
             {buscando ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
             {buscando ? 'Buscando...' : jaTemLetra ? 'Buscar Novamente' : 'Buscar Letra'}
           </button>
-          <a
-            href={`https://genius.com/search?q=${encodeURIComponent((edicao.artista || '') + ' ' + (edicao.musica || ''))}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition"
-          >
-            <ExternalLink size={14} />
-            Buscar no Genius
-          </a>
         </div>
 
         {fonte && (
