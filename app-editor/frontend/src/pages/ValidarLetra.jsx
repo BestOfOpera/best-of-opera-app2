@@ -96,9 +96,11 @@ export default function ValidarLetra() {
       </div>
 
       {/* Status do vídeo */}
-      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${videoReady ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'}`}>
+      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${videoReady ? 'bg-green-50 text-green-700' : edicao.erro_msg ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
         {videoReady ? (
           <><Check size={14} /> Vídeo disponível</>
+        ) : edicao.erro_msg ? (
+          <><span className="font-bold">Erro no download:</span> {edicao.erro_msg}</>
         ) : (
           <><Loader2 size={14} className="animate-spin" /> Baixando vídeo em background...</>
         )}

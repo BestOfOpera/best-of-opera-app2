@@ -36,7 +36,12 @@ export default function ValidarAlinhamento() {
       setEdicao(e)
 
       if (e.status === 'transcricao') {
-        setPolling(true)
+        if (e.erro_msg) {
+          setError('Erro na transcrição: ' + e.erro_msg)
+          setPolling(false)
+        } else {
+          setPolling(true)
+        }
         return
       }
       setPolling(false)
@@ -89,13 +94,31 @@ export default function ValidarAlinhamento() {
 
   if (loading || !edicao) return <div className="text-center py-16 text-gray-400">Carregando...</div>
 
-  if (polling) {
+  if (polling || (edicao?.status === 'transcricao' && error)) {
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
-        <RefreshCw size={32} className="mx-auto mb-4 text-purple animate-spin" />
-        <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
-        <p className="text-sm text-gray-400">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
-        <p className="text-xs text-gray-300 mt-4">Atualizando automaticamente...</p>
+        {error ? (
+          <>
+            <div className="text-red-500 text-4xl mb-4">!</div>
+            <h3 className="text-lg font-semibold mb-2 text-red-600">Erro na transcrição</h3>
+            <div className="bg-red-50 text-red-600 text-sm rounded-lg p-4 mb-4 text-left max-w-lg mx-auto whitespace-pre-wrap">{error}</div>
+            <div className="flex gap-3 justify-center mt-4">
+              <button onClick={() => navigate(`/edicao/${id}/letra`)} className="text-purple text-sm hover:underline">
+                Voltar para letra
+              </button>
+              <button onClick={() => { setError(''); setPolling(true); load() }} className="bg-purple text-white px-4 py-2 rounded-lg text-sm hover:bg-purple/90">
+                Tentar novamente
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <RefreshCw size={32} className="mx-auto mb-4 text-purple animate-spin" />
+            <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
+            <p className="text-sm text-gray-400">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
+            <p className="text-xs text-gray-300 mt-4">Atualizando automaticamente...</p>
+          </>
+        )}
       </div>
     )
   }

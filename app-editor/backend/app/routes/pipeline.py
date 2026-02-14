@@ -40,11 +40,44 @@ async def garantir_video(edicao_id: int, background_tasks: BackgroundTasks, db: 
     return {"status": "download iniciado"}
 
 
+def _find_video_in_export(edicao):
+    """Procura vídeo já baixado na pasta EXPORT_PATH (ex: iCloud do APP1)."""
+    if not EXPORT_PATH:
+        return None
+    pasta_projeto = FilePath(EXPORT_PATH) / f"{edicao.artista} - {edicao.musica}"
+    if not pasta_projeto.exists():
+        return None
+    # Procurar qualquer .mp4 na raiz da pasta (vídeo original do APP1)
+    mp4s = [f for f in pasta_projeto.iterdir() if f.suffix == '.mp4' and f.is_file()]
+    if mp4s:
+        # Pegar o maior arquivo (provavelmente o vídeo completo)
+        mp4s.sort(key=lambda f: f.stat().st_size, reverse=True)
+        logger.info(f"Vídeo encontrado na pasta local: {mp4s[0]}")
+        return str(mp4s[0])
+    return None
+
+
 async def _download_video_task(edicao_id: int, youtube_url: str):
     from app.database import SessionLocal
     db = SessionLocal()
     try:
         edicao = db.get(Edicao, edicao_id)
+
+        # 1) Tentar usar vídeo já existente na pasta local (APP1/iCloud)
+        video_local = _find_video_in_export(edicao)
+        if video_local:
+            # Copiar para storage do editor
+            output_dir = FilePath(STORAGE_PATH) / str(edicao_id)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            destino = output_dir / "original.mp4"
+            shutil.copy2(video_local, str(destino))
+            edicao.arquivo_video_completo = str(destino)
+            edicao.status = "letra"
+            edicao.passo_atual = 2
+            db.commit()
+            return
+
+        # 2) Fallback: baixar do YouTube
         resultado = await download_video(youtube_url, edicao_id, STORAGE_PATH)
         edicao.arquivo_video_completo = resultado["arquivo_original"]
         edicao.duracao_total_sec = resultado.get("duracao_total")
