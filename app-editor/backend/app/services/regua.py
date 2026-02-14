@@ -5,23 +5,26 @@ def timestamp_to_seconds(ts: str) -> float:
     """Converte timestamp para segundos.
 
     Formatos aceitos:
-    - HH:MM:SS,mmm (SRT padrão)
+    - HH:MM:SS,mmm (SRT padrão — ex: 00:01:25,300)
     - HH:MM:SS.mmm
-    - MM:SS:mmm (formato Gemini — 3 partes onde última < 1000)
+    - MM:SS:mmm (formato Gemini — ex: 1:25:300, terceira parte >= 100)
     - MM:SS.mmm
     - MM:SS
     """
     ts = ts.replace(",", ".")
     parts = ts.split(":")
     if len(parts) == 3:
-        # Detectar se é HH:MM:SS ou MM:SS:mmm
-        # Se a terceira parte é >= 1000 ou a primeira parte é <= 59 e terceira <= 999
-        # e o valor total faria mais sentido como MM:SS:mmm
         third = float(parts[2])
-        if third > 59:
-            # É MM:SS:mmm (milissegundos na terceira parte)
+        # Formato MM:SS:mmm (Gemini): terceira parte >= 100 é milissegundos
+        # E a primeira parte NÃO tem zero-padding para 2 dígitos de hora
+        # Ex: "1:25:300" → 1min 25seg 300ms
+        # Formato HH:MM:SS.frac (SRT): terceira parte < 100 OU tem decimais normais
+        # Ex: "00:01:25.300" → 0h 1min 25.3seg
+        if third >= 100:
+            # Claramente milissegundos: MM:SS:mmm
             return float(parts[0]) * 60 + float(parts[1]) + third / 1000
         else:
+            # HH:MM:SS.frac (SRT padrão)
             return float(parts[0]) * 3600 + float(parts[1]) * 60 + third
     elif len(parts) == 2:
         return float(parts[0]) * 60 + float(parts[1])
