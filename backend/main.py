@@ -10,6 +10,20 @@ from backend.routers import projects, generation, approval, translation, export
 
 Base.metadata.create_all(bind=engine)
 
+
+def _run_migrations():
+    from sqlalchemy import text, inspect as sa_inspect
+    insp = sa_inspect(engine)
+    if "projects" not in insp.get_table_names():
+        return
+    cols = [c["name"] for c in insp.get_columns("projects")]
+    with engine.begin() as conn:
+        if "hook_category" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN hook_category VARCHAR(50) DEFAULT ''"))
+
+
+_run_migrations()
+
 app = FastAPI(title="Best of Opera — APP2")
 
 app.add_middleware(

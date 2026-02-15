@@ -32,6 +32,8 @@ export const editorApi = {
   traduzirLyrics: (id) => api.post(`/edicoes/${id}/traducao-lyrics`).then(r => r.data),
   obterTraducoes: (id) => api.get(`/edicoes/${id}/traducao-lyrics`).then(r => r.data),
   renderizar: (id) => api.post(`/edicoes/${id}/renderizar`).then(r => r.data),
+  renderizarPreview: (id) => api.post(`/edicoes/${id}/renderizar-preview`).then(r => r.data),
+  aprovarPreview: (id, params) => api.post(`/edicoes/${id}/aprovar-preview`, params).then(r => r.data),
   listarRenders: (id) => api.get(`/edicoes/${id}/renders`).then(r => r.data),
   audioUrl: (id) => `${baseURL}/edicoes/${id}/audio`,
   downloadRenderUrl: (edicaoId, renderId) => `${baseURL}/edicoes/${edicaoId}/renders/${renderId}/download`,

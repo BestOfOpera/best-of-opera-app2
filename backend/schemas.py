@@ -31,6 +31,7 @@ class ProjectCreate(BaseModel):
     album_opera: str = ""
     category: str = ""
     hook: str = ""
+    hook_category: str = ""
     highlights: str = ""
     original_duration: str = ""
     cut_start: str = ""
@@ -51,6 +52,7 @@ class ProjectUpdate(BaseModel):
     album_opera: Optional[str] = None
     category: Optional[str] = None
     hook: Optional[str] = None
+    hook_category: Optional[str] = None
     highlights: Optional[str] = None
     original_duration: Optional[str] = None
     cut_start: Optional[str] = None
@@ -86,6 +88,7 @@ class ProjectOut(BaseModel):
     album_opera: str
     category: str
     hook: str
+    hook_category: str
     highlights: str
     original_duration: str
     cut_start: str

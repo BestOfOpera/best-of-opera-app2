@@ -34,6 +34,7 @@ class Project(Base):
     album_opera: Mapped[str] = mapped_column(String(255), default="")
     category: Mapped[str] = mapped_column(String(100), default="")
     hook: Mapped[str] = mapped_column(Text, default="")
+    hook_category: Mapped[str] = mapped_column(String(50), default="")
     highlights: Mapped[str] = mapped_column(Text, default="")
     original_duration: Mapped[str] = mapped_column(String(20), default="")
     cut_start: Mapped[str] = mapped_column(String(20), default="")

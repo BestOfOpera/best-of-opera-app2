@@ -9,7 +9,7 @@ from app.services.regua import timestamp_to_seconds, seconds_to_timestamp
 ESTILOS_PADRAO = {
     "overlay": {
         "fontname": "Georgia",
-        "fontsize": 55,
+        "fontsize": 47,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 3,
@@ -17,11 +17,11 @@ ESTILOS_PADRAO = {
         "alignment": 8,   # topo
         "marginv": 490,    # 2 linhas cabem sem invadir vídeo
         "bold": True,
-        "italic": False,
+        "italic": True,
     },
     "lyrics": {
         "fontname": "Georgia",
-        "fontsize": 47,
+        "fontsize": 35,
         "primarycolor": "#FFFF64",
         "outlinecolor": "#000000",
         "outline": 2,
@@ -29,11 +29,11 @@ ESTILOS_PADRAO = {
         "alignment": 2,   # base
         "marginv": 580,    # logo abaixo do vídeo
         "bold": True,
-        "italic": False,
+        "italic": True,
     },
     "traducao": {
         "fontname": "Georgia",
-        "fontsize": 47,
+        "fontsize": 35,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 2,
@@ -41,7 +41,7 @@ ESTILOS_PADRAO = {
         "alignment": 2,   # base, abaixo dos lyrics
         "marginv": 520,
         "bold": True,
-        "italic": False,
+        "italic": True,
     },
 }
 

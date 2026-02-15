@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { editorApi } from '../api'
-import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle, PartyPopper, ExternalLink, Pencil, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle, ExternalLink, Pencil, RotateCcw, Eye, MessageSquare } from 'lucide-react'
 
 const IDIOMAS = [
   { code: 'en', flag: '🇬🇧', label: 'Inglês' },
@@ -41,6 +41,9 @@ export default function Conclusao() {
   const [corteInicio, setCorteInicio] = useState('')
   const [corteFim, setCorteFim] = useState('')
   const [reaplicando, setReaplicando] = useState(false)
+  const [notasRevisao, setNotasRevisao] = useState('')
+  const [mostrarRevisao, setMostrarRevisao] = useState(false)
+  const [aprovando, setAprovando] = useState(false)
 
   const load = async () => {
     try {
@@ -57,9 +60,9 @@ export default function Conclusao() {
 
   useEffect(() => { load() }, [id])
 
-  // Polling durante tradução ou renderização
+  // Polling durante tradução, renderização ou preview
   useEffect(() => {
-    if (!edicao || !['renderizando', 'traducao'].includes(edicao.status)) return
+    if (!edicao || !['renderizando', 'traducao', 'preview'].includes(edicao.status)) return
     const timer = setInterval(load, 5000)
     return () => clearInterval(timer)
   }, [edicao?.status])
@@ -77,7 +80,48 @@ export default function Conclusao() {
     }
   }
 
-  const handleRenderizar = async () => {
+  const handleRenderizarPreview = async () => {
+    setRenderizando(true)
+    setError('')
+    try {
+      await editorApi.renderizarPreview(id)
+      await load()
+    } catch (err) {
+      setError('Erro na renderização: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setRenderizando(false)
+    }
+  }
+
+  const handleAprovarPreview = async () => {
+    setAprovando(true)
+    setError('')
+    try {
+      await editorApi.aprovarPreview(id, { aprovado: true })
+      await load()
+    } catch (err) {
+      setError('Erro ao aprovar: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setAprovando(false)
+    }
+  }
+
+  const handleSolicitarRevisao = async () => {
+    setAprovando(true)
+    setError('')
+    try {
+      await editorApi.aprovarPreview(id, { aprovado: false, notas_revisao: notasRevisao })
+      setMostrarRevisao(false)
+      setNotasRevisao('')
+      await load()
+    } catch (err) {
+      setError('Erro ao solicitar revisão: ' + (err.response?.data?.detail || err.message))
+    } finally {
+      setAprovando(false)
+    }
+  }
+
+  const handleRenderizarTodos = async () => {
     setRenderizando(true)
     setError('')
     try {
@@ -130,6 +174,12 @@ export default function Conclusao() {
   const erros = renders.filter(r => r.status === 'erro')
   const todosOk = concluidos.length === 7 && erros.length === 0
   const isConcluido = edicao.status === 'concluido'
+  const isPreviewPronto = edicao.status === 'preview_pronto'
+  const isPreview = edicao.status === 'preview'
+  const isRevisao = edicao.status === 'revisao'
+
+  // Find the preview render (idioma original)
+  const previewRender = renders.find(r => r.idioma === edicao.idioma && r.status === 'concluido')
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -159,6 +209,76 @@ export default function Conclusao() {
       )}
 
       {error && <div className="bg-red-50 text-red-600 text-sm rounded-lg p-3 mb-4">{error}</div>}
+
+      {/* Card de revisão */}
+      {isRevisao && edicao.notas_revisao && (
+        <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-5 mb-6">
+          <div className="flex items-start gap-3">
+            <MessageSquare size={20} className="text-yellow-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-yellow-800 mb-1">Revisão Solicitada</h3>
+              <p className="text-sm text-yellow-700 whitespace-pre-wrap">{edicao.notas_revisao}</p>
+              <button
+                onClick={() => navigate(`/edicao/${id}/alinhamento`)}
+                className="mt-3 flex items-center gap-2 bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700 transition"
+              >
+                <ArrowLeft size={14} />
+                Voltar ao Alinhamento
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview pronto — player + aprovação */}
+      {isPreviewPronto && previewRender && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+          <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
+            <Eye size={18} /> Preview — {edicao.idioma.toUpperCase()}
+          </h3>
+          <video
+            src={editorApi.downloadRenderUrl(id, previewRender.id)}
+            controls
+            className="w-full max-w-md mx-auto rounded-lg shadow-md mb-4"
+            style={{ maxHeight: '500px' }}
+          />
+          <div className="flex gap-3 justify-center flex-wrap">
+            <button
+              onClick={handleAprovarPreview}
+              disabled={aprovando}
+              className="flex items-center gap-2 bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+            >
+              {aprovando ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              Aprovar e Renderizar Todos
+            </button>
+            <button
+              onClick={() => setMostrarRevisao(!mostrarRevisao)}
+              className="flex items-center gap-2 bg-yellow-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-yellow-600 transition"
+            >
+              <MessageSquare size={14} />
+              Solicitar Revisão
+            </button>
+          </div>
+          {mostrarRevisao && (
+            <div className="mt-4 max-w-md mx-auto">
+              <textarea
+                value={notasRevisao}
+                onChange={e => setNotasRevisao(e.target.value)}
+                placeholder="Descreva o que precisa ser ajustado..."
+                rows={3}
+                className="w-full border rounded-lg p-3 text-sm"
+              />
+              <button
+                onClick={handleSolicitarRevisao}
+                disabled={aprovando || !notasRevisao.trim()}
+                className="mt-2 w-full bg-yellow-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-600 transition disabled:opacity-50"
+              >
+                {aprovando ? 'Enviando...' : 'Enviar Revisão'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Resumo */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -253,14 +373,35 @@ export default function Conclusao() {
             {traduzindo || edicao.status === 'traducao' ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
           </button>
         )}
-        <button
-          onClick={handleRenderizar}
-          disabled={renderizando || traduzindo || edicao.status === 'renderizando' || edicao.status === 'traducao'}
-          className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
-        >
-          {renderizando || edicao.status === 'renderizando' ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
-          {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : edicao.status === 'traducao' || traduzindo ? 'Aguardando tradução...' : renders.length > 0 ? 'Re-renderizar' : 'Renderizar 7 Vídeos'}
-        </button>
+        {/* Preview button — shown when no renders yet or in revisão */}
+        {(!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== 'renderizando') && (
+          <button
+            onClick={handleRenderizarPreview}
+            disabled={renderizando || traduzindo || edicao.status === 'traducao'}
+            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
+          >
+            {renderizando || isPreview ? <RefreshCw size={14} className="animate-spin" /> : <Eye size={14} />}
+            {renderizando || isPreview ? 'Renderizando preview...' : 'Renderizar Preview'}
+          </button>
+        )}
+        {/* Spinner during preview rendering */}
+        {isPreview && (
+          <div className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium">
+            <RefreshCw size={14} className="animate-spin" />
+            Renderizando preview...
+          </div>
+        )}
+        {/* Re-renderizar todos (only shown after concluido or if user wants to redo) */}
+        {isConcluido && (
+          <button
+            onClick={handleRenderizarTodos}
+            disabled={renderizando || edicao.status === 'renderizando'}
+            className="flex items-center gap-2 bg-purple text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple/90 transition disabled:opacity-50"
+          >
+            {renderizando || edicao.status === 'renderizando' ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+            {renderizando || edicao.status === 'renderizando' ? 'Renderizando...' : 'Re-renderizar Todos'}
+          </button>
+        )}
         {concluidos.length > 0 && (
           <button
             onClick={handleExportar}

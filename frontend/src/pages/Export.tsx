@@ -5,9 +5,8 @@ import ProjectHeader from '../components/ProjectHeader'
 import CopyButton from '../components/CopyButton'
 
 const LANGUAGES = [
-  { code: 'original', label: 'Original' },
-  { code: 'en', label: 'Inglês' },
   { code: 'pt', label: 'Português' },
+  { code: 'en', label: 'Inglês' },
   { code: 'es', label: 'Espanhol' },
   { code: 'de', label: 'Alemão' },
   { code: 'fr', label: 'Francês' },
@@ -18,7 +17,7 @@ const LANGUAGES = [
 export default function Export() {
   const { id } = useParams<{ id: string }>()
   const [project, setProject] = useState<Project | null>(null)
-  const [activeLang, setActiveLang] = useState('original')
+  const [activeLang, setActiveLang] = useState('pt')
   const [exportData, setExportData] = useState<ExportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingLang, setLoadingLang] = useState(false)
@@ -33,12 +32,15 @@ export default function Export() {
   const [editingOverlay, setEditingOverlay] = useState(false)
   const [editOverlay, setEditOverlay] = useState<{ timestamp: string; text: string }[]>([])
   const [saving, setSaving] = useState(false)
+  const [hasExportPath, setHasExportPath] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportSuccess, setExportSuccess] = useState('')
 
   const projectId = Number(id)
-  const isOriginal = activeLang === 'original'
 
   useEffect(() => {
     api.getProject(projectId).then(setProject).finally(() => setLoading(false))
+    api.getExportConfig().then(c => setHasExportPath(!!c.export_path)).catch(() => {})
   }, [projectId])
 
   const loadLang = (lang: string) => {
@@ -160,12 +162,38 @@ export default function Export() {
         <a href={api.exportZipUrl(projectId)} download>
           <button className="btn-primary">Baixar ZIP</button>
         </a>
+        {hasExportPath && (
+          <button
+            className="btn-primary"
+            disabled={exporting}
+            onClick={async () => {
+              setExporting(true)
+              setExportSuccess('')
+              setError('')
+              try {
+                const res = await api.exportToFolder(projectId)
+                setExportSuccess(`Exportado para: ${res.path}`)
+              } catch (err: any) {
+                setError('Erro ao exportar: ' + err.message)
+              } finally {
+                setExporting(false)
+              }
+            }}
+          >
+            {exporting ? 'Exportando...' : 'Exportar para Pasta'}
+          </button>
+        )}
       </div>
+      {exportSuccess && (
+        <div style={{ marginBottom: 16, padding: '8px 12px', background: '#D1FAE5', color: '#065F46', borderRadius: 8, fontSize: 13 }}>
+          {exportSuccess}
+        </div>
+      )}
 
       {/* Language tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
         {LANGUAGES.map((lang) => {
-          const available = lang.code === 'original' || hasTranslations
+          const available = hasTranslations
           return (
             <button
               key={lang.code}
@@ -187,7 +215,7 @@ export default function Export() {
       </div>
 
       {/* Retranslate single language button */}
-      {!isOriginal && hasTranslations && (
+      {hasTranslations && (
         <div style={{ marginBottom: 16 }}>
           <button
             className="btn-secondary btn-small"
@@ -208,7 +236,7 @@ export default function Export() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h4 style={{ fontSize: 14 }}>Texto do Post</h4>
               <div style={{ display: 'flex', gap: 8 }}>
-                {!isOriginal && !editingPost && (
+                {!editingPost && (
                   <button
                     className="btn-secondary btn-small"
                     onClick={() => { setEditingPost(true); setEditPostText(exportData.post_text || '') }}
@@ -246,7 +274,7 @@ export default function Export() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <h4 style={{ fontSize: 14 }}>YouTube</h4>
               <div style={{ display: 'flex', gap: 8 }}>
-                {!isOriginal && !editingYt && (
+                {!editingYt && (
                   <button
                     className="btn-secondary btn-small"
                     onClick={() => { setEditingYt(true); setEditYtTitle(exportData.youtube_title || ''); setEditYtTags(exportData.youtube_tags || '') }}
@@ -310,7 +338,7 @@ export default function Export() {
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <h4 style={{ fontSize: 14 }}>Legendas Overlay</h4>
-                {!isOriginal && !editingOverlay && (
+                {!editingOverlay && (
                   <button
                     className="btn-secondary btn-small"
                     onClick={() => { setEditingOverlay(true); setEditOverlay([...exportData.overlay_json!]) }}

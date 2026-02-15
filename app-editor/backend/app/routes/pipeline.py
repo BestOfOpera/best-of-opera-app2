@@ -584,7 +584,7 @@ async def renderizar(edicao_id: int, background_tasks: BackgroundTasks, db: Sess
     return {"status": "renderização iniciada"}
 
 
-async def _render_task(edicao_id: int):
+async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False):
     from app.database import SessionLocal
     from app.services.legendas import gerar_ass
     from app.services.ffmpeg_service import renderizar_video
@@ -598,7 +598,7 @@ async def _render_task(edicao_id: int):
             db.commit()
             return
 
-        idiomas = IDIOMAS_ALVO
+        idiomas = idiomas_renderizar if idiomas_renderizar else IDIOMAS_ALVO
         for idioma in idiomas:
             try:
                 # Buscar overlay reindexado
@@ -659,18 +659,63 @@ async def _render_task(edicao_id: int):
                 )
                 db.add(render)
 
-        edicao.status = "concluido"
-        edicao.passo_atual = 9
+        if is_preview:
+            edicao.status = "preview_pronto"
+            edicao.passo_atual = 8
+        else:
+            edicao.status = "concluido"
+            edicao.passo_atual = 9
         db.commit()
 
-        # Exportar para pasta local (se configurado)
-        _exportar_renders(edicao, db)
+        # Exportar para pasta local (se configurado) — apenas na renderização final
+        if not is_preview:
+            _exportar_renders(edicao, db)
     except Exception as e:
         edicao.status = "erro"
         edicao.erro_msg = f"Renderização falhou: {e}"
         db.commit()
     finally:
         db.close()
+
+
+class AprovarPreviewParams(BaseModel):
+    aprovado: bool
+    notas_revisao: Optional[str] = None
+
+
+# --- Preview: Renderizar 1 vídeo para aprovação ---
+@router.post("/edicoes/{edicao_id}/renderizar-preview")
+async def renderizar_preview(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    edicao.status = "preview"
+    db.commit()
+
+    background_tasks.add_task(_render_task, edicao_id, idiomas_renderizar=[edicao.idioma], is_preview=True)
+    return {"status": "preview iniciado", "idioma": edicao.idioma}
+
+
+@router.post("/edicoes/{edicao_id}/aprovar-preview")
+async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    if body.aprovado:
+        # Renderizar os idiomas restantes (exclui o já renderizado no preview)
+        idiomas_restantes = [i for i in IDIOMAS_ALVO if i != edicao.idioma]
+        edicao.status = "renderizando"
+        edicao.notas_revisao = None
+        db.commit()
+        background_tasks.add_task(_render_task, edicao_id, idiomas_renderizar=idiomas_restantes)
+        return {"status": "renderização dos demais idiomas iniciada", "idiomas": idiomas_restantes}
+    else:
+        edicao.status = "revisao"
+        edicao.notas_revisao = body.notas_revisao
+        db.commit()
+        return {"status": "revisão solicitada", "notas": body.notas_revisao}
 
 
 def _exportar_renders(edicao, db):

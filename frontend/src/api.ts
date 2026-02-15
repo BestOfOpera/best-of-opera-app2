@@ -29,6 +29,7 @@ export interface Project {
   album_opera: string;
   category: string;
   hook: string;
+  hook_category: string;
   highlights: string;
   original_duration: string;
   cut_start: string;
@@ -146,4 +147,8 @@ export const api = {
   exportLang: (id: number, lang: string) =>
     request<ExportData>(`/projects/${id}/export/${lang}`),
   exportZipUrl: (id: number) => `${BASE}/projects/${id}/export-zip`,
+  exportToFolder: (id: number) =>
+    request<{ path: string }>(`/projects/${id}/export-to-folder`, { method: 'POST' }),
+  getExportConfig: () =>
+    request<{ export_path: string | null }>('/projects/export-config'),
 };

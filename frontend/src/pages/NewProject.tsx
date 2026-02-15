@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, DetectedMetadata } from '../api'
 
@@ -6,6 +6,34 @@ const CATEGORIES = [
   '', 'Aria', 'Duet', 'Chorus', 'Overture', 'Recitative',
   'Ensemble', 'Ballet', 'Intermezzo', 'Other',
 ]
+
+const HOOK_CATEGORIES = [
+  { key: 'curiosidade_musica', label: 'Curiosidade Sobre a Música', emoji: '🎵', desc: 'Origem, contexto ou fato surpreendente sobre a música' },
+  { key: 'curiosidade_interprete', label: 'Curiosidade Sobre o Intérprete', emoji: '🎤', desc: 'Momento marcante, história de bastidor ou peculiaridade' },
+  { key: 'curiosidade_compositor', label: 'Curiosidade Sobre o Compositor', emoji: '✍️', desc: 'Circunstâncias da criação, rivalidades ou inspirações' },
+  { key: 'valor_historico', label: 'Valor Histórico', emoji: '📜', desc: 'Por que esta gravação é um marco na ópera' },
+  { key: 'climax_vocal', label: 'Clímax Vocal', emoji: '🔥', desc: 'A nota impossível ou passagem tecnicamente extraordinária' },
+  { key: 'peso_emocional', label: 'Peso Emocional', emoji: '💔', desc: 'Drama do enredo ou emoção visível do intérprete' },
+  { key: 'transformacao_progressiva', label: 'Transformação Progressiva', emoji: '🌅', desc: 'Como a interpretação evolui do início ao clímax' },
+  { key: 'dueto_encontro', label: 'Dueto / Encontro', emoji: '🤝', desc: 'Química e diálogo entre vozes' },
+  { key: 'reacao_impacto_visual', label: 'Reação / Impacto Visual', emoji: '😱', desc: 'Plateia em êxtase, aplausos ou momento viral' },
+  { key: 'conexao_cultural', label: 'Conexão Cultural', emoji: '🌍', desc: 'Referências em cinema, TV ou cultura popular' },
+  { key: 'prefiro_escrever', label: 'Prefiro Escrever', emoji: '✏️', desc: 'Escreva seu próprio ângulo criativo' },
+] as const
+
+interface Interpreter {
+  artist: string
+  nationality: string
+  nationality_flag: string
+  voice_type: string
+  birth_date: string
+  death_date: string
+}
+
+const emptyInterpreter = (): Interpreter => ({
+  artist: '', nationality: '', nationality_flag: '',
+  voice_type: '', birth_date: '', death_date: '',
+})
 
 export default function NewProject() {
   const navigate = useNavigate()
@@ -16,6 +44,7 @@ export default function NewProject() {
   // Step A — human input
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [hook, setHook] = useState('')
+  const [hookCategory, setHookCategory] = useState('')
   const [category, setCategory] = useState('')
   const [cutStart, setCutStart] = useState('')
   const [cutEnd, setCutEnd] = useState('')
@@ -27,15 +56,36 @@ export default function NewProject() {
   const [detected, setDetected] = useState(false)
   const [confidence, setConfidence] = useState('')
 
-  // Step B — auto-detected fields (editable)
-  const [meta, setMeta] = useState({
-    artist: '', work: '', composer: '', composition_year: '',
-    nationality: '', nationality_flag: '', voice_type: '',
-    birth_date: '', death_date: '', album_opera: '',
+  // Step B — shared fields
+  const [shared, setShared] = useState({
+    work: '', composer: '', composition_year: '', album_opera: '',
   })
 
-  const setField = (key: string, value: string) =>
-    setMeta(prev => ({ ...prev, [key]: value }))
+  // Step B — per-interpreter fields
+  const [interpreters, setInterpreters] = useState<Interpreter[]>([emptyInterpreter()])
+
+  const isMulti = category === 'Duet' || category === 'Ensemble'
+
+  const setSharedField = (key: string, value: string) =>
+    setShared(prev => ({ ...prev, [key]: value }))
+
+  const setInterpreterField = (index: number, key: keyof Interpreter, value: string) =>
+    setInterpreters(prev => prev.map((interp, i) =>
+      i === index ? { ...interp, [key]: value } : interp
+    ))
+
+  const addInterpreter = () =>
+    setInterpreters(prev => [...prev, emptyInterpreter()])
+
+  const removeInterpreter = (index: number) =>
+    setInterpreters(prev => prev.filter((_, i) => i !== index))
+
+  // When category changes to Duet/Ensemble and only 1 interpreter, auto-add empty
+  useEffect(() => {
+    if (isMulti && interpreters.length < 2) {
+      setInterpreters(prev => [...prev, emptyInterpreter()])
+    }
+  }, [category])
 
   const handleScreenshot = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -52,18 +102,39 @@ export default function NewProject() {
     setError('')
     try {
       const result: DetectedMetadata = await api.detectMetadata(screenshotFile, youtubeUrl)
-      setMeta({
-        artist: result.artist || '',
+      setShared({
         work: result.work || '',
         composer: result.composer || '',
         composition_year: result.composition_year || '',
-        nationality: result.nationality || '',
-        nationality_flag: result.nationality_flag || '',
-        voice_type: result.voice_type || '',
-        birth_date: result.birth_date || '',
-        death_date: result.death_date || '',
         album_opera: result.album_opera || '',
       })
+
+      // Parse artists by " & " for multi-interpreter categories
+      const artistStr = result.artist || ''
+      const artists = artistStr.includes(' & ')
+        ? artistStr.split(' & ').map(a => a.trim())
+        : [artistStr]
+
+      const nationalities = (result.nationality || '').split(' / ').map(s => s.trim())
+      const flags = (result.nationality_flag || '').split(' / ').map(s => s.trim())
+      // Also split flags by space (emoji pairs like "🇷🇺 🇦🇿")
+      const flagsSplit = flags.length === 1 && artists.length > 1
+        ? (result.nationality_flag || '').trim().split(/\s+/)
+        : flags
+      const voiceTypes = (result.voice_type || '').split(' / ').map(s => s.trim())
+      const birthDates = (result.birth_date || '').split(' / ').map(s => s.trim())
+      const deathDates = (result.death_date || '').split(' / ').map(s => s.trim())
+
+      const newInterpreters: Interpreter[] = artists.map((a, i) => ({
+        artist: a,
+        nationality: nationalities[i] || nationalities[0] || '',
+        nationality_flag: flagsSplit[i] || flagsSplit[0] || '',
+        voice_type: voiceTypes[i] || voiceTypes[0] || '',
+        birth_date: birthDates[i] || birthDates[0] || '',
+        death_date: deathDates[i] || deathDates[0] || '',
+      }))
+
+      setInterpreters(newInterpreters)
       setConfidence(result.confidence || 'high')
       setDetected(true)
     } catch (err: any) {
@@ -75,8 +146,11 @@ export default function NewProject() {
     }
   }
 
-  const stepAComplete = hook.trim() && category && cutStart && cutEnd
-  const canSubmit = stepAComplete && detected && meta.artist && meta.work && meta.composer
+  const hookValid = hookCategory === 'prefiro_escrever'
+    ? hook.trim().length > 0
+    : hookCategory.length > 0
+  const stepAComplete = hookValid && category && cutStart && cutEnd
+  const canSubmit = stepAComplete && detected && interpreters[0]?.artist && shared.work && shared.composer
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,13 +158,27 @@ export default function NewProject() {
     setError('')
     setLoading(true)
     try {
+      // Join interpreter fields with " & " / " / "
+      const joinField = (key: keyof Interpreter) =>
+        interpreters.map(i => i[key]).filter(Boolean).join(key === 'artist' ? ' & ' : ' / ')
+
       const project = await api.createProject({
         youtube_url: youtubeUrl,
         hook,
+        hook_category: hookCategory,
         category,
         cut_start: cutStart,
         cut_end: cutEnd,
-        ...meta,
+        artist: joinField('artist'),
+        work: shared.work,
+        composer: shared.composer,
+        composition_year: shared.composition_year,
+        nationality: joinField('nationality'),
+        nationality_flag: joinField('nationality_flag'),
+        voice_type: joinField('voice_type'),
+        birth_date: joinField('birth_date'),
+        death_date: joinField('death_date'),
+        album_opera: shared.album_opera,
       })
       await api.generate(project.id)
       navigate(`/project/${project.id}/approve-overlay`)
@@ -100,6 +188,62 @@ export default function NewProject() {
       setLoading(false)
     }
   }
+
+  const renderInterpreterBlock = (interp: Interpreter, index: number) => (
+    <div key={index} style={{
+      padding: 16, borderRadius: 8, border: '1px solid var(--border)',
+      background: isMulti ? '#FAFAFA' : 'transparent',
+      marginBottom: isMulti ? 12 : 0,
+    }}>
+      {isMulti && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--purple)' }}>
+            Intérprete {index + 1}
+          </span>
+          {interpreters.length > 1 && (
+            <button
+              type="button"
+              className="btn-secondary btn-small"
+              onClick={() => removeInterpreter(index)}
+              style={{ fontSize: 11, padding: '2px 8px' }}
+            >
+              Remover
+            </button>
+          )}
+        </div>
+      )}
+      <div className="form-row">
+        <div className="form-group">
+          <label>Artista *</label>
+          <input value={interp.artist} onChange={(e) => setInterpreterField(index, 'artist', e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Nacionalidade</label>
+          <input value={interp.nationality} onChange={(e) => setInterpreterField(index, 'nationality', e.target.value)} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Emoji da Bandeira</label>
+          <input value={interp.nationality_flag} onChange={(e) => setInterpreterField(index, 'nationality_flag', e.target.value)} style={{ fontSize: 20 }} />
+        </div>
+        <div className="form-group">
+          <label>Tipo de Voz / Instrumento</label>
+          <input value={interp.voice_type} onChange={(e) => setInterpreterField(index, 'voice_type', e.target.value)} />
+        </div>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Data de Nascimento</label>
+          <input value={interp.birth_date} onChange={(e) => setInterpreterField(index, 'birth_date', e.target.value)} placeholder="dd/mm/yyyy" />
+        </div>
+        <div className="form-group">
+          <label>Data de Falecimento</label>
+          <input value={interp.death_date} onChange={(e) => setInterpreterField(index, 'death_date', e.target.value)} placeholder="Vazio se vivo" />
+        </div>
+      </div>
+    </div>
+  )
 
   return (
     <div>
@@ -167,13 +311,70 @@ export default function NewProject() {
           </div>
 
           <div className="form-group">
-            <label>Gancho / Ângulo Criativo *</label>
-            <textarea
-              value={hook}
-              onChange={(e) => setHook(e.target.value)}
-              placeholder="O que torna esta performance especial? O ângulo emocional para o post..."
-              style={{ minHeight: 80 }}
-            />
+            <label>Categoria do Gancho *</label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 8,
+              marginBottom: 12,
+            }}>
+              {HOOK_CATEGORIES.map((hc) => (
+                <button
+                  key={hc.key}
+                  type="button"
+                  onClick={() => {
+                    setHookCategory(hc.key)
+                    if (hc.key !== 'prefiro_escrever' && hookCategory === 'prefiro_escrever') {
+                      setHook('')
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                    padding: '10px 12px',
+                    borderRadius: 8,
+                    border: hookCategory === hc.key
+                      ? '2px solid var(--purple)'
+                      : '1px solid var(--border)',
+                    background: hookCategory === hc.key ? '#F3E8FF' : '#FFF',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: 20, lineHeight: 1 }}>{hc.emoji}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{hc.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 2 }}>{hc.desc}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {hookCategory && hookCategory !== 'prefiro_escrever' && (
+              <div style={{ marginTop: 4 }}>
+                <label style={{ fontSize: 13 }}>Complemento (opcional)</label>
+                <textarea
+                  value={hook}
+                  onChange={(e) => setHook(e.target.value)}
+                  placeholder="Quer acrescentar algo ao prompt?"
+                  style={{ minHeight: 60 }}
+                />
+              </div>
+            )}
+
+            {hookCategory === 'prefiro_escrever' && (
+              <div style={{ marginTop: 4 }}>
+                <label style={{ fontSize: 13 }}>Seu gancho *</label>
+                <textarea
+                  value={hook}
+                  onChange={(e) => setHook(e.target.value)}
+                  placeholder="Escreva seu ângulo criativo..."
+                  style={{ minHeight: 80 }}
+                />
+              </div>
+            )}
           </div>
 
           <div className="form-row">
@@ -224,54 +425,39 @@ export default function NewProject() {
 
             {detected && !detecting && (
               <>
+                {/* Per-interpreter blocks */}
+                {interpreters.map((interp, i) => renderInterpreterBlock(interp, i))}
+
+                {isMulti && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={addInterpreter}
+                    style={{ marginBottom: 16, fontSize: 13 }}
+                  >
+                    + Adicionar Intérprete
+                  </button>
+                )}
+
+                {/* Shared fields */}
                 <div className="form-row">
-                  <div className="form-group">
-                    <label>Artista *</label>
-                    <input value={meta.artist} onChange={(e) => setField('artist', e.target.value)} />
-                  </div>
                   <div className="form-group">
                     <label>Obra *</label>
-                    <input value={meta.work} onChange={(e) => setField('work', e.target.value)} />
+                    <input value={shared.work} onChange={(e) => setSharedField('work', e.target.value)} />
                   </div>
-                </div>
-                <div className="form-row">
                   <div className="form-group">
                     <label>Compositor *</label>
-                    <input value={meta.composer} onChange={(e) => setField('composer', e.target.value)} />
+                    <input value={shared.composer} onChange={(e) => setSharedField('composer', e.target.value)} />
                   </div>
+                </div>
+                <div className="form-row">
                   <div className="form-group">
                     <label>Ano de Composição</label>
-                    <input value={meta.composition_year} onChange={(e) => setField('composition_year', e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Nacionalidade</label>
-                    <input value={meta.nationality} onChange={(e) => setField('nationality', e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>Emoji da Bandeira</label>
-                    <input value={meta.nationality_flag} onChange={(e) => setField('nationality_flag', e.target.value)} style={{ fontSize: 20 }} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Tipo de Voz / Instrumento</label>
-                    <input value={meta.voice_type} onChange={(e) => setField('voice_type', e.target.value)} />
+                    <input value={shared.composition_year} onChange={(e) => setSharedField('composition_year', e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label>Álbum / Ópera</label>
-                    <input value={meta.album_opera} onChange={(e) => setField('album_opera', e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Data de Nascimento</label>
-                    <input value={meta.birth_date} onChange={(e) => setField('birth_date', e.target.value)} placeholder="dd/mm/yyyy" />
-                  </div>
-                  <div className="form-group">
-                    <label>Data de Falecimento</label>
-                    <input value={meta.death_date} onChange={(e) => setField('death_date', e.target.value)} placeholder="Vazio se vivo" />
+                    <input value={shared.album_opera} onChange={(e) => setSharedField('album_opera', e.target.value)} />
                   </div>
                 </div>
               </>

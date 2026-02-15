@@ -59,6 +59,7 @@ class EdicaoOut(BaseModel):
     arquivo_video_completo: Optional[str] = None
     rota_alinhamento: Optional[str] = None
     confianca_alinhamento: Optional[float] = None
+    notas_revisao: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

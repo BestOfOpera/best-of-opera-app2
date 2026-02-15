@@ -2,12 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from backend.config import EXPORT_PATH
 from backend.database import get_db
 from backend.models import Project, Translation
 from backend.services.srt_service import generate_srt
-from backend.services.export_service import build_export_zip
+from backend.services.export_service import build_export_zip, export_to_folder
 
 router = APIRouter(prefix="/api/projects", tags=["export"])
+
+
+@router.get("/export-config")
+def get_export_config():
+    """Return export configuration (whether folder export is available)."""
+    return {"export_path": EXPORT_PATH or None}
 
 
 @router.get("/{project_id}/export/{lang}")
@@ -59,3 +66,16 @@ def export_zip(project_id: int, db: Session = Depends(get_db)):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{slug}.zip"'},
     )
+
+
+@router.post("/{project_id}/export-to-folder")
+def export_to_folder_route(project_id: int, db: Session = Depends(get_db)):
+    if not EXPORT_PATH:
+        raise HTTPException(400, "EXPORT_PATH not configured")
+
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    folder = export_to_folder(project, EXPORT_PATH)
+    return {"path": folder}

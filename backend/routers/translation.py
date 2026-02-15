@@ -47,26 +47,33 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
         target_langs = get_target_languages(source_lang)
 
         for lang in target_langs:
-            translated_overlay = (
-                translate_overlay_json(project.overlay_json, lang)
-                if project.overlay_json
-                else None
-            )
-            translated_post = (
-                translate_post_text(project.post_text, lang)
-                if project.post_text
-                else None
-            )
-            translated_title = (
-                translate_text(project.youtube_title, lang)
-                if project.youtube_title
-                else None
-            )
-            translated_tags = (
-                translate_tags(project.youtube_tags, lang)
-                if project.youtube_tags
-                else None
-            )
+            # For the source language, copy original content instead of translating
+            if lang == source_lang:
+                translated_overlay = project.overlay_json
+                translated_post = project.post_text
+                translated_title = project.youtube_title
+                translated_tags = project.youtube_tags
+            else:
+                translated_overlay = (
+                    translate_overlay_json(project.overlay_json, lang)
+                    if project.overlay_json
+                    else None
+                )
+                translated_post = (
+                    translate_post_text(project.post_text, lang)
+                    if project.post_text
+                    else None
+                )
+                translated_title = (
+                    translate_text(project.youtube_title, lang)
+                    if project.youtube_title
+                    else None
+                )
+                translated_tags = (
+                    translate_tags(project.youtube_tags, lang)
+                    if project.youtube_tags
+                    else None
+                )
 
             translation = Translation(
                 project_id=project_id,

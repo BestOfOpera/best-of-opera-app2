@@ -1,3 +1,6 @@
+from backend.prompts.hook_helper import build_hook_text
+
+
 def build_youtube_prompt(project) -> str:
     return f"""You are a YouTube SEO expert for "Best of Opera", a channel sharing short opera clips.
 
@@ -6,7 +9,7 @@ Generate a YouTube title and tags for a video featuring:
 - Work: {project.work}
 - Composer: {project.composer}
 - Category: {project.category}
-- Hook/angle: {project.hook}
+- Hook/angle: {build_hook_text(project)}
 - Voice type: {project.voice_type}
 
 TITLE RULES:

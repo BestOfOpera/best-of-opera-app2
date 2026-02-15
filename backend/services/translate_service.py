@@ -25,8 +25,8 @@ def detect_language(text: str) -> str:
 
 
 def get_target_languages(source_lang: str) -> list[str]:
-    """Return list of target languages excluding the source language."""
-    return [lang for lang in ALL_LANGUAGES if lang != source_lang]
+    """Return all 7 target languages (source language included — will be copied, not translated)."""
+    return list(ALL_LANGUAGES)
 
 
 def translate_text(text: str, target_lang: str) -> str:

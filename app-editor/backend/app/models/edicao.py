@@ -40,6 +40,8 @@ class Edicao(Base):
     rota_alinhamento = Column(String(5))
     confianca_alinhamento = Column(Float)
 
+    notas_revisao = Column(Text, nullable=True)
+
     editado_por = Column(String(100))
     tempo_edicao_seg = Column(Integer)
 

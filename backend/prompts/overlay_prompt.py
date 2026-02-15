@@ -1,3 +1,6 @@
+from backend.prompts.hook_helper import build_hook_text
+
+
 def _calc_subtitle_count(project) -> str:
     """Calculate approximate number of subtitles based on cut duration (~1 every 15s)."""
     try:
@@ -35,7 +38,7 @@ Generate overlay subtitles (captions that appear on screen) for a video featurin
 - Work: {project.work}
 - Composer: {project.composer}
 - Category: {project.category}
-- Hook/angle: {project.hook}
+- Hook/angle: {build_hook_text(project)}
 - Highlights: {project.highlights}
 - Composition year: {project.composition_year}
 - Nationality: {project.nationality}

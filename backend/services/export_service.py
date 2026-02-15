@@ -1,4 +1,5 @@
 import io
+import os
 import zipfile
 
 from backend.models import Project
@@ -61,3 +62,55 @@ def _write_language_folder(
         yt_content += f"Tags: {youtube_tags}\n"
     if yt_content:
         zf.writestr(f"{folder}/youtube.txt", yt_content)
+
+
+def export_to_folder(project: Project, export_path: str) -> str:
+    """Export all content to a folder on disk (e.g. iCloud).
+
+    Structure: {export_path}/{Artist} - {Work}/{language}/post.txt, youtube.txt, subtitles.srt
+    Returns the project folder path.
+    """
+    slug = f"{project.artist} - {project.work}"
+    project_dir = os.path.join(export_path, slug)
+
+    # Write translations (which now include the source language)
+    for t in project.translations:
+        lang_dir = os.path.join(project_dir, t.language)
+        os.makedirs(lang_dir, exist_ok=True)
+        _write_language_to_disk(
+            folder=lang_dir,
+            overlay_json=t.overlay_json,
+            post_text=t.post_text,
+            youtube_title=t.youtube_title,
+            youtube_tags=t.youtube_tags,
+            cut_end=project.cut_end,
+        )
+
+    return project_dir
+
+
+def _write_language_to_disk(
+    folder: str,
+    overlay_json,
+    post_text,
+    youtube_title,
+    youtube_tags,
+    cut_end=None,
+):
+    if overlay_json:
+        srt_content = generate_srt(overlay_json, cut_end)
+        with open(os.path.join(folder, "subtitles.srt"), "w", encoding="utf-8") as f:
+            f.write(srt_content)
+
+    if post_text:
+        with open(os.path.join(folder, "post.txt"), "w", encoding="utf-8") as f:
+            f.write(post_text)
+
+    yt_content = ""
+    if youtube_title:
+        yt_content += f"Title: {youtube_title}\n"
+    if youtube_tags:
+        yt_content += f"Tags: {youtube_tags}\n"
+    if yt_content:
+        with open(os.path.join(folder, "youtube.txt"), "w", encoding="utf-8") as f:
+            f.write(yt_content)

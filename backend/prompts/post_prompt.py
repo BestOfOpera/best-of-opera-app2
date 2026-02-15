@@ -1,3 +1,6 @@
+from backend.prompts.hook_helper import build_hook_text
+
+
 def build_post_prompt(project) -> str:
     flag = project.nationality_flag or ""
 
@@ -7,7 +10,7 @@ def build_post_prompt(project) -> str:
 - Work: {project.work}
 - Composer: {project.composer}
 - Category: {project.category}
-- Hook/angle: {project.hook}
+- Hook/angle: {build_hook_text(project)}
 - Highlights: {project.highlights}
 - Composition year: {project.composition_year}
 - Nationality: {project.nationality}
