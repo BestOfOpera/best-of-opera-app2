@@ -1,6 +1,6 @@
-import { request, requestFormData } from "./base"
+import { request, requestFormData, API_URLS } from "./base"
 
-const BASE = (process.env.NEXT_PUBLIC_EDITOR_API_URL || "http://localhost:8001") + "/api/v1/editor"
+function BASE() { return API_URLS.editor + "/api/v1/editor" }
 
 export interface Edicao {
   id: number
@@ -89,59 +89,59 @@ export interface RedatorProject {
 export const editorApi = {
   listarEdicoes: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : ""
-    return request<Edicao[]>(`${BASE}/edicoes${qs}`)
+    return request<Edicao[]>(`${BASE()}/edicoes${qs}`)
   },
   criarEdicao: (data: Partial<Edicao>) =>
-    request<Edicao>(`${BASE}/edicoes`, { method: "POST", body: JSON.stringify(data) }),
-  obterEdicao: (id: number) => request<Edicao>(`${BASE}/edicoes/${id}`),
+    request<Edicao>(`${BASE()}/edicoes`, { method: "POST", body: JSON.stringify(data) }),
+  obterEdicao: (id: number) => request<Edicao>(`${BASE()}/edicoes/${id}`),
   atualizarEdicao: (id: number, data: Partial<Edicao>) =>
-    request<Edicao>(`${BASE}/edicoes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   removerEdicao: (id: number) =>
-    request<void>(`${BASE}/edicoes/${id}`, { method: "DELETE" }),
+    request<void>(`${BASE()}/edicoes/${id}`, { method: "DELETE" }),
 
   garantirVideo: (id: number) =>
-    request<{ status: string }>(`${BASE}/edicoes/${id}/garantir-video`, { method: "POST" }),
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/garantir-video`, { method: "POST" }),
   uploadVideo: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<{ status: string }>(`${BASE}/edicoes/${id}/upload-video`, form)
+    return requestFormData<{ status: string }>(`${BASE()}/edicoes/${id}/upload-video`, form)
   },
   statusVideo: (id: number) =>
-    request<{ status: string; progresso?: number }>(`${BASE}/edicoes/${id}/video/status`),
+    request<{ status: string; progresso?: number }>(`${BASE()}/edicoes/${id}/video/status`),
   buscarLetra: (id: number) =>
-    request<{ letra: string; fonte: string }>(`${BASE}/edicoes/${id}/letra`, { method: "POST" }),
+    request<{ letra: string; fonte: string }>(`${BASE()}/edicoes/${id}/letra`, { method: "POST" }),
   aprovarLetra: (id: number, data: { letra: string }) =>
-    request<Edicao>(`${BASE}/edicoes/${id}/letra`, { method: "PUT", body: JSON.stringify(data) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}/letra`, { method: "PUT", body: JSON.stringify(data) }),
   iniciarTranscricao: (id: number) =>
-    request<{ status: string }>(`${BASE}/edicoes/${id}/transcricao`, { method: "POST" }),
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/transcricao`, { method: "POST" }),
   obterAlinhamento: (id: number) =>
-    request<AlinhamentoResponse>(`${BASE}/edicoes/${id}/alinhamento`),
+    request<AlinhamentoResponse>(`${BASE()}/edicoes/${id}/alinhamento`),
   validarAlinhamento: (id: number, data: { segmentos: Segmento[] }) =>
-    request<Edicao>(`${BASE}/edicoes/${id}/alinhamento`, { method: "PUT", body: JSON.stringify(data) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}/alinhamento`, { method: "PUT", body: JSON.stringify(data) }),
   aplicarCorte: (id: number, params?: Record<string, number>) =>
-    request<Edicao>(`${BASE}/edicoes/${id}/aplicar-corte`, { method: "POST", body: JSON.stringify(params || {}) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}/aplicar-corte`, { method: "POST", body: JSON.stringify(params || {}) }),
   infoCorte: (id: number) =>
-    request<{ cut_start: string; cut_end: string; duracao: number }>(`${BASE}/edicoes/${id}/corte`),
+    request<{ cut_start: string; cut_end: string; duracao: number }>(`${BASE()}/edicoes/${id}/corte`),
   traduzirLyrics: (id: number) =>
-    request<{ traducoes: Record<string, string> }>(`${BASE}/edicoes/${id}/traducao-lyrics`, { method: "POST" }),
+    request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`, { method: "POST" }),
   obterTraducoes: (id: number) =>
-    request<{ traducoes: Record<string, string> }>(`${BASE}/edicoes/${id}/traducao-lyrics`),
+    request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`),
   renderizar: (id: number) =>
-    request<{ status: string }>(`${BASE}/edicoes/${id}/renderizar`, { method: "POST" }),
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar`, { method: "POST" }),
   renderizarPreview: (id: number) =>
-    request<{ status: string }>(`${BASE}/edicoes/${id}/renderizar-preview`, { method: "POST" }),
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar-preview`, { method: "POST" }),
   aprovarPreview: (id: number, params: { aprovado: boolean; notas?: string }) =>
-    request<Edicao>(`${BASE}/edicoes/${id}/aprovar-preview`, { method: "POST", body: JSON.stringify(params) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview`, { method: "POST", body: JSON.stringify(params) }),
   listarRenders: (id: number) =>
-    request<Render[]>(`${BASE}/edicoes/${id}/renders`),
+    request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
   exportarRenders: (id: number) =>
-    request<{ pasta: string; arquivos_exportados: number }>(`${BASE}/edicoes/${id}/exportar`, { method: "POST" }),
+    request<{ pasta: string; arquivos_exportados: number }>(`${BASE()}/edicoes/${id}/exportar`, { method: "POST" }),
 
-  audioUrl: (id: number) => `${BASE}/edicoes/${id}/audio`,
+  audioUrl: (id: number) => `${BASE()}/edicoes/${id}/audio`,
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
-    `${BASE}/edicoes/${edicaoId}/renders/${renderId}/download`,
+    `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
 
-  listarProjetosRedator: () => request<RedatorProject[]>(`${BASE}/redator/projetos`),
+  listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
   importarDoRedator: (projectId: number) =>
-    request<Edicao>(`${BASE}/redator/importar/${projectId}`, { method: "POST" }),
+    request<Edicao>(`${BASE()}/redator/importar/${projectId}`, { method: "POST" }),
 }

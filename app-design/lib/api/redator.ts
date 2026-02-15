@@ -1,6 +1,6 @@
-import { request, requestFormData } from "./base"
+import { request, requestFormData, API_URLS } from "./base"
 
-const BASE = (process.env.NEXT_PUBLIC_REDATOR_API_URL || "http://localhost:8000") + "/api"
+function BASE() { return API_URLS.redator + "/api" }
 
 export interface Project {
   id: number
@@ -73,64 +73,64 @@ export const redatorApi = {
     const formData = new FormData()
     formData.append("screenshot", screenshot)
     formData.append("youtube_url", youtubeUrl)
-    return requestFormData<DetectedMetadata>(`${BASE}/projects/detect-metadata`, formData)
+    return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData)
   },
-  listProjects: () => request<Project[]>(`${BASE}/projects`),
-  getProject: (id: number) => request<Project>(`${BASE}/projects/${id}`),
+  listProjects: () => request<Project[]>(`${BASE()}/projects`),
+  getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
   createProject: (data: Record<string, string>) =>
-    request<Project>(`${BASE}/projects`, { method: "POST", body: JSON.stringify(data) }),
+    request<Project>(`${BASE()}/projects`, { method: "POST", body: JSON.stringify(data) }),
   updateProject: (id: number, data: Record<string, string>) =>
-    request<Project>(`${BASE}/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<Project>(`${BASE()}/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   generate: (id: number) =>
-    request<Project>(`${BASE}/projects/${id}/generate`, { method: "POST" }),
+    request<Project>(`${BASE()}/projects/${id}/generate`, { method: "POST" }),
   regenerateOverlay: (id: number, customPrompt?: string) =>
-    request<Project>(`${BASE}/projects/${id}/regenerate-overlay`, {
+    request<Project>(`${BASE()}/projects/${id}/regenerate-overlay`, {
       method: "POST",
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
   regeneratePost: (id: number, customPrompt?: string) =>
-    request<Project>(`${BASE}/projects/${id}/regenerate-post`, {
+    request<Project>(`${BASE()}/projects/${id}/regenerate-post`, {
       method: "POST",
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
   regenerateYoutube: (id: number, customPrompt?: string) =>
-    request<Project>(`${BASE}/projects/${id}/regenerate-youtube`, {
+    request<Project>(`${BASE()}/projects/${id}/regenerate-youtube`, {
       method: "POST",
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
 
   approveOverlay: (id: number, overlayJson: { timestamp: string; text: string }[]) =>
-    request<Project>(`${BASE}/projects/${id}/approve-overlay`, {
+    request<Project>(`${BASE()}/projects/${id}/approve-overlay`, {
       method: "PUT",
       body: JSON.stringify({ overlay_json: overlayJson }),
     }),
   approvePost: (id: number, postText: string) =>
-    request<Project>(`${BASE}/projects/${id}/approve-post`, {
+    request<Project>(`${BASE()}/projects/${id}/approve-post`, {
       method: "PUT",
       body: JSON.stringify({ post_text: postText }),
     }),
   approveYoutube: (id: number, title: string, tags: string) =>
-    request<Project>(`${BASE}/projects/${id}/approve-youtube`, {
+    request<Project>(`${BASE()}/projects/${id}/approve-youtube`, {
       method: "PUT",
       body: JSON.stringify({ youtube_title: title, youtube_tags: tags }),
     }),
 
   translate: (id: number) =>
-    request<Project>(`${BASE}/projects/${id}/translate`, { method: "POST" }),
+    request<Project>(`${BASE()}/projects/${id}/translate`, { method: "POST" }),
   retranslate: (id: number, lang: string) =>
-    request<ExportData>(`${BASE}/projects/${id}/retranslate/${lang}`, { method: "POST" }),
+    request<ExportData>(`${BASE()}/projects/${id}/retranslate/${lang}`, { method: "POST" }),
   updateTranslation: (id: number, lang: string, data: Partial<ExportData>) =>
-    request<ExportData>(`${BASE}/projects/${id}/translation/${lang}`, {
+    request<ExportData>(`${BASE()}/projects/${id}/translation/${lang}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
 
   exportLang: (id: number, lang: string) =>
-    request<ExportData>(`${BASE}/projects/${id}/export/${lang}`),
-  exportZipUrl: (id: number) => `${BASE}/projects/${id}/export-zip`,
+    request<ExportData>(`${BASE()}/projects/${id}/export/${lang}`),
+  exportZipUrl: (id: number) => `${BASE()}/projects/${id}/export-zip`,
   exportToFolder: (id: number) =>
-    request<{ path: string }>(`${BASE}/projects/${id}/export-to-folder`, { method: "POST" }),
+    request<{ path: string }>(`${BASE()}/projects/${id}/export-to-folder`, { method: "POST" }),
   getExportConfig: () =>
-    request<{ export_path: string | null }>(`${BASE}/projects/export-config`),
+    request<{ export_path: string | null }>(`${BASE()}/projects/export-config`),
 }

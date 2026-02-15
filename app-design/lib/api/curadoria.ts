@@ -1,6 +1,6 @@
-import { request } from "./base"
+import { request, API_URLS } from "./base"
 
-const BASE = (process.env.NEXT_PUBLIC_CURADORIA_API_URL || "http://localhost:8002") + "/api"
+function BASE() { return API_URLS.curadoria + "/api" }
 
 export interface ScoreReason {
   tag: string
@@ -64,31 +64,31 @@ export interface SearchResult {
 
 export const curadoriaApi = {
   auth: (password: string) =>
-    fetch(`${BASE}/auth?password=${encodeURIComponent(password)}`, { method: "POST" })
+    fetch(`${BASE()}/auth?password=${encodeURIComponent(password)}`, { method: "POST" })
       .then(res => { if (!res.ok) throw new Error("Senha incorreta"); return res }),
 
-  health: () => request<{ youtube_api: boolean }>(`${BASE}/health`),
+  health: () => request<{ youtube_api: boolean }>(`${BASE()}/health`),
 
-  quota: () => request<Quota>(`${BASE}/quota/status`),
+  quota: () => request<Quota>(`${BASE()}/quota/status`),
 
-  categories: () => request<{ categories: Category[] }>(`${BASE}/categories`),
+  categories: () => request<{ categories: Category[] }>(`${BASE()}/categories`),
 
   searchCategory: (key: string, hidePosted = true, forceRefresh = false) =>
-    request<SearchResult>(`${BASE}/category/${key}?hide_posted=${hidePosted}&force_refresh=${forceRefresh}`),
+    request<SearchResult>(`${BASE()}/category/${key}?hide_posted=${hidePosted}&force_refresh=${forceRefresh}`),
 
   search: (query: string, hidePosted = true) =>
-    request<SearchResult>(`${BASE}/search?q=${encodeURIComponent(query)}&max_results=50&hide_posted=${hidePosted}`),
+    request<SearchResult>(`${BASE()}/search?q=${encodeURIComponent(query)}&max_results=50&hide_posted=${hidePosted}`),
 
   ranking: (hidePosted = true) =>
-    request<SearchResult>(`${BASE}/ranking?hide_posted=${hidePosted}`),
+    request<SearchResult>(`${BASE()}/ranking?hide_posted=${hidePosted}`),
 
   playlistVideos: (hidePosted = true) =>
-    request<{ videos: Video[] }>(`${BASE}/playlist/videos?hide_posted=${hidePosted}`),
+    request<{ videos: Video[] }>(`${BASE()}/playlist/videos?hide_posted=${hidePosted}`),
 
-  cacheStatus: () => request<{ playlist?: { count: number } }>(`${BASE}/cache/status`),
+  cacheStatus: () => request<{ playlist?: { count: number } }>(`${BASE()}/cache/status`),
 
   downloadVideo: async (videoId: string, artist: string, song: string) => {
-    const url = `${BASE}/download/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`
+    const url = `${BASE()}/download/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`
     const resp = await fetch(url)
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: "Download failed" }))
@@ -107,7 +107,7 @@ export const curadoriaApi = {
     URL.revokeObjectURL(a.href)
   },
 
-  downloads: () => request<{ downloads: Download[] }>(`${BASE}/downloads`),
+  downloads: () => request<{ downloads: Download[] }>(`${BASE()}/downloads`),
 
-  downloadsExportUrl: () => `${BASE}/downloads/export`,
+  downloadsExportUrl: () => `${BASE()}/downloads/export`,
 }
