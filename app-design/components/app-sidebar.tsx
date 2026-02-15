@@ -12,7 +12,6 @@ interface ToolSection { id: string; label: string; icon: React.ElementType; item
 const tools: ToolSection[] = [
   { id: "curadoria", label: "Curadoria", icon: Search, items: [
     { label: "Dashboard", href: "/curadoria", icon: LayoutDashboard },
-    { label: "Resultados", href: "/curadoria/resultados", icon: Search },
     { label: "Downloads", href: "/curadoria/downloads", icon: Download },
   ]},
   { id: "redator", label: "Redator", icon: PenTool, items: [
