@@ -1,6 +1,6 @@
 import { request } from "./base"
 
-const BASE = "/api/curadoria"
+const BASE = (process.env.NEXT_PUBLIC_CURADORIA_API_URL || "http://localhost:8002") + "/api"
 
 export interface ScoreReason {
   tag: string

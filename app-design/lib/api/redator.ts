@@ -1,6 +1,6 @@
 import { request, requestFormData } from "./base"
 
-const BASE = "/api/redator"
+const BASE = (process.env.NEXT_PUBLIC_REDATOR_API_URL || "http://localhost:8000") + "/api"
 
 export interface Project {
   id: number

@@ -1,6 +1,6 @@
 import { request, requestFormData } from "./base"
 
-const BASE = "/api/editor"
+const BASE = (process.env.NEXT_PUBLIC_EDITOR_API_URL || "http://localhost:8001") + "/api/v1/editor"
 
 export interface Edicao {
   id: number
