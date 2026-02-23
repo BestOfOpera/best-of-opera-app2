@@ -14,7 +14,7 @@ from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
-from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, completar_transcricao, _detect_mime_type, _get_client
+from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, mapear_estrutura_audio, completar_transcricao, _detect_mime_type, _get_client
 from app.services.genius import buscar_letra_genius
 from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
@@ -304,8 +304,8 @@ async def _transcricao_task(edicao_id: int):
         # só tem cada verso uma vez. A cega ouve e transcreve TUDO.
         # ============================================================
 
-        # Passo 1: Transcrição CEGA (sem letra — captura repetições)
-        logger.info(f"[{edicao_id}] Passo 1: Transcrição CEGA (captura repetições)...")
+        # Passo 1: MAPEAMENTO ESTRUTURAL (com letra de referência — captura repetições)
+        logger.info(f"[{edicao_id}] Passo 1: Mapeamento estrutural do áudio...")
         genai = _get_client()
         mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
         audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
@@ -313,8 +313,8 @@ async def _transcricao_task(edicao_id: int):
         melhor_cega = None
         melhor_n_cega = 0
         for tentativa in range(1, 3):
-            segmentos_cegos = await transcrever_cego(
-                audio_file_ref, edicao.idioma, metadados
+            segmentos_cegos = await mapear_estrutura_audio(
+                audio_file_ref, edicao.idioma, metadados, letra.letra
             )
             n = len(segmentos_cegos)
             logger.info(f"[{edicao_id}] Cega tentativa {tentativa}: {n} segmentos")

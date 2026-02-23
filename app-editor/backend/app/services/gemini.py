@@ -34,12 +34,14 @@ def _detect_mime_type(path: str) -> str:
     return "audio/mpeg"
 
 
-async def transcrever_cego(
-    audio_file_ref, idioma: str, metadados: dict
+async def mapear_estrutura_audio(
+    audio_file_ref, idioma: str, metadados: dict, letra_original: str = ""
 ) -> list:
-    """Transcrição cega: Gemini recebe apenas o áudio, sem letra.
-    Timestamps mais precisos pois o modelo precisa ouvir de verdade.
-    audio_file_ref: arquivo já uploaded via genai.upload_file."""
+    """Fase 1: Mapear a estrutura temporal do áudio.
+
+    Pede ao Gemini para identificar QUANDO cada frase é cantada,
+    avançando cronologicamente pelo áudio. Foco em timestamps, não em texto.
+    """
     genai = _get_client()
     model = genai.GenerativeModel(
         "gemini-2.5-pro",
@@ -52,42 +54,58 @@ async def transcrever_cego(
     }
     nome_idioma = nomes_idiomas.get(idioma, idioma)
 
+    contexto_letra = ""
+    if letra_original:
+        contexto_letra = f"""
+LETRA DE REFERÊNCIA (para ajudar a identificar o texto cantado):
+---
+{letra_original}
+---
+ATENÇÃO: A cantora pode repetir estrofes inteiras. Cada repetição = segmento novo.
+"""
+
     prompt = f"""
-Você é um transcritor profissional de ópera com ouvido absoluto.
+Ouça este áudio de ópera do INÍCIO ao FIM com atenção máxima aos MOMENTOS em que cada frase é cantada.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
 - Música: {metadados.get("musica", "Desconhecida")}
-- Idioma cantado: {nome_idioma}
+- Idioma: {nome_idioma}
 - Compositor: {metadados.get("compositor", "N/A")}
+{contexto_letra}
+TAREFA: Avance pelo áudio CRONOLOGICAMENTE. A cada frase cantada, registre:
+- O MOMENTO EXATO (MM:SS,mmm) em que a frase COMEÇA
+- O MOMENTO EXATO em que a frase TERMINA
+- O texto cantado
 
-TAREFA OBRIGATÓRIA:
-Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. Transcreva CADA FRASE cantada com timestamps EXATOS.
+MÉTODO — faça assim:
+1. Avance do segundo 0 até o fim do áudio
+2. Quando ouvir canto começar, marque o timestamp de início
+3. Quando a frase terminar (pausa ou próxima frase), marque o fim
+4. Se a MESMA frase é cantada novamente mais tarde, crie um NOVO segmento
+5. NÃO pule nenhum trecho cantado, mesmo que seja repetição
 
-REGRA FUNDAMENTAL SOBRE REPETIÇÕES:
-Em ópera, é COMUM o cantor repetir a mesma estrofe inteira (às vezes 2 ou 3 vezes, com ornamentações diferentes).
-Você DEVE transcrever CADA repetição como segmentos separados com seus próprios timestamps.
-Se "Casta Diva, che inargenti" é cantada em 01:55 e repetida em 03:10, são DOIS segmentos distintos.
-NUNCA pule uma repetição — cada vez que um verso é cantado, ele precisa de seu próprio segmento.
+IMPORTANTE SOBRE ÓPERA:
+- Cantores repetem estrofes inteiras (com ornamentações)
+- Se "Casta Diva" é cantada em 01:55 e DE NOVO em 03:10, são 2 segmentos
+- O resultado deve ter 30-50 segmentos para uma ária completa
+- Timestamps em MM:SS,mmm (ex: 01:25,300)
 
-REGRAS:
-1. Transcreva exatamente o que ouve no idioma original ({nome_idioma}) — não invente texto
-2. CADA FRASE cantada = 1 segmento, incluindo repetições do mesmo verso
-3. Timestamps no formato MM:SS,mmm (minutos:segundos,milissegundos). Ex: 01:25,300
-4. Precisão: ±0.5 segundo
-5. Se há introdução instrumental, comece quando o CANTO inicia
-6. NÃO agrupe múltiplos versos num único segmento
-7. Ouça o áudio INTEIRO até o final — os últimos versos são tão importantes quanto os primeiros
-8. Espere pelo menos 20-40 segmentos para uma ária completa com repetições
-
-FORMATO JSON (retorne APENAS isto, sem markdown):
+FORMATO JSON (retorne APENAS isto):
 [
-  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
-  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
+  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Casta Diva, che inargenti"}},
+  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "queste sacre antiche piante"}}
 ]
 """
     response = model.generate_content([audio_file_ref, prompt])
     return parse_json_response(response.text)
+
+
+async def transcrever_cego(
+    audio_file_ref, idioma: str, metadados: dict
+) -> list:
+    """Transcrição cega simplificada — redireciona para mapear_estrutura_audio."""
+    return await mapear_estrutura_audio(audio_file_ref, idioma, metadados)
 
 
 async def transcrever_guiado_completo(
