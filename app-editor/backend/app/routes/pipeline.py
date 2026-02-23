@@ -14,7 +14,7 @@ from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
-from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, _detect_mime_type, _get_client
+from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, completar_transcricao, _detect_mime_type, _get_client
 from app.services.genius import buscar_letra_genius
 from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
@@ -256,20 +256,64 @@ async def _transcricao_task(edicao_id: int):
             "compositor": edicao.compositor,
         }
 
-        # Estratégia: guiada primeiro (comprovadamente funciona bem)
-        # Upload próprio — não reutilizar file ref (funciona melhor assim)
+        # Contar versos esperados na letra
+        versos_esperados = len([v for v in letra.letra.split("\n") if v.strip()])
 
-        # Passo 1: Transcrição guiada (texto + timestamps)
-        logger.info(f"[{edicao_id}] Iniciando transcrição GUIADA (upload próprio)...")
-        segmentos_guiados = await transcrever_guiado_completo(
-            edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
-        )
-        logger.info(f"[{edicao_id}] Transcrição guiada: {len(segmentos_guiados)} segmentos")
+        # Passo 1: Transcrição guiada com retry
+        # Se Gemini retorna poucos segmentos (< 50% dos versos), tenta de novo
+        MAX_TENTATIVAS = 3
+        melhor_guiada = None
+        melhor_n_segmentos = 0
+
+        for tentativa in range(1, MAX_TENTATIVAS + 1):
+            logger.info(f"[{edicao_id}] Transcrição GUIADA tentativa {tentativa}/{MAX_TENTATIVAS}...")
+            segmentos = await transcrever_guiado_completo(
+                edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
+            )
+            n = len(segmentos)
+            logger.info(f"[{edicao_id}] Tentativa {tentativa}: {n} segmentos (esperados: ~{versos_esperados})")
+
+            if n > melhor_n_segmentos:
+                melhor_n_segmentos = n
+                melhor_guiada = segmentos
+
+            # Se obteve pelo menos 50% dos versos, aceitar
+            if n >= versos_esperados * 0.5:
+                break
+
+            if tentativa < MAX_TENTATIVAS:
+                logger.warning(
+                    f"[{edicao_id}] Apenas {n} segmentos vs {versos_esperados} versos esperados. "
+                    f"Retentando..."
+                )
+
+        segmentos_guiados = melhor_guiada
+        logger.info(f"[{edicao_id}] Transcrição guiada final: {len(segmentos_guiados)} segmentos")
+
+        # Passo 1b: Se resultado ainda incompleto (< 70% dos versos), tentar passo de COMPLETAÇÃO
+        if len(segmentos_guiados) < versos_esperados * 0.7:
+            logger.info(
+                f"[{edicao_id}] Resultado incompleto ({len(segmentos_guiados)}/{versos_esperados}). "
+                f"Tentando passo de completação..."
+            )
+            try:
+                segmentos_completados = await completar_transcricao(
+                    edicao.arquivo_audio_completo, letra.letra,
+                    segmentos_guiados, edicao.idioma, metadados,
+                )
+                logger.info(
+                    f"[{edicao_id}] Completação: {len(segmentos_completados)} segmentos "
+                    f"(antes: {len(segmentos_guiados)})"
+                )
+                if len(segmentos_completados) > len(segmentos_guiados):
+                    segmentos_guiados = segmentos_completados
+            except Exception as e:
+                logger.warning(f"[{edicao_id}] Completação falhou: {e}")
 
         # Normalizar timestamps do Gemini (formato canônico + validação)
         segmentos_guiados = normalizar_segmentos(segmentos_guiados)
 
-        # Passo 2: Alinhar guiada com letra original (método comprovado)
+        # Passo 2: Alinhar guiada com letra original
         resultado = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
         logger.info(
             f"[{edicao_id}] Alinhamento guiado: rota={resultado['rota']} "
@@ -277,8 +321,8 @@ async def _transcricao_task(edicao_id: int):
         )
 
         # Passo 3: Se resultado fraco, tentar refinar com transcrição cega
-        if resultado["rota"] == "C":
-            logger.info(f"[{edicao_id}] Rota C detectada, tentando merge com transcrição cega...")
+        if resultado["rota"] in ("B", "C"):
+            logger.info(f"[{edicao_id}] Rota {resultado['rota']} detectada, tentando merge com transcrição cega...")
             try:
                 genai = _get_client()
                 mime_type = _detect_mime_type(edicao.arquivo_audio_completo)

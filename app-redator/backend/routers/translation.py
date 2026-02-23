@@ -6,7 +6,6 @@ from backend.models import Project, Translation
 from backend.schemas import ProjectOut
 from backend.schemas import RegenerateRequest
 from backend.services.translate_service import (
-    detect_language,
     get_target_languages,
     translate_overlay_json,
     translate_post_text,
@@ -42,8 +41,12 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
         # Remove existing translations
         db.query(Translation).filter(Translation.project_id == project_id).delete()
 
-        # Detect hook language to determine which translations to create
-        source_lang = detect_language(project.hook) if project.hook else "en"
+        # Original content is always generated in Portuguese (hook categories are in PT).
+        # Using detect_language on the hook is unreliable — short hooks with proper
+        # nouns (aria names, composers) often get misdetected as another language,
+        # causing the source-language copy to land on the wrong slot (e.g. EN gets
+        # the untranslated PT overlay).
+        source_lang = "pt"
         target_langs = get_target_languages(source_lang)
 
         for lang in target_langs:

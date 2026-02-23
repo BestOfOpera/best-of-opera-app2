@@ -146,10 +146,11 @@ export default function NewProject() {
     }
   }
 
+  const isValidMMSS = (v: string) => /^\d{2}:\d{2}$/.test(v)
   const hookValid = hookCategory === 'prefiro_escrever'
     ? hook.trim().length > 0
     : hookCategory.length > 0
-  const stepAComplete = hookValid && category && cutStart && cutEnd
+  const stepAComplete = hookValid && category && isValidMMSS(cutStart) && isValidMMSS(cutEnd)
   const canSubmit = stepAComplete && detected && interpreters[0]?.artist && shared.work && shared.composer
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -389,11 +390,29 @@ export default function NewProject() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div className="form-group">
                 <label>Início do Corte *</label>
-                <input value={cutStart} onChange={(e) => setCutStart(e.target.value)} placeholder="1:15" />
+                <input
+                  value={cutStart}
+                  onChange={(e) => setCutStart(e.target.value)}
+                  placeholder="01:15"
+                  maxLength={5}
+                  style={cutStart && !isValidMMSS(cutStart) ? { borderColor: '#EF4444' } : {}}
+                />
+                {cutStart && !isValidMMSS(cutStart) && (
+                  <span style={{ fontSize: 11, color: '#EF4444' }}>Formato: MM:SS (ex: 01:15)</span>
+                )}
               </div>
               <div className="form-group">
                 <label>Fim do Corte *</label>
-                <input value={cutEnd} onChange={(e) => setCutEnd(e.target.value)} placeholder="2:45" />
+                <input
+                  value={cutEnd}
+                  onChange={(e) => setCutEnd(e.target.value)}
+                  placeholder="02:45"
+                  maxLength={5}
+                  style={cutEnd && !isValidMMSS(cutEnd) ? { borderColor: '#EF4444' } : {}}
+                />
+                {cutEnd && !isValidMMSS(cutEnd) && (
+                  <span style={{ fontSize: 11, color: '#EF4444' }}>Formato: MM:SS (ex: 02:45)</span>
+                )}
               </div>
             </div>
           </div>

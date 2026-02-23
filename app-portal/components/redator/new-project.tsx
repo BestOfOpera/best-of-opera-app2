@@ -130,8 +130,9 @@ export function RedatorNewProject() {
     }
   }
 
+  const isValidMMSS = (v: string) => /^\d{2}:\d{2}$/.test(v)
   const hookValid = hookCategory === "prefiro_escrever" ? hook.trim().length > 0 : hookCategory.length > 0
-  const stepAComplete = hookValid && !!category && !!cutStart && !!cutEnd
+  const stepAComplete = hookValid && !!category && isValidMMSS(cutStart) && isValidMMSS(cutEnd)
   const canSubmit = stepAComplete && detected && !!interpreters[0]?.artist && !!shared.work && !!shared.composer
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -261,11 +262,13 @@ export function RedatorNewProject() {
               </div>
               <div className="space-y-2">
                 <Label>Inicio do Corte *</Label>
-                <Input value={cutStart} onChange={(e) => setCutStart(e.target.value)} placeholder="1:15" className="font-mono" />
+                <Input value={cutStart} onChange={(e) => setCutStart(e.target.value)} placeholder="01:15" className={cn("font-mono", cutStart && !isValidMMSS(cutStart) && "border-destructive")} maxLength={5} />
+                {cutStart && !isValidMMSS(cutStart) && <p className="text-[11px] text-destructive">Formato: MM:SS (ex: 01:15)</p>}
               </div>
               <div className="space-y-2">
                 <Label>Fim do Corte *</Label>
-                <Input value={cutEnd} onChange={(e) => setCutEnd(e.target.value)} placeholder="2:45" className="font-mono" />
+                <Input value={cutEnd} onChange={(e) => setCutEnd(e.target.value)} placeholder="02:45" className={cn("font-mono", cutEnd && !isValidMMSS(cutEnd) && "border-destructive")} maxLength={5} />
+                {cutEnd && !isValidMMSS(cutEnd) && <p className="text-[11px] text-destructive">Formato: MM:SS (ex: 02:45)</p>}
               </div>
             </div>
           </CardContent>

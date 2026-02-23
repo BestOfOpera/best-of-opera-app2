@@ -2,9 +2,9 @@
 
 REGRAS DE TIMESTAMPS (NUNCA VIOLAR):
 - Formato canônico interno: SEMPRE float em segundos
-- Formato canônico de saída: SEMPRE HH:MM:SS,mmm (SRT padrão)
+- Formato canônico de saída: SEMPRE MM:SS,mmm (ex: 01:25,300)
 - Toda entrada de timestamp passa por timestamp_to_seconds() que aceita qualquer formato
-- Toda saída passa por seconds_to_timestamp() que produz SRT canônico
+- Toda saída passa por seconds_to_timestamp() que produz MM:SS,mmm canônico
 - Validação: nenhum timestamp pode ser negativo ou > 24h (86400s)
 - Segmentos: start < end SEMPRE; end[i] <= start[i+1] SEMPRE
 """
@@ -62,16 +62,17 @@ def timestamp_to_seconds(ts: str) -> float:
 
 
 def seconds_to_timestamp(sec: float) -> str:
-    """Converte segundos para timestamp SRT canônico (HH:MM:SS,mmm).
+    """Converte segundos para timestamp canônico MM:SS,mmm (ex: 01:25,300).
 
     SEMPRE produz este formato — é a representação única e canônica.
+    Sem horas (não precisamos), mas COM milissegundos (precisão de alinhamento).
     """
     sec = max(0.0, min(sec, MAX_SECONDS))
-    h = int(sec // 3600)
-    m = int((sec % 3600) // 60)
+    total_min = int(sec // 60)
     s = sec % 60
-    ms = int(round((s % 1) * 1000))
-    return f"{h:02d}:{m:02d}:{int(s):02d},{ms:03d}"
+    whole_s = int(s)
+    ms = int(round((s - whole_s) * 1000))
+    return f"{total_min:02d}:{whole_s:02d},{ms:03d}"
 
 
 def normalizar_segmentos(segmentos: list) -> list:

@@ -53,7 +53,7 @@ async def transcrever_cego(
     nome_idioma = nomes_idiomas.get(idioma, idioma)
 
     prompt = f"""
-Você é um assistente de legendagem de vídeos de ópera.
+Você é um transcritor profissional de ópera com ouvido absoluto.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
@@ -61,26 +61,26 @@ CONTEXTO:
 - Idioma cantado: {nome_idioma}
 - Compositor: {metadados.get("compositor", "N/A")}
 
-TAREFA:
-Ouça o áudio COMPLETO do início ao fim e transcreva TUDO que é cantado, com timestamps PRECISOS.
-Preste atenção especial ao MOMENTO EXATO em que cada frase começa e termina.
+TAREFA OBRIGATÓRIA:
+Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. Transcreva CADA FRASE cantada com timestamps EXATOS.
+Uma ária de ópera típica tem entre 10 e 40 frases — se você retornar menos de 8 segmentos, algo está ERRADO.
 
-REGRAS:
-1. Transcreva exatamente o que ouve — não invente texto
-2. Marque QUANDO cada frase começa e termina no áudio com precisão
-3. Timestamps relativos ao INÍCIO do áudio (00:00:00 = início)
-4. Inclua TODAS as frases cantadas, mesmo repetições
-5. Se há trechos instrumentais, pule o intervalo
-6. NÃO omita versos — ouça o áudio inteiro com atenção
-7. Foque na PRECISÃO dos timestamps acima de tudo
+REGRAS CRÍTICAS:
+1. Transcreva exatamente o que ouve no idioma original ({nome_idioma}) — não invente texto
+2. CADA VERSO cantado = 1 segmento. Versos curtos (2-4 palavras) também são segmentos individuais
+3. Timestamps no formato MM:SS,mmm (minutos:segundos,milissegundos). Ex: 01:25,300
+4. A precisão dos timestamps deve ser de ±0.5 segundo
+5. Inclua TODAS as frases cantadas, incluindo repetições e coros
+6. Se há introdução instrumental antes do canto, o primeiro segmento começa quando o CANTO inicia
+7. Se há interlúdios instrumentais ENTRE versos, deixe gap nos timestamps mas continue transcrevendo
+8. NÃO agrupe múltiplos versos num único segmento — cada frase/verso separado
+9. Ouça o áudio INTEIRO — não pare no meio. Os últimos versos são tão importantes quanto os primeiros
 
-FORMATO JSON:
+FORMATO JSON (retorne APENAS isto, sem markdown):
 [
-  {{"index": 1, "start": "00:01:25,300", "end": "00:01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
-  {{"index": 2, "start": "00:01:30,200", "end": "00:01:35,400", "text": "Tu pure, o Principessa,"}}
+  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
+  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
 ]
-
-Retorne APENAS o JSON, sem markdown, sem explicação.
 """
     response = model.generate_content([audio_file_ref, prompt])
     return parse_json_response(response.text)
@@ -103,8 +103,12 @@ async def transcrever_guiado_completo(
         mime_type = _detect_mime_type(audio_completo_path)
         audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
 
+    # Contar versos na letra para dar referência ao Gemini
+    versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
+    n_versos = len(versos)
+
     prompt = f"""
-Você é um assistente de legendagem de vídeos de ópera.
+Você é um transcritor profissional de ópera com ouvido absoluto.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
@@ -112,36 +116,109 @@ CONTEXTO:
 - Idioma: {idioma}
 - Compositor: {metadados.get("compositor", "N/A")}
 
-LETRA ORIGINAL (texto correto e oficial):
+LETRA ORIGINAL ({n_versos} versos — TODOS devem aparecer no resultado):
 ---
 {letra_original}
 ---
 
+TAREFA OBRIGATÓRIA:
+Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. A letra acima está sendo cantada neste áudio.
+Marque o timestamp EXATO de CADA verso. Você DEVE retornar exatamente {n_versos} segmentos (ou mais se houver repetições).
+
+REGRAS CRÍTICAS:
+1. Use EXATAMENTE o texto da letra original — não modifique nenhuma palavra
+2. CADA verso da letra = 1 segmento com start e end precisos
+3. Timestamps no formato MM:SS,mmm (minutos:segundos,milissegundos). Ex: 01:25,300
+4. Precisão exigida: ±0.5 segundo do momento real
+5. TODOS os {n_versos} versos DEVEM ter timestamps — se você retornar menos, está ERRADO
+6. Se há introdução instrumental, o primeiro verso começa quando o CANTO inicia
+7. Se há interlúdios instrumentais entre versos, os timestamps devem refletir o gap real
+8. Se há repetições não escritas na letra, adicione com [REPETIÇÃO] como segmento extra
+9. Se ouvir algo cantado que não está na letra, marque como [TEXTO NÃO IDENTIFICADO]
+10. NÃO agrupe múltiplos versos num único segmento
+11. Em trechos de CORO/ENSEMBLE, preste atenção ao início EXATO de cada verso
+12. Os ÚLTIMOS versos são tão importantes quanto os primeiros — ouça até o FIM
+
+VERIFICAÇÃO: Antes de responder, conte seus segmentos. Se retornou menos de {n_versos}, volte e ouça o áudio novamente.
+
+FORMATO JSON (retorne APENAS isto, sem markdown):
+[
+  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
+  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
+]
+"""
+    response = model.generate_content([audio_file, prompt])
+    return parse_json_response(response.text)
+
+
+async def completar_transcricao(
+    audio_completo_path: str,
+    letra_original: str,
+    resultado_parcial: list,
+    idioma: str,
+    metadados: dict,
+    audio_file_ref=None,
+) -> list:
+    """Passo de correção: recebe resultado incompleto e pede ao Gemini para completar.
+
+    Estratégia: mostra ao Gemini quais versos já foram encontrados e pede para
+    localizar os que faltam no áudio.
+    """
+    genai = _get_client()
+    model = genai.GenerativeModel(
+        "gemini-2.5-pro",
+        generation_config=genai.GenerationConfig(temperature=0),
+    )
+
+    if audio_file_ref is not None:
+        audio_file = audio_file_ref
+    else:
+        mime_type = _detect_mime_type(audio_completo_path)
+        audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
+
+    # Formatar resultado parcial para mostrar ao Gemini
+    parcial_json = json.dumps(resultado_parcial, ensure_ascii=False, indent=2)
+
+    # Identificar versos da letra que NÃO foram cobertos
+    versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
+
+    prompt = f"""
+Você é um transcritor profissional de ópera revisando uma transcrição INCOMPLETA.
+
+CONTEXTO:
+- Artista: {metadados.get("artista", "Desconhecido")}
+- Música: {metadados.get("musica", "Desconhecida")}
+- Idioma: {idioma}
+- Compositor: {metadados.get("compositor", "N/A")}
+
+LETRA COMPLETA ({len(versos)} versos):
+---
+{letra_original}
+---
+
+TRANSCRIÇÃO ANTERIOR (incompleta — apenas {len(resultado_parcial)} segmentos encontrados):
+{parcial_json}
+
+PROBLEMA: A transcrição anterior está INCOMPLETA. Faltam versos.
+Compare a letra completa com os segmentos acima e identifique quais versos estão faltando.
+
 TAREFA:
-Ouça o áudio COMPLETO do início ao fim e marque os TIMESTAMPS de CADA verso da letra.
-TODOS os versos da letra devem aparecer no resultado — a música está sendo cantada neste áudio.
+Ouça o áudio NOVAMENTE do início ao fim. Produza uma transcrição COMPLETA com TODOS os {len(versos)} versos da letra.
+Use os timestamps da transcrição anterior como referência para os segmentos que já estão corretos,
+mas CORRIJA timestamps imprecisos e ADICIONE os segmentos que faltam.
 
 REGRAS:
-1. Use EXATAMENTE o texto da letra original fornecida
-2. NÃO modifique nenhuma palavra
-3. Marque QUANDO cada frase começa e termina no áudio com a MAIOR PRECISÃO possível (erro máximo tolerado: 0.5 segundos)
-4. Timestamps relativos ao INÍCIO do áudio (00:00:00,000 = primeiro milissegundo do arquivo de áudio)
-5. TODOS os versos da letra DEVEM ter timestamps — ouça o áudio inteiro com atenção
-6. Se há trechos instrumentais ENTRE versos, pule o intervalo mas continue marcando os versos seguintes
-7. Se há repetições não escritas na letra, adicione com [REPETIÇÃO]
-8. Se não tem certeza do timestamp exato, marque sua melhor estimativa com [?]
-9. Se ouvir algo cantado que não está na letra, marque como [TEXTO NÃO IDENTIFICADO]
-10. NÃO omita versos — se um verso está na letra, ele está no áudio. Ouça com atenção.
-11. Em trechos de CORO ou ENSEMBLE (várias vozes cantando juntas), preste atenção redobrada ao INÍCIO EXATO de cada verso — muitas vezes o coro começa uma fração de segundo depois do solista
-12. Ouça o áudio pelo menos DUAS VEZES mentalmente antes de responder para garantir precisão nos timestamps
+1. Use EXATAMENTE o texto da letra original
+2. Timestamps no formato MM:SS,mmm (ex: 01:25,300)
+3. TODOS os {len(versos)} versos DEVEM aparecer
+4. Mantenha os timestamps bons da transcrição anterior, corrija os ruins
+5. ADICIONE os versos que estavam faltando com seus timestamps reais do áudio
 
-FORMATO JSON:
+FORMATO JSON (retorne APENAS isto, sem markdown):
 [
-  {{"index": 1, "start": "00:01:25,300", "end": "00:01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
-  {{"index": 2, "start": "00:01:30,200", "end": "00:01:35,400", "text": "Tu pure, o Principessa,"}}
+  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "primeiro verso..."}},
+  ...todos os {len(versos)} versos...
 ]
-
-Retorne APENAS o JSON, sem markdown, sem explicação.
 """
     response = model.generate_content([audio_file, prompt])
     return parse_json_response(response.text)
