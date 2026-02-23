@@ -63,18 +63,22 @@ CONTEXTO:
 
 TAREFA OBRIGATÓRIA:
 Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. Transcreva CADA FRASE cantada com timestamps EXATOS.
-Uma ária de ópera típica tem entre 10 e 40 frases — se você retornar menos de 8 segmentos, algo está ERRADO.
 
-REGRAS CRÍTICAS:
+REGRA FUNDAMENTAL SOBRE REPETIÇÕES:
+Em ópera, é COMUM o cantor repetir a mesma estrofe inteira (às vezes 2 ou 3 vezes, com ornamentações diferentes).
+Você DEVE transcrever CADA repetição como segmentos separados com seus próprios timestamps.
+Se "Casta Diva, che inargenti" é cantada em 01:55 e repetida em 03:10, são DOIS segmentos distintos.
+NUNCA pule uma repetição — cada vez que um verso é cantado, ele precisa de seu próprio segmento.
+
+REGRAS:
 1. Transcreva exatamente o que ouve no idioma original ({nome_idioma}) — não invente texto
-2. CADA VERSO cantado = 1 segmento. Versos curtos (2-4 palavras) também são segmentos individuais
+2. CADA FRASE cantada = 1 segmento, incluindo repetições do mesmo verso
 3. Timestamps no formato MM:SS,mmm (minutos:segundos,milissegundos). Ex: 01:25,300
-4. A precisão dos timestamps deve ser de ±0.5 segundo
-5. Inclua TODAS as frases cantadas, incluindo repetições e coros
-6. Se há introdução instrumental antes do canto, o primeiro segmento começa quando o CANTO inicia
-7. Se há interlúdios instrumentais ENTRE versos, deixe gap nos timestamps mas continue transcrevendo
-8. NÃO agrupe múltiplos versos num único segmento — cada frase/verso separado
-9. Ouça o áudio INTEIRO — não pare no meio. Os últimos versos são tão importantes quanto os primeiros
+4. Precisão: ±0.5 segundo
+5. Se há introdução instrumental, comece quando o CANTO inicia
+6. NÃO agrupe múltiplos versos num único segmento
+7. Ouça o áudio INTEIRO até o final — os últimos versos são tão importantes quanto os primeiros
+8. Espere pelo menos 20-40 segmentos para uma ária completa com repetições
 
 FORMATO JSON (retorne APENAS isto, sem markdown):
 [
@@ -123,23 +127,24 @@ LETRA ORIGINAL ({n_versos} versos — TODOS devem aparecer no resultado):
 
 TAREFA OBRIGATÓRIA:
 Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. A letra acima está sendo cantada neste áudio.
-Marque o timestamp EXATO de CADA verso. Você DEVE retornar exatamente {n_versos} segmentos (ou mais se houver repetições).
+Marque o timestamp EXATO de CADA verso.
 
-REGRAS CRÍTICAS:
+REGRA FUNDAMENTAL — REPETIÇÕES EM ÓPERA:
+Em árias de ópera, o cantor frequentemente REPETE a mesma estrofe inteira (com ornamentações).
+Exemplo: "Casta Diva, che inargenti" pode ser cantada uma primeira vez em 01:55 e REPETIDA em 03:10.
+Você DEVE criar segmentos separados para CADA repetição. A letra acima pode ter cada verso uma vez,
+mas no áudio ele pode ser cantado 2 ou 3 vezes. Marque TODAS as ocorrências.
+Espere retornar MAIS segmentos do que versos na letra ({n_versos} versos, mas provavelmente 30-50 segmentos com repetições).
+
+REGRAS:
 1. Use EXATAMENTE o texto da letra original — não modifique nenhuma palavra
-2. CADA verso da letra = 1 segmento com start e end precisos
+2. CADA vez que um verso é cantado = 1 segmento (mesmo verso repetido = segmentos separados)
 3. Timestamps no formato MM:SS,mmm (minutos:segundos,milissegundos). Ex: 01:25,300
-4. Precisão exigida: ±0.5 segundo do momento real
-5. TODOS os {n_versos} versos DEVEM ter timestamps — se você retornar menos, está ERRADO
-6. Se há introdução instrumental, o primeiro verso começa quando o CANTO inicia
-7. Se há interlúdios instrumentais entre versos, os timestamps devem refletir o gap real
-8. Se há repetições não escritas na letra, adicione com [REPETIÇÃO] como segmento extra
-9. Se ouvir algo cantado que não está na letra, marque como [TEXTO NÃO IDENTIFICADO]
-10. NÃO agrupe múltiplos versos num único segmento
-11. Em trechos de CORO/ENSEMBLE, preste atenção ao início EXATO de cada verso
-12. Os ÚLTIMOS versos são tão importantes quanto os primeiros — ouça até o FIM
-
-VERIFICAÇÃO: Antes de responder, conte seus segmentos. Se retornou menos de {n_versos}, volte e ouça o áudio novamente.
+4. Precisão: ±0.5 segundo
+5. Se há introdução instrumental, comece quando o CANTO inicia
+6. Para repetições, use o mesmo texto do verso + marque [REPETIÇÃO] no final
+7. NÃO agrupe versos — cada frase separada
+8. Ouça até o FINAL do áudio
 
 FORMATO JSON (retorne APENAS isto, sem markdown):
 [

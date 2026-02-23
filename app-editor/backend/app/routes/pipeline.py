@@ -259,90 +259,85 @@ async def _transcricao_task(edicao_id: int):
         # Contar versos esperados na letra
         versos_esperados = len([v for v in letra.letra.split("\n") if v.strip()])
 
-        # Passo 1: Transcrição guiada com retry
-        # Se Gemini retorna poucos segmentos (< 50% dos versos), tenta de novo
-        MAX_TENTATIVAS = 3
-        melhor_guiada = None
-        melhor_n_segmentos = 0
+        # ============================================================
+        # ESTRATÉGIA: CEGA PRIMEIRO → captura repetições naturalmente
+        # Em ópera, cantores repetem estrofes inteiras. A transcrição
+        # guiada (com letra) tende a pular repetições porque a letra
+        # só tem cada verso uma vez. A cega ouve e transcreve TUDO.
+        # ============================================================
 
-        for tentativa in range(1, MAX_TENTATIVAS + 1):
-            logger.info(f"[{edicao_id}] Transcrição GUIADA tentativa {tentativa}/{MAX_TENTATIVAS}...")
-            segmentos = await transcrever_guiado_completo(
-                edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
+        # Passo 1: Transcrição CEGA (sem letra — captura repetições)
+        logger.info(f"[{edicao_id}] Passo 1: Transcrição CEGA (captura repetições)...")
+        genai = _get_client()
+        mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
+        audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
+
+        melhor_cega = None
+        melhor_n_cega = 0
+        for tentativa in range(1, 3):
+            segmentos_cegos = await transcrever_cego(
+                audio_file_ref, edicao.idioma, metadados
             )
-            n = len(segmentos)
-            logger.info(f"[{edicao_id}] Tentativa {tentativa}: {n} segmentos (esperados: ~{versos_esperados})")
-
-            if n > melhor_n_segmentos:
-                melhor_n_segmentos = n
-                melhor_guiada = segmentos
-
-            # Se obteve pelo menos 50% dos versos, aceitar
-            if n >= versos_esperados * 0.5:
+            n = len(segmentos_cegos)
+            logger.info(f"[{edicao_id}] Cega tentativa {tentativa}: {n} segmentos")
+            if n > melhor_n_cega:
+                melhor_n_cega = n
+                melhor_cega = segmentos_cegos
+            if n >= versos_esperados * 0.8:
                 break
 
-            if tentativa < MAX_TENTATIVAS:
-                logger.warning(
-                    f"[{edicao_id}] Apenas {n} segmentos vs {versos_esperados} versos esperados. "
-                    f"Retentando..."
+        segmentos_cegos = normalizar_segmentos(melhor_cega or [])
+        logger.info(f"[{edicao_id}] Cega final: {len(segmentos_cegos)} segmentos")
+
+        # Passo 2: Transcrição GUIADA (com letra — texto mais fiel)
+        logger.info(f"[{edicao_id}] Passo 2: Transcrição GUIADA (texto fiel à letra)...")
+        segmentos_guiados = await transcrever_guiado_completo(
+            edicao.arquivo_audio_completo, letra.letra, edicao.idioma, metadados,
+        )
+        segmentos_guiados = normalizar_segmentos(segmentos_guiados)
+        logger.info(f"[{edicao_id}] Guiada: {len(segmentos_guiados)} segmentos")
+
+        # Passo 3: MERGE — timestamps da cega + texto da guiada
+        # A cega tem timestamps de TODAS as ocorrências (incluindo repetições)
+        # A guiada tem o texto correto da letra
+        logger.info(f"[{edicao_id}] Passo 3: Merge (cega {len(segmentos_cegos)} × guiada {len(segmentos_guiados)})...")
+        resultado = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
+        logger.info(
+            f"[{edicao_id}] Merge: rota={resultado['rota']} "
+            f"confiança={resultado['confianca_media']}"
+        )
+
+        # Passo 4: Se merge fraco, tentar alinhar guiada direta como fallback
+        if resultado["rota"] == "C":
+            logger.info(f"[{edicao_id}] Merge fraco (rota C), tentando alinhamento guiada direta...")
+            resultado_guiada = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
+            if resultado_guiada["confianca_media"] > resultado["confianca_media"]:
+                logger.info(
+                    f"[{edicao_id}] Guiada direta melhor: {resultado['confianca_media']:.3f} → "
+                    f"{resultado_guiada['confianca_media']:.3f}"
                 )
+                resultado = resultado_guiada
 
-        segmentos_guiados = melhor_guiada
-        logger.info(f"[{edicao_id}] Transcrição guiada final: {len(segmentos_guiados)} segmentos")
-
-        # Passo 1b: Se resultado ainda incompleto (< 70% dos versos), tentar passo de COMPLETAÇÃO
-        if len(segmentos_guiados) < versos_esperados * 0.7:
+        # Passo 5: Se ainda incompleto, tentar completação
+        n_resultado = len(resultado.get("segmentos", []))
+        if n_resultado < versos_esperados * 0.7:
             logger.info(
-                f"[{edicao_id}] Resultado incompleto ({len(segmentos_guiados)}/{versos_esperados}). "
-                f"Tentando passo de completação..."
+                f"[{edicao_id}] Resultado incompleto ({n_resultado}/{versos_esperados}). "
+                f"Tentando completação..."
             )
             try:
                 segmentos_completados = await completar_transcricao(
                     edicao.arquivo_audio_completo, letra.letra,
-                    segmentos_guiados, edicao.idioma, metadados,
+                    resultado["segmentos"], edicao.idioma, metadados,
                 )
-                logger.info(
-                    f"[{edicao_id}] Completação: {len(segmentos_completados)} segmentos "
-                    f"(antes: {len(segmentos_guiados)})"
-                )
-                if len(segmentos_completados) > len(segmentos_guiados):
-                    segmentos_guiados = segmentos_completados
+                if len(segmentos_completados) > n_resultado:
+                    logger.info(f"[{edicao_id}] Completação: {n_resultado} → {len(segmentos_completados)}")
+                    segmentos_completados = normalizar_segmentos(segmentos_completados)
+                    resultado_completado = alinhar_letra_com_timestamps(letra.letra, segmentos_completados)
+                    if resultado_completado["confianca_media"] >= resultado["confianca_media"]:
+                        resultado = resultado_completado
             except Exception as e:
                 logger.warning(f"[{edicao_id}] Completação falhou: {e}")
-
-        # Normalizar timestamps do Gemini (formato canônico + validação)
-        segmentos_guiados = normalizar_segmentos(segmentos_guiados)
-
-        # Passo 2: Alinhar guiada com letra original
-        resultado = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
-        logger.info(
-            f"[{edicao_id}] Alinhamento guiado: rota={resultado['rota']} "
-            f"confiança={resultado['confianca_media']}"
-        )
-
-        # Passo 3: Se resultado fraco, tentar refinar com transcrição cega
-        if resultado["rota"] in ("B", "C"):
-            logger.info(f"[{edicao_id}] Rota {resultado['rota']} detectada, tentando merge com transcrição cega...")
-            try:
-                genai = _get_client()
-                mime_type = _detect_mime_type(edicao.arquivo_audio_completo)
-                audio_file_ref = genai.upload_file(edicao.arquivo_audio_completo, mime_type=mime_type)
-                segmentos_cegos = await transcrever_cego(
-                    audio_file_ref, edicao.idioma, metadados
-                )
-                logger.info(f"[{edicao_id}] Transcrição cega: {len(segmentos_cegos)} segmentos")
-                resultado_merge = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
-                # Usar merge só se melhorou
-                if resultado_merge["confianca_media"] > resultado["confianca_media"]:
-                    logger.info(
-                        f"[{edicao_id}] Merge melhorou: {resultado['confianca_media']:.3f} → "
-                        f"{resultado_merge['confianca_media']:.3f}"
-                    )
-                    resultado = resultado_merge
-                else:
-                    logger.info(f"[{edicao_id}] Merge não melhorou, mantendo guiada direta")
-            except Exception as e:
-                logger.warning(f"[{edicao_id}] Cega falhou, mantendo guiada: {e}")
 
         # Normalizar resultado final antes de salvar
         resultado["segmentos"] = normalizar_segmentos(resultado["segmentos"])
