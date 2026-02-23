@@ -675,6 +675,39 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             db.commit()
             return
 
+        # Garantir que vídeo cortado existe no disco (storage efêmero Railway)
+        if not Path(edicao.arquivo_video_cortado).exists():
+            logger.info(f"[{edicao_id}] Vídeo cortado sumiu, regenerando...")
+            # Re-baixar vídeo original se necessário
+            if not edicao.arquivo_video_completo or not Path(edicao.arquivo_video_completo).exists():
+                if edicao.youtube_url:
+                    resultado_dl = await download_video(edicao.youtube_url, edicao_id, STORAGE_PATH)
+                    edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
+                    db.commit()
+                else:
+                    edicao.status = "erro"
+                    edicao.erro_msg = "Vídeo original não encontrado e sem URL para re-baixar"
+                    db.commit()
+                    return
+            # Re-cortar na janela
+            if edicao.janela_inicio_sec is not None and edicao.janela_fim_sec is not None:
+                resultado_corte = await cortar_na_janela_overlay(
+                    edicao.arquivo_video_completo,
+                    edicao.janela_inicio_sec,
+                    edicao.janela_fim_sec,
+                    edicao_id,
+                    STORAGE_PATH,
+                )
+                edicao.arquivo_video_cortado = resultado_corte["arquivo_cortado"]
+                edicao.arquivo_video_cru = resultado_corte["arquivo_cru"]
+                db.commit()
+                logger.info(f"[{edicao_id}] Vídeo cortado regenerado: {edicao.arquivo_video_cortado}")
+            else:
+                edicao.status = "erro"
+                edicao.erro_msg = "Janela de corte não definida. Aplique o corte primeiro."
+                db.commit()
+                return
+
         idiomas = idiomas_renderizar if idiomas_renderizar else IDIOMAS_ALVO
         for idioma in idiomas:
             try:
