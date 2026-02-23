@@ -217,8 +217,19 @@ async def iniciar_transcricao(edicao_id: int, background_tasks: BackgroundTasks,
             409, "Vídeo ainda não foi baixado. Aguarde o download completar."
         )
 
-    # Extrair áudio se necessário
-    if not edicao.arquivo_audio_completo:
+    # Re-baixar vídeo se arquivo sumiu (storage efêmero Railway)
+    if not FilePath(edicao.arquivo_video_completo).exists():
+        if edicao.youtube_url:
+            logger.info(f"[{edicao_id}] Vídeo sumiu do disco, re-baixando...")
+            resultado_dl = await download_video(edicao.youtube_url, edicao_id, STORAGE_PATH)
+            edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
+            edicao.arquivo_audio_completo = None  # forçar re-extração
+            db.commit()
+        else:
+            raise HTTPException(409, "Vídeo não encontrado no disco e sem URL para re-baixar.")
+
+    # Extrair áudio se necessário ou se arquivo sumiu
+    if not edicao.arquivo_audio_completo or not FilePath(edicao.arquivo_audio_completo).exists():
         audio_path = await extrair_audio_completo(
             edicao.arquivo_video_completo, edicao_id, STORAGE_PATH
         )
@@ -237,6 +248,33 @@ async def _transcricao_task(edicao_id: int):
     db = SessionLocal()
     try:
         edicao = db.get(Edicao, edicao_id)
+
+        # Garantir que o áudio existe no disco (pode sumir após redeploy)
+        if not edicao.arquivo_audio_completo or not FilePath(edicao.arquivo_audio_completo).exists():
+            # Tentar re-extrair do vídeo
+            if edicao.arquivo_video_completo and FilePath(edicao.arquivo_video_completo).exists():
+                audio_path = await extrair_audio_completo(
+                    edicao.arquivo_video_completo, edicao_id, STORAGE_PATH
+                )
+                edicao.arquivo_audio_completo = audio_path
+                db.commit()
+            else:
+                # Tentar re-baixar o vídeo primeiro
+                if edicao.youtube_url:
+                    logger.info(f"[{edicao_id}] Vídeo e áudio sumiram, re-baixando...")
+                    resultado_dl = await download_video(edicao.youtube_url, edicao_id, STORAGE_PATH)
+                    edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
+                    audio_path = await extrair_audio_completo(
+                        edicao.arquivo_video_completo, edicao_id, STORAGE_PATH
+                    )
+                    edicao.arquivo_audio_completo = audio_path
+                    db.commit()
+                else:
+                    edicao.status = "erro"
+                    edicao.erro_msg = "Áudio e vídeo não encontrados. Faça upload novamente."
+                    db.commit()
+                    return
+
         # Buscar letra associada (match exato por musica + idioma)
         from app.models import Letra
         letra = db.query(Letra).filter(
