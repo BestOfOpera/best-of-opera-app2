@@ -746,21 +746,43 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
 
 @app.get("/api/r2/info")
 async def r2_info(folder: str = Query(...)):
-    """Retorna youtube_url e thumbnail_url para uma pasta R2."""
+    """Retorna youtube_url, thumbnail, título e descrição do vídeo para uma pasta R2."""
     marker_key = f"{folder}/video/.youtube_id"
     try:
         video_id = storage.read_text(marker_key).strip()
         if not video_id:
             raise HTTPException(404, "YouTube ID não encontrado")
-        return {
-            "video_id": video_id,
-            "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
-            "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
-        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(404, f"Pasta não encontrada: {e}")
+
+    result = {
+        "video_id": video_id,
+        "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
+        "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+        "title": "",
+        "description": "",
+    }
+
+    # Fetch title and description from YouTube API
+    if YOUTUBE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                resp = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "snippet", "id": video_id, "key": YOUTUBE_API_KEY},
+                )
+                data = resp.json()
+                items = data.get("items", [])
+                if items:
+                    snippet = items[0].get("snippet", {})
+                    result["title"] = snippet.get("title", "")
+                    result["description"] = snippet.get("description", "")
+        except Exception:
+            pass  # Return without YouTube metadata if API fails
+
+    return result
 
 @app.get("/api/downloads")
 async def list_downloads():

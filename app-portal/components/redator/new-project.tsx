@@ -58,6 +58,8 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
   const [thumbnailUrl, setThumbnailUrl] = useState("")
+  const [ytTitle, setYtTitle] = useState("")
+  const [ytDescription, setYtDescription] = useState("")
   const [r2Loading, setR2Loading] = useState(false)
   const [r2Error, setR2Error] = useState("")
   const [detecting, setDetecting] = useState(false)
@@ -82,6 +84,8 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     curadoriaApi.r2Info(r2Folder).then(info => {
       setYoutubeUrl(info.youtube_url)
       setThumbnailUrl(info.thumbnail_url)
+      setYtTitle(info.title || "")
+      setYtDescription(info.description || "")
     }).catch((err) => {
       setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
     }).finally(() => setR2Loading(false))
@@ -237,8 +241,13 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                 <p className="text-xs text-destructive">{r2Error}</p>
               ) : null}
               <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
-              {r2Folder && thumbnailUrl && (
-                <img src={thumbnailUrl} alt="YouTube thumbnail" className="mt-2 w-full max-h-48 rounded-lg border object-cover" />
+              {r2Folder && ytTitle && (
+                <div className="mt-2 rounded-lg border bg-muted/40 p-3 space-y-1">
+                  <p className="text-xs font-semibold text-foreground leading-snug">{ytTitle}</p>
+                  {ytDescription && (
+                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-4 whitespace-pre-line">{ytDescription}</p>
+                  )}
+                </div>
               )}
             </div>
 
