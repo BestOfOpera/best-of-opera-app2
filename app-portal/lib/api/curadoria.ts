@@ -110,4 +110,9 @@ export const curadoriaApi = {
   downloads: () => request<{ downloads: Download[] }>(`${BASE()}/downloads`),
 
   downloadsExportUrl: () => `${BASE()}/downloads/export`,
+
+  r2Info: (folder: string) =>
+    request<{ video_id: string; youtube_url: string; thumbnail_url: string }>(
+      `${BASE()}/r2/info?folder=${encodeURIComponent(folder)}`
+    ),
 }

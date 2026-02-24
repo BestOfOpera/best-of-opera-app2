@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { Upload, Loader2 } from "lucide-react"
 import { redatorApi, type DetectedMetadata } from "@/lib/api/redator"
+import { curadoriaApi } from "@/lib/api/curadoria"
 
 const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Overture", "Recitative", "Ensemble", "Ballet", "Intermezzo", "Other"]
 
@@ -56,6 +57,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
 
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
+  const [thumbnailUrl, setThumbnailUrl] = useState("")
   const [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState(false)
   const [confidence, setConfidence] = useState("")
@@ -73,6 +75,10 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     setShared(prev => ({ ...prev, work }))
     setDetected(true)
     setConfidence("r2")
+    curadoriaApi.r2Info(r2Folder).then(info => {
+      setYoutubeUrl(info.youtube_url)
+      setThumbnailUrl(info.thumbnail_url)
+    }).catch(() => {})
   }, [r2Folder])
 
   const isMulti = category === "Duet" || category === "Ensemble"
@@ -218,6 +224,9 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
             <div className="space-y-2">
               <Label>Link do YouTube (opcional)</Label>
               <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+              {r2Folder && thumbnailUrl && (
+                <img src={thumbnailUrl} alt="YouTube thumbnail" className="mt-2 w-full max-h-48 rounded-lg border object-cover" />
+              )}
             </div>
 
             <div className="space-y-2">

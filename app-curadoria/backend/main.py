@@ -744,6 +744,24 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
             print(f"❌ Download error for {video_id}: {e}")
             raise HTTPException(500, f"Download failed: {str(e)}")
 
+@app.get("/api/r2/info")
+async def r2_info(folder: str = Query(...)):
+    """Retorna youtube_url e thumbnail_url para uma pasta R2."""
+    marker_key = f"{folder}/video/.youtube_id"
+    try:
+        video_id = storage.read_text(marker_key).strip()
+        if not video_id:
+            raise HTTPException(404, "YouTube ID não encontrado")
+        return {
+            "video_id": video_id,
+            "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
+            "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(404, f"Pasta não encontrada: {e}")
+
 @app.get("/api/downloads")
 async def list_downloads():
     return {"downloads": db.get_downloads()}
