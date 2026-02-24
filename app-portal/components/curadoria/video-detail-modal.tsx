@@ -6,8 +6,9 @@ import { ScoreRing, scoreColorBg } from "./score-ring"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Download, ExternalLink, Loader2 } from "lucide-react"
-import { useState } from "react"
+import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 
 function formatViews(n: number) {
   if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"
@@ -43,17 +44,20 @@ export function VideoDetailModal({
   onClose: () => void
   onDownloaded?: () => void
 }) {
+  const router = useRouter()
   const [downloading, setDownloading] = useState(false)
+  const [downloadDone, setDownloadDone] = useState(false)
   const [editArtist, setEditArtist] = useState("")
   const [editSong, setEditSong] = useState("")
 
-  // Reset fields when video changes
-  const [lastVideoId, setLastVideoId] = useState("")
-  if (video && video.video_id !== lastVideoId) {
-    setEditArtist(video.artist || "")
-    setEditSong(video.song || video.title || "")
-    setLastVideoId(video.video_id)
-  }
+  // Reset fields when video changes or modal opens
+  useEffect(() => {
+    if (video && open) {
+      setEditArtist(video.artist || "")
+      setEditSong(video.song || video.title || "")
+      setDownloadDone(false)
+    }
+  }, [video?.video_id, open])
 
   if (!video) return null
 
@@ -66,16 +70,22 @@ export function VideoDetailModal({
     setDownloading(true)
     try {
       await curadoriaApi.downloadVideo(video.video_id, artist, song)
+      setDownloadDone(true)
       onDownloaded?.()
     } catch (err) {
-      alert("Download failed: " + (err instanceof Error ? err.message : "Erro"))
+      alert("Download falhou: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setDownloading(false)
     }
   }
 
+  const handleGoToRedator = () => {
+    onClose()
+    router.push("/redator")
+  }
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setDownloadDone(false); onClose() } }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
@@ -89,101 +99,123 @@ export function VideoDetailModal({
           )}
         </DialogHeader>
 
-        {/* Score ring + breakdown */}
-        <div className="flex items-start gap-4">
-          <ScoreRing score={score} size={54} />
-          <div className="flex-1">
-            <div className="text-sm font-semibold mb-2">Score Breakdown</div>
-            {reasons.length > 0 ? (
-              <div className="space-y-1">
-                {reasons.map((r, i) => {
-                  const { color } = scoreColorBg(r.points * 10)
-                  return (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className={`px-1.5 py-0.5 rounded-full font-medium ${TAG_COLORS[r.tag] || "bg-gray-100 text-gray-600"}`}>
-                        {r.tag}
-                      </span>
-                      <span className="flex-1 text-[#8B8680]">{r.label}</span>
-                      <span className="font-bold" style={{ color }}>+{r.points}</span>
-                    </div>
-                  )
-                })}
+        {/* Download success state */}
+        {downloadDone ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
+              <div>
+                <div className="font-semibold text-green-800">Download concluido com sucesso</div>
+                <div className="text-sm text-green-700">
+                  Salvo na nuvem como: <span className="font-mono text-xs">{editArtist.trim()} - {editSong.trim()}</span>
+                </div>
               </div>
-            ) : (
-              <div className="text-xs text-muted-foreground">Sem matches</div>
-            )}
-          </div>
-        </div>
-
-        {/* Stats grid */}
-        <div className="grid grid-cols-3 gap-3 text-center">
-          {[
-            ["Views", formatViews(video.views)],
-            ["Ano", video.year > 0 ? String(video.year) : "--"],
-            ["Duração", formatDuration(video.duration)],
-            ["HD", video.hd ? "Sim" : "Não"],
-            ["Canal", video.channel || "--"],
-            ["Cat.", video.category || "--"],
-          ].map(([label, val]) => (
-            <div key={label} className="bg-muted/50 rounded-lg p-2">
-              <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
-              <div className="text-sm font-semibold truncate">{val}</div>
             </div>
-          ))}
-        </div>
 
-        {/* YouTube URL */}
-        {video.url && (
-          <div>
-            <div className="text-[10px] text-muted-foreground mb-1">YouTube URL</div>
-            <div className="flex gap-2">
-              <input
-                value={video.url}
-                readOnly
-                onClick={e => (e.target as HTMLInputElement).select()}
-                className="flex-1 bg-muted/50 rounded px-2 py-1 text-xs font-mono border"
-              />
-              <Button size="sm" variant="outline" asChild>
-                <a href={video.url} target="_blank" rel="noopener noreferrer">Abrir</a>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => { setDownloadDone(false); onClose() }}>
+                Fechar
+              </Button>
+              <Button onClick={handleGoToRedator} className="gap-2">
+                Seguir para o Redator <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
-        )}
-
-        {/* Editable artist/song for R2 naming */}
-        {!video.posted && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase">Artista</label>
-              <input
-                value={editArtist}
-                onChange={e => setEditArtist(e.target.value)}
-                className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Nome do artista"
-              />
+        ) : (
+          <>
+            {/* Score ring + breakdown */}
+            <div className="flex items-start gap-4">
+              <ScoreRing score={score} size={54} />
+              <div className="flex-1">
+                <div className="text-sm font-semibold mb-2">Score Breakdown</div>
+                {reasons.length > 0 ? (
+                  <div className="space-y-1">
+                    {reasons.map((r, i) => {
+                      const { color } = scoreColorBg(r.points * 10)
+                      return (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className={`px-1.5 py-0.5 rounded-full font-medium ${TAG_COLORS[r.tag] || "bg-gray-100 text-gray-600"}`}>
+                            {r.tag}
+                          </span>
+                          <span className="flex-1 text-[#8B8680]">{r.label}</span>
+                          <span className="font-bold" style={{ color }}>+{r.points}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-xs text-muted-foreground">Sem matches</div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground uppercase">Musica / Aria</label>
-              <input
-                value={editSong}
-                onChange={e => setEditSong(e.target.value)}
-                className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Nome da musica"
-              />
-            </div>
-          </div>
-        )}
 
-        {/* Actions */}
-        <div className="flex gap-3 justify-end">
-          {!video.posted && (
-            <Button onClick={handleDownload} disabled={downloading || !editArtist.trim() || !editSong.trim()} className="gap-2">
-              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              {downloading ? "Downloading..." : "Download"}
-            </Button>
-          )}
-          <Button variant="outline" onClick={onClose}>Fechar</Button>
-        </div>
+            {/* Stats grid */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                ["Views", formatViews(video.views)],
+                ["Ano", video.year > 0 ? String(video.year) : "--"],
+                ["Duração", formatDuration(video.duration)],
+                ["HD", video.hd ? "Sim" : "Não"],
+                ["Canal", video.channel || "--"],
+                ["Cat.", video.category || "--"],
+              ].map(([label, val]) => (
+                <div key={label} className="bg-muted/50 rounded-lg p-2">
+                  <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
+                  <div className="text-sm font-semibold truncate">{val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* YouTube URL */}
+            {video.url && (
+              <div>
+                <div className="text-[10px] text-muted-foreground mb-1">YouTube URL</div>
+                <div className="flex gap-2">
+                  <input
+                    value={video.url}
+                    readOnly
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                    className="flex-1 bg-muted/50 rounded px-2 py-1 text-xs font-mono border"
+                  />
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={video.url} target="_blank" rel="noopener noreferrer">Abrir</a>
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Editable artist/song for R2 naming */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Artista</label>
+                <input
+                  value={editArtist}
+                  onChange={e => setEditArtist(e.target.value)}
+                  className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="Nome do artista"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground uppercase">Musica / Aria</label>
+                <input
+                  value={editSong}
+                  onChange={e => setEditSong(e.target.value)}
+                  className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
+                  placeholder="Nome da musica"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 justify-end">
+              <Button onClick={handleDownload} disabled={downloading || !editArtist.trim() || !editSong.trim()} className="gap-2">
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {downloading ? "Baixando..." : "Download"}
+              </Button>
+              <Button variant="outline" onClick={onClose}>Fechar</Button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )
