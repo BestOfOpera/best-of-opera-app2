@@ -58,6 +58,8 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
   const [thumbnailUrl, setThumbnailUrl] = useState("")
+  const [r2Loading, setR2Loading] = useState(false)
+  const [r2Error, setR2Error] = useState("")
   const [detecting, setDetecting] = useState(false)
   const [detected, setDetected] = useState(false)
   const [confidence, setConfidence] = useState("")
@@ -75,10 +77,14 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     setShared(prev => ({ ...prev, work }))
     setDetected(true)
     setConfidence("r2")
+    setR2Loading(true)
+    setR2Error("")
     curadoriaApi.r2Info(r2Folder).then(info => {
       setYoutubeUrl(info.youtube_url)
       setThumbnailUrl(info.thumbnail_url)
-    }).catch(() => {})
+    }).catch((err) => {
+      setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
+    }).finally(() => setR2Loading(false))
   }, [r2Folder])
 
   const isMulti = category === "Duet" || category === "Ensemble"
@@ -223,6 +229,13 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
 
             <div className="space-y-2">
               <Label>Link do YouTube (opcional)</Label>
+              {r2Loading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Carregando dados do YouTube...
+                </div>
+              ) : r2Error ? (
+                <p className="text-xs text-destructive">{r2Error}</p>
+              ) : null}
               <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
               {r2Folder && thumbnailUrl && (
                 <img src={thumbnailUrl} alt="YouTube thumbnail" className="mt-2 w-full max-h-48 rounded-lg border object-cover" />
