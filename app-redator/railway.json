@@ -1,23 +1,12 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "phases": {
-        "setup": {
-          "nixPkgs": ["python39", "nodejs-18_x"]
-        },
-        "install": {
-          "cmds": [
-            "python -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt",
-            "cd frontend && npm install"
-          ]
-        },
-        "build": {
-          "cmds": ["cd frontend && npm run build"]
-        }
-      },
-      "start": "/opt/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"
-    }
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "app-redator/Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }

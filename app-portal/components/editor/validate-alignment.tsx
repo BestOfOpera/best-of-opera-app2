@@ -82,11 +82,40 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
 
   useEffect(() => { load() }, [edicaoId])
 
+  // Transcription polling with 8 minute timeout
+  const [pollingTimedOut, setPollingTimedOut] = useState(false)
+  const pollingStartRef = useRef<number>(0)
   useEffect(() => {
-    if (!polling) return
-    const timer = setInterval(load, 5000)
+    if (!polling) {
+      setPollingTimedOut(false)
+      return
+    }
+    pollingStartRef.current = Date.now()
+    setPollingTimedOut(false)
+    const timer = setInterval(() => {
+      if (Date.now() - pollingStartRef.current > 8 * 60 * 1000) {
+        clearInterval(timer)
+        setPollingTimedOut(true)
+        return
+      }
+      load()
+    }, 5000)
     return () => clearInterval(timer)
   }, [polling])
+
+  const handleRetranscrever = async () => {
+    setRetranscrevendo(true)
+    setError("")
+    try {
+      await editorApi.iniciarTranscricao(edicaoId)
+      setPolling(true)
+      setAlinhamento(null)
+    } catch (err: unknown) {
+      setError("Erro ao retranscrever: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setRetranscrevendo(false)
+    }
+  }
 
   const updateSegmento = (index: number, field: string, value: string) => {
     const updated = [...segmentos]
@@ -150,10 +179,26 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
           </>
         ) : (
           <>
-            <RefreshCw className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
-            <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
-            <p className="text-sm text-muted-foreground">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
-            <p className="text-xs text-muted-foreground mt-4">Atualizando automaticamente...</p>
+            {pollingTimedOut ? (
+              <>
+                <div className="h-8 w-8 mx-auto mb-4 text-yellow-500 text-3xl">⏱</div>
+                <h3 className="text-lg font-semibold mb-2 text-yellow-700">Timeout — transcrição demorando demais</h3>
+                <p className="text-sm text-muted-foreground">O backend pode ter travado. Tente recarregar ou iniciar novamente.</p>
+                <div className="flex gap-3 justify-center mt-4">
+                  <Button variant="outline" onClick={() => window.location.reload()}>Recarregar</Button>
+                  <Button onClick={handleRetranscrever} disabled={retranscrevendo}>
+                    {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
+                <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
+                <p className="text-sm text-muted-foreground">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
+                <p className="text-xs text-muted-foreground mt-4">Atualizando automaticamente...</p>
+              </>
+            )}
           </>
         )}
       </div>
@@ -305,19 +350,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
       <div className="flex gap-3 mt-6 sticky bottom-4">
         <Button
           variant="secondary"
-          onClick={async () => {
-            setRetranscrevendo(true)
-            setError("")
-            try {
-              await editorApi.iniciarTranscricao(edicaoId)
-              setPolling(true)
-              setAlinhamento(null)
-            } catch (err: unknown) {
-              setError("Erro ao retranscrever: " + (err instanceof Error ? err.message : "Erro"))
-            } finally {
-              setRetranscrevendo(false)
-            }
-          }}
+          onClick={handleRetranscrever}
           disabled={retranscrevendo || salvando}
           className="gap-2"
         >

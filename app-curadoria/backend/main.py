@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, Response
 
 import database as db
+from shared.storage_service import storage, project_base, check_conflict, save_youtube_marker
 
 # ─── CONFIG ───
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
@@ -699,6 +700,15 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
                 db.save_download(video_id, filename, artist, song, youtube_url)
             except Exception as e:
                 print(f"⚠️ Failed to save download record: {e}")
+
+            # Upload para R2 — pasta unificada {Artista} - {Musica}/video/original.mp4
+            try:
+                base = check_conflict(artist, song, video_id)
+                r2_key = f"{base}/video/original.mp4"
+                storage.upload_file(dl_path_actual, r2_key)
+                save_youtube_marker(base, video_id)
+            except Exception as e:
+                print(f"⚠️ R2 upload failed (streaming anyway): {e}")
 
             def iter_file():
                 with open(dl_path_actual, 'rb') as f:

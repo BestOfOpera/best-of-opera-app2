@@ -44,6 +44,16 @@ export function VideoDetailModal({
   onDownloaded?: () => void
 }) {
   const [downloading, setDownloading] = useState(false)
+  const [editArtist, setEditArtist] = useState("")
+  const [editSong, setEditSong] = useState("")
+
+  // Reset fields when video changes
+  const [lastVideoId, setLastVideoId] = useState("")
+  if (video && video.video_id !== lastVideoId) {
+    setEditArtist(video.artist || "")
+    setEditSong(video.song || video.title || "")
+    setLastVideoId(video.video_id)
+  }
 
   if (!video) return null
 
@@ -51,9 +61,11 @@ export function VideoDetailModal({
   const reasons = video.score?.reasons || []
 
   const handleDownload = async () => {
+    const artist = editArtist.trim() || "Unknown"
+    const song = editSong.trim() || "Video"
     setDownloading(true)
     try {
-      await curadoriaApi.downloadVideo(video.video_id, video.artist || "Unknown", video.song || video.title || "Video")
+      await curadoriaApi.downloadVideo(video.video_id, artist, song)
       onDownloaded?.()
     } catch (err) {
       alert("Download failed: " + (err instanceof Error ? err.message : "Erro"))
@@ -138,10 +150,34 @@ export function VideoDetailModal({
           </div>
         )}
 
+        {/* Editable artist/song for R2 naming */}
+        {!video.posted && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase">Artista</label>
+              <input
+                value={editArtist}
+                onChange={e => setEditArtist(e.target.value)}
+                className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Nome do artista"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground uppercase">Musica / Aria</label>
+              <input
+                value={editSong}
+                onChange={e => setEditSong(e.target.value)}
+                className="w-full bg-muted/50 rounded px-2 py-1.5 text-sm border focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Nome da musica"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-3 justify-end">
           {!video.posted && (
-            <Button onClick={handleDownload} disabled={downloading} className="gap-2">
+            <Button onClick={handleDownload} disabled={downloading || !editArtist.trim() || !editSong.trim()} className="gap-2">
               {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               {downloading ? "Downloading..." : "Download"}
             </Button>

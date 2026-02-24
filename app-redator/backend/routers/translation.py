@@ -12,8 +12,12 @@ from backend.services.translate_service import (
     translate_text,
     translate_tags,
 )
+from backend.services.export_service import save_texts_to_r2
 from pydantic import BaseModel
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UpdateTranslationRequest(BaseModel):
@@ -96,6 +100,13 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(project)
+
+    # Salvar textos no R2 para o Editor consumir
+    try:
+        save_texts_to_r2(project)
+    except Exception as e:
+        logger.warning(f"[{project_id}] Falha ao salvar textos no R2: {e}")
+
     return project
 
 

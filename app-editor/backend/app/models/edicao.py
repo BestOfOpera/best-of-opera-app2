@@ -40,6 +40,8 @@ class Edicao(Base):
     rota_alinhamento = Column(String(5))
     confianca_alinhamento = Column(Float)
 
+    r2_base = Column(String(500), nullable=True)  # ex: "Pavarotti - Nessun Dorma"
+    redator_project_id = Column(Integer, nullable=True)
     notas_revisao = Column(Text, nullable=True)
 
     editado_por = Column(String(100))

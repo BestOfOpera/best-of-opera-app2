@@ -4,7 +4,60 @@ import zipfile
 
 from backend.models import Project
 from backend.services.srt_service import generate_srt
+from shared.storage_service import storage, project_base, lang_prefix
 
+
+def save_texts_to_r2(project: Project):
+    """Salva todos os textos do projeto no R2.
+
+    Estrutura: {Artista} - {Musica}/{Artista} - {Musica} - {IDIOMA}/post.txt, subtitles.srt, youtube.txt
+    O Editor busca esses arquivos para montar o pacote final.
+    """
+    base = project_base(project.artist, project.work)
+
+    # Traduções (inclui PT como cópia do original)
+    for t in project.translations:
+        _save_language_to_r2(
+            prefix=lang_prefix(base, t.language),
+            overlay_json=t.overlay_json,
+            post_text=t.post_text,
+            youtube_title=t.youtube_title,
+            youtube_tags=t.youtube_tags,
+            cut_end=project.cut_end,
+        )
+
+
+def _save_language_to_r2(
+    prefix: str,
+    overlay_json,
+    post_text,
+    youtube_title,
+    youtube_tags,
+    cut_end=None,
+):
+    """Salva os arquivos de texto de um idioma no R2."""
+    if overlay_json:
+        srt_content = generate_srt(overlay_json, cut_end)
+        _upload_text(f"{prefix}/subtitles.srt", srt_content)
+
+    if post_text:
+        _upload_text(f"{prefix}/post.txt", post_text)
+
+    yt_content = ""
+    if youtube_title:
+        yt_content += f"Title: {youtube_title}\n"
+    if youtube_tags:
+        yt_content += f"Tags: {youtube_tags}\n"
+    if yt_content:
+        _upload_text(f"{prefix}/youtube.txt", yt_content)
+
+
+def _upload_text(r2_key: str, content: str):
+    """Escreve texto no R2."""
+    storage.upload_text(r2_key, content)
+
+
+# ── Funções legadas mantidas para compatibilidade local ──
 
 def build_export_zip(project: Project) -> bytes:
     """Build a ZIP with all content organized by language."""
@@ -13,7 +66,6 @@ def build_export_zip(project: Project) -> bytes:
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
         slug = f"{project.artist}_{project.work}".replace(" ", "_")
 
-        # Original content (hook language)
         _write_language_folder(
             zf,
             folder=f"{slug}/original",
@@ -24,7 +76,6 @@ def build_export_zip(project: Project) -> bytes:
             cut_end=project.cut_end,
         )
 
-        # Translations
         for t in project.translations:
             _write_language_folder(
                 zf,
@@ -65,15 +116,10 @@ def _write_language_folder(
 
 
 def export_to_folder(project: Project, export_path: str) -> str:
-    """Export all content to a folder on disk (e.g. iCloud).
-
-    Structure: {export_path}/{Artist} - {Work}/{language}/post.txt, youtube.txt, subtitles.srt
-    Returns the project folder path.
-    """
+    """Export all content to a folder on disk (e.g. iCloud)."""
     slug = f"{project.artist} - {project.work}"
     project_dir = os.path.join(export_path, slug)
 
-    # Write translations (which now include the source language)
     for t in project.translations:
         lang_dir = os.path.join(project_dir, t.language)
         os.makedirs(lang_dir, exist_ok=True)

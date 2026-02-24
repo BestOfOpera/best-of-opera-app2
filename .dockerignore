@@ -1,0 +1,16 @@
+.git
+.gitignore
+.DS_Store
+*.md
+*.jsonl
+.env
+.env.*
+node_modules
+app-portal/node_modules
+app-portal/.next
+app-redator/frontend/node_modules
+app-editor/frontend/node_modules
+__pycache__
+*.pyc
+.pytest_cache
+scripts/

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Edicao, type Render } from "@/lib/api/editor"
-import { usePolling } from "@/lib/hooks/use-polling"
+import { usePollingWithTimeout } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -70,7 +70,10 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
   useEffect(() => { load() }, [edicaoId])
 
-  usePolling(load, 5000, !!edicao && ["renderizando", "traducao", "preview"].includes(edicao.status))
+  // Timeout: 10 min para renderização/preview, 5 min para tradução
+  const isPolling = !!edicao && ["renderizando", "traducao", "preview"].includes(edicao.status)
+  const timeoutMs = edicao?.status === "traducao" ? 5 * 60 * 1000 : 10 * 60 * 1000
+  const { timedOut } = usePollingWithTimeout(load, 5000, isPolling, timeoutMs)
 
   const handleTraduzir = async () => {
     setTraduzindo(true)
@@ -213,6 +216,16 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       )}
 
       {error && <div className="bg-destructive/10 text-destructive text-sm rounded-lg p-3 mb-4">{error}</div>}
+
+      {timedOut && (
+        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg p-4 mb-4">
+          <p className="font-medium">Timeout: a operação está demorando mais que o esperado.</p>
+          <p className="text-xs mt-1">O backend pode ter travado. Tente recarregar a página ou iniciar novamente.</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
+            Recarregar Página
+          </Button>
+        </div>
+      )}
 
       {/* Revision card */}
       {isRevisao && edicao.notas_revisao && (

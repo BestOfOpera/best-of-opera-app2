@@ -12,3 +12,4 @@ httpx==0.26.0
 python-dotenv==1.0.0
 lyricsgenius==3.0.1
 pytest==8.0.0
+boto3>=1.34.0

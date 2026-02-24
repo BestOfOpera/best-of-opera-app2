@@ -3,17 +3,32 @@ import asyncio
 import json
 from pathlib import Path
 
+from shared.storage_service import storage, check_conflict, save_youtube_marker
 
-async def download_video(youtube_url: str, video_id: int, storage_path: str) -> dict:
-    """Baixa vídeo do YouTube em 1080p."""
+
+async def download_video(youtube_url: str, video_id: int, storage_path: str,
+                         artista: str = "", musica: str = "",
+                         youtube_video_id: str = "") -> dict:
+    """Baixa vídeo do YouTube em 1080p e envia para R2.
+
+    Args:
+        youtube_url: URL do YouTube
+        video_id: ID da edição (para pasta local temporária)
+        storage_path: diretório local temporário
+        artista: nome do artista (para key R2)
+        musica: nome da música (para key R2)
+        youtube_video_id: ID do vídeo no YouTube (para desambiguação)
+    """
     output_dir = Path(storage_path) / str(video_id)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    local_file = str(output_dir / "original.mp4")
 
     cmd = [
         "yt-dlp",
         "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
         "--merge-output-format", "mp4",
-        "-o", str(output_dir / "original.mp4"),
+        "-o", local_file,
         "--write-info-json",
         "--sub-langs", "all",
         "--write-subs",
@@ -35,8 +50,15 @@ async def download_video(youtube_url: str, video_id: int, storage_path: str) -> 
     info_file = output_dir / "original.info.json"
     info = json.loads(info_file.read_text()) if info_file.exists() else {}
 
+    # Upload para R2: {Artista} - {Musica}/video/original.mp4
+    base = check_conflict(artista, musica, youtube_video_id)
+    r2_key = f"{base}/video/original.mp4"
+    storage.upload_file(local_file, r2_key)
+    save_youtube_marker(base, youtube_video_id)
+
     return {
-        "arquivo_original": str(output_dir / "original.mp4"),
+        "arquivo_original": r2_key,
+        "r2_base": base,
         "duracao_total": info.get("duration", 0),
         "resolucao": f"{info.get('width', '?')}x{info.get('height', '?')}",
     }

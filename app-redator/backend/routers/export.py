@@ -6,7 +6,7 @@ from backend.config import EXPORT_PATH
 from backend.database import get_db
 from backend.models import Project, Translation
 from backend.services.srt_service import generate_srt
-from backend.services.export_service import build_export_zip, export_to_folder
+from backend.services.export_service import build_export_zip, export_to_folder, save_texts_to_r2
 
 router = APIRouter(prefix="/api/projects", tags=["export"])
 
@@ -52,11 +52,30 @@ def export_language(project_id: int, lang: str, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/{project_id}/save-to-r2")
+def save_to_r2(project_id: int, db: Session = Depends(get_db)):
+    """Salva todos os textos do projeto no R2 para o Editor consumir."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    save_texts_to_r2(project)
+    from shared.storage_service import project_base
+    base = project_base(project.artist, project.work)
+    return {"ok": True, "r2_base": base}
+
+
 @router.get("/{project_id}/export-zip")
 def export_zip(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
+
+    # Também salva no R2 ao gerar ZIP
+    try:
+        save_texts_to_r2(project)
+    except Exception:
+        pass  # Non-critical
 
     zip_bytes = build_export_zip(project)
     slug = f"{project.artist}_{project.work}".replace(" ", "_")
@@ -76,6 +95,12 @@ def export_to_folder_route(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
+
+    # Também salva no R2
+    try:
+        save_texts_to_r2(project)
+    except Exception:
+        pass  # Non-critical
 
     folder = export_to_folder(project, EXPORT_PATH)
     return {"path": folder}
