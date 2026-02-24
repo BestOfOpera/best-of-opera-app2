@@ -35,6 +35,8 @@ export default function Export() {
   const [hasExportPath, setHasExportPath] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportSuccess, setExportSuccess] = useState('')
+  const [savingToCloud, setSavingToCloud] = useState(false)
+  const [savedToCloud, setSavedToCloud] = useState(false)
 
   const projectId = Number(id)
 
@@ -159,9 +161,24 @@ export default function Export() {
             {translating ? 'Retraduzindo tudo...' : 'Retraduzir todos os idiomas'}
           </button>
         )}
-        <a href={api.exportZipUrl(projectId)} download>
-          <button className="btn-primary">Baixar ZIP</button>
-        </a>
+        <button
+          className="btn-primary"
+          disabled={savingToCloud}
+          onClick={async () => {
+            setSavingToCloud(true)
+            setError('')
+            try {
+              await api.saveToR2(projectId)
+              setSavedToCloud(true)
+            } catch (err: any) {
+              setError('Erro ao salvar arquivos: ' + err.message)
+            } finally {
+              setSavingToCloud(false)
+            }
+          }}
+        >
+          {savingToCloud ? 'Salvando...' : 'Salvar Arquivos'}
+        </button>
         {hasExportPath && (
           <button
             className="btn-primary"
@@ -187,6 +204,31 @@ export default function Export() {
       {exportSuccess && (
         <div style={{ marginBottom: 16, padding: '8px 12px', background: '#D1FAE5', color: '#065F46', borderRadius: 8, fontSize: 13 }}>
           {exportSuccess}
+        </div>
+      )}
+
+      {/* Success screen after saving to cloud */}
+      {savedToCloud && (
+        <div style={{
+          margin: '24px 0',
+          padding: '32px',
+          background: '#F0FDF4',
+          border: '1.5px solid #86EFAC',
+          borderRadius: 16,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+          <h3 style={{ fontSize: 20, fontWeight: 700, color: '#15803D', marginBottom: 8 }}>
+            Arquivos salvos!
+          </h3>
+          <p style={{ color: '#166534', marginBottom: 24, fontSize: 15 }}>
+            Todos os textos, legendas e metadados foram enviados para a nuvem.
+          </p>
+          <a href="/editor">
+            <button className="btn-primary" style={{ fontSize: 16, padding: '12px 28px' }}>
+              Vamos finalizar no Editor →
+            </button>
+          </a>
         </div>
       )}
 

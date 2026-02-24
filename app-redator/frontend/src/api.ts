@@ -149,6 +149,8 @@ export const api = {
   exportZipUrl: (id: number) => `${BASE}/projects/${id}/export-zip`,
   exportToFolder: (id: number) =>
     request<{ path: string }>(`/projects/${id}/export-to-folder`, { method: 'POST' }),
+  saveToR2: (id: number) =>
+    request<{ ok: boolean; r2_base: string }>(`/projects/${id}/save-to-r2`, { method: 'POST' }),
   getExportConfig: () =>
     request<{ export_path: string | null }>('/projects/export-config'),
 };

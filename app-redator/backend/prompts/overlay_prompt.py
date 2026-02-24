@@ -31,9 +31,11 @@ def build_overlay_prompt(project) -> str:
 
     count_info = _calc_subtitle_count(project)
 
-    return f"""You are a creative copywriter for "Best of Opera", a social media channel that shares short clips of opera performances.
+    return f"""You are a master storyteller and viral content writer for "Best of Opera", a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds.
 
-Generate overlay subtitles (captions that appear on screen) for a video featuring:
+Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
+
+Generate overlay subtitles for a video featuring:
 - Artist: {project.artist}
 - Work: {project.work}
 - Composer: {project.composer}
@@ -45,22 +47,58 @@ Generate overlay subtitles (captions that appear on screen) for a video featurin
 - Voice type: {project.voice_type}
 {duration_info}
 
-RULES:
-1. Each subtitle must be maximum 70 characters.
-2. {count_info} Distribute subtitles so they COVER the entire video duration — there must NEVER be long gaps without a subtitle on screen. Each subtitle stays visible until ~1 second before the next one appears. The LAST subtitle must appear close enough to the end so it stays on screen until the video ends.
-3. Subtitles should tell a mini-story: hook the viewer, build intrigue, deliver emotional payoff.
-4. First subtitle MUST start at "00:00" — a short, punchy attention-grabbing hook (ideally under 30 characters).
-5. Use simple, powerful language.
-6. NEVER use generic phrases like "beautiful performance", "amazing voice", "stunning rendition", "incredible talent". Be SPECIFIC and evocative.
-7. NEVER use technical opera jargon (no "bel canto", "coloratura", "tessitura", "libretto", etc). Write for a general audience.
-8. Space subtitles evenly across the ENTIRE video duration. The gap between one subtitle's end and the next subtitle's start should be approximately 1 second. No large empty gaps.
+═══════════════════════════════
+RETENTION PRINCIPLES (follow all of them)
+═══════════════════════════════
 
-Return ONLY a JSON array with objects having "timestamp" (in "MM:SS" format) and "text" fields.
-Example: [{{"timestamp": "00:00", "text": "This voice changed everything"}}, {{"timestamp": "00:05", "text": "Maria Callas in 1958"}}]
+**OPEN LOOPS** — Every subtitle should make the viewer need to watch the next one.
+Bad: "She was a famous soprano"
+Good: "She was banned from 3 opera houses — and became a legend anyway"
 
-Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
+**SPECIFICITY CREATES EMOTION** — Vague = forgettable. Specific = unforgettable.
+Bad: "A powerful moment in music history"
+Good: "The night this aria made the audience go completely silent"
 
-Return the JSON array and nothing else."""
+**TENSION & RELEASE** — Build toward something. Don't reveal everything at once.
+Use the arc: Curiosity → Tension → Revelation → Emotional payoff
+
+**CONVERSATIONAL, HUMAN VOICE** — Write like you're whispering to a friend, not narrating a documentary.
+Bad: "This composition dates back to 1842"
+Good: "He wrote this in 1842 — and it still breaks people today"
+
+**USE THE FULL CHARACTER LIMIT** — Subtitles should be rich and complete, ideally 50–70 characters. Short, punchy lines are allowed only for maximum-impact moments (first hook, climax reveal). Never waste a subtitle with a half-sentence when you can say something powerful.
+
+═══════════════════════════════
+STRUCTURE RULES
+═══════════════════════════════
+
+1. Maximum 70 characters per subtitle.
+2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end.
+3. Subtitles must follow a narrative arc: hook → build → climax → payoff.
+4. FIRST subtitle starts at "00:00" — short, punchy, under 30 characters. Make it impossible to ignore.
+5. FORBIDDEN phrases — never use: "beautiful performance", "amazing voice", "stunning rendition", "incredible talent", "breathtaking", "timeless masterpiece", "legendary performance". These are filler. Be specific instead.
+6. FORBIDDEN jargon — never use: "bel canto", "coloratura", "tessitura", "libretto", "aria" (unless explained), "virtuoso". Write for someone who has never watched opera in their life.
+7. Space subtitles evenly. Gap between one subtitle ending and the next starting: ~1 second.
+
+═══════════════════════════════
+EMOTIONAL TOOLKIT — use these techniques
+═══════════════════════════════
+
+- **The hidden story**: "What most people don't know about this moment is..."
+- **The contrast**: "Critics called it noise. Audiences called it a miracle."
+- **The stakes**: "She had one chance to prove them wrong"
+- **The confession**: "This is the part where people always start crying"
+- **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
+- **The countdown**: "The note that's coming will change how you hear music"
+
+═══════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════
+
+Return ONLY a JSON array with objects having "timestamp" (MM:SS format) and "text" fields.
+Example: [{{"timestamp": "00:00", "text": "Nobody believed she could do this"}}, {{"timestamp": "00:06", "text": "Maria Callas, live in Paris — 1958"}}]
+
+Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly."""
 
 
 def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:

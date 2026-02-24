@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, FolderOpen, Copy, Loader2 } from "lucide-react"
+import { Download, FolderOpen, Copy, Loader2, CloudUpload, CheckCircle2 } from "lucide-react"
+import Link from "next/link"
 import { redatorApi, type Project, type ExportData } from "@/lib/api/redator"
 
 const LANGUAGES = [
@@ -41,6 +42,8 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
   const [hasExportPath, setHasExportPath] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [exportSuccess, setExportSuccess] = useState("")
+  const [savingToCloud, setSavingToCloud] = useState(false)
+  const [savedToCloud, setSavedToCloud] = useState(false)
 
   useEffect(() => {
     redatorApi.getProject(projectId).then(setProject).finally(() => setLoading(false))
@@ -148,12 +151,17 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
               {exporting ? "Exportando..." : "Exportar para Pasta"}
             </Button>
           )}
-          <a href={redatorApi.exportZipUrl(projectId)} download>
-            <Button size="sm">
-              <Download className="mr-2 h-3.5 w-3.5" />
-              Baixar ZIP
-            </Button>
-          </a>
+          <Button size="sm" disabled={savingToCloud} onClick={async () => {
+            setSavingToCloud(true); setError("")
+            try {
+              await redatorApi.saveToR2(projectId)
+              setSavedToCloud(true)
+            } catch (err: any) { setError("Erro ao salvar arquivos: " + err.message) }
+            finally { setSavingToCloud(false) }
+          }}>
+            {savingToCloud ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="mr-2 h-3.5 w-3.5" />}
+            {savingToCloud ? "Salvando..." : "Salvar Arquivos"}
+          </Button>
         </div>
       </div>
 
@@ -162,6 +170,23 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
       )}
       {exportSuccess && (
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{exportSuccess}</div>
+      )}
+
+      {savedToCloud && (
+        <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-8 text-center space-y-4">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500" />
+          <div>
+            <h3 className="text-lg font-semibold text-emerald-800">Arquivos salvos!</h3>
+            <p className="text-sm text-emerald-700 mt-1">
+              Todos os textos, legendas e metadados foram enviados para a nuvem.
+            </p>
+          </div>
+          <Link href="/editor">
+            <Button size="lg" className="mt-2">
+              Vamos finalizar no Editor →
+            </Button>
+          </Link>
+        </div>
       )}
 
       <div className="flex gap-2 flex-wrap">
