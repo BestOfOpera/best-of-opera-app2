@@ -728,9 +728,15 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
                     while chunk := f.read(1024 * 1024):
                         yield chunk
 
+            # filename* usa RFC 5987 para suportar unicode (acentos etc)
+            import unicodedata as _ud
+            ascii_name = _ud.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+            from urllib.parse import quote
             return StreamingResponse(
                 iter_file(), media_type="video/mp4",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+                headers={
+                    "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+                },
             )
         except HTTPException:
             raise
