@@ -5,8 +5,8 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/status-badge"
-import { Plus, Music } from "lucide-react"
-import { redatorApi, type Project } from "@/lib/api/redator"
+import { Plus, Music, ArrowRight, Download } from "lucide-react"
+import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
 
 function nextStepLink(p: Project): string {
   if (p.status === "input_complete" || p.status === "generating") return `/redator/projeto/${p.id}/overlay`
@@ -18,10 +18,17 @@ function nextStepLink(p: Project): string {
 
 export function RedatorProjectList() {
   const [projects, setProjects] = useState<Project[]>([])
+  const [r2Items, setR2Items] = useState<R2AvailableItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    redatorApi.listProjects().then(setProjects).finally(() => setLoading(false))
+    Promise.all([
+      redatorApi.listProjects(),
+      redatorApi.listR2Available().catch(() => [] as R2AvailableItem[]),
+    ]).then(([projs, r2]) => {
+      setProjects(projs)
+      setR2Items(r2)
+    }).finally(() => setLoading(false))
   }, [])
 
   if (loading) {
@@ -43,7 +50,36 @@ export function RedatorProjectList() {
         </Link>
       </div>
 
-      {projects.length === 0 ? (
+      {r2Items.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Prontos para o Redator
+          </p>
+          {r2Items.map((item) => (
+            <Link
+              key={item.folder}
+              href={`/redator/novo?r2_folder=${encodeURIComponent(item.folder)}`}
+            >
+              <Card className="cursor-pointer border-primary/20 bg-primary/5 transition-colors hover:bg-primary/10">
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15">
+                    <Download className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {item.artist} — {item.work}
+                    </p>
+                    <p className="text-xs text-primary/70">Vamos criar texto e legendas overlay?</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-primary" />
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {projects.length === 0 && r2Items.length === 0 ? (
         <Card className="text-center">
           <CardContent className="py-12">
             <p className="text-sm text-muted-foreground mb-4">Nenhum projeto ainda.</p>
@@ -52,7 +88,7 @@ export function RedatorProjectList() {
             </Link>
           </CardContent>
         </Card>
-      ) : (
+      ) : projects.length > 0 ? (
         <div className="space-y-2">
           {projects.map((project) => (
             <Link key={project.id} href={nextStepLink(project)}>
@@ -78,7 +114,7 @@ export function RedatorProjectList() {
             </Link>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

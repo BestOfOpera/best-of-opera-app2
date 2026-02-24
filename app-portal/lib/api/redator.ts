@@ -59,6 +59,12 @@ export interface DetectedMetadata {
   confidence: string
 }
 
+export interface R2AvailableItem {
+  folder: string
+  artist: string
+  work: string
+}
+
 export interface ExportData {
   language: string
   overlay_json: { timestamp: string; text: string }[] | null
@@ -76,6 +82,7 @@ export const redatorApi = {
     return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData)
   },
   listProjects: () => request<Project[]>(`${BASE()}/projects`),
+  listR2Available: () => request<R2AvailableItem[]>(`${BASE()}/projects/r2-available`),
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
   createProject: (data: Record<string, string>) =>
     request<Project>(`${BASE()}/projects`, { method: "POST", body: JSON.stringify(data) }),

@@ -41,7 +41,7 @@ const emptyInterpreter = (): Interpreter => ({
   voice_type: "", birth_date: "", death_date: "",
 })
 
-export function RedatorNewProject() {
+export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -62,6 +62,18 @@ export function RedatorNewProject() {
 
   const [shared, setShared] = useState({ work: "", composer: "", composition_year: "", album_opera: "" })
   const [interpreters, setInterpreters] = useState<Interpreter[]>([emptyInterpreter()])
+
+  useEffect(() => {
+    if (!r2Folder) return
+    const sep = " - "
+    const idx = r2Folder.indexOf(sep)
+    const artist = idx >= 0 ? r2Folder.slice(0, idx).trim() : r2Folder.trim()
+    const work = idx >= 0 ? r2Folder.slice(idx + sep.length).trim() : ""
+    setInterpreters([{ ...emptyInterpreter(), artist }])
+    setShared(prev => ({ ...prev, work }))
+    setDetected(true)
+    setConfidence("r2")
+  }, [r2Folder])
 
   const isMulti = category === "Duet" || category === "Ensemble"
 
@@ -180,26 +192,28 @@ export function RedatorNewProject() {
             <CardTitle className="text-base">Etapa A — Seus Dados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label>Screenshot do YouTube *</Label>
-              <p className="text-xs text-muted-foreground">Tire um screenshot da pagina do video no YouTube</p>
-              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshot} className="hidden" />
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="mr-2 h-3.5 w-3.5" />
-                  {screenshotFile ? "Trocar Screenshot" : "Enviar Screenshot"}
-                </Button>
-                {screenshotFile && (
-                  <Button type="button" size="sm" onClick={handleDetect} disabled={detecting}>
-                    {detecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
-                    {detecting ? "Detectando..." : detected ? "Re-detectar" : "Detectar Metadados"}
+            {!r2Folder && (
+              <div className="space-y-2">
+                <Label>Screenshot do YouTube *</Label>
+                <p className="text-xs text-muted-foreground">Tire um screenshot da pagina do video no YouTube</p>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshot} className="hidden" />
+                <div className="flex gap-3">
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="mr-2 h-3.5 w-3.5" />
+                    {screenshotFile ? "Trocar Screenshot" : "Enviar Screenshot"}
                   </Button>
+                  {screenshotFile && (
+                    <Button type="button" size="sm" onClick={handleDetect} disabled={detecting}>
+                      {detecting && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                      {detecting ? "Detectando..." : detected ? "Re-detectar" : "Detectar Metadados"}
+                    </Button>
+                  )}
+                </div>
+                {screenshotPreview && (
+                  <img src={screenshotPreview} alt="YouTube screenshot" className="mt-3 max-w-full max-h-60 rounded-lg border" />
                 )}
               </div>
-              {screenshotPreview && (
-                <img src={screenshotPreview} alt="YouTube screenshot" className="mt-3 max-w-full max-h-60 rounded-lg border" />
-              )}
-            </div>
+            )}
 
             <div className="space-y-2">
               <Label>Link do YouTube (opcional)</Label>
@@ -282,9 +296,13 @@ export function RedatorNewProject() {
                 {detected && !detecting && (
                   <span className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium",
-                    confidence === "high" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                    confidence === "r2"
+                      ? "bg-primary/10 text-primary"
+                      : confidence === "high"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
                   )}>
-                    {confidence === "high" ? "Detectado" : "Baixa confianca — revise"}
+                    {confidence === "r2" ? "Pre-carregado do R2" : confidence === "high" ? "Detectado" : "Baixa confianca — revise"}
                   </span>
                 )}
               </div>

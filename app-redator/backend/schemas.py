@@ -106,6 +106,12 @@ class ProjectOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class R2AvailableItem(BaseModel):
+    folder: str
+    artist: str
+    work: str
+
+
 class RegenerateRequest(BaseModel):
     custom_prompt: Optional[str] = None
 
