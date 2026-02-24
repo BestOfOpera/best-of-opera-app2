@@ -673,14 +673,27 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
         try:
             import yt_dlp
             ydl_opts = {
-                'format': 'best[ext=mp4]/best',
+                'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+                'merge_output_format': 'mp4',
                 'outtmpl': dl_path,
                 'noplaylist': True,
                 'quiet': True,
                 'no_warnings': True,
                 'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
                 'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 5,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
             }
+            # Use cookies file if available
+            cookies_path = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
+            if os.path.exists(cookies_path):
+                ydl_opts['cookiefile'] = cookies_path
+                print(f"🍪 Using cookies from {cookies_path}")
+
             def _download():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([youtube_url])
