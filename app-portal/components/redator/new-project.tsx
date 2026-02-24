@@ -81,11 +81,44 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     setConfidence("r2")
     setR2Loading(true)
     setR2Error("")
-    curadoriaApi.r2Info(r2Folder).then(info => {
+    curadoriaApi.r2Info(r2Folder).then(async info => {
       setYoutubeUrl(info.youtube_url)
       setThumbnailUrl(info.thumbnail_url)
       setYtTitle(info.title || "")
       setYtDescription(info.description || "")
+      // Auto-detect metadata from YouTube title + description
+      if (info.title) {
+        setDetecting(true)
+        try {
+          const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "")
+          const artistStr = meta.artist || artist
+          const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
+          const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
+          const flags = (meta.nationality_flag || "").split(" ").map((s: string) => s.trim()).filter(Boolean)
+          const voiceTypes = (meta.voice_type || "").split(" / ").map((s: string) => s.trim())
+          const birthDates = (meta.birth_date || "").split(" / ").map((s: string) => s.trim())
+          const deathDates = (meta.death_date || "").split(" / ").map((s: string) => s.trim())
+          setInterpreters(artists.map((a: string, i: number) => ({
+            artist: a,
+            nationality: nationalities[i] || nationalities[0] || "",
+            nationality_flag: flags[i] || flags[0] || "",
+            voice_type: voiceTypes[i] || voiceTypes[0] || "",
+            birth_date: birthDates[i] || birthDates[0] || "",
+            death_date: deathDates[i] || deathDates[0] || "",
+          })))
+          setShared({
+            work: meta.work || work,
+            composer: meta.composer || "",
+            composition_year: meta.composition_year || "",
+            album_opera: meta.album_opera || "",
+          })
+          setConfidence(meta.confidence || "high")
+        } catch {
+          // Keep r2 pre-fill if detection fails
+        } finally {
+          setDetecting(false)
+        }
+      }
     }).catch((err) => {
       setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
     }).finally(() => setR2Loading(false))

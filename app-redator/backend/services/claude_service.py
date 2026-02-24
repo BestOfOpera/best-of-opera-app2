@@ -37,6 +37,52 @@ def _strip_json_fences(raw: str) -> str:
     return text.strip()
 
 
+def detect_metadata_from_text(youtube_url: str, title: str, description: str) -> dict:
+    """Use Claude to extract opera metadata from YouTube title and description."""
+    prompt = f"""You are an opera and classical music expert. Based on the YouTube video title and description below, extract the metadata for this performance.
+
+YouTube Title: {title}
+YouTube Description:
+{description}
+{"YouTube URL: " + youtube_url if youtube_url else ""}
+
+STEP 1: From the title and description, identify:
+- The EXACT title of the piece/aria being performed
+- ALL performers/artists (singers, musicians — NOT the composer)
+
+STEP 2: Determine the performance type:
+- SOLO: One performer
+- DUET: Two performers — you MUST list BOTH names
+- ENSEMBLE/CHORUS: Multiple performers — list ALL names or ensemble name
+
+STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in ALL fields. You are an expert — you know composers, operas, voice types, biographies. DO NOT leave fields empty if you can determine them.
+
+FORMATTING for multiple artists: separate with " & " for artists, " / " for voice_type, nationality, birth_date, death_date.
+
+Return ONLY a JSON object with these exact keys:
+- "artist": Performer name(s)
+- "work": The EXACT name of the piece/aria
+- "composer": The composer's full name
+- "composition_year": Year composed (e.g. "1832")
+- "nationality": Artist nationality/ies separated by " / "
+- "nationality_flag": Flag emoji(s) separated by space
+- "voice_type": Voice type(s) separated by " / "
+- "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
+- "death_date": Death date(s) in dd/mm/yyyy or "" if alive, separated by " / "
+- "album_opera": The opera or album this belongs to
+- "confidence": "high" if you identified artist and work clearly
+
+Return the JSON object and nothing else."""
+
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw = message.content[0].text.strip()
+    return json.loads(_strip_json_fences(raw))
+
+
 def detect_metadata(youtube_url: str, screenshot_base64: Optional[str] = None, screenshot_media_type: str = "image/png") -> dict:
     """Use Claude to extract opera metadata from a YouTube screenshot and/or URL."""
     prompt_text = """Look at this screenshot of a YouTube video page about an opera or classical music performance.

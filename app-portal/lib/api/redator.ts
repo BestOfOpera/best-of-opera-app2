@@ -81,6 +81,11 @@ export const redatorApi = {
     formData.append("youtube_url", youtubeUrl)
     return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData)
   },
+  detectMetadataFromText: (youtubeUrl: string, title: string, description: string): Promise<DetectedMetadata> =>
+    request<DetectedMetadata>(`${BASE()}/projects/detect-metadata-text`, {
+      method: "POST",
+      body: JSON.stringify({ youtube_url: youtubeUrl, title, description }),
+    }),
   listProjects: () => request<Project[]>(`${BASE()}/projects`),
   listR2Available: () => request<R2AvailableItem[]>(`${BASE()}/projects/r2-available`),
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),

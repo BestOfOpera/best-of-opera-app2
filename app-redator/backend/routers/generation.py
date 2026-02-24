@@ -1,13 +1,30 @@
 import base64
 from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project
 from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse  # noqa: F401
-from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata
+from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata, detect_metadata_from_text
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
+
+
+class DetectFromTextRequest(BaseModel):
+    youtube_url: str = ""
+    title: str = ""
+    description: str = ""
+
+
+@router.post("/detect-metadata-text", response_model=DetectMetadataResponse)
+async def detect_metadata_text_endpoint(body: DetectFromTextRequest):
+    try:
+        result = detect_metadata_from_text(body.youtube_url, body.title, body.description)
+        return DetectMetadataResponse(**result)
+    except Exception as e:
+        print(f"[detect-metadata-text] ERROR: {e}")
+        raise HTTPException(500, f"Detection failed: {e}")
 
 
 @router.post("/detect-metadata", response_model=DetectMetadataResponse)
