@@ -1,5 +1,6 @@
 import { RedatorNewProject } from "@/components/redator/new-project"
 
-export default function RedatorNovoPage({ searchParams }: { searchParams: { r2_folder?: string } }) {
-  return <RedatorNewProject r2Folder={searchParams.r2_folder} />
+export default async function RedatorNovoPage({ searchParams }: { searchParams: Promise<{ r2_folder?: string }> }) {
+  const params = await searchParams
+  return <RedatorNewProject r2Folder={params.r2_folder} />
 }
