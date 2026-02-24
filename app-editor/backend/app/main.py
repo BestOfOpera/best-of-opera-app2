@@ -1,5 +1,4 @@
 """APP Editor — Best of Opera. Ponto de entrada FastAPI."""
-import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -7,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.config import CORS_ORIGINS, STORAGE_PATH
+from app.config import STORAGE_PATH
 from app.database import engine, Base
 from app.routes import edicoes, letras, pipeline, health, importar
 
@@ -51,11 +50,10 @@ app = FastAPI(
 )
 
 # CORS
-origins = json.loads(CORS_ORIGINS) if isinstance(CORS_ORIGINS, str) else CORS_ORIGINS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

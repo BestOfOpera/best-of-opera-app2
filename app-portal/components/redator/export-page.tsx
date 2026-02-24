@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, FolderOpen, Copy, Loader2, CloudUpload, CheckCircle2 } from "lucide-react"
-import Link from "next/link"
+import { Download, FolderOpen, Copy, Loader2, CloudUpload, CheckCircle2, ArrowRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { redatorApi, type Project, type ExportData } from "@/lib/api/redator"
+import { editorApi } from "@/lib/api/editor"
+
 
 const LANGUAGES = [
   { code: "pt", name: "Portugues", flag: "🇧🇷" },
@@ -21,6 +23,7 @@ const LANGUAGES = [
 ]
 
 export function RedatorExportPage({ projectId }: { projectId: number }) {
+  const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
   const [activeLang, setActiveLang] = useState("pt")
   const [exportData, setExportData] = useState<ExportData | null>(null)
@@ -44,6 +47,7 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
   const [exportSuccess, setExportSuccess] = useState("")
   const [savingToCloud, setSavingToCloud] = useState(false)
   const [savedToCloud, setSavedToCloud] = useState(false)
+  const [importandoEditor, setImportandoEditor] = useState(false)
 
   useEffect(() => {
     redatorApi.getProject(projectId).then(setProject).finally(() => setLoading(false))
@@ -62,6 +66,19 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
   }
 
   useEffect(() => { loadLang(activeLang) }, [projectId, activeLang])
+
+  const handleIrParaEditor = async () => {
+    setImportandoEditor(true)
+    try {
+      const edicao = await editorApi.importarDoRedator(projectId)
+      router.push(`/editor/edicao/${edicao.id}/letra`)
+    } catch {
+      // Se já foi importado ou erro, ir para a fila do editor
+      router.push("/editor")
+    } finally {
+      setImportandoEditor(false)
+    }
+  }
 
   const handleTranslate = async () => {
     setTranslating(true)
@@ -181,11 +198,10 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
               Todos os textos, legendas e metadados foram enviados para a nuvem.
             </p>
           </div>
-          <Link href="/editor">
-            <Button size="lg" className="mt-2">
-              Vamos finalizar no Editor →
-            </Button>
-          </Link>
+          <Button size="lg" className="mt-2 gap-2" onClick={handleIrParaEditor} disabled={importandoEditor}>
+            {importandoEditor ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+            {importandoEditor ? "Abrindo no Editor..." : "Finalizar no Editor"}
+          </Button>
         </div>
       )}
 
