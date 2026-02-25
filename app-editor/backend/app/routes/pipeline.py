@@ -722,7 +722,7 @@ async def _traducao_task(edicao_id: int):
                 logger.info(f"[{edicao_id}] Traduzindo para {idioma}...")
                 resultado = await asyncio.wait_for(
                     traduzir_letra(segmentos_cortado, idioma_origem, idioma, metadados),
-                    timeout=180,
+                    timeout=30,
                 )
 
                 # Salvar resultado (sessão curta)
@@ -737,11 +737,10 @@ async def _traducao_task(edicao_id: int):
 
                 concluidos += 1
                 logger.info(f"[{edicao_id}] Tradução {idioma} OK ({concluidos}/{total})")
-                await asyncio.sleep(2)
 
             except asyncio.TimeoutError:
-                falhas.append(f"{idioma}: timeout (180s)")
-                logger.warning(f"[{edicao_id}] Tradução {idioma} timeout após 180s")
+                falhas.append(f"{idioma}: timeout (30s)")
+                logger.warning(f"[{edicao_id}] Tradução {idioma} timeout após 30s")
             except Exception as e:
                 falhas.append(f"{idioma}: {e}")
                 logger.warning(f"[{edicao_id}] Tradução {idioma} falhou: {e}")
