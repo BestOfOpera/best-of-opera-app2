@@ -57,6 +57,11 @@ export default function FilaEdicao() {
   const [importando, setImportando] = useState(null)
   const [erroRedator, setErroRedator] = useState('')
 
+  // Modal seleção de idioma
+  const [modalIdioma, setModalIdioma] = useState(null) // { projectId }
+  const [idiomaEscolhido, setIdiomaEscolhido] = useState('it')
+  const [outroIdioma, setOutroIdioma] = useState('')
+
   const loadEdicoes = () => {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
   }
@@ -107,18 +112,32 @@ export default function FilaEdicao() {
     }
   }
 
-  const handleImportar = async (projectId) => {
+  const handleImportar = async (projectId, idioma = null) => {
     setImportando(projectId)
     try {
-      const result = await editorApi.importarDoRedator(projectId)
+      const result = await editorApi.importarDoRedator(projectId, idioma)
       setShowImportar(false)
+      setModalIdioma(null)
       loadEdicoes()
       alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
     } catch (err) {
-      alert('Erro ao importar: ' + (err.response?.data?.detail || err.message))
+      const detail = err.response?.data?.detail
+      if (err.response?.status === 422 && detail?.idioma_necessario) {
+        setModalIdioma({ projectId })
+        setIdiomaEscolhido('it')
+        setOutroIdioma('')
+      } else {
+        alert('Erro ao importar: ' + (detail || err.message))
+      }
     } finally {
       setImportando(null)
     }
+  }
+
+  const handleConfirmarIdioma = () => {
+    const idioma = outroIdioma.trim() || idiomaEscolhido
+    if (!idioma || !modalIdioma) return
+    handleImportar(modalIdioma.projectId, idioma)
   }
 
   const toggleImportar = () => {
@@ -287,6 +306,78 @@ export default function FilaEdicao() {
             <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 text-sm hover:text-gray-700">Cancelar</button>
           </div>
         </form>
+      )}
+
+      {/* Modal: seleção de idioma quando detecção falha */}
+      {modalIdioma && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h3 className="font-semibold text-lg mb-1">Idioma da música</h3>
+            <p className="text-sm text-gray-500 mb-4">Não foi possível detectar automaticamente. Selecione o idioma original da música.</p>
+
+            <label className="block text-sm font-medium text-gray-600 mb-1">Idioma</label>
+            <select
+              value={idiomaEscolhido}
+              onChange={e => setIdiomaEscolhido(e.target.value)}
+              disabled={!!outroIdioma.trim()}
+              className="w-full border rounded-lg px-3 py-2 text-sm mb-3"
+            >
+              <optgroup label="Mais comuns">
+                <option value="it">Italiano (it)</option>
+                <option value="en">English (en)</option>
+                <option value="de">Deutsch (de)</option>
+                <option value="fr">Français (fr)</option>
+                <option value="es">Español (es)</option>
+                <option value="pt">Português (pt)</option>
+                <option value="la">Latin (la)</option>
+                <option value="pl">Polski (pl)</option>
+              </optgroup>
+              <optgroup label="Outros">
+                <option value="ru">Russian (ru)</option>
+                <option value="cs">Czech (cs)</option>
+                <option value="hu">Hungarian (hu)</option>
+                <option value="sv">Swedish (sv)</option>
+                <option value="no">Norwegian (no)</option>
+                <option value="fi">Finnish (fi)</option>
+                <option value="ja">Japanese (ja)</option>
+                <option value="ko">Korean (ko)</option>
+                <option value="zh">Chinese (zh)</option>
+                <option value="ar">Arabic (ar)</option>
+                <option value="he">Hebrew (he)</option>
+                <option value="sw">Swahili (sw)</option>
+                <option value="yo">Yoruba (yo)</option>
+                <option value="zu">Zulu (zu)</option>
+                <option value="hi">Hindi (hi)</option>
+                <option value="ka">Georgian (ka)</option>
+              </optgroup>
+            </select>
+
+            <label className="block text-sm font-medium text-gray-600 mb-1">Outro idioma (código ISO)</label>
+            <input
+              value={outroIdioma}
+              onChange={e => setOutroIdioma(e.target.value)}
+              placeholder="ex: la, ru, cs..."
+              maxLength={10}
+              className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
+            />
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setModalIdioma(null)}
+                className="text-gray-500 text-sm hover:text-gray-700"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarIdioma}
+                disabled={importando !== null}
+                className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {importando !== null ? 'Importando...' : 'Importar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Lista */}

@@ -42,5 +42,5 @@ export const editorApi = {
 
   // Importar do Redator
   listarProjetosRedator: () => api.get('/redator/projetos').then(r => r.data),
-  importarDoRedator: (projectId) => api.post(`/redator/importar/${projectId}`).then(r => r.data),
+  importarDoRedator: (projectId, idioma) => api.post(`/redator/importar/${projectId}`, null, { params: idioma ? { idioma } : {} }).then(r => r.data),
 }

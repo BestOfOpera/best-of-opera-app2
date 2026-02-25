@@ -109,9 +109,11 @@ async def importar_do_redator(
     music_lang = idioma or _detect_music_lang(proj)
     if music_lang is None:
         raise HTTPException(
-            400,
-            "Não foi possível detectar o idioma da música automaticamente. "
-            "Informe o idioma explicitamente usando o parâmetro ?idioma=XX.",
+            422,
+            detail={
+                "idioma_necessario": True,
+                "mensagem": "Não foi possível detectar o idioma. Selecione manualmente.",
+            },
         )
 
     # O conteúdo original do Redator (overlay, post, seo) é editorial em PT
