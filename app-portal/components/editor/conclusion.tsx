@@ -26,6 +26,7 @@ const IDIOMAS = [
 
 function formatProgresso(p: ProgressoDetalhe | null | undefined): string | null {
   if (!p || typeof p !== "object") return null
+  if (!p.etapa || p.total == null || p.concluidos == null) return null
   const label = p.etapa === "traducao" ? "Traduzindo" : "Renderizando"
   const atual = p.atual ? ` (${p.atual})` : ""
   return `${label}: ${p.concluidos}/${p.total} idiomas${atual}`
@@ -248,11 +249,13 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </div>
       )}
 
-      {/* Granular progress */}
-      {isProcessing && formatProgresso(edicao.progresso_detalhe) && (
+      {/* Granular progress / current edicao being processed */}
+      {isProcessing && filaStatus?.ocupado && filaStatus.edicao_id === edicaoId && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4 text-sm text-blue-700 flex items-center gap-2">
           <RefreshCw className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
-          {formatProgresso(edicao.progresso_detalhe)}
+          {formatProgresso(edicao.progresso_detalhe)
+            ?? formatProgresso(filaStatus.progresso as ProgressoDetalhe | null)
+            ?? `Processando: ${filaStatus.etapa ?? edicao.status}…`}
         </div>
       )}
 
