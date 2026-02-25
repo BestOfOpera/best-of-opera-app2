@@ -1489,3 +1489,35 @@ async def desbloquear_edicao(edicao_id: int):
         f"(renders={n_renders}, traducoes={n_traducoes})"
     )
     return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}
+
+
+# TEMPORÁRIO — REMOVER APÓS TESTES
+@router.post("/admin/reset-total")
+def admin_reset_total(db: Session = Depends(get_db)):
+    """Apaga TODOS os registros do banco na ordem correta (FK-safe).
+
+    Ordem: Render → TraducaoLetra → Alinhamento → Overlay → Post → Seo → Edicao
+
+    # TEMPORÁRIO — REMOVER APÓS TESTES
+    """
+    from app.models import Overlay, Post, Seo
+
+    n_renders     = db.query(Render).delete()
+    n_traducoes   = db.query(TraducaoLetra).delete()
+    n_alinhamentos = db.query(Alinhamento).delete()
+    n_overlays    = db.query(Overlay).delete()
+    n_posts       = db.query(Post).delete()
+    n_seos        = db.query(Seo).delete()
+    n_edicoes     = db.query(Edicao).delete()
+    db.commit()
+
+    logger.warning("[admin/reset-total] Banco zerado completamente!")
+    return {
+        "renders":      n_renders,
+        "traducoes":    n_traducoes,
+        "alinhamentos": n_alinhamentos,
+        "overlays":     n_overlays,
+        "posts":        n_posts,
+        "seos":         n_seos,
+        "edicoes":      n_edicoes,
+    }
