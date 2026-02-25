@@ -937,6 +937,9 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
         renders_ok = 0
         falhas = []
 
+        # Garantir que o vídeo cortado está disponível localmente (baixa do R2 se necessário)
+        local_video = storage.ensure_local(arquivo_video)
+
         for idioma in faltantes:
             # Heartbeat antes de cada render (sessão curta)
             with SessionLocal() as db:
@@ -974,7 +977,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 # FFmpeg com timeout — banco FECHADO
                 ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
                 cmd = (
-                    f'ffmpeg -y -i "{arquivo_video}" '
+                    f'ffmpeg -y -i "{local_video}" '
                     f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
                     f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
                     f"ass='{ass_escaped}'\" "
