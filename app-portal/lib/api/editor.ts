@@ -155,6 +155,7 @@ export const editorApi = {
   audioUrl: (id: number) => `${BASE()}/edicoes/${id}/audio`,
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
     `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
+  pacoteUrl: (id: number) => `${BASE()}/edicoes/${id}/pacote`,
 
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 

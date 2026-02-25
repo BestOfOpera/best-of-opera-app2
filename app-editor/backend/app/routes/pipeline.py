@@ -906,6 +906,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             # Copiar dados necessários para variáveis locais (fora da sessão)
             arquivo_video = edicao.arquivo_video_cortado
             idioma_musica = edicao.idioma
+            r2_base_val = _get_r2_base(edicao)
 
             alinhamento = db.query(Alinhamento).filter(
                 Alinhamento.edicao_id == edicao_id
@@ -1007,13 +1008,30 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 tamanho = _Path(output_video).stat().st_size
 
+                # Upload render para R2 e limpar arquivo local
+                arquivo_render = output_video  # fallback: path local (sem R2)
+                if r2_base_val:
+                    r2_key = f"{r2_base_val}/{idioma}/video_{idioma}.mp4"
+                    try:
+                        storage.upload_file(output_video, r2_key)
+                        arquivo_render = r2_key
+                        try:
+                            _Path(output_video).unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                    except Exception as upload_err:
+                        logger.warning(
+                            f"[{edicao_id}] Upload R2 render {idioma} falhou: {upload_err}, "
+                            f"mantendo path local"
+                        )
+
                 # Salvar resultado (sessão curta)
                 with SessionLocal() as db:
                     db.add(Render(
                         edicao_id=edicao_id,
                         idioma=idioma,
                         tipo="9:16",
-                        arquivo=output_video,
+                        arquivo=arquivo_render,
                         tamanho_bytes=tamanho,
                         status="concluido",
                     ))
@@ -1024,7 +1042,6 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 logger.info(f"[{edicao_id}] Render {idioma} OK ({concluidos}/{total})")
 
                 # Limpar ASS (arquivo temporário)
-                # Após upload pro R2, adicionar aqui: _Path(output_video).unlink(missing_ok=True)
                 try:
                     _Path(ass_path).unlink(missing_ok=True)
                 except Exception:

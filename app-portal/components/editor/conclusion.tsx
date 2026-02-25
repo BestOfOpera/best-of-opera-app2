@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle,
-  ExternalLink, Pencil, RotateCcw, Eye, MessageSquare,
+  ExternalLink, Pencil, RotateCcw, Eye, MessageSquare, Package,
 } from "lucide-react"
 
 const IDIOMAS = [
@@ -52,8 +52,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [loading, setLoading] = useState(true)
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
-  const [exportando, setExportando] = useState(false)
-  const [exportResult, setExportResult] = useState<{ pasta: string; arquivos_exportados: number } | null>(null)
+  const [baixandoTodos, setBaixandoTodos] = useState(false)
   const [error, setError] = useState("")
   const [editandoCorte, setEditandoCorte] = useState(false)
   const [corteInicio, setCorteInicio] = useState("")
@@ -153,17 +152,26 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     }
   }
 
-  const handleExportar = async () => {
-    setExportando(true)
+  const handleBaixarTodos = async () => {
+    if (!edicao) return
+    setBaixandoTodos(true)
     setError("")
-    setExportResult(null)
     try {
-      const result = await editorApi.exportarRenders(edicaoId)
-      setExportResult(result)
+      const url = editorApi.pacoteUrl(edicaoId)
+      const res = await fetch(url, { method: "POST" })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const a = document.createElement("a")
+      a.href = URL.createObjectURL(blob)
+      a.download = `${edicao.artista} - ${edicao.musica}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(a.href)
     } catch (err: unknown) {
-      setError("Erro ao exportar: " + (err instanceof Error ? err.message : "Erro"))
+      setError("Erro ao baixar pacote: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
-      setExportando(false)
+      setBaixandoTodos(false)
     }
   }
 
@@ -289,12 +297,16 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
             <Eye className="h-4 w-4" /> Preview — {edicao.idioma.toUpperCase()}
           </h3>
-          <video
-            src={editorApi.downloadRenderUrl(edicaoId, previewRender.id)}
-            controls
-            className="w-full max-w-md mx-auto rounded-lg shadow-md mb-4"
-            style={{ maxHeight: "500px" }}
-          />
+          <p className="text-sm text-blue-700 mb-4 text-center">
+            Baixe o vídeo e assista localmente (QuickTime, VLC) antes de aprovar.
+          </p>
+          <div className="flex gap-3 justify-center flex-wrap mb-4">
+            <Button asChild variant="outline" className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-100">
+              <a href={editorApi.downloadRenderUrl(edicaoId, previewRender.id)} download>
+                <Download className="h-3.5 w-3.5" /> Baixar Preview
+              </a>
+            </Button>
+          </div>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button onClick={handleAprovarPreview} disabled={aprovando} className="gap-2">
               {aprovando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
@@ -419,39 +431,44 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             {renderizando || edicao.status === "renderizando" ? "Renderizando..." : "Re-renderizar Todos"}
           </Button>
         )}
-        {concluidos.length > 0 && (
-          <Button size="sm" variant="outline" className="gap-2 border-green-400 text-green-700 hover:bg-green-50" onClick={handleExportar} disabled={exportando}>
-            {exportando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {exportando ? "Exportando..." : "Salvar no iCloud"}
-          </Button>
-        )}
       </div>
 
-      {exportResult && (
-        <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-4 mb-6">
-          <p className="font-medium">{exportResult.arquivos_exportados} vídeos exportados para:</p>
-          <p className="text-xs mt-1 font-mono break-all">{exportResult.pasta}</p>
-        </div>
-      )}
-
       {/* Renders list */}
-      {renders.length > 0 && (
+      {(renders.length > 0 || edicao.status === "renderizando") && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Vídeos Renderizados ({concluidos.length}/{IDIOMAS.length})</CardTitle>
-            {concluidos.length > 0 && (
-              <span className="text-xs text-muted-foreground">Clique para baixar</span>
-            )}
+            {todosOk ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100"
+                onClick={handleBaixarTodos}
+                disabled={baixandoTodos}
+              >
+                {baixandoTodos ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                {baixandoTodos ? "Gerando ZIP..." : "Baixar Todos"}
+              </Button>
+            ) : concluidos.length > 0 ? (
+              <span className="text-xs text-muted-foreground">Baixe individualmente</span>
+            ) : null}
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {IDIOMAS.map(({ code, flag, label }) => {
                 const render = renders.find(r => r.idioma === code)
+                const isAtual = edicao.status === "renderizando" && edicao.progresso_detalhe?.atual === code
                 if (!render) return (
-                  <div key={code} className="flex items-center gap-3 py-3 px-4 rounded-lg bg-muted/50 text-muted-foreground text-sm">
+                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isAtual ? "bg-blue-50" : "bg-muted/50 text-muted-foreground"}`}>
                     <span className="text-lg">{flag}</span>
                     <span className="flex-1">{label}</span>
-                    <span className="text-xs">Pendente</span>
+                    {isAtual ? (
+                      <span className="text-xs text-blue-600 flex items-center gap-1.5">
+                        <RefreshCw className="h-3 w-3 animate-spin" /> Renderizando...
+                      </span>
+                    ) : (
+                      <span className="text-xs">Pendente</span>
+                    )}
                   </div>
                 )
                 return (
