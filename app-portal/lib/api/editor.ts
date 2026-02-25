@@ -159,6 +159,6 @@ export const editorApi = {
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
   listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
-  importarDoRedator: (projectId: number) =>
-    request<Edicao>(`${BASE()}/redator/importar/${projectId}`, { method: "POST" }),
+  importarDoRedator: (projectId: number, idioma?: string) =>
+    request<Edicao>(`${BASE()}/redator/importar/${projectId}${idioma ? `?idioma=${idioma}` : ""}`, { method: "POST" }),
 }

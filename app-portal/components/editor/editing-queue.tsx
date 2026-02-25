@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { editorApi, type Edicao, type RedatorProject } from "@/lib/api/editor"
+import { ApiError } from "@/lib/api/base"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe } from "lucide-react"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -62,6 +64,11 @@ export function EditorEditingQueue() {
   const [loadingRedator, setLoadingRedator] = useState(false)
   const [importando, setImportando] = useState<number | null>(null)
   const [erroRedator, setErroRedator] = useState("")
+
+  // Modal seleção de idioma
+  const [modalIdioma, setModalIdioma] = useState<{ projectId: number } | null>(null)
+  const [idiomaEscolhido, setIdiomaEscolhido] = useState("it")
+  const [outroIdioma, setOutroIdioma] = useState("")
 
   const loadEdicoes = () => {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
@@ -125,18 +132,31 @@ export function EditorEditingQueue() {
     }
   }
 
-  const handleImportar = async (projectId: number) => {
+  const handleImportar = async (projectId: number, idioma?: string) => {
     setImportando(projectId)
     try {
-      const result = await editorApi.importarDoRedator(projectId)
+      const result = await editorApi.importarDoRedator(projectId, idioma)
       setShowImportar(false)
+      setModalIdioma(null)
       loadEdicoes()
       alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
     } catch (err: unknown) {
-      alert("Erro ao importar: " + (err instanceof Error ? err.message : "Erro desconhecido"))
+      if (err instanceof ApiError && err.status === 422 && (err.detail as Record<string, unknown>)?.idioma_necessario === true) {
+        setModalIdioma({ projectId })
+        setIdiomaEscolhido("it")
+        setOutroIdioma("")
+      } else {
+        alert("Erro ao importar: " + (err instanceof Error ? err.message : "Erro desconhecido"))
+      }
     } finally {
       setImportando(null)
     }
+  }
+
+  const handleConfirmarIdioma = () => {
+    const idioma = outroIdioma.trim() || idiomaEscolhido
+    if (!idioma || !modalIdioma) return
+    handleImportar(modalIdioma.projectId, idioma)
   }
 
   const toggleImportar = () => {
@@ -304,6 +324,71 @@ export function EditorEditingQueue() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modal: seleção de idioma quando detecção falha */}
+      <Dialog open={!!modalIdioma} onOpenChange={open => { if (!open) setModalIdioma(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Idioma da música</DialogTitle>
+            <DialogDescription>
+              Não foi possível detectar automaticamente. Selecione o idioma original da música.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label className="mb-1 block">Idioma</Label>
+              <Select
+                value={idiomaEscolhido}
+                onValueChange={setIdiomaEscolhido}
+                disabled={!!outroIdioma.trim()}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="it">Italiano (it)</SelectItem>
+                  <SelectItem value="en">English (en)</SelectItem>
+                  <SelectItem value="de">Deutsch (de)</SelectItem>
+                  <SelectItem value="fr">Français (fr)</SelectItem>
+                  <SelectItem value="es">Español (es)</SelectItem>
+                  <SelectItem value="pt">Português (pt)</SelectItem>
+                  <SelectItem value="la">Latin (la)</SelectItem>
+                  <SelectItem value="pl">Polski (pl)</SelectItem>
+                  <SelectItem value="ru">Russian (ru)</SelectItem>
+                  <SelectItem value="cs">Czech (cs)</SelectItem>
+                  <SelectItem value="hu">Hungarian (hu)</SelectItem>
+                  <SelectItem value="sv">Swedish (sv)</SelectItem>
+                  <SelectItem value="no">Norwegian (no)</SelectItem>
+                  <SelectItem value="fi">Finnish (fi)</SelectItem>
+                  <SelectItem value="ja">Japanese (ja)</SelectItem>
+                  <SelectItem value="ko">Korean (ko)</SelectItem>
+                  <SelectItem value="zh">Chinese (zh)</SelectItem>
+                  <SelectItem value="ar">Arabic (ar)</SelectItem>
+                  <SelectItem value="he">Hebrew (he)</SelectItem>
+                  <SelectItem value="sw">Swahili (sw)</SelectItem>
+                  <SelectItem value="yo">Yoruba (yo)</SelectItem>
+                  <SelectItem value="zu">Zulu (zu)</SelectItem>
+                  <SelectItem value="hi">Hindi (hi)</SelectItem>
+                  <SelectItem value="ka">Georgian (ka)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-1 block">Outro idioma (código ISO)</Label>
+              <Input
+                value={outroIdioma}
+                onChange={e => setOutroIdioma(e.target.value)}
+                placeholder="ex: la, ru, cs..."
+                maxLength={10}
+              />
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="ghost" onClick={() => setModalIdioma(null)}>Cancelar</Button>
+              <Button onClick={handleConfirmarIdioma} disabled={importando !== null}>
+                {importando !== null ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Importando...</> : "Importar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {ativas.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">

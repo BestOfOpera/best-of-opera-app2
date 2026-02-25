@@ -8,6 +8,17 @@ export const API_URLS = {
   get editor() { return isProduction() ? "https://editor-backend-production.up.railway.app" : "http://localhost:8001" },
 }
 
+export class ApiError extends Error {
+  status: number
+  detail: unknown
+  constructor(status: number, detail: unknown) {
+    const msg = typeof detail === "string" ? detail : (detail as Record<string, unknown>)?.mensagem as string || "Request failed"
+    super(msg)
+    this.status = status
+    this.detail = detail
+  }
+}
+
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
@@ -15,7 +26,7 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(body.detail || "Request failed")
+    throw new ApiError(res.status, body.detail ?? body)
   }
   return res.json()
 }
