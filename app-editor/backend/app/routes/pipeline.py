@@ -649,10 +649,10 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
 
 
 async def _traducao_task(edicao_id: int):
-    from app.database import SessionLocal
-    from app.services.translate_service import traduzir_letra_cloud as traduzir_letra
-
     try:
+        from app.database import SessionLocal
+        from app.services.translate_service import traduzir_letra_cloud as traduzir_letra
+
         # PASSO A — Ler estado e inicializar (sessão curta)
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
@@ -872,11 +872,11 @@ async def renderizar(edicao_id: int):
 
 
 async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False):
-    from app.database import SessionLocal
-    from app.services.legendas import gerar_ass
-    from pathlib import Path as _Path
-
     try:
+        from app.database import SessionLocal
+        from app.services.legendas import gerar_ass
+        from pathlib import Path as _Path
+
         # PASSO A — Ler estado (sessão curta)
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)

@@ -31,11 +31,29 @@ async def worker_loop():
                     f"[worker] Task edicao_id={edicao_id} falhou com exceção não tratada: {e}",
                     exc_info=True,
                 )
+                # Garantir que o status não fique preso — a própria task deveria
+                # fazer isso, mas se crashou antes do try-except interno, fazemos aqui
+                try:
+                    from app.database import SessionLocal
+                    from app.models import Edicao
+                    with SessionLocal() as db:
+                        edicao = db.get(Edicao, edicao_id)
+                        if edicao and edicao.status not in ("erro", "concluido", "preview_pronto"):
+                            edicao.status = "erro"
+                            edicao.erro_msg = f"Falha no worker: {str(e)[:500]}"
+                            db.commit()
+                            logger.info(f"[worker] Status da edicao_id={edicao_id} marcado como 'erro'")
+                except Exception:
+                    logger.error(f"[worker] Não conseguiu salvar status 'erro' para edicao_id={edicao_id}")
             finally:
                 task_queue.task_done()
         except asyncio.CancelledError:
             logger.info("[worker] CancelledError — encerrando cleanly")
             raise
+        except Exception as e:
+            # Proteção contra crash inesperado no próprio loop (ex: falha em task_queue.get)
+            # O loop NUNCA deve morrer — continuar consumindo a próxima task
+            logger.error(f"[worker] Erro inesperado no loop principal: {e}", exc_info=True)
 
 
 def _make_preview_wrapper(eid: int, idioma: str):

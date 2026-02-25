@@ -1,6 +1,6 @@
 """Pydantic schemas para a API."""
 from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Optional
 from datetime import datetime
 
 
@@ -60,6 +60,8 @@ class EdicaoOut(BaseModel):
     rota_alinhamento: Optional[str] = None
     confianca_alinhamento: Optional[float] = None
     notas_revisao: Optional[str] = None
+    task_heartbeat: Optional[datetime] = None
+    progresso_detalhe: Optional[Any] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
