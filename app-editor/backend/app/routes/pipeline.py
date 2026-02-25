@@ -650,7 +650,7 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
 
 async def _traducao_task(edicao_id: int):
     from app.database import SessionLocal
-    from app.services.gemini import traduzir_letra
+    from app.services.translate_service import traduzir_letra_cloud as traduzir_letra
 
     try:
         # PASSO A — Ler estado e inicializar (sessão curta)
@@ -703,7 +703,7 @@ async def _traducao_task(edicao_id: int):
         # PASSO B — Loop de tradução (banco FECHADO durante I/O externo)
         falhas = []
         for idioma in faltantes:
-            # Heartbeat antes de cada chamada Gemini (sessão curta)
+            # Heartbeat antes de cada chamada de tradução (sessão curta)
             with SessionLocal() as db:
                 edicao = db.get(Edicao, edicao_id)
                 if edicao:
