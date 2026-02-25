@@ -793,12 +793,12 @@ def limpar_traducoes(edicao_id: int, db: Session = Depends(get_db)):
     deletados = db.query(TraducaoLetra).filter(
         TraducaoLetra.edicao_id == edicao_id
     ).delete()
-    edicao.status = "corte"
-    edicao.passo_atual = 6
+    edicao.status = "montagem"
+    edicao.passo_atual = 7
     edicao.erro_msg = None
     db.commit()
 
-    return {"ok": True, "traducoes_deletadas": deletados, "status": "corte"}
+    return {"ok": True, "traducoes_deletadas": deletados, "status": "montagem"}
 
 
 @router.post("/edicoes/{edicao_id}/reset-traducao")
