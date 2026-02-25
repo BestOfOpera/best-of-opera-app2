@@ -1,5 +1,6 @@
 """Modelo principal: editor_edicoes."""
 from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, func
+from sqlalchemy import JSON
 
 from app.database import Base
 
@@ -46,6 +47,9 @@ class Edicao(Base):
 
     editado_por = Column(String(100))
     tempo_edicao_seg = Column(Integer)
+
+    task_heartbeat = Column(DateTime, nullable=True)
+    progresso_detalhe = Column(JSON, default=dict)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

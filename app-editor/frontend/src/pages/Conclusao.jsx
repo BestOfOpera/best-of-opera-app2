@@ -34,6 +34,8 @@ export default function Conclusao() {
   const [loading, setLoading] = useState(true)
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
+  const [traducoes, setTraducoes] = useState([])
+  const [resetando, setResetando] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [exportResult, setExportResult] = useState(null)
   const [error, setError] = useState('')
@@ -51,6 +53,10 @@ export default function Conclusao() {
       setEdicao(e)
       const r = await editorApi.listarRenders(id)
       setRenders(r)
+      try {
+        const t = await editorApi.obterTraducoes(id)
+        setTraducoes(t)
+      } catch {}
     } catch (err) {
       setError('Erro ao carregar dados: ' + (err.response?.data?.detail || err.message))
     } finally {
@@ -363,15 +369,44 @@ export default function Conclusao() {
           <RotateCcw size={14} />
           {reaplicando ? 'Recalculando...' : 'Refazer Corte'}
         </button>
-        {!edicao.eh_instrumental && (
+        {!edicao.eh_instrumental && edicao.status !== 'traducao' && (
           <button
             onClick={handleTraduzir}
-            disabled={traduzindo || edicao.status === 'traducao'}
+            disabled={traduzindo}
             className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition disabled:opacity-50"
           >
-            {traduzindo || edicao.status === 'traducao' ? <RefreshCw size={14} className="animate-spin" /> : null}
-            {traduzindo || edicao.status === 'traducao' ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
+            {traduzindo ? <RefreshCw size={14} className="animate-spin" /> : null}
+            {traduzindo ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
           </button>
+        )}
+        {edicao.status === 'traducao' && (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium">
+              <RefreshCw size={14} className="animate-spin" />
+              Traduzindo... ({traducoes.length} prontas)
+            </div>
+            <button
+              onClick={async () => {
+                setResetando(true)
+                setError('')
+                try {
+                  await editorApi.resetTraducao(id)
+                  // Forçar status local para permitir re-trigger
+                  setEdicao(prev => ({ ...prev, status: 'montagem' }))
+                  await load()
+                } catch (err) {
+                  setError('Erro ao resetar: ' + (err.response?.data?.detail || err.message))
+                } finally {
+                  setResetando(false)
+                }
+              }}
+              disabled={resetando}
+              className="flex items-center gap-2 bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-medium hover:bg-red-200 transition disabled:opacity-50"
+            >
+              <XCircle size={14} />
+              {resetando ? 'Resetando...' : 'Forçar Reset'}
+            </button>
+          </div>
         )}
         {/* Preview button — shown when no renders yet or in revisão */}
         {(!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== 'renderizando') && (
@@ -413,6 +448,56 @@ export default function Conclusao() {
           </button>
         )}
       </div>
+
+      {/* Progresso das traduções */}
+      {(edicao.status === 'traducao' || traducoes.length > 0) && (
+        <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">Traduções ({traducoes.length}/{IDIOMAS.length - 1} idiomas)</h3>
+            {edicao.status === 'traducao' && (
+              <div className="flex items-center gap-2">
+                <RefreshCw size={14} className="animate-spin text-purple" />
+                <span className="text-xs text-gray-400">Traduzindo...</span>
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {IDIOMAS.filter(l => l.code !== edicao.idioma).map(({ code, flag, label }) => {
+              const trad = traducoes.find(t => t.idioma === code)
+              return (
+                <div key={code} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${trad ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-400'}`}>
+                  <span>{flag}</span>
+                  <span>{label}</span>
+                  {trad ? <CheckCircle size={12} /> : <span className="text-[10px]">pendente</span>}
+                </div>
+              )
+            })}
+          </div>
+          {edicao.erro_msg && edicao.erro_msg.includes('Traduç') && (
+            <div className="mt-3 bg-yellow-50 text-yellow-700 text-xs rounded-lg p-3">
+              {edicao.erro_msg}
+              <button
+                onClick={async () => {
+                  setResetando(true)
+                  try {
+                    await editorApi.resetTraducao(id)
+                    await editorApi.traduzirLyrics(id)
+                    await load()
+                  } catch (err) {
+                    setError('Erro ao retraduzir: ' + (err.response?.data?.detail || err.message))
+                  } finally {
+                    setResetando(false)
+                  }
+                }}
+                disabled={resetando}
+                className="ml-2 underline font-medium hover:text-yellow-800"
+              >
+                {resetando ? 'Retentando...' : 'Retentar idiomas faltantes'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {exportResult && (
         <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg p-4 mb-6">

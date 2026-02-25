@@ -1,4 +1,6 @@
 """APP Editor — Best of Opera. Ponto de entrada FastAPI."""
+import asyncio
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,6 +30,8 @@ def _run_migrations():
             ("notas_revisao", "TEXT"),
             ("r2_base", "VARCHAR(500)"),
             ("redator_project_id", "INTEGER"),
+            ("task_heartbeat", "TIMESTAMP"),
+            ("progresso_detalhe", "JSON"),
         ]:
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
@@ -41,7 +45,17 @@ async def lifespan(app: FastAPI):
     _run_migrations()
     # Criar diretório de storage
     Path(STORAGE_PATH).mkdir(parents=True, exist_ok=True)
+    # Iniciar worker sequencial e reagendar tasks travadas
+    from app.worker import worker_loop, requeue_stale_tasks
+    worker_task = asyncio.create_task(worker_loop())
+    requeue_stale_tasks()
     yield
+    # Shutdown: cancelar worker limpo
+    worker_task.cancel()
+    try:
+        await worker_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(

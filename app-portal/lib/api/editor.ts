@@ -27,6 +27,7 @@ export interface Edicao {
   arquivo_video_completo: boolean
   arquivo_audio_completo: boolean
   erro_msg: string | null
+  progresso_detalhe: ProgressoDetalhe | null
   overlays_count?: number
   posts_count?: number
   seo_count?: number
@@ -70,6 +71,20 @@ export interface Render {
   tamanho_bytes: number | null
   erro_msg: string | null
   created_at: string
+}
+
+export interface ProgressoDetalhe {
+  etapa: "traducao" | "render"
+  total: number
+  concluidos: number
+  atual: string | null
+}
+
+export interface FilaStatus {
+  ocupado: boolean
+  edicao_id: number | null
+  etapa: string | null
+  progresso: ProgressoDetalhe | null
 }
 
 export interface RedatorProject {
@@ -140,6 +155,8 @@ export const editorApi = {
   audioUrl: (id: number) => `${BASE()}/edicoes/${id}/audio`,
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
     `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
+
+  filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
   listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
   importarDoRedator: (projectId: number) =>

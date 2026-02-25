@@ -18,6 +18,7 @@
 
 ---
 
+
 ## Visão Geral do Projeto
 
 Monorepo com 4 apps + 1 pasta de scripts + shared, todos deployados no Railway.
@@ -259,7 +260,7 @@ function isProduction() {
 
 2. **Next.js Standalone + Rewrites** — Não funciona. O portal detecta ambiente via `window.location.hostname` em `base.ts`.
 
-3. **CORS** — Todos os backends usam `allow_origins=["*"]`. Ao adicionar novo backend, seguir o mesmo padrão.
+3. **CORS** — Editor-backend tem lista explícita em `CORS_ORIGINS`. Ao adicionar domínio, atualizar a variável. Redator e Curadoria usam `allow_origins=["*"]`.
 
 4. **Storage R2** — Railway tem storage efêmero (arquivos perdidos no redeploy). Vídeos renderizados vão para Cloudflare R2.
 

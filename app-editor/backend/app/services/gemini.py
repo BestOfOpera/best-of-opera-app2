@@ -252,8 +252,14 @@ async def traduzir_letra(
     idioma_original: str,
     idioma_alvo: str,
     metadados: dict,
+    timeout_seconds: int = 120,
+    max_retries: int = 2,
 ) -> list:
-    """Traduz letra cantada mantendo a segmentação."""
+    """Traduz letra cantada mantendo a segmentação.
+
+    Inclui timeout e retry para evitar travamento em chamadas longas.
+    """
+    import asyncio
     genai = _get_client()
     model = genai.GenerativeModel("gemini-2.5-pro")
 
@@ -291,8 +297,37 @@ Retorne APENAS JSON:
   ...
 ]
 """
-    response = model.generate_content(prompt)
-    return parse_json_response(response.text)
+    import logging
+    _logger = logging.getLogger(__name__)
+
+    loop = asyncio.get_running_loop()
+
+    for tentativa in range(max_retries + 1):
+        try:
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, model.generate_content, prompt),
+                timeout=timeout_seconds,
+            )
+            return parse_json_response(response.text)
+        except asyncio.TimeoutError:
+            _logger.warning(
+                f"Tradução {idioma_alvo} timeout ({timeout_seconds}s), "
+                f"tentativa {tentativa + 1}/{max_retries + 1}"
+            )
+            if tentativa == max_retries:
+                raise TimeoutError(
+                    f"Tradução para {nomes_idiomas.get(idioma_alvo, idioma_alvo)} "
+                    f"excedeu {timeout_seconds}s após {max_retries + 1} tentativas"
+                )
+            await asyncio.sleep(5)  # Esperar antes de retry
+        except json.JSONDecodeError as e:
+            _logger.warning(
+                f"Tradução {idioma_alvo} JSON inválido, "
+                f"tentativa {tentativa + 1}/{max_retries + 1}: {e}"
+            )
+            if tentativa == max_retries:
+                raise
+            await asyncio.sleep(2)
 
 
 async def buscar_letra(metadados: dict) -> str:

@@ -14,39 +14,39 @@ export function usePolling(callback: () => Promise<void>, intervalMs: number, en
   }, [intervalMs, enabled])
 }
 
-/**
- * Polling com timeout — para de fazer polling após timeoutMs e sinaliza via `timedOut`.
- * Útil para tarefas longas (transcrição, renderização, tradução) onde o backend pode travar.
- */
-export function usePollingWithTimeout(
+const FAST_INTERVAL_MS = 3_000
+const SLOW_INTERVAL_MS = 15_000
+const SLOW_AFTER_MS    = 120_000 // 2 minutes
+
+export function useAdaptivePolling(
   callback: () => Promise<void>,
-  intervalMs: number,
   enabled: boolean,
-  timeoutMs: number,
-) {
+): { isSlowPolling: boolean } {
   const savedCallback = useRef(callback)
   savedCallback.current = callback
-  const [timedOut, setTimedOut] = useState(false)
-  const startRef = useRef<number>(0)
+  const [isSlowPolling, setIsSlowPolling] = useState(false)
 
   useEffect(() => {
     if (!enabled) {
-      setTimedOut(false)
+      setIsSlowPolling(false)
       return
     }
-    startRef.current = Date.now()
-    setTimedOut(false)
-    savedCallback.current()
-    const id = setInterval(() => {
-      if (Date.now() - startRef.current > timeoutMs) {
-        clearInterval(id)
-        setTimedOut(true)
-        return
-      }
-      savedCallback.current()
-    }, intervalMs)
-    return () => clearInterval(id)
-  }, [intervalMs, enabled, timeoutMs])
 
-  return { timedOut }
+    const startedAt = Date.now()
+    let timeoutId: ReturnType<typeof setTimeout>
+
+    const tick = async () => {
+      await savedCallback.current()
+      const slow = Date.now() - startedAt >= SLOW_AFTER_MS
+      setIsSlowPolling(slow)
+      timeoutId = setTimeout(tick, slow ? SLOW_INTERVAL_MS : FAST_INTERVAL_MS)
+    }
+
+    // Run immediately, then schedule next tick
+    tick()
+
+    return () => clearTimeout(timeoutId)
+  }, [enabled])
+
+  return { isSlowPolling }
 }

@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { editorApi, type Edicao, type Render } from "@/lib/api/editor"
-import { usePollingWithTimeout } from "@/lib/hooks/use-polling"
+import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe } from "@/lib/api/editor"
+import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,13 @@ const IDIOMAS = [
   { code: "it", flag: "🇮🇹", label: "Italiano" },
   { code: "pl", flag: "🇵🇱", label: "Polonês" },
 ]
+
+function formatProgresso(p: ProgressoDetalhe | null | undefined): string | null {
+  if (!p || typeof p !== "object") return null
+  const label = p.etapa === "traducao" ? "Traduzindo" : "Renderizando"
+  const atual = p.atual ? ` (${p.atual})` : ""
+  return `${label}: ${p.concluidos}/${p.total} idiomas${atual}`
+}
 
 function formatBytes(bytes: number | null | undefined) {
   if (!bytes) return "--"
@@ -54,13 +61,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [notasRevisao, setNotasRevisao] = useState("")
   const [mostrarRevisao, setMostrarRevisao] = useState(false)
   const [aprovando, setAprovando] = useState(false)
+  const [filaStatus, setFilaStatus] = useState<FilaStatus | null>(null)
 
   const load = async () => {
     try {
-      const e = await editorApi.obterEdicao(edicaoId)
+      const [e, r, fila] = await Promise.all([
+        editorApi.obterEdicao(edicaoId),
+        editorApi.listarRenders(edicaoId),
+        editorApi.filaStatus().catch(() => null),
+      ])
       setEdicao(e)
-      const r = await editorApi.listarRenders(edicaoId)
       setRenders(r)
+      setFilaStatus(fila)
     } catch (err: unknown) {
       setError("Erro ao carregar dados: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
@@ -70,10 +82,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
   useEffect(() => { load() }, [edicaoId])
 
-  // Timeout: 10 min para renderização/preview, 5 min para tradução
-  const isPolling = !!edicao && ["renderizando", "traducao", "preview"].includes(edicao.status)
-  const timeoutMs = edicao?.status === "traducao" ? 5 * 60 * 1000 : 10 * 60 * 1000
-  const { timedOut } = usePollingWithTimeout(load, 5000, isPolling, timeoutMs)
+  const isProcessing = !!edicao && ["renderizando", "traducao", "preview"].includes(edicao.status)
+  const { isSlowPolling } = useAdaptivePolling(load, isProcessing)
 
   const handleTraduzir = async () => {
     setTraduzindo(true)
@@ -185,6 +195,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const isPreviewPronto = edicao.status === "preview_pronto"
   const isPreview = edicao.status === "preview"
   const isRevisao = edicao.status === "revisao"
+  const sistemaBloqueado = !!(filaStatus?.ocupado && filaStatus.edicao_id !== edicaoId)
 
   const previewRender = renders.find(r => r.idioma === edicao.idioma && r.status === "concluido")
 
@@ -217,13 +228,31 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
       {error && <div className="bg-destructive/10 text-destructive text-sm rounded-lg p-3 mb-4">{error}</div>}
 
-      {timedOut && (
-        <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg p-4 mb-4">
-          <p className="font-medium">Timeout: a operação está demorando mais que o esperado.</p>
-          <p className="text-xs mt-1">O backend pode ter travado. Tente recarregar a página ou iniciar novamente.</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.reload()}>
-            Recarregar Página
-          </Button>
+      {/* System busy banner */}
+      {filaStatus?.ocupado && filaStatus.edicao_id !== edicaoId && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4 text-sm text-amber-800">
+          <p className="font-semibold">
+            Sistema processando edição #{filaStatus.edicao_id} — {filaStatus.etapa ?? "processando"}.
+            Aguarde ou volte depois.
+          </p>
+          {formatProgresso(filaStatus.progresso) && (
+            <p className="mt-1 text-amber-700">{formatProgresso(filaStatus.progresso)}</p>
+          )}
+        </div>
+      )}
+
+      {/* Slow polling notice */}
+      {isSlowPolling && (
+        <div className="bg-muted border rounded-lg px-4 py-2 mb-4 text-sm text-muted-foreground">
+          Processo em andamento, verificando a cada 15s...
+        </div>
+      )}
+
+      {/* Granular progress */}
+      {isProcessing && formatProgresso(edicao.progresso_detalhe) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4 text-sm text-blue-700 flex items-center gap-2">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
+          {formatProgresso(edicao.progresso_detalhe)}
         </div>
       )}
 
@@ -362,13 +391,13 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           {reaplicando ? "Recalculando..." : "Refazer Corte"}
         </Button>
         {!edicao.eh_instrumental && (
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleTraduzir} disabled={traduzindo || edicao.status === "traducao"}>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleTraduzir} disabled={traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
             {(traduzindo || edicao.status === "traducao") && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
             {traduzindo || edicao.status === "traducao" ? "Traduzindo..." : "Traduzir Lyrics x7 idiomas"}
           </Button>
         )}
         {!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== "renderizando" && (
-          <Button size="sm" className="gap-2" onClick={handleRenderizarPreview} disabled={renderizando || traduzindo || edicao.status === "traducao"}>
+          <Button size="sm" className="gap-2" onClick={handleRenderizarPreview} disabled={renderizando || traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
             {renderizando || isPreview ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
             {renderizando || isPreview ? "Renderizando preview..." : "Renderizar Preview"}
           </Button>
@@ -380,7 +409,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           </div>
         )}
         {isConcluido && (
-          <Button size="sm" className="gap-2" onClick={handleRenderizarTodos} disabled={renderizando || edicao.status === "renderizando"}>
+          <Button size="sm" className="gap-2" onClick={handleRenderizarTodos} disabled={renderizando || edicao.status === "renderizando" || sistemaBloqueado}>
             {renderizando || edicao.status === "renderizando" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
             {renderizando || edicao.status === "renderizando" ? "Renderizando..." : "Re-renderizar Todos"}
           </Button>

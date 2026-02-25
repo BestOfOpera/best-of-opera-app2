@@ -1,10 +1,13 @@
 """Rotas do pipeline de edição (passos 1-9)."""
+import asyncio
 import logging
+from datetime import datetime, timezone, timedelta
 from pathlib import Path as FilePath
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -610,9 +613,15 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     }
 
 
+# Statuses que permitem (re)iniciar tradução
+_STATUS_PERMITIDOS_TRADUCAO = {"traducao", "montagem", "erro"}
+
+
 # --- Passo 6: Tradução lyrics ---
 @router.post("/edicoes/{edicao_id}/traducao-lyrics")
-async def traduzir_lyrics(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
+    from app.worker import task_queue
+
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
@@ -623,199 +632,442 @@ async def traduzir_lyrics(edicao_id: int, background_tasks: BackgroundTasks, db:
         db.commit()
         return {"status": "instrumental — tradução pulada"}
 
-    edicao.status = "traducao"
+    # Check-and-set atômico: só aceitar se status permite
+    result = db.execute(
+        update(Edicao)
+        .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_TRADUCAO))
+        .values(status="traducao")
+    )
     db.commit()
 
-    background_tasks.add_task(_traducao_task, edicao_id)
-    return {"status": "tradução iniciada"}
+    if result.rowcount == 0:
+        db.refresh(edicao)
+        raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar tradução")
+
+    task_queue.put_nowait((_traducao_task, edicao_id))
+    return {"status": "tradução enfileirada"}
 
 
 async def _traducao_task(edicao_id: int):
     from app.database import SessionLocal
     from app.services.gemini import traduzir_letra
-    db = SessionLocal()
+
     try:
-        edicao = db.get(Edicao, edicao_id)
-        alinhamento = db.query(Alinhamento).filter(
-            Alinhamento.edicao_id == edicao_id
-        ).order_by(Alinhamento.id.desc()).first()
+        # PASSO A — Ler estado e inicializar (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                logger.error(f"[{edicao_id}] Edição não encontrada, abortando task")
+                return
 
-        if not alinhamento or not alinhamento.segmentos_cortado:
-            edicao.status = "erro"
-            edicao.erro_msg = "Alinhamento cortado não encontrado"
+            alinhamento = db.query(Alinhamento).filter(
+                Alinhamento.edicao_id == edicao_id
+            ).order_by(Alinhamento.id.desc()).first()
+
+            if not alinhamento or not alinhamento.segmentos_cortado:
+                edicao.status = "erro"
+                edicao.erro_msg = "Alinhamento cortado não encontrado"
+                db.commit()
+                return
+
+            # Idempotência: calcular idiomas faltantes
+            ja_traduzidos = {
+                t.idioma for t in db.query(TraducaoLetra).filter(
+                    TraducaoLetra.edicao_id == edicao_id
+                ).all()
+            }
+            idioma_origem = edicao.idioma
+            faltantes = [
+                idioma for idioma in IDIOMAS_ALVO
+                if idioma != idioma_origem and idioma not in ja_traduzidos
+            ]
+            total = len([i for i in IDIOMAS_ALVO if i != idioma_origem])
+            concluidos = total - len(faltantes)
+
+            # Copiar dados necessários para fora da sessão
+            segmentos_cortado = alinhamento.segmentos_cortado
+            metadados = {"musica": edicao.musica, "compositor": edicao.compositor}
+
+            # Setar status e heartbeat inicial
+            edicao.status = "traducao"
+            edicao.task_heartbeat = datetime.now(timezone.utc)
+            edicao.progresso_detalhe = {
+                "etapa": "traducao",
+                "total": total,
+                "concluidos": concluidos,
+                "atual": None,
+                "erros": [],
+            }
             db.commit()
-            return
 
-        idiomas_alvo = IDIOMAS_ALVO
-        metadados = {"musica": edicao.musica, "compositor": edicao.compositor}
+        # PASSO B — Loop de tradução (banco FECHADO durante I/O externo)
+        falhas = []
+        for idioma in faltantes:
+            # Heartbeat antes de cada chamada Gemini (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "traducao",
+                        "total": total,
+                        "concluidos": concluidos,
+                        "atual": idioma,
+                        "erros": falhas,
+                    }
+                    db.commit()
 
-        for idioma in idiomas_alvo:
-            if idioma == edicao.idioma:
-                continue
+            # I/O externo com timeout (banco FECHADO)
             try:
-                resultado = await traduzir_letra(
-                    alinhamento.segmentos_cortado, edicao.idioma, idioma, metadados
+                logger.info(f"[{edicao_id}] Traduzindo para {idioma}...")
+                resultado = await asyncio.wait_for(
+                    traduzir_letra(segmentos_cortado, idioma_origem, idioma, metadados),
+                    timeout=180,
                 )
-                trad = TraducaoLetra(
-                    edicao_id=edicao_id,
-                    idioma=idioma,
-                    segmentos=resultado,
-                )
-                db.add(trad)
+
+                # Salvar resultado (sessão curta)
+                with SessionLocal() as db:
+                    trad = TraducaoLetra(
+                        edicao_id=edicao_id,
+                        idioma=idioma,
+                        segmentos=resultado,
+                    )
+                    db.add(trad)
+                    db.commit()
+
+                concluidos += 1
+                logger.info(f"[{edicao_id}] Tradução {idioma} OK ({concluidos}/{total})")
+                await asyncio.sleep(2)
+
+            except asyncio.TimeoutError:
+                falhas.append(f"{idioma}: timeout (180s)")
+                logger.warning(f"[{edicao_id}] Tradução {idioma} timeout após 180s")
             except Exception as e:
-                logger.warning(f"Tradução para {idioma} falhou: {e}")
+                falhas.append(f"{idioma}: {e}")
+                logger.warning(f"[{edicao_id}] Tradução {idioma} falhou: {e}")
 
-        edicao.passo_atual = 7
-        edicao.status = "montagem"
-        db.commit()
+        # PASSO C — Finalização (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.passo_atual = 7
+                edicao.status = "montagem"
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "traducao",
+                    "total": total,
+                    "concluidos": concluidos,
+                    "atual": None,
+                    "erros": falhas,
+                }
+                if falhas:
+                    edicao.erro_msg = f"Traduções com falha ({len(falhas)}): {'; '.join(falhas)}"
+                    logger.warning(f"[{edicao_id}] {len(falhas)} traduções falharam")
+                else:
+                    edicao.erro_msg = None
+                db.commit()
+
+        logger.info(f"[{edicao_id}] Tradução concluída: {concluidos} OK, {len(falhas)} falhas")
+
     except Exception as e:
-        edicao.status = "erro"
-        edicao.erro_msg = f"Tradução falhou: {e}"
-        db.commit()
-    finally:
-        db.close()
+        logger.error(f"[{edicao_id}] _traducao_task erro inesperado: {e}", exc_info=True)
+        try:
+            from app.database import SessionLocal
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.status = "erro"
+                    edicao.erro_msg = f"Erro inesperado: {str(e)[:500]}"
+                    db.commit()
+        except Exception:
+            logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
 
 
-# --- Passos 7-8: Renderização ---
-@router.post("/edicoes/{edicao_id}/renderizar")
-async def renderizar(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+# --- Reset de status travado ---
+@router.post("/edicoes/{edicao_id}/reset-traducao")
+def reset_traducao(edicao_id: int, db: Session = Depends(get_db)):
+    """Reseta status preso em 'traducao' para permitir retry.
+
+    Mantém traduções já concluídas — só limpa o status travado.
+    """
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    edicao.status = "renderizando"
+    if edicao.status not in ("traducao", "erro"):
+        raise HTTPException(400, f"Status atual é '{edicao.status}', não precisa de reset")
+
+    # Contar traduções já feitas
+    traducoes_existentes = db.query(TraducaoLetra).filter(
+        TraducaoLetra.edicao_id == edicao_id
+    ).count()
+
+    # Setar para "montagem" para destravar — permite retrigger tradução
+    edicao.status = "montagem"
+    edicao.passo_atual = 7
+    edicao.erro_msg = None
     db.commit()
 
-    background_tasks.add_task(_render_task, edicao_id)
+    return {
+        "ok": True,
+        "traducoes_existentes": traducoes_existentes,
+        "msg": f"Status resetado para montagem. {traducoes_existentes} traduções já existem e serão mantidas.",
+    }
+
+
+# Statuses que permitem iniciar renderização final
+_STATUS_PERMITIDOS_RENDER = {"montagem", "preview_pronto", "erro"}
+
+# Statuses que permitem iniciar preview
+_STATUS_PERMITIDOS_PREVIEW = {"montagem", "revisao", "erro"}
+
+
+# --- Passos 7-8: Renderização ---
+@router.post("/edicoes/{edicao_id}/renderizar")
+async def renderizar(edicao_id: int):
+    from app.database import SessionLocal
+    from app.worker import task_queue
+
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        result = db.execute(
+            update(Edicao)
+            .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_RENDER))
+            .values(status="renderizando")
+        )
+        db.commit()
+
+        if result.rowcount == 0:
+            db.refresh(edicao)
+            raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar renderização")
+
+    task_queue.put_nowait((_render_task, edicao_id))
     return {"status": "renderização iniciada"}
 
 
 async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False):
     from app.database import SessionLocal
     from app.services.legendas import gerar_ass
-    from app.services.ffmpeg_service import renderizar_video
-    from pathlib import Path
-    db = SessionLocal()
-    try:
-        edicao = db.get(Edicao, edicao_id)
-        r2_base = _get_r2_base(edicao)
-        if not edicao.arquivo_video_cortado:
-            edicao.status = "erro"
-            edicao.erro_msg = "Vídeo cortado não disponível"
-            db.commit()
-            return
+    from pathlib import Path as _Path
 
-        # Garantir que vídeo cortado existe no R2
-        if not storage.exists(edicao.arquivo_video_cortado):
-            logger.info(f"[{edicao_id}] Vídeo cortado não encontrado no storage, regenerando...")
-            if not edicao.arquivo_video_completo or not storage.exists(edicao.arquivo_video_completo):
-                if edicao.youtube_url:
-                    resultado_dl = await download_video(
-                        edicao.youtube_url, edicao_id, STORAGE_PATH,
-                        artista=edicao.artista, musica=edicao.musica,
-                        youtube_video_id=edicao.youtube_video_id or "",
-                    )
-                    edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
-                    edicao.r2_base = resultado_dl.get("r2_base", edicao.r2_base)
-                    r2_base = _get_r2_base(edicao)
-                    db.commit()
-                else:
-                    edicao.status = "erro"
-                    edicao.erro_msg = "Vídeo original não encontrado e sem URL para re-baixar"
-                    db.commit()
-                    return
-            if edicao.janela_inicio_sec is not None and edicao.janela_fim_sec is not None:
-                resultado_corte = await cortar_na_janela_overlay(
-                    edicao.arquivo_video_completo,
-                    edicao.janela_inicio_sec,
-                    edicao.janela_fim_sec,
-                    edicao_id,
-                    STORAGE_PATH,
-                    r2_base=r2_base,
-                )
-                edicao.arquivo_video_cortado = resultado_corte["arquivo_cortado"]
-                edicao.arquivo_video_cru = resultado_corte["arquivo_cru"]
-                db.commit()
-                logger.info(f"[{edicao_id}] Vídeo cortado regenerado: {edicao.arquivo_video_cortado}")
-            else:
+    try:
+        # PASSO A — Ler estado (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                logger.error(f"[{edicao_id}] Edição não encontrada, abortando task")
+                return
+
+            if not edicao.arquivo_video_cortado:
                 edicao.status = "erro"
-                edicao.erro_msg = "Janela de corte não definida. Aplique o corte primeiro."
+                edicao.erro_msg = "Vídeo cortado não disponível"
                 db.commit()
                 return
 
-        idiomas = idiomas_renderizar if idiomas_renderizar else IDIOMAS_ALVO
-        for idioma in idiomas:
-            try:
+            idiomas = idiomas_renderizar if idiomas_renderizar else IDIOMAS_ALVO
+
+            # Idempotência: calcular idiomas faltantes
+            ja_concluidos = {
+                r.idioma for r in db.query(Render).filter(
+                    Render.edicao_id == edicao_id,
+                    Render.status == "concluido",
+                ).all()
+            }
+            faltantes = [i for i in idiomas if i not in ja_concluidos]
+            total = len(idiomas)
+            concluidos = total - len(faltantes)
+
+            # Copiar dados necessários para variáveis locais (fora da sessão)
+            arquivo_video = edicao.arquivo_video_cortado
+            idioma_musica = edicao.idioma
+
+            alinhamento = db.query(Alinhamento).filter(
+                Alinhamento.edicao_id == edicao_id
+            ).order_by(Alinhamento.id.desc()).first()
+            lyrics_segs = alinhamento.segmentos_cortado if alinhamento else []
+
+            dados_idiomas = {}
+            for idioma in faltantes:
                 overlay = db.query(Overlay).filter(
                     Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
                 ).first()
-                overlay_segs = overlay.segmentos_reindexado if overlay else []
-
-                alinhamento = db.query(Alinhamento).filter(
-                    Alinhamento.edicao_id == edicao_id
-                ).order_by(Alinhamento.id.desc()).first()
-                lyrics_segs = alinhamento.segmentos_cortado if alinhamento else []
-
                 traducao = db.query(TraducaoLetra).filter(
                     TraducaoLetra.edicao_id == edicao_id,
                     TraducaoLetra.idioma == idioma,
                 ).first()
-                traducao_segs = traducao.segmentos if traducao else None
+                dados_idiomas[idioma] = {
+                    "overlay_segs": overlay.segmentos_reindexado if overlay else [],
+                    "traducao_segs": traducao.segmentos if traducao else None,
+                }
 
-                ass_file = gerar_ass(
-                    overlay=overlay_segs or [],
+            # Setar status e heartbeat inicial
+            status_inicial = "preview" if is_preview else "renderizando"
+            edicao.status = status_inicial
+            edicao.task_heartbeat = datetime.now(timezone.utc)
+            edicao.progresso_detalhe = {
+                "etapa": "render",
+                "total": total,
+                "concluidos": concluidos,
+                "atual": None,
+                "erros": [],
+            }
+            db.commit()
+
+        # PASSO B — Loop de render (banco FECHADO durante FFmpeg)
+        renders_ok = 0
+        falhas = []
+
+        for idioma in faltantes:
+            # Heartbeat antes de cada render (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "render",
+                        "total": total,
+                        "concluidos": concluidos,
+                        "atual": idioma,
+                        "erros": falhas,
+                    }
+                    db.commit()
+
+            try:
+                d = dados_idiomas[idioma]
+
+                # Gerar ASS (sync, rápido — banco já fechado)
+                ass_obj = gerar_ass(
+                    overlay=d["overlay_segs"] or [],
                     lyrics=lyrics_segs or [],
-                    traducao=traducao_segs,
+                    traducao=d["traducao_segs"],
                     idioma_versao=idioma,
-                    idioma_musica=edicao.idioma,
+                    idioma_musica=idioma_musica,
                 )
 
-                output_dir = Path(STORAGE_PATH) / str(edicao_id) / "renders" / idioma
+                output_dir = _Path(STORAGE_PATH) / str(edicao_id) / "renders" / idioma
                 output_dir.mkdir(parents=True, exist_ok=True)
                 ass_path = str(output_dir / f"legendas_{idioma}.ass")
-                ass_file.save(ass_path)
+                ass_obj.save(ass_path)
 
                 output_video = str(output_dir / f"video_{idioma}.mp4")
-                resultado = await renderizar_video(
-                    edicao.arquivo_video_cortado, ass_path, output_video,
-                    r2_base=r2_base, idioma=idioma,
-                )
 
-                render = Render(
-                    edicao_id=edicao_id,
-                    idioma=idioma,
-                    tipo="9:16",
-                    arquivo=resultado["arquivo"],
-                    tamanho_bytes=resultado["tamanho_bytes"],
-                    status="concluido",
+                # FFmpeg com timeout — banco FECHADO
+                ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+                cmd = (
+                    f'ffmpeg -y -i "{arquivo_video}" '
+                    f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
+                    f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
+                    f"ass='{ass_escaped}'\" "
+                    f'-c:v libx264 -preset medium -crf 23 '
+                    f'-c:a aac -b:a 128k "{output_video}"'
                 )
-                db.add(render)
+                processo = await asyncio.create_subprocess_shell(
+                    cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                try:
+                    _, stderr_out = await asyncio.wait_for(processo.communicate(), timeout=600)
+                except asyncio.TimeoutError:
+                    processo.kill()
+                    await processo.wait()
+                    raise
+
+                if processo.returncode != 0:
+                    raise Exception(f"FFmpeg falhou: {stderr_out.decode()[-1000:]}")
+
+                tamanho = _Path(output_video).stat().st_size
+
+                # Salvar resultado (sessão curta)
+                with SessionLocal() as db:
+                    db.add(Render(
+                        edicao_id=edicao_id,
+                        idioma=idioma,
+                        tipo="9:16",
+                        arquivo=output_video,
+                        tamanho_bytes=tamanho,
+                        status="concluido",
+                    ))
+                    db.commit()
+
+                renders_ok += 1
+                concluidos += 1
+                logger.info(f"[{edicao_id}] Render {idioma} OK ({concluidos}/{total})")
+
+                # Limpar ASS (arquivo temporário)
+                # Após upload pro R2, adicionar aqui: _Path(output_video).unlink(missing_ok=True)
+                try:
+                    _Path(ass_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+            except asyncio.TimeoutError:
+                falhas.append(f"{idioma}: timeout (600s)")
+                logger.warning(f"[{edicao_id}] Render {idioma} timeout após 600s")
+                with SessionLocal() as db:
+                    db.add(Render(
+                        edicao_id=edicao_id, idioma=idioma, tipo="9:16",
+                        status="erro", erro_msg="timeout (600s)",
+                    ))
+                    db.commit()
             except Exception as e:
-                render = Render(
-                    edicao_id=edicao_id,
-                    idioma=idioma,
-                    tipo="9:16",
-                    status="erro",
-                    erro_msg=str(e),
-                )
-                db.add(render)
+                falhas.append(f"{idioma}: {str(e)[:200]}")
+                logger.warning(f"[{edicao_id}] Render {idioma} falhou: {e}")
+                with SessionLocal() as db:
+                    db.add(Render(
+                        edicao_id=edicao_id, idioma=idioma, tipo="9:16",
+                        status="erro", erro_msg=str(e)[:500],
+                    ))
+                    db.commit()
 
-        if is_preview:
-            edicao.status = "preview_pronto"
-            edicao.passo_atual = 8
-        else:
-            edicao.status = "concluido"
-            edicao.passo_atual = 9
-        db.commit()
+        # PASSO C — Finalização (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "render",
+                    "total": total,
+                    "concluidos": concluidos,
+                    "atual": None,
+                    "erros": falhas,
+                }
+                if renders_ok > 0:
+                    if is_preview:
+                        edicao.status = "preview_pronto"
+                        edicao.passo_atual = 8
+                    else:
+                        edicao.status = "concluido"
+                        edicao.passo_atual = 9
+                    edicao.erro_msg = (
+                        f"Renders com falha ({len(falhas)}): {'; '.join(falhas)}"
+                        if falhas else None
+                    )
+                else:
+                    edicao.status = "erro"
+                    edicao.erro_msg = f"Nenhum render concluído. Falhas: {'; '.join(falhas)}"
+                db.commit()
 
-        if not is_preview:
-            _exportar_renders(edicao, db)
+                if not is_preview and renders_ok > 0:
+                    _exportar_renders(edicao, db)
+
+        logger.info(f"[{edicao_id}] _render_task concluída: {renders_ok} OK, {len(falhas)} falhas")
+
     except Exception as e:
-        edicao.status = "erro"
-        edicao.erro_msg = f"Renderização falhou: {e}"
-        db.commit()
-    finally:
-        db.close()
+        logger.error(f"[{edicao_id}] _render_task erro inesperado: {e}", exc_info=True)
+        try:
+            from app.database import SessionLocal
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.status = "erro"
+                    edicao.erro_msg = f"Erro inesperado: {str(e)[:500]}"
+                    db.commit()
+        except Exception:
+            logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
 
 
 class AprovarPreviewParams(BaseModel):
@@ -825,36 +1077,64 @@ class AprovarPreviewParams(BaseModel):
 
 # --- Preview: Renderizar 1 vídeo para aprovação ---
 @router.post("/edicoes/{edicao_id}/renderizar-preview")
-async def renderizar_preview(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    edicao = db.get(Edicao, edicao_id)
-    if not edicao:
-        raise HTTPException(404, "Edição não encontrada")
+async def renderizar_preview(edicao_id: int):
+    from app.database import SessionLocal
+    from app.worker import task_queue, _make_preview_wrapper
 
-    edicao.status = "preview"
-    db.commit()
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
 
-    background_tasks.add_task(_render_task, edicao_id, idiomas_renderizar=[edicao.idioma], is_preview=True)
-    return {"status": "preview iniciado", "idioma": edicao.idioma}
+        idioma = edicao.idioma
+
+        result = db.execute(
+            update(Edicao)
+            .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_PREVIEW))
+            .values(status="preview")
+        )
+        db.commit()
+
+        if result.rowcount == 0:
+            db.refresh(edicao)
+            raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar preview")
+
+    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma), edicao_id))
+    return {"status": "preview iniciado", "idioma": idioma}
 
 
 @router.post("/edicoes/{edicao_id}/aprovar-preview")
-async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    edicao = db.get(Edicao, edicao_id)
-    if not edicao:
-        raise HTTPException(404, "Edição não encontrada")
+async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
+    from app.database import SessionLocal
+    from app.worker import task_queue
 
-    if body.aprovado:
-        idiomas_restantes = [i for i in IDIOMAS_ALVO if i != edicao.idioma]
-        edicao.status = "renderizando"
-        edicao.notas_revisao = None
-        db.commit()
-        background_tasks.add_task(_render_task, edicao_id, idiomas_renderizar=idiomas_restantes)
-        return {"status": "renderização dos demais idiomas iniciada", "idiomas": idiomas_restantes}
-    else:
-        edicao.status = "revisao"
-        edicao.notas_revisao = body.notas_revisao
-        db.commit()
-        return {"status": "revisão solicitada", "notas": body.notas_revisao}
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        if body.aprovado:
+            # Check-and-set atômico: só aceitar se preview_pronto
+            result = db.execute(
+                update(Edicao)
+                .where(Edicao.id == edicao_id, Edicao.status == "preview_pronto")
+                .values(status="renderizando", notas_revisao=None)
+            )
+            db.commit()
+
+            if result.rowcount == 0:
+                db.refresh(edicao)
+                raise HTTPException(409, f"Status atual '{edicao.status}' não permite aprovar preview")
+
+            # Idempotência no _render_task: idioma do preview já tem Render concluído,
+            # será pulado automaticamente no loop de faltantes
+            task_queue.put_nowait((_render_task, edicao_id))
+            return {"status": "renderização dos demais idiomas iniciada"}
+        else:
+            edicao.status = "revisao"
+            edicao.notas_revisao = body.notas_revisao
+            db.commit()
+            return {"status": "revisão solicitada", "notas": body.notas_revisao}
 
 
 def _exportar_renders(edicao, db):
@@ -1099,3 +1379,77 @@ def obter_traducoes(edicao_id: int, db: Session = Depends(get_db)):
         {"idioma": t.idioma, "segmentos": t.segmentos}
         for t in traducoes
     ]
+
+
+# --- Fila / Worker ---
+
+_STALE_THRESHOLD = timedelta(minutes=5)
+_ACTIVE_STATUSES = {"traducao", "renderizando", "preview"}
+
+
+@router.get("/fila/status")
+async def fila_status():
+    """Verifica se o worker está ocupado processando alguma edição."""
+    from app.worker import is_worker_busy
+    return is_worker_busy()
+
+
+@router.post("/edicoes/{edicao_id}/desbloquear")
+async def desbloquear_edicao(edicao_id: int):
+    """Recovery manual: infere o status correto e desbloqueia uma edição travada.
+
+    Só permitido se:
+    - status == "erro", OU
+    - status é um status ativo E o heartbeat está stale (> 5 min / NULL)
+
+    Retorna 409 se a edição está em processamento ativo.
+    """
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        is_erro = edicao.status == "erro"
+        is_active = edicao.status in _ACTIVE_STATUSES
+
+        # Verificar se heartbeat está stale
+        hb = edicao.task_heartbeat
+        if hb is not None and hb.tzinfo is None:
+            hb = hb.replace(tzinfo=timezone.utc)
+        is_stale = hb is None or (datetime.now(timezone.utc) - hb) > _STALE_THRESHOLD
+
+        if not is_erro and not (is_active and is_stale):
+            raise HTTPException(
+                409,
+                f"Edição não pode ser desbloqueada: status='{edicao.status}'"
+                + (" (processamento ativo)" if is_active and not is_stale else ""),
+            )
+
+        # Contar traduções e renders concluídos para inferir status
+        n_traducoes = db.query(TraducaoLetra).filter(
+            TraducaoLetra.edicao_id == edicao_id
+        ).count()
+        n_renders = db.query(Render).filter(
+            Render.edicao_id == edicao_id,
+            Render.status == "concluido",
+        ).count()
+
+        if n_renders > 0:
+            novo_status = "preview_pronto"
+        elif n_traducoes > 0:
+            novo_status = "montagem"
+        else:
+            novo_status = "alinhamento"
+
+        edicao.status = novo_status
+        edicao.erro_msg = None
+        edicao.progresso_detalhe = {}
+        db.commit()
+
+    logger.info(
+        f"[desbloquear] edicao_id={edicao_id} desbloqueada → status='{novo_status}' "
+        f"(renders={n_renders}, traducoes={n_traducoes})"
+    )
+    return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}
