@@ -768,7 +768,11 @@ async def _traducao_task(edicao_id: int):
 
         logger.info(f"[{edicao_id}] Tradução concluída: {concluidos} OK, {len(falhas)} falhas")
 
-    except Exception as e:
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            erro_msg = "Interrompido por reinício do servidor"
+        else:
+            erro_msg = f"Erro inesperado: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _traducao_task erro inesperado: {e}", exc_info=True)
         try:
             from app.database import SessionLocal
@@ -776,10 +780,12 @@ async def _traducao_task(edicao_id: int):
                 edicao = db.get(Edicao, edicao_id)
                 if edicao:
                     edicao.status = "erro"
-                    edicao.erro_msg = f"Erro inesperado: {str(e)[:500]}"
+                    edicao.erro_msg = erro_msg
                     db.commit()
         except Exception:
             logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
+        if isinstance(e, asyncio.CancelledError):
+            raise
 
 
 # --- Reset de status travado ---
@@ -1076,7 +1082,11 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
         logger.info(f"[{edicao_id}] _render_task concluída: {renders_ok} OK, {len(falhas)} falhas")
 
-    except Exception as e:
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            erro_msg = "Interrompido por reinício do servidor"
+        else:
+            erro_msg = f"Erro inesperado: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _render_task erro inesperado: {e}", exc_info=True)
         try:
             from app.database import SessionLocal
@@ -1084,10 +1094,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 edicao = db.get(Edicao, edicao_id)
                 if edicao:
                     edicao.status = "erro"
-                    edicao.erro_msg = f"Erro inesperado: {str(e)[:500]}"
+                    edicao.erro_msg = erro_msg
                     db.commit()
         except Exception:
             logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
+        if isinstance(e, asyncio.CancelledError):
+            raise
 
 
 class AprovarPreviewParams(BaseModel):

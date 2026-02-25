@@ -23,6 +23,9 @@ async def worker_loop():
             logger.info(f"[worker] Iniciando task edicao_id={edicao_id}")
             try:
                 await task_func(edicao_id)
+            except asyncio.CancelledError:
+                # Propagar para o shutdown — não engolir CancelledError da task
+                raise
             except Exception as e:
                 logger.error(
                     f"[worker] Task edicao_id={edicao_id} falhou com exceção não tratada: {e}",
@@ -44,15 +47,15 @@ def _make_preview_wrapper(eid: int, idioma: str):
 
 
 def requeue_stale_tasks():
-    """Detecta edições travadas no startup (heartbeat expirado ou NULL) e recoloca na fila.
+    """Recoloca na fila TODAS as edições em status de processamento no startup.
 
+    No startup, qualquer edição presa em "traducao"/"renderizando"/"preview"
+    é reagendada incondicionalmente — sem verificar heartbeat.
     NÃO atualiza o heartbeat — a própria task faz isso quando começa a rodar.
     """
     from app.database import SessionLocal
     from app.models import Edicao
     from app.routes.pipeline import _traducao_task, _render_task
-
-    now = datetime.now(timezone.utc)
 
     with SessionLocal() as db:
         candidatos = db.query(Edicao).filter(
@@ -61,22 +64,6 @@ def requeue_stale_tasks():
 
         requeued = 0
         for edicao in candidatos:
-            hb = edicao.task_heartbeat
-            if hb is None:
-                is_stale = True
-            else:
-                # Normalizar para UTC se sem tzinfo (PostgreSQL pode retornar naive)
-                if hb.tzinfo is None:
-                    hb = hb.replace(tzinfo=timezone.utc)
-                is_stale = (now - hb) > _STALE_THRESHOLD
-
-            if not is_stale:
-                logger.info(
-                    f"[worker] requeue: edicao_id={edicao.id} status={edicao.status} "
-                    "heartbeat recente, ignorando"
-                )
-                continue
-
             eid, status, idioma = edicao.id, edicao.status, edicao.idioma
 
             if status == "traducao":
