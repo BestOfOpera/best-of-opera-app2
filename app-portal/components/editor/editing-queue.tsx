@@ -148,6 +148,8 @@ export function EditorEditingQueue() {
 
   if (loading) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
+  const ativas = edicoes.filter(e => e.status !== "concluido")
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -303,7 +305,7 @@ export function EditorEditingQueue() {
         </Card>
       )}
 
-      {edicoes.length === 0 ? (
+      {ativas.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Clapperboard className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>Nenhuma edição ainda.</p>
@@ -311,7 +313,7 @@ export function EditorEditingQueue() {
         </div>
       ) : (
         <div className="space-y-3">
-          {edicoes.map(e => {
+          {ativas.map(e => {
             const st = STATUS_LABELS[e.status] || STATUS_LABELS.aguardando
             return (
               <Card key={e.id} className="hover:shadow-md transition">
