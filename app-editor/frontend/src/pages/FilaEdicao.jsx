@@ -121,13 +121,17 @@ export default function FilaEdicao() {
       loadEdicoes()
       alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
     } catch (err) {
+      const status = err.response?.status
       const detail = err.response?.data?.detail
-      if (err.response?.status === 422 && detail?.idioma_necessario) {
+      if (status === 422 && detail && detail.idioma_necessario === true) {
         setModalIdioma({ projectId })
         setIdiomaEscolhido('it')
         setOutroIdioma('')
       } else {
-        alert('Erro ao importar: ' + (detail || err.message))
+        const msg = typeof detail === 'string'
+          ? detail
+          : detail?.mensagem || detail?.detail || err.message
+        alert('Erro ao importar: ' + msg)
       }
     } finally {
       setImportando(null)
