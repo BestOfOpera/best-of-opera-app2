@@ -373,10 +373,10 @@ export default function Conclusao() {
           <button
             onClick={handleTraduzir}
             disabled={traduzindo}
-            className="flex items-center gap-2 bg-purple-bg text-purple px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple hover:text-white transition disabled:opacity-50"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 ${traducoes.length > 0 ? 'bg-green-50 text-green-700 hover:bg-green-100' : 'bg-purple-bg text-purple hover:bg-purple hover:text-white'}`}
           >
-            {traduzindo ? <RefreshCw size={14} className="animate-spin" /> : null}
-            {traduzindo ? 'Traduzindo...' : 'Traduzir Lyrics x7 idiomas'}
+            {traduzindo ? <RefreshCw size={14} className="animate-spin" /> : traducoes.length > 0 ? <CheckCircle size={14} /> : null}
+            {traduzindo ? 'Traduzindo...' : traducoes.length > 0 ? `Traduzido (${traducoes.length}/6) ↺` : 'Traduzir Lyrics x7 idiomas'}
           </button>
         )}
         {edicao.status === 'traducao' && (
