@@ -1118,7 +1118,11 @@ async def renderizar_preview(edicao_id: int):
         if not edicao:
             raise HTTPException(404, "Edição não encontrada")
 
-        idioma = edicao.idioma
+        # Preview sempre em PT para mostrar overlay + lyrics originais + tradução PT.
+        # Se a música já for em PT, renderizar em PT é o correto (sem tradução, pois
+        # idioma_versao == idioma_musica). Para todos os outros idiomas, PT garante
+        # que precisa_traducao=True e a tradução aparece na linha inferior.
+        idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
 
         result = db.execute(
             update(Edicao)
@@ -1131,8 +1135,8 @@ async def renderizar_preview(edicao_id: int):
             db.refresh(edicao)
             raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar preview")
 
-    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma), edicao_id))
-    return {"status": "preview iniciado", "idioma": idioma}
+    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma_preview), edicao_id))
+    return {"status": "preview iniciado", "idioma": idioma_preview}
 
 
 @router.post("/edicoes/{edicao_id}/aprovar-preview")

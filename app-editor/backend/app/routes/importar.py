@@ -23,19 +23,32 @@ def _extract_video_id(url: str) -> str:
 def _detect_music_lang(proj: dict) -> str:
     """Detecta o idioma da MÚSICA (não do conteúdo editorial).
 
-    O conteúdo original do Redator (overlay, post, hook) é editorial em PT.
-    As traduções cobrem outros idiomas. O idioma da música é inferido
-    pelo que NÃO está nas traduções (excluindo PT que é editorial).
-    Fallback: "it" (maioria das óperas).
+    Prioridade:
+    1. Campo explícito do Redator: "language", "music_language" ou "original_language"
+    2. Inferência: idioma que NÃO aparece nas traduções (excluindo PT editorial)
+    3. Se a inferência for ambígua (0 ou 2+ faltando), retorna None — forçando
+       o operador a informar o idioma manualmente.
+
+    O fallback "it" foi removido para evitar mascarar erros como o de músicas
+    em inglês (onde EN aparece nas traduções do Redator, zerando o conjunto).
     """
+    # 1. Campo explícito tem prioridade absoluta
+    for field in ("language", "music_language", "original_language"):
+        val = proj.get(field)
+        if val and isinstance(val, str) and len(val) <= 10:
+            return val.lower()
+
+    # 2. Inferência por exclusão
     all_target = {"en", "pt", "es", "de", "fr", "it", "pl"}
     translation_langs = {t["language"] for t in proj.get("translations", [])}
-    # O idioma original da música não é traduzido para si mesmo
-    # e PT é o idioma editorial, não conta
+    # O idioma original da música não é traduzido para si mesmo;
+    # PT é o idioma editorial, não conta.
     missing = all_target - translation_langs - {"pt"}
     if len(missing) == 1:
         return missing.pop()
-    return "it"
+
+    # 3. Ambíguo — retorna None para forçar preenchimento manual
+    return None
 
 
 @router.get("/redator/projetos")
@@ -66,8 +79,17 @@ async def listar_projetos_redator():
 
 
 @router.post("/redator/importar/{project_id}")
-async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
-    """Importa um projeto do Redator e cria uma edição no Editor."""
+async def importar_do_redator(
+    project_id: int,
+    idioma: str = None,
+    db: Session = Depends(get_db),
+):
+    """Importa um projeto do Redator e cria uma edição no Editor.
+
+    ?idioma=XX — sobrescreve a detecção automática do idioma da música.
+    Necessário quando o Redator tem tradução para o idioma original da música
+    (ex: música em inglês → passar ?idioma=en).
+    """
     # Buscar projeto completo do Redator
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -84,7 +106,13 @@ async def importar_do_redator(project_id: int, db: Session = Depends(get_db)):
     if not video_id:
         raise HTTPException(400, "Projeto do Redator não tem URL do YouTube válida")
 
-    music_lang = _detect_music_lang(proj)
+    music_lang = idioma or _detect_music_lang(proj)
+    if music_lang is None:
+        raise HTTPException(
+            400,
+            "Não foi possível detectar o idioma da música automaticamente. "
+            "Informe o idioma explicitamente usando o parâmetro ?idioma=XX.",
+        )
 
     # O conteúdo original do Redator (overlay, post, seo) é editorial em PT
     editorial_lang = "pt"

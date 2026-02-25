@@ -190,13 +190,20 @@ def reindexar_timestamps(segmentos: list, janela_inicio_sec: float) -> list:
 def recortar_lyrics_na_janela(
     lyrics_completo: list, janela_inicio_sec: float, janela_fim_sec: float
 ) -> list:
-    """Filtra lyrics dentro da janela + reindexa."""
+    """Filtra lyrics dentro da janela + reindexa.
+
+    Segmentos que começam ANTES da janela (seg_inicio < janela_inicio_sec)
+    são excluídos mesmo que terminem dentro dela. Esses segmentos são resíduos
+    anteriores à performance e não fazem parte do corte — incluí-los com
+    novo_inicio=0 produziria um bloco fantasma no segundo 0 do vídeo.
+    """
     dentro = []
     for seg in lyrics_completo:
         seg_inicio = timestamp_to_seconds(seg.get("start", "0:0:0"))
         seg_fim = timestamp_to_seconds(seg.get("end", "0:0:0"))
-        if seg_fim > janela_inicio_sec and seg_inicio < janela_fim_sec:
-            novo_inicio = max(seg_inicio, janela_inicio_sec) - janela_inicio_sec
+        # Exige que o segmento comece DENTRO da janela
+        if seg_inicio >= janela_inicio_sec and seg_inicio < janela_fim_sec:
+            novo_inicio = seg_inicio - janela_inicio_sec
             novo_fim = min(seg_fim, janela_fim_sec) - janela_inicio_sec
             dentro.append({
                 **seg,

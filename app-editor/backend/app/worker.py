@@ -64,14 +64,15 @@ def requeue_stale_tasks():
 
         requeued = 0
         for edicao in candidatos:
-            eid, status, idioma = edicao.id, edicao.status, edicao.idioma
+            eid, status = edicao.id, edicao.status
 
             if status == "traducao":
                 task_queue.put_nowait((_traducao_task, eid))
             elif status == "renderizando":
                 task_queue.put_nowait((_render_task, eid))
             elif status == "preview":
-                task_queue.put_nowait((_make_preview_wrapper(eid, idioma), eid))
+                idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
+                task_queue.put_nowait((_make_preview_wrapper(eid, idioma_preview), eid))
 
             requeued += 1
             logger.info(f"[worker] requeue: edicao_id={eid} status={status} reagendada")
