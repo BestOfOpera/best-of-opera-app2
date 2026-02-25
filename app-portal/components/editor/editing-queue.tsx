@@ -67,7 +67,19 @@ export function EditorEditingQueue() {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
   }
 
-  useEffect(loadEdicoes, [])
+  useEffect(() => {
+    editorApi.listarEdicoes().then(data => {
+      setEdicoes(data)
+      if (data.length === 0) {
+        setShowImportar(true)
+        setLoadingRedator(true)
+        editorApi.listarProjetosRedator()
+          .then(setProjetosRedator)
+          .catch((err: unknown) => setErroRedator("Erro ao conectar com o Redator: " + (err instanceof Error ? err.message : "Erro desconhecido")))
+          .finally(() => setLoadingRedator(false))
+      }
+    }).finally(() => setLoading(false))
+  }, [])
 
   const extractVideoId = (url: string) => {
     const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
