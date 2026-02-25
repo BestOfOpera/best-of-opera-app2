@@ -783,6 +783,24 @@ async def _traducao_task(edicao_id: int):
 
 
 # --- Reset de status travado ---
+@router.post("/edicoes/{edicao_id}/limpar-traducoes")
+def limpar_traducoes(edicao_id: int, db: Session = Depends(get_db)):
+    """Apaga todas as traduções e volta o status para 'corte', forçando retradução completa."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    deletados = db.query(TraducaoLetra).filter(
+        TraducaoLetra.edicao_id == edicao_id
+    ).delete()
+    edicao.status = "corte"
+    edicao.passo_atual = 6
+    edicao.erro_msg = None
+    db.commit()
+
+    return {"ok": True, "traducoes_deletadas": deletados, "status": "corte"}
+
+
 @router.post("/edicoes/{edicao_id}/reset-traducao")
 def reset_traducao(edicao_id: int, db: Session = Depends(get_db)):
     """Reseta status preso em 'traducao' para permitir retry.
