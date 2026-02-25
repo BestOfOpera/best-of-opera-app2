@@ -26,6 +26,8 @@ def _run_migrations():
             ("corte_original_inicio", "VARCHAR(20)"),
             ("corte_original_fim", "VARCHAR(20)"),
             ("notas_revisao", "TEXT"),
+            ("r2_base", "VARCHAR(500)"),
+            ("redator_project_id", "INTEGER"),
         ]:
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
