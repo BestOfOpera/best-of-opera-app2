@@ -555,10 +555,10 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     edicao.janela_fim_sec = janela["janela_fim_sec"]
     edicao.duracao_corte_sec = janela["duracao_corte_sec"]
 
+    # Overlays do Redator têm timestamps clip-relativos (começam em "00:00").
+    # Apenas normalizar o formato — NÃO subtrair janela_inicio (isso zeraria tudo).
     for ov in overlays:
-        ov.segmentos_reindexado = reindexar_timestamps(
-            ov.segmentos_original, janela["janela_inicio_sec"]
-        )
+        ov.segmentos_reindexado = normalizar_segmentos(ov.segmentos_original)
 
     # Cortar vídeo — usar R2 storage (ensure_local garante disponibilidade)
     r2_base = _get_r2_base(edicao)

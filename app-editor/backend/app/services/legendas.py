@@ -153,19 +153,37 @@ def gerar_ass(
     # Track 1: Overlay (com word wrap e timing contínuo)
     # Cada overlay dura até 1s antes do próximo; último até o fim do corte
     overlay_filtrado = [seg for seg in overlay if seg.get("text")]
+
+    # Detectar caso degenerado: todos os timestamps iguais (ex: todos zerados)
+    def _get_start_ms(s):
+        k = "start" if "start" in s else "timestamp"
+        return seg_to_ms(s.get(k, 0))
+
+    overlay_starts = [_get_start_ms(s) for s in overlay_filtrado]
+    todos_iguais = len(overlay_filtrado) > 1 and len(set(overlay_starts)) <= 1
+
     for i, seg in enumerate(overlay_filtrado):
         event = pysubs2.SSAEvent()
-        start_key = "start" if "start" in seg else "timestamp"
-        event.start = seg_to_ms(seg.get(start_key, 0))
-        # End = próximo overlay - 1s gap, ou fim do vídeo
-        if i + 1 < len(overlay_filtrado):
-            next_seg = overlay_filtrado[i + 1]
-            next_start_key = "start" if "start" in next_seg else "timestamp"
-            next_start_ms = seg_to_ms(next_seg.get(next_start_key, 0))
-            event.end = next_start_ms - 1000  # 1s gap
+
+        if todos_iguais and duracao_total_ms > 0:
+            # Fallback: distribuir igualmente pelo vídeo quando timestamps são todos iguais
+            n = len(overlay_filtrado)
+            interval = duracao_total_ms // n
+            event.start = i * interval
+            event.end = (i + 1) * interval
         else:
-            # Último overlay: até o fim do corte
-            event.end = duracao_total_ms if duracao_total_ms > 0 else event.start + 10000
+            start_key = "start" if "start" in seg else "timestamp"
+            event.start = seg_to_ms(seg.get(start_key, 0))
+            # End = próximo overlay - 1s gap, ou fim do vídeo
+            if i + 1 < len(overlay_filtrado):
+                next_seg = overlay_filtrado[i + 1]
+                next_start_key = "start" if "start" in next_seg else "timestamp"
+                next_start_ms = seg_to_ms(next_seg.get(next_start_key, 0))
+                event.end = max(event.start + 1, next_start_ms - 1000)  # 1s gap
+            else:
+                # Último overlay: até o fim do corte
+                event.end = duracao_total_ms if duracao_total_ms > 0 else event.start + 10000
+
         # Garantir duração mínima de 2s
         if event.end - event.start < 2000:
             event.end = event.start + 2000

@@ -129,7 +129,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setAprovando(true)
     setError("")
     try {
-      await editorApi.aprovarPreview(edicaoId, { aprovado: false, notas: notasRevisao })
+      await editorApi.aprovarPreview(edicaoId, { aprovado: false, notas_revisao: notasRevisao })
       setMostrarRevisao(false)
       setNotasRevisao("")
       await load()
@@ -260,13 +260,15 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       )}
 
       {/* Revision card */}
-      {isRevisao && edicao.notas_revisao && (
+      {isRevisao && (
         <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-5 mb-6">
           <div className="flex items-start gap-3">
             <MessageSquare className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-semibold text-yellow-800 mb-1">Revisão Solicitada</h3>
-              <p className="text-sm text-yellow-700 whitespace-pre-wrap">{edicao.notas_revisao}</p>
+              {edicao.notas_revisao && (
+                <p className="text-sm text-yellow-700 whitespace-pre-wrap">{edicao.notas_revisao}</p>
+              )}
               <Button
                 variant="outline"
                 size="sm"

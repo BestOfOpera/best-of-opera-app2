@@ -145,7 +145,7 @@ export const editorApi = {
     request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar`, { method: "POST" }),
   renderizarPreview: (id: number) =>
     request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar-preview`, { method: "POST" }),
-  aprovarPreview: (id: number, params: { aprovado: boolean; notas?: string }) =>
+  aprovarPreview: (id: number, params: { aprovado: boolean; notas_revisao?: string }) =>
     request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview`, { method: "POST", body: JSON.stringify(params) }),
   listarRenders: (id: number) =>
     request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
