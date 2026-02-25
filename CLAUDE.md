@@ -113,7 +113,8 @@ npm install && npm run dev   # → localhost:3000
 | app (redator) | `fade4ac2-8774-4287-b87d-7f2559898dcc` | https://app-production-870c.up.railway.app |
 | editor-backend | `7e42a778-aa1e-4648-9ce1-07f5d6896fd5` | https://editor-backend-production.up.railway.app |
 | editor-frontend | `35ec9116-a3ee-4f9a-ad90-feeec2383238` | https://editor-frontend-production.up.railway.app |
-| curadoria (portal) | `b8fe934d-e3d7-4d30-a68a-4914e03cdb0a` | https://curadoria-production-cf4a.up.railway.app |
+| portal (Next.js) | *(ver Railway dashboard)* | https://portal-production-4304.up.railway.app |
+| curadoria (portal antigo) | `b8fe934d-e3d7-4d30-a68a-4914e03cdb0a` | https://curadoria-production-cf4a.up.railway.app |
 | curadoria-backend | `e3eb935a-7b11-44fd-889f-fbd45edb0602` | https://curadoria-backend-production.up.railway.app |
 | Postgres | `1f423154-d150-46a3-a459-b62b55fe1004` | `postgres.railway.internal:5432` |
 
@@ -121,8 +122,11 @@ npm install && npm run dev   # → localhost:3000
 - Project ID: `c4d0468d-f3da-4765-b582-42cf6ef5ff66`
 - Environment ID: `4ec5a08f-d29e-4d7b-a54d-a3e161edd716`
 
+**Token Railway (projeto):** salvo em `~/.zshrc` como `$RAILWAY_TOKEN`
+> ⚠️ É um **project token** — só funciona para mutations (`serviceInstanceRedeploy`), NÃO para queries. O token fica em `~/.zshrc` e é carregado automaticamente em novos terminais.
+
 ### Deploy Manual via GraphQL API
-> ⚠️ O Railway CLI NÃO funciona com Account Tokens (UUID). Use sempre a API GraphQL.
+> ⚠️ O Railway CLI NÃO funciona com project tokens (UUID). Use sempre a API GraphQL com mutations.
 
 ```bash
 # Redeploy de um serviço
