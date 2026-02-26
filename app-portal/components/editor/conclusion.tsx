@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe } from "@/lib/api/editor"
+import { ApiError } from "@/lib/api/base"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -118,7 +119,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       await editorApi.aprovarPreview(edicaoId, { aprovado: true })
       await load()
     } catch (err: unknown) {
-      setError("Erro ao aprovar: " + (err instanceof Error ? err.message : "Erro"))
+      if (err instanceof ApiError && err.status === 409) {
+        setError("Esta edição já está sendo processada. Aguarde a conclusão ou atualize a página.")
+      } else {
+        setError("Erro ao aprovar: " + (err instanceof Error ? err.message : "Erro"))
+      }
     } finally {
       setAprovando(false)
     }
@@ -310,7 +315,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <div className="flex gap-3 justify-center flex-wrap">
             <Button onClick={handleAprovarPreview} disabled={aprovando} className="gap-2">
               {aprovando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
-              Aprovar e Renderizar Todos
+              {aprovando ? "Renderizando..." : "Aprovar e Renderizar Todos"}
             </Button>
             <Button variant="outline" onClick={() => setMostrarRevisao(!mostrarRevisao)} className="gap-2 border-yellow-400 text-yellow-700 hover:bg-yellow-50">
               <MessageSquare className="h-3.5 w-3.5" />
@@ -477,6 +482,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                     <span className="flex-1 font-medium">{label}</span>
                     {render.status === "concluido" ? (
                       <>
+                        <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
                         <Button asChild size="sm" variant="outline" className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100">
                           <a href={editorApi.downloadRenderUrl(edicaoId, render.id)} download>
