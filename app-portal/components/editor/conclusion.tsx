@@ -268,7 +268,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const erroRelatedToTranslation = /tradu[cç][aã]o/i.test(erroMsg)
   const erroRelatedToRender = /render|ffmpeg/i.test(erroMsg)
 
-  const previewRender = renders.find(r => r.idioma === edicao.idioma && r.status === "concluido")
+  // Preview é renderizado em PT (exceto se a música já for PT), mesma lógica do backend
+  const idiomaPreview = edicao.idioma !== "pt" ? "pt" : edicao.idioma
+  const previewRender = renders.find(r => r.idioma === idiomaPreview && r.status === "concluido")
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -405,23 +407,31 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       )}
 
       {/* Preview player + approval */}
-      {isPreviewPronto && previewRender && (
+      {isPreviewPronto && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
           <h3 className="font-semibold text-blue-800 mb-3 flex items-center gap-2">
-            <Eye className="h-4 w-4" /> Preview — {edicao.idioma.toUpperCase()}
+            <Eye className="h-4 w-4" /> Preview — {idiomaPreview.toUpperCase()}
           </h3>
-          <p className="text-sm text-blue-700 mb-4 text-center">
-            Baixe o vídeo e assista localmente (QuickTime, VLC) antes de aprovar.
-          </p>
-          <div className="flex gap-3 justify-center flex-wrap mb-4">
-            <Button asChild variant="outline" className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-100">
-              <a href={editorApi.downloadRenderUrl(edicaoId, previewRender.id)} target="_blank" rel="noopener">
-                <Download className="h-3.5 w-3.5" /> Baixar Preview
-              </a>
-            </Button>
-          </div>
+          {previewRender ? (
+            <>
+              <p className="text-sm text-blue-700 mb-4 text-center">
+                Baixe o vídeo e assista localmente (QuickTime, VLC) antes de aprovar.
+              </p>
+              <div className="flex gap-3 justify-center flex-wrap mb-4">
+                <Button asChild variant="outline" className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-100">
+                  <a href={editorApi.downloadRenderUrl(edicaoId, previewRender.id)} target="_blank" rel="noopener">
+                    <Download className="h-3.5 w-3.5" /> Baixar Preview
+                  </a>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-blue-700 mb-4 text-center">
+              Preview concluído. Aprove para renderizar todos os idiomas.
+            </p>
+          )}
           <div className="flex gap-3 justify-center flex-wrap">
-            <Button onClick={handleAprovarPreview} disabled={aprovando} className="gap-2">
+            <Button onClick={handleAprovarPreview} disabled={aprovando || sistemaBloqueado} className="gap-2">
               {aprovando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
               {aprovando ? "Renderizando..." : "Aprovar e Renderizar Todos"}
             </Button>
