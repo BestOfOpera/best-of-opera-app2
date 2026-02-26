@@ -960,6 +960,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
         renders_ok = 0
         falhas = []
 
+        # Limpeza preventiva de /tmp: remover *.mp4 e *.ass residuais de execuções anteriores
+        import glob as _glob
+        for _tmp in _glob.glob("/tmp/*.mp4") + _glob.glob("/tmp/*.ass"):
+            try:
+                os.remove(_tmp)
+                logger.info(f"[{edicao_id}] Limpeza preventiva: removido {_tmp}")
+            except Exception:
+                pass
+
         # Garantir que o vídeo cortado está disponível localmente (baixa do R2 se necessário)
         local_video = storage.ensure_local(arquivo_video)
 
@@ -981,6 +990,22 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             ass_path = None
             output_video = None
             try:
+                # Verificar espaço em disco antes do FFmpeg (threshold: 200MB)
+                _uso = shutil.disk_usage("/")
+                _livre_mb = _uso.free / (1024 * 1024)
+                if _livre_mb < 200:
+                    # Tentar limpar lixo antes de desistir
+                    for _f in _glob.glob("/tmp/*.mp4") + _glob.glob("/tmp/*.ass"):
+                        try:
+                            os.remove(_f)
+                        except Exception:
+                            pass
+                    _uso = shutil.disk_usage("/")
+                    _livre_mb = _uso.free / (1024 * 1024)
+                    if _livre_mb < 200:
+                        raise RuntimeError(f"Espaço em disco insuficiente: {_livre_mb:.0f}MB livre")
+                    logger.info(f"[{edicao_id}] Limpeza de emergência liberou disco: {_livre_mb:.0f}MB livre")
+
                 d = dados_idiomas[idioma]
 
                 # Gerar ASS (sync, rápido — banco já fechado)
