@@ -57,8 +57,10 @@ class EdicaoOut(BaseModel):
     corte_original_fim: Optional[str] = None
     arquivo_audio_completo: Optional[str] = None
     arquivo_video_completo: Optional[str] = None
+    arquivo_video_cortado: Optional[str] = None
     rota_alinhamento: Optional[str] = None
     confianca_alinhamento: Optional[float] = None
+    r2_base: Optional[str] = None
     notas_revisao: Optional[str] = None
     task_heartbeat: Optional[datetime] = None
     progresso_detalhe: Optional[Any] = None

@@ -664,11 +664,13 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
         raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar tradução")
 
     task_queue.put_nowait((_traducao_task, edicao_id))
+    logger.info(f"[endpoint] Task tradução enfileirada para edicao_id={edicao_id}. Tamanho da fila: {task_queue.qsize()}")
     return {"status": "tradução enfileirada"}
 
 
 async def _traducao_task(edicao_id: int):
     try:
+        logger.info(f"[traducao_task] INICIANDO edicao_id={edicao_id}")
         from app.database import SessionLocal
         from app.services.translate_service import traduzir_letra_cloud as traduzir_letra
 
@@ -1586,10 +1588,14 @@ async def desbloquear_edicao(edicao_id: int):
             Render.status == "concluido",
         ).count()
 
+        tem_corte = bool(edicao.arquivo_video_cortado)
+
         if n_renders > 0:
             novo_status = "preview_pronto"
         elif n_traducoes > 0:
             novo_status = "montagem"
+        elif tem_corte:
+            novo_status = "corte"
         else:
             novo_status = "alinhamento"
 

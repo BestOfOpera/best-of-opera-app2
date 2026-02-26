@@ -19,8 +19,9 @@ async def worker_loop():
     logger.info("[worker] Worker sequencial iniciado")
     while True:
         try:
+            logger.info("[worker] Aguardando próxima task na fila...")
             task_func, edicao_id = await task_queue.get()
-            logger.info(f"[worker] Iniciando task edicao_id={edicao_id}")
+            logger.info(f"[worker] Task retirada da fila: edicao_id={edicao_id}")
             try:
                 await task_func(edicao_id)
             except asyncio.CancelledError:
