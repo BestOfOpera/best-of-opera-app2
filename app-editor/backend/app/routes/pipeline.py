@@ -903,10 +903,26 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             total = len(idiomas)
             concluidos = total - len(faltantes)
 
+            # Se não há faltantes, marcar como concluído e sair
+            if not faltantes:
+                if is_preview:
+                    edicao.status = "preview_pronto"
+                    edicao.passo_atual = 8
+                else:
+                    edicao.status = "concluido"
+                    edicao.passo_atual = 9
+                edicao.erro_msg = None
+                db.commit()
+                logger.info(f"[{edicao_id}] Todos os idiomas já renderizados, nada a fazer")
+                return
+
             # Copiar dados necessários para variáveis locais (fora da sessão)
             arquivo_video = edicao.arquivo_video_cortado
             idioma_musica = edicao.idioma
             r2_base_val = _get_r2_base(edicao)
+            # Persistir r2_base se não estava setado
+            if not edicao.r2_base and r2_base_val:
+                edicao.r2_base = r2_base_val
 
             alinhamento = db.query(Alinhamento).filter(
                 Alinhamento.edicao_id == edicao_id
@@ -1011,7 +1027,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 # Upload render para R2 e limpar arquivo local
                 arquivo_render = output_video  # fallback: path local (sem R2)
                 if r2_base_val:
-                    r2_key = f"{r2_base_val}/{idioma}/video_{idioma}.mp4"
+                    r2_key = f"editor/{r2_base_val}/{idioma}/video_{idioma}.mp4"
                     try:
                         storage.upload_file(output_video, r2_key)
                         arquivo_render = r2_key
