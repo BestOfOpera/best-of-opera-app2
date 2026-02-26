@@ -451,6 +451,16 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
             )
           })}
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => handleAddSegmento(segmentos.length - 1)}
+          className="mt-2 w-full gap-2 border-dashed text-muted-foreground hover:text-primary"
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar segmento
+        </Button>
       </div>
 
       {/* Actions */}
