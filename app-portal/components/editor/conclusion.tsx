@@ -162,6 +162,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setBaixandoTodos(true)
     setError("")
     try {
+      // Tenta baixar pacote ZIP
       const url = editorApi.pacoteUrl(edicaoId)
       const res = await fetch(url, { method: "POST" })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -173,8 +174,12 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(a.href)
-    } catch (err: unknown) {
-      setError("Erro ao baixar pacote: " + (err instanceof Error ? err.message : "Erro"))
+    } catch {
+      // Fallback: abrir cada render individualmente com 500ms de delay
+      const rendersConcluidos = renders.filter(r => r.status === "concluido")
+      rendersConcluidos.forEach((render, i) => {
+        setTimeout(() => window.open(editorApi.downloadRenderUrl(edicaoId, render.id), "_blank"), i * 500)
+      })
     } finally {
       setBaixandoTodos(false)
     }
@@ -237,6 +242,21 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
               </a>
             )}
           </p>
+        </div>
+      )}
+
+      {/* Botão primário "Baixar Todos" — destaque quando tudo concluído */}
+      {todosOk && (
+        <div className="flex justify-center mb-6">
+          <Button
+            size="lg"
+            className="gap-2 text-base px-8 py-3"
+            onClick={handleBaixarTodos}
+            disabled={baixandoTodos}
+          >
+            {baixandoTodos ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
+            {baixandoTodos ? "Baixando..." : "Baixar Todos os Vídeos"}
+          </Button>
         </div>
       )}
 
