@@ -38,6 +38,30 @@ def _run_migrations():
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
                 logger.info(f"Migration: added column {col_name}")
 
+        # Migration: UNIQUE index em redator_project_id (anti-duplicata)
+        try:
+            dups = conn.execute(text(
+                "SELECT redator_project_id, COUNT(*) as qtd "
+                "FROM editor_edicoes "
+                "WHERE redator_project_id IS NOT NULL "
+                "GROUP BY redator_project_id "
+                "HAVING COUNT(*) > 1"
+            )).fetchall()
+            if dups:
+                logger.warning(
+                    f"Migration: {len(dups)} redator_project_id duplicados encontrados. "
+                    "UNIQUE index NÃO criado. Limpeza manual necessária."
+                )
+            else:
+                conn.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uix_redator_project_id "
+                    "ON editor_edicoes (redator_project_id) "
+                    "WHERE redator_project_id IS NOT NULL"
+                ))
+                logger.info("Migration: created unique index uix_redator_project_id")
+        except Exception as e:
+            logger.warning(f"Migration uix_redator_project_id: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

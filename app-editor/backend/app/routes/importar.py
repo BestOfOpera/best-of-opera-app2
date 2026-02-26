@@ -52,8 +52,8 @@ def _detect_music_lang(proj: dict) -> str:
 
 
 @router.get("/redator/projetos")
-async def listar_projetos_redator():
-    """Lista projetos do Redator (APP2)."""
+async def listar_projetos_redator(db: Session = Depends(get_db)):
+    """Lista projetos do Redator (APP2) com status no Editor."""
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             resp = await client.get(f"{REDATOR_API_URL}/api/projects")
@@ -62,8 +62,16 @@ async def listar_projetos_redator():
         raise HTTPException(502, f"Erro ao conectar com o Redator: {e}")
 
     projects = resp.json()
-    return [
-        {
+
+    # Cruzar com edições já importadas
+    edicoes_importadas = db.query(
+        Edicao.redator_project_id, Edicao.id, Edicao.status
+    ).filter(Edicao.redator_project_id.isnot(None)).all()
+    mapa_edicoes = {e.redator_project_id: (e.id, e.status) for e in edicoes_importadas}
+
+    result = []
+    for p in projects:
+        item = {
             "id": p["id"],
             "artist": p.get("artist", ""),
             "work": p.get("work", ""),
@@ -73,9 +81,16 @@ async def listar_projetos_redator():
             "youtube_url": p.get("youtube_url", ""),
             "status": p.get("status", ""),
             "translations_count": len(p.get("translations", [])),
+            "editor_status": None,
+            "editor_edicao_id": None,
         }
-        for p in projects
-    ]
+        if p["id"] in mapa_edicoes:
+            edicao_id, edicao_status = mapa_edicoes[p["id"]]
+            item["editor_edicao_id"] = edicao_id
+            item["editor_status"] = "concluido" if edicao_status == "concluido" else "em_andamento"
+        result.append(item)
+
+    return result
 
 
 @router.post("/redator/importar/{project_id}")
@@ -90,6 +105,18 @@ async def importar_do_redator(
     Necessário quando o Redator tem tradução para o idioma original da música
     (ex: música em inglês → passar ?idioma=en).
     """
+    # Verificar se o projeto já foi importado (anti-duplicata)
+    existente = db.query(Edicao).filter(
+        Edicao.redator_project_id == project_id
+    ).first()
+    if existente:
+        raise HTTPException(409, detail={
+            "duplicata": True,
+            "edicao_existente_id": existente.id,
+            "status": existente.status,
+            "mensagem": f"Projeto já importado como edição #{existente.id} (status: {existente.status})"
+        })
+
     # Buscar projeto completo do Redator
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -161,6 +188,7 @@ async def importar_do_redator(
         idioma=music_lang,
         corte_original_inicio=proj.get("cut_start"),
         corte_original_fim=proj.get("cut_end"),
+        redator_project_id=project_id,
     )
     db.add(edicao)
     db.flush()

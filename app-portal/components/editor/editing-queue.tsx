@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { editorApi, type Edicao, type RedatorProject } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
 import { Button } from "@/components/ui/button"
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe } from "lucide-react"
+import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle } from "lucide-react"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   aguardando: { label: "Aguardando", variant: "secondary" },
@@ -50,6 +51,7 @@ function nextStepPath(e: Edicao) {
 }
 
 export function EditorEditingQueue() {
+  const router = useRouter()
   const [edicoes, setEdicoes] = useState<Edicao[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -69,6 +71,13 @@ export function EditorEditingQueue() {
   const [modalIdioma, setModalIdioma] = useState<{ projectId: number } | null>(null)
   const [idiomaEscolhido, setIdiomaEscolhido] = useState("it")
   const [outroIdioma, setOutroIdioma] = useState("")
+
+  // Modal duplicata (409)
+  const [modalDuplicata, setModalDuplicata] = useState<{
+    edicao_id: number
+    status: string
+    mensagem: string
+  } | null>(null)
 
   const loadEdicoes = () => {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
@@ -145,6 +154,13 @@ export function EditorEditingQueue() {
         setModalIdioma({ projectId })
         setIdiomaEscolhido("it")
         setOutroIdioma("")
+      } else if (err instanceof ApiError && err.status === 409 && (err.detail as Record<string, unknown>)?.duplicata === true) {
+        const detail = err.detail as Record<string, unknown>
+        setModalDuplicata({
+          edicao_id: detail.edicao_existente_id as number,
+          status: detail.status as string,
+          mensagem: detail.mensagem as string,
+        })
       } else {
         alert("Erro ao importar: " + (err instanceof Error ? err.message : "Erro desconhecido"))
       }
@@ -210,12 +226,30 @@ export function EditorEditingQueue() {
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {projetosRedator.map(p => {
                   const st = REDATOR_STATUS_LABELS[p.status] || REDATOR_STATUS_LABELS.input_complete
+                  const jaImportado = p.editor_status !== null
                   return (
-                    <div key={p.id} className="flex items-center gap-4 p-3 rounded-lg border hover:bg-muted/50 transition">
+                    <div key={p.id} className={`flex items-center gap-4 p-3 rounded-lg border transition ${jaImportado ? "opacity-70 bg-muted/30" : "hover:bg-muted/50"}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="font-medium truncate">{p.artist} — {p.work}</span>
                           <Badge variant={st.variant}>{st.label}</Badge>
+                          {p.editor_status === null && (
+                            <Badge variant="outline" className="border-green-500 text-green-600 text-[10px]">Disponível</Badge>
+                          )}
+                          {p.editor_status === "em_andamento" && (
+                            <Link href={`/editor/edicao/${p.editor_edicao_id}/letra`}>
+                              <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-[10px] cursor-pointer hover:bg-yellow-50">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Em edição #{p.editor_edicao_id}
+                              </Badge>
+                            </Link>
+                          )}
+                          {p.editor_status === "concluido" && (
+                            <Badge variant="outline" className="border-gray-400 text-gray-500 text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Concluído
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           {p.composer && <span>{p.composer}</span>}
@@ -224,13 +258,21 @@ export function EditorEditingQueue() {
                           <span>· {p.translations_count} traduções</span>
                         </div>
                       </div>
-                      <Button size="sm" onClick={() => handleImportar(p.id)} disabled={importando !== null} className="gap-1.5">
-                        {importando === p.id ? (
-                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importando...</>
-                        ) : (
-                          <><Download className="h-3.5 w-3.5" /> Importar</>
-                        )}
-                      </Button>
+                      {jaImportado ? (
+                        <Button size="sm" variant="outline" asChild className="gap-1.5">
+                          <Link href={p.editor_status === "concluido" ? `/editor/edicao/${p.editor_edicao_id}/conclusao` : `/editor/edicao/${p.editor_edicao_id}/letra`}>
+                            Ir para edição
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => handleImportar(p.id)} disabled={importando !== null} className="gap-1.5">
+                          {importando === p.id ? (
+                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importando...</>
+                          ) : (
+                            <><Download className="h-3.5 w-3.5" /> Importar</>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )
                 })}
@@ -386,6 +428,34 @@ export function EditorEditingQueue() {
                 {importando !== null ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Importando...</> : "Importar"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: projeto já importado (duplicata 409) */}
+      <Dialog open={!!modalDuplicata} onOpenChange={open => { if (!open) setModalDuplicata(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              Projeto já importado
+            </DialogTitle>
+            <DialogDescription>
+              {modalDuplicata?.mensagem}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 justify-end pt-4">
+            <Button variant="ghost" onClick={() => setModalDuplicata(null)}>Cancelar</Button>
+            <Button onClick={() => {
+              if (!modalDuplicata) return
+              const path = modalDuplicata.status === "concluido"
+                ? `/editor/edicao/${modalDuplicata.edicao_id}/conclusao`
+                : `/editor/edicao/${modalDuplicata.edicao_id}/letra`
+              setModalDuplicata(null)
+              router.push(path)
+            }}>
+              Ir para edição #{modalDuplicata?.edicao_id}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

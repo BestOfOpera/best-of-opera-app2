@@ -100,6 +100,8 @@ export interface RedatorProject {
   cut_start: string
   cut_end: string
   translations_count: number
+  editor_status: "em_andamento" | "concluido" | null
+  editor_edicao_id: number | null
 }
 
 export const editorApi = {
