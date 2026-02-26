@@ -978,6 +978,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     }
                     db.commit()
 
+            ass_path = None
+            output_video = None
             try:
                 d = dados_idiomas[idioma]
 
@@ -1024,24 +1026,34 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 tamanho = _Path(output_video).stat().st_size
 
-                # Upload render para R2 e limpar arquivo local
+                # 4. Upload render para R2
                 arquivo_render = output_video  # fallback: path local (sem R2)
                 if r2_base_val:
                     r2_key = f"editor/{r2_base_val}/{idioma}/video_{idioma}.mp4"
                     try:
                         storage.upload_file(output_video, r2_key)
                         arquivo_render = r2_key
-                        try:
-                            _Path(output_video).unlink(missing_ok=True)
-                        except Exception:
-                            pass
                     except Exception as upload_err:
                         logger.warning(
                             f"[{edicao_id}] Upload R2 render {idioma} falhou: {upload_err}, "
                             f"mantendo path local"
                         )
 
-                # Salvar resultado (sessão curta)
+                # 5. Cleanup: deletar vídeo local (liberar disco antes do próximo idioma)
+                # REGRA: nunca 2 vídeos renderizados no disco ao mesmo tempo
+                try:
+                    _Path(output_video).unlink(missing_ok=True)
+                    logger.info(f"[{edicao_id}] Vídeo local deletado: {output_video}")
+                except Exception as cleanup_err:
+                    logger.warning(f"[{edicao_id}] Falha ao deletar vídeo local {output_video}: {cleanup_err}")
+
+                # 6. Cleanup: deletar ASS temporário
+                try:
+                    _Path(ass_path).unlink(missing_ok=True)
+                except Exception as cleanup_err:
+                    logger.warning(f"[{edicao_id}] Falha ao deletar ASS {ass_path}: {cleanup_err}")
+
+                # 7. Salvar resultado (sessão curta)
                 with SessionLocal() as db:
                     db.add(Render(
                         edicao_id=edicao_id,
@@ -1057,15 +1069,16 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 concluidos += 1
                 logger.info(f"[{edicao_id}] Render {idioma} OK ({concluidos}/{total})")
 
-                # Limpar ASS (arquivo temporário)
-                try:
-                    _Path(ass_path).unlink(missing_ok=True)
-                except Exception:
-                    pass
-
             except asyncio.TimeoutError:
                 falhas.append(f"{idioma}: timeout (600s)")
                 logger.warning(f"[{edicao_id}] Render {idioma} timeout após 600s")
+                # Cleanup de arquivos temporários em caso de timeout
+                for tmp_file in [output_video, ass_path]:
+                    if tmp_file:
+                        try:
+                            _Path(tmp_file).unlink(missing_ok=True)
+                        except Exception as cleanup_err:
+                            logger.warning(f"[{edicao_id}] Falha ao limpar {tmp_file}: {cleanup_err}")
                 with SessionLocal() as db:
                     db.add(Render(
                         edicao_id=edicao_id, idioma=idioma, tipo="9:16",
@@ -1075,6 +1088,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             except Exception as e:
                 falhas.append(f"{idioma}: {str(e)[:200]}")
                 logger.warning(f"[{edicao_id}] Render {idioma} falhou: {e}")
+                # Cleanup de arquivos temporários em caso de erro
+                for tmp_file in [output_video, ass_path]:
+                    if tmp_file:
+                        try:
+                            _Path(tmp_file).unlink(missing_ok=True)
+                        except Exception as cleanup_err:
+                            logger.warning(f"[{edicao_id}] Falha ao limpar {tmp_file}: {cleanup_err}")
                 with SessionLocal() as db:
                     db.add(Render(
                         edicao_id=edicao_id, idioma=idioma, tipo="9:16",
