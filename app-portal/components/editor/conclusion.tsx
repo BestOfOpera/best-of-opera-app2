@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle,
   ExternalLink, Pencil, RotateCcw, Eye, MessageSquare, Package,
+  Lock, AlertTriangle, Wrench,
 } from "lucide-react"
 
 const IDIOMAS = [
@@ -62,6 +63,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [notasRevisao, setNotasRevisao] = useState("")
   const [mostrarRevisao, setMostrarRevisao] = useState(false)
   const [aprovando, setAprovando] = useState(false)
+  const [desbloqueando, setDesbloqueando] = useState(false)
   const [filaStatus, setFilaStatus] = useState<FilaStatus | null>(null)
 
   const load = async () => {
@@ -205,6 +207,37 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     }
   }
 
+  const handleDesbloquear = async () => {
+    setDesbloqueando(true)
+    setError("")
+    try {
+      await editorApi.desbloquear(edicaoId)
+      await load()
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        setError("Edição não pode ser desbloqueada — processamento ativo.")
+      } else {
+        setError("Erro ao desbloquear: " + (err instanceof Error ? err.message : "Erro"))
+      }
+    } finally {
+      setDesbloqueando(false)
+    }
+  }
+
+  const handleRefazerPreview = async () => {
+    setRenderizando(true)
+    setError("")
+    try {
+      await editorApi.desbloquear(edicaoId).catch(() => {})
+      await editorApi.renderizarPreview(edicaoId)
+      await load()
+    } catch (err: unknown) {
+      setError("Erro ao refazer preview: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setRenderizando(false)
+    }
+  }
+
   if (loading || !edicao) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
   const concluidos = renders.filter(r => r.status === "concluido")
@@ -215,6 +248,25 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const isPreview = edicao.status === "preview"
   const isRevisao = edicao.status === "revisao"
   const sistemaBloqueado = !!(filaStatus?.ocupado && filaStatus.edicao_id !== edicaoId)
+
+  const isErro = edicao.status === "erro"
+  const isMontagem = edicao.status === "montagem"
+  const isActiveStatus = ["traducao", "renderizando", "preview"].includes(edicao.status)
+
+  // Heartbeat stale detection (> 5 minutes)
+  const heartbeatStaleMinutes = (() => {
+    if (!isActiveStatus || !edicao.task_heartbeat) return isActiveStatus ? 999 : null
+    const hbTime = new Date(edicao.task_heartbeat).getTime()
+    const diffMs = Date.now() - hbTime
+    const diffMin = Math.floor(diffMs / 60000)
+    return diffMin >= 5 ? diffMin : null
+  })()
+  const isHeartbeatStale = heartbeatStaleMinutes !== null && isActiveStatus
+
+  // Error contextual recovery hints
+  const erroMsg = edicao.erro_msg ?? ""
+  const erroRelatedToTranslation = /tradu[cç][aã]o/i.test(erroMsg)
+  const erroRelatedToRender = /render|ffmpeg/i.test(erroMsg)
 
   const previewRender = renders.find(r => r.idioma === edicao.idioma && r.status === "concluido")
 
@@ -279,6 +331,42 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       {isSlowPolling && (
         <div className="bg-muted border rounded-lg px-4 py-2 mb-4 text-sm text-muted-foreground">
           Processo em andamento, verificando a cada 15s...
+        </div>
+      )}
+
+      {/* Error contextual banner */}
+      {isErro && erroMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <XCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-800">Erro na edição</p>
+              <p className="text-sm text-red-700 mt-1 whitespace-pre-wrap">{erroMsg}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Heartbeat stale banner */}
+      {isHeartbeatStale && !isErro && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 mb-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">O processamento parece travado</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Último sinal há {heartbeatStaleMinutes} minuto{heartbeatStaleMinutes !== 1 ? "s" : ""}.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2 gap-2 border-amber-400 text-amber-700 hover:bg-amber-100"
+              onClick={handleDesbloquear}
+              disabled={desbloqueando}
+            >
+              {desbloqueando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+              {desbloqueando ? "Desbloqueando..." : "Desbloquear Edição"}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -457,6 +545,69 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           </Button>
         )}
       </div>
+
+      {/* Recovery section */}
+      {(isErro || isHeartbeatStale || isMontagem || isPreviewPronto) && (
+        <div className="border border-dashed border-muted-foreground/30 rounded-xl p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3 text-muted-foreground">
+            <Wrench className="h-4 w-4" />
+            <span className="text-sm font-medium">Resolver problemas</span>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {/* Desbloquear: always on error, or on stale heartbeat */}
+            {(isErro || isHeartbeatStale) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleDesbloquear}
+                disabled={desbloqueando}
+              >
+                {desbloqueando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Lock className="h-3.5 w-3.5" />}
+                {desbloqueando ? "Desbloqueando..." : "Desbloquear Edição"}
+              </Button>
+            )}
+            {/* Refazer Tradução: montagem or error (with translation hint or always) */}
+            {(isMontagem || (isErro && (erroRelatedToTranslation || !erroRelatedToRender))) && !edicao.eh_instrumental && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleTraduzir}
+                disabled={traduzindo || sistemaBloqueado}
+              >
+                {traduzindo ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                Refazer Tradução
+              </Button>
+            )}
+            {/* Refazer Preview: preview_pronto or error */}
+            {(isPreviewPronto || isErro) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleRefazerPreview}
+                disabled={renderizando || sistemaBloqueado}
+              >
+                {renderizando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                Refazer Preview
+              </Button>
+            )}
+            {/* Voltar para Alinhamento */}
+            {(isErro || isMontagem) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground"
+                onClick={() => router.push(`/editor/edicao/${edicaoId}/alinhamento`)}
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Voltar para Alinhamento
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Renders list */}
       {(renders.length > 0 || edicao.status === "renderizando") && (

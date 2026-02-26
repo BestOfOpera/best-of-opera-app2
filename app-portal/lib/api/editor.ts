@@ -28,6 +28,7 @@ export interface Edicao {
   arquivo_audio_completo: boolean
   erro_msg: string | null
   progresso_detalhe: ProgressoDetalhe | null
+  task_heartbeat: string | null
   overlays_count?: number
   posts_count?: number
   seo_count?: number
@@ -156,6 +157,11 @@ export const editorApi = {
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
     `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
   pacoteUrl: (id: number) => `${BASE()}/edicoes/${id}/pacote`,
+
+  desbloquear: (id: number) =>
+    request<{ novo_status: string; renders_concluidos: number; traducoes: number }>(
+      `${BASE()}/edicoes/${id}/desbloquear`, { method: "POST" }
+    ),
 
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
