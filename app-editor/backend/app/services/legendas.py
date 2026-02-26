@@ -27,7 +27,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 410,    # segundo abaixo do vídeo (y≈1510), amarelo
+        "marginv": 450,    # EM CIMA — original amarelo (y≈1470)
         "bold": True,
         "italic": True,
     },
@@ -38,8 +38,8 @@ ESTILOS_PADRAO = {
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
-        "alignment": 2,   # base, primeiro abaixo do vídeo
-        "marginv": 570,    # primeiro abaixo do vídeo (y≈1350), branco
+        "alignment": 2,   # base
+        "marginv": 410,    # EMBAIXO — tradução branca (y≈1510)
         "bold": True,
         "italic": True,
     },
@@ -222,7 +222,7 @@ def gerar_ass(
         # Garantir duração mínima de 2s
         if event.end - event.start < 2000:
             event.end = event.start + 2000
-        event.text = _formatar_texto_legenda(seg["text"], max_chars=OVERLAY_MAX_CHARS)
+        event.text = quebrar_texto_overlay(seg["text"], max_chars=OVERLAY_MAX_CHARS)
         event.style = "Overlay"
         subs.events.append(event)
 
