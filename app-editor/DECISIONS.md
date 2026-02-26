@@ -63,3 +63,21 @@ Barra preta inferior
 - Testado com 3 cenários: texto curto (1 linha), médio (2 linhas), longo (2 linhas em ambos)
 - Tradução DE com 71 chars: "Also Liebling, Liebling, steh mir bei, oh steh mir bei, oh steh mir bei"
 - Confirmado: sem sobreposição, sem invasão do vídeo, ordem correta
+
+## 8. Badge unificado na tela de importação (editor_status)
+
+**Problema:** Na listagem de projetos do Redator, o badge "Pronto" (status export_ready do Redator) era ambíguo — parecia "pronto para importar" mas significava "concluído no Redator". Projetos já editados no Editor não tinham marcação clara, e o operador não sabia quais já foram importados/concluídos.
+
+**Solução:** Badge unificado que prioriza o status no Editor sobre o status no Redator:
+
+| editor_status | Badge | Cor | Botão |
+|---|---|---|---|
+| null + export_ready | "Disponível para edição" | Verde | Importar |
+| null + outro status | Label original do Redator | Padrão | Importar |
+| "em_andamento" | "Em edição #XX" (link) | Âmbar | "Ir para edição #XX" |
+| "concluido" | "Concluído ✓" | Cinza | Desabilitado |
+
+- Projetos concluídos ficam com opacidade reduzida (50%)
+- Projetos em andamento ficam levemente esmaecidos (80%)
+- Link do badge "Em edição" e botão apontam para `/editor/edicao/{id}/conclusao`
+- Backend já retornava `editor_status` e `editor_edicao_id` (Decisão 6, Camada 3)

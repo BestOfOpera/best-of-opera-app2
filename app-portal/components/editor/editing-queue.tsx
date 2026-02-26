@@ -226,29 +226,34 @@ export function EditorEditingQueue() {
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {projetosRedator.map(p => {
                   const st = REDATOR_STATUS_LABELS[p.status] || REDATOR_STATUS_LABELS.input_complete
-                  const jaImportado = p.editor_status !== null
+                  const prontoNoRedator = p.status === "export_ready"
                   return (
-                    <div key={p.id} className={`flex items-center gap-4 p-3 rounded-lg border transition ${jaImportado ? "opacity-70 bg-muted/30" : "hover:bg-muted/50"}`}>
+                    <div key={p.id} className={`flex items-center gap-4 p-3 rounded-lg border transition ${
+                      p.editor_status === "concluido" ? "opacity-50 bg-muted/30" :
+                      p.editor_status === "em_andamento" ? "opacity-80 bg-muted/20" :
+                      "hover:bg-muted/50"
+                    }`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="font-medium truncate">{p.artist} — {p.work}</span>
-                          <Badge variant={st.variant}>{st.label}</Badge>
-                          {p.editor_status === null && (
-                            <Badge variant="outline" className="border-green-500 text-green-600 text-[10px]">Disponível</Badge>
-                          )}
-                          {p.editor_status === "em_andamento" && (
-                            <Link href={`/editor/edicao/${p.editor_edicao_id}/letra`}>
-                              <Badge variant="outline" className="border-yellow-500 text-yellow-600 text-[10px] cursor-pointer hover:bg-yellow-50">
+                          {p.editor_status === "concluido" ? (
+                            <Badge variant="outline" className="border-gray-400 text-gray-500 text-[10px]">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Concluído ✓
+                            </Badge>
+                          ) : p.editor_status === "em_andamento" ? (
+                            <Link href={`/editor/edicao/${p.editor_edicao_id}/conclusao`}>
+                              <Badge variant="outline" className="border-amber-500 text-amber-600 text-[10px] cursor-pointer hover:bg-amber-50">
                                 <AlertTriangle className="h-3 w-3 mr-1" />
                                 Em edição #{p.editor_edicao_id}
                               </Badge>
                             </Link>
-                          )}
-                          {p.editor_status === "concluido" && (
-                            <Badge variant="outline" className="border-gray-400 text-gray-500 text-[10px]">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Concluído
+                          ) : prontoNoRedator ? (
+                            <Badge variant="outline" className="border-green-500 text-green-600 text-[10px]">
+                              Disponível para edição
                             </Badge>
+                          ) : (
+                            <Badge variant={st.variant}>{st.label}</Badge>
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -258,10 +263,14 @@ export function EditorEditingQueue() {
                           <span>· {p.translations_count} traduções</span>
                         </div>
                       </div>
-                      {jaImportado ? (
+                      {p.editor_status === "concluido" ? (
+                        <Button size="sm" variant="outline" disabled className="gap-1.5 opacity-50">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Concluído
+                        </Button>
+                      ) : p.editor_status === "em_andamento" ? (
                         <Button size="sm" variant="outline" asChild className="gap-1.5">
-                          <Link href={p.editor_status === "concluido" ? `/editor/edicao/${p.editor_edicao_id}/conclusao` : `/editor/edicao/${p.editor_edicao_id}/letra`}>
-                            Ir para edição
+                          <Link href={`/editor/edicao/${p.editor_edicao_id}/conclusao`}>
+                            Ir para edição #{p.editor_edicao_id}
                           </Link>
                         </Button>
                       ) : (
