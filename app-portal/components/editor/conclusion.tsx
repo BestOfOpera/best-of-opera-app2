@@ -307,7 +307,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           </p>
           <div className="flex gap-3 justify-center flex-wrap mb-4">
             <Button asChild variant="outline" className="gap-2 border-blue-400 text-blue-700 hover:bg-blue-100">
-              <a href={editorApi.downloadRenderUrl(edicaoId, previewRender.id)} download>
+              <a href={editorApi.downloadRenderUrl(edicaoId, previewRender.id)} target="_blank" rel="noopener">
                 <Download className="h-3.5 w-3.5" /> Baixar Preview
               </a>
             </Button>
@@ -485,7 +485,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
                         <Button asChild size="sm" variant="outline" className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100">
-                          <a href={editorApi.downloadRenderUrl(edicaoId, render.id)} download>
+                          <a href={editorApi.downloadRenderUrl(edicaoId, render.id)} target="_blank" rel="noopener">
                             <Download className="h-3.5 w-3.5" /> Baixar
                           </a>
                         </Button>
