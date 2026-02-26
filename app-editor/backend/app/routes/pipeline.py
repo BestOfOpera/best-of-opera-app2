@@ -1352,84 +1352,123 @@ def exportar_renders(edicao_id: int, db: Session = Depends(get_db)):
     }
 
 
-# --- Passo 9: Pacote final (renders + textos do Redator) ---
+# --- Passo 9: Pacote final assíncrono (renders + textos do Redator) ---
 class PacoteParams(BaseModel):
     redator_project_id: Optional[int] = None
 
 
-@router.post("/edicoes/{edicao_id}/pacote")
-def gerar_pacote(edicao_id: int, body: PacoteParams = PacoteParams(), db: Session = Depends(get_db)):
-    """Monta pacote final: renders do Editor + textos do Redator (do R2).
+# Status do pacote armazenado em memória (por edição)
+# Formato: {edicao_id: {"status": "gerando"|"pronto"|"erro", "url": str|None, "erro": str|None}}
+_pacote_status: dict[int, dict] = {}
 
-    Estrutura do ZIP:
-      {artista} - {musica}/
-        {idioma}/
-          video_{idioma}.mp4   (render do Editor)
-          post.txt             (texto do Redator)
-          subtitles.srt        (overlay do Redator)
-          youtube.txt          (título/tags do Redator)
-    """
-    import io
+
+def _gerar_pacote_background(edicao_id: int):
+    """Task de background que gera o ZIP e faz upload pro R2."""
     import zipfile
     import tempfile
 
+    try:
+        from app.database import SessionLocal
+
+        _pacote_status[edicao_id] = {"status": "gerando", "url": None, "erro": None}
+
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                _pacote_status[edicao_id] = {"status": "erro", "url": None, "erro": "Edição não encontrada"}
+                return
+
+            slug = f"{edicao.artista} - {edicao.musica}"
+            r2_base = _get_r2_base(edicao)
+            artista = edicao.artista
+            musica = edicao.musica
+
+            renders = db.query(Render).filter(
+                Render.edicao_id == edicao_id, Render.status == "concluido"
+            ).all()
+            render_data = [(r.arquivo, r.idioma) for r in renders if r.arquivo]
+
+        # Gerar ZIP em arquivo temporário (não em memória — pode ser grande)
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for arquivo, idioma in render_data:
+                    try:
+                        local_file = storage.ensure_local(arquivo)
+                        nome_video = _nome_arquivo_render(artista, musica, idioma)
+                        arcname = f"{slug}/{idioma}/{nome_video}"
+                        zf.write(local_file, arcname)
+                        logger.info(f"[pacote] Incluído render {idioma}")
+                    except Exception as e:
+                        logger.warning(f"Pacote: não conseguiu incluir render {idioma}: {e}")
+
+                if r2_base:
+                    for idioma_dir in IDIOMAS_ALVO:
+                        prefix = lang_prefix(r2_base, idioma_dir)
+                        for filename in ["post.txt", "subtitles.srt", "youtube.txt"]:
+                            r2_key = f"{prefix}/{filename}"
+                            if storage.exists(r2_key):
+                                try:
+                                    local_file = storage.ensure_local(r2_key)
+                                    arcname = f"{slug}/{idioma_dir}/{filename}"
+                                    zf.write(local_file, arcname)
+                                except Exception as e:
+                                    logger.warning(f"Pacote: falha ao incluir {r2_key}: {e}")
+
+            # Upload ZIP para R2
+            r2_key = f"{r2_base}/export/pacote.zip" if r2_base else f"exports/{edicao_id}/pacote.zip"
+            storage.upload_file(tmp_path, r2_key)
+            logger.info(f"[pacote] ZIP uploaded to R2: {r2_key}")
+
+            # Gerar URL presigned para download direto
+            download_url = storage.get_presigned_url(r2_key, expires_in=7200)
+
+            _pacote_status[edicao_id] = {"status": "pronto", "url": download_url, "erro": None}
+            logger.info(f"[pacote] Pacote pronto para edicao_id={edicao_id}")
+
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    except Exception as e:
+        logger.error(f"[pacote] Erro ao gerar pacote edicao_id={edicao_id}: {e}", exc_info=True)
+        _pacote_status[edicao_id] = {"status": "erro", "url": None, "erro": str(e)[:500]}
+
+
+@router.post("/edicoes/{edicao_id}/pacote")
+def iniciar_pacote(edicao_id: int, background_tasks: BackgroundTasks, body: PacoteParams = PacoteParams(), db: Session = Depends(get_db)):
+    """Inicia geração assíncrona do pacote ZIP. Retorna imediatamente.
+    Use GET /pacote/status para acompanhar."""
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    slug = f"{edicao.artista} - {edicao.musica}"
-    r2_base = _get_r2_base(edicao)
+    current = _pacote_status.get(edicao_id)
+    if current and current["status"] == "gerando":
+        return {"status": "gerando_pacote", "mensagem": "Pacote já está sendo gerado"}
 
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-        # Adicionar renders
-        renders = db.query(Render).filter(
-            Render.edicao_id == edicao_id, Render.status == "concluido"
-        ).all()
+    _pacote_status[edicao_id] = {"status": "gerando", "url": None, "erro": None}
+    background_tasks.add_task(_gerar_pacote_background, edicao_id)
 
-        for render in renders:
-            if not render.arquivo:
-                continue
-            try:
-                local_file = storage.ensure_local(render.arquivo)
-                nome_video = _nome_arquivo_render(edicao.artista, edicao.musica, render.idioma)
-                arcname = f"{slug}/{render.idioma}/{nome_video}"
-                zf.write(local_file, arcname)
-            except Exception as e:
-                logger.warning(f"Pacote: não conseguiu incluir render {render.idioma}: {e}")
+    return {"status": "gerando_pacote", "mensagem": "Geração do pacote iniciada"}
 
-        # Adicionar textos do Redator (do R2, na estrutura {base}/{base} - {IDIOMA}/)
-        if r2_base:
-            for idioma_dir in IDIOMAS_ALVO:
-                prefix = lang_prefix(r2_base, idioma_dir)
-                for filename in ["post.txt", "subtitles.srt", "youtube.txt"]:
-                    r2_key = f"{prefix}/{filename}"
-                    if storage.exists(r2_key):
-                        try:
-                            local_file = storage.ensure_local(r2_key)
-                            arcname = f"{slug}/{idioma_dir}/{filename}"
-                            zf.write(local_file, arcname)
-                        except Exception as e:
-                            logger.warning(f"Pacote: falha ao incluir {r2_key}: {e}")
 
-    zip_bytes = buffer.getvalue()
+@router.get("/edicoes/{edicao_id}/pacote/status")
+def status_pacote(edicao_id: int, db: Session = Depends(get_db)):
+    """Retorna status da geração do pacote ZIP."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
 
-    # Upload pacote para R2: {base}/export/pacote.zip
-    r2_key = f"{r2_base}/export/pacote.zip" if r2_base else f"exports/{edicao_id}/pacote.zip"
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        tmp.write(zip_bytes)
-        tmp_path = tmp.name
-    try:
-        storage.upload_file(tmp_path, r2_key)
-    finally:
-        os.unlink(tmp_path)
+    current = _pacote_status.get(edicao_id)
+    if not current:
+        return {"status": "nenhum", "url": None, "erro": None}
 
-    safe_slug = slug.replace('"', "'")
-    return Response(
-        content=zip_bytes,
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{safe_slug}.zip"'},
-    )
+    return current
 
 
 @router.get("/edicoes/{edicao_id}/renders")

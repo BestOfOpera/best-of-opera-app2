@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe } from "@/lib/api/editor"
+import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type PacoteStatus } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
@@ -55,6 +55,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
   const [baixandoTodos, setBaixandoTodos] = useState(false)
+  const [pacoteStatus, setPacoteStatus] = useState<PacoteStatus | null>(null)
   const [error, setError] = useState("")
   const [editandoCorte, setEditandoCorte] = useState(false)
   const [corteInicio, setCorteInicio] = useState("")
@@ -164,24 +165,37 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setBaixandoTodos(true)
     setError("")
     try {
-      // Tenta baixar pacote ZIP
-      const url = editorApi.pacoteUrl(edicaoId)
-      const res = await fetch(url, { method: "POST" })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const blob = await res.blob()
-      const a = document.createElement("a")
-      a.href = URL.createObjectURL(blob)
-      a.download = `${edicao.artista} - ${edicao.musica}.zip`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(a.href)
+      // Verifica se já tem pacote pronto
+      const current = await editorApi.statusPacote(edicaoId).catch(() => null)
+      if (current?.status === "pronto" && current.url) {
+        window.open(current.url, "_blank")
+        setBaixandoTodos(false)
+        return
+      }
+
+      // Inicia geração assíncrona
+      await editorApi.iniciarPacote(edicaoId)
+      setPacoteStatus({ status: "gerando", url: null, erro: null })
+
+      // Polling até ficar pronto (a cada 3s, máx 10 min)
+      const maxAttempts = 200
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(r => setTimeout(r, 3000))
+        const st = await editorApi.statusPacote(edicaoId).catch(() => null)
+        if (!st) continue
+        setPacoteStatus(st)
+        if (st.status === "pronto" && st.url) {
+          window.open(st.url, "_blank")
+          return
+        }
+        if (st.status === "erro") {
+          setError(`Erro ao gerar pacote: ${st.erro || "erro desconhecido"}`)
+          return
+        }
+      }
+      setError("Timeout na geração do pacote")
     } catch {
-      // Fallback: abrir cada render individualmente com 500ms de delay
-      const rendersConcluidos = renders.filter(r => r.status === "concluido")
-      rendersConcluidos.forEach((render, i) => {
-        setTimeout(() => window.open(editorApi.downloadRenderUrl(edicaoId, render.id), "_blank"), i * 500)
-      })
+      setError("Erro ao iniciar geração do pacote")
     } finally {
       setBaixandoTodos(false)
     }
@@ -301,7 +315,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
       {/* Botão primário "Baixar Todos" — destaque quando tudo concluído */}
       {todosOk && (
-        <div className="flex justify-center mb-6">
+        <div className="flex flex-col items-center gap-2 mb-6">
           <Button
             size="lg"
             className="gap-2 text-base px-8 py-3"
@@ -309,8 +323,15 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             disabled={baixandoTodos}
           >
             {baixandoTodos ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />}
-            {baixandoTodos ? "Baixando..." : "Baixar Todos os Vídeos"}
+            {baixandoTodos && pacoteStatus?.status === "gerando"
+              ? "Gerando pacote ZIP..."
+              : baixandoTodos
+                ? "Preparando..."
+                : "Baixar Todos os Vídeos"}
           </Button>
+          {baixandoTodos && pacoteStatus?.status === "gerando" && (
+            <p className="text-sm text-muted-foreground">Baixando vídeos do R2 e criando ZIP — pode levar alguns minutos</p>
+          )}
         </div>
       )}
 
@@ -633,7 +654,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                 disabled={baixandoTodos}
               >
                 {baixandoTodos ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
-                {baixandoTodos ? "Gerando ZIP..." : "Baixar Todos"}
+                {baixandoTodos ? "Gerando pacote..." : "Baixar Todos"}
               </Button>
             ) : concluidos.length > 0 ? (
               <span className="text-xs text-muted-foreground">Baixe individualmente</span>

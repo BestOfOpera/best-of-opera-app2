@@ -88,6 +88,12 @@ export interface FilaStatus {
   progresso: ProgressoDetalhe | null
 }
 
+export interface PacoteStatus {
+  status: "nenhum" | "gerando" | "pronto" | "erro"
+  url: string | null
+  erro: string | null
+}
+
 export interface RedatorProject {
   id: number
   artist: string
@@ -159,6 +165,10 @@ export const editorApi = {
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
     `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
   pacoteUrl: (id: number) => `${BASE()}/edicoes/${id}/pacote`,
+  iniciarPacote: (id: number) =>
+    request<{ status: string; mensagem: string }>(`${BASE()}/edicoes/${id}/pacote`, { method: "POST" }),
+  statusPacote: (id: number) =>
+    request<PacoteStatus>(`${BASE()}/edicoes/${id}/pacote/status`),
 
   desbloquear: (id: number) =>
     request<{ novo_status: string; renders_concluidos: number; traducoes: number }>(
