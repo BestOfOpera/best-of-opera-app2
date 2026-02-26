@@ -60,6 +60,13 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
       const e = await editorApi.obterEdicao(edicaoId)
       setEdicao(e)
 
+      // Status "erro" — exibir mensagem e parar polling
+      if (e.status === "erro") {
+        setError(e.erro_msg ? "Erro na transcrição: " + e.erro_msg : "Erro desconhecido na edição")
+        setPolling(false)
+        return
+      }
+
       if (e.status === "transcricao") {
         if (e.erro_msg) {
           setError("Erro na transcrição: " + e.erro_msg)
@@ -225,7 +232,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
 
   if (loading || !edicao) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
-  if (polling || (edicao?.status === "transcricao" && error)) {
+  if (polling || error) {
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
         {error ? (
@@ -237,8 +244,9 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
               <Button variant="link" onClick={() => router.push(`/editor/edicao/${edicaoId}/letra`)}>
                 Voltar para letra
               </Button>
-              <Button onClick={() => { setError(""); setPolling(true); load() }}>
-                Tentar novamente
+              <Button onClick={handleRetranscrever} disabled={retranscrevendo}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${retranscrevendo ? "animate-spin" : ""}`} />
+                {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
               </Button>
             </div>
           </>

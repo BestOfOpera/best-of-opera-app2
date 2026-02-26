@@ -1,7 +1,10 @@
 """Serviço de integração com Gemini 2.5 Pro."""
 import json
+import logging
 import re
 from app.config import GEMINI_API_KEY
+
+_logger = logging.getLogger(__name__)
 
 # Lazy init do client
 _client = None
@@ -22,6 +25,28 @@ def parse_json_response(text: str) -> list:
     text = re.sub(r"^```json\s*", "", text)
     text = re.sub(r"\s*```$", "", text)
     return json.loads(text)
+
+
+def _extract_response_text(response) -> str:
+    """Extrai texto da resposta do Gemini, tratando bloqueio por safety filter."""
+    try:
+        return response.text
+    except ValueError:
+        # Safety filter bloqueou a resposta
+        block_reason = None
+        if hasattr(response, "prompt_feedback") and response.prompt_feedback:
+            block_reason = getattr(response.prompt_feedback, "block_reason", None)
+        if hasattr(response, "candidates") and response.candidates:
+            for c in response.candidates:
+                ratings = getattr(c, "safety_ratings", [])
+                blocked = [r for r in ratings if getattr(r, "blocked", False)]
+                if blocked:
+                    block_reason = f"safety_ratings: {blocked}"
+        raise RuntimeError(
+            f"Gemini bloqueou a resposta (safety filter). "
+            f"Motivo: {block_reason or 'desconhecido'}. "
+            f"Tente novamente ou ajuste o conteúdo."
+        )
 
 
 def _detect_mime_type(path: str) -> str:
@@ -97,8 +122,21 @@ FORMATO JSON (retorne APENAS isto):
   {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "queste sacre antiche piante"}}
 ]
 """
-    response = model.generate_content([audio_file_ref, prompt])
-    return parse_json_response(response.text)
+    import asyncio
+    loop = asyncio.get_running_loop()
+    for tentativa in range(2):
+        try:
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, model.generate_content, [audio_file_ref, prompt]),
+                timeout=300,
+            )
+            return parse_json_response(_extract_response_text(response))
+        except (RuntimeError, asyncio.TimeoutError) as e:
+            _logger.warning(f"mapear_estrutura_audio tentativa {tentativa+1}/2: {e}")
+            if tentativa == 1:
+                raise
+            await asyncio.sleep(3)
+    return []  # unreachable
 
 
 async def transcrever_cego(
@@ -170,8 +208,21 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
   {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
 ]
 """
-    response = model.generate_content([audio_file, prompt])
-    return parse_json_response(response.text)
+    import asyncio
+    loop = asyncio.get_running_loop()
+    for tentativa in range(2):
+        try:
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
+                timeout=300,
+            )
+            return parse_json_response(_extract_response_text(response))
+        except (RuntimeError, asyncio.TimeoutError) as e:
+            _logger.warning(f"transcrever_guiado_completo tentativa {tentativa+1}/2: {e}")
+            if tentativa == 1:
+                raise
+            await asyncio.sleep(3)
+    return []  # unreachable
 
 
 async def completar_transcricao(
@@ -243,8 +294,21 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
   ...todos os {len(versos)} versos...
 ]
 """
-    response = model.generate_content([audio_file, prompt])
-    return parse_json_response(response.text)
+    import asyncio
+    loop = asyncio.get_running_loop()
+    for tentativa in range(2):
+        try:
+            response = await asyncio.wait_for(
+                loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
+                timeout=300,
+            )
+            return parse_json_response(_extract_response_text(response))
+        except (RuntimeError, asyncio.TimeoutError) as e:
+            _logger.warning(f"completar_transcricao tentativa {tentativa+1}/2: {e}")
+            if tentativa == 1:
+                raise
+            await asyncio.sleep(3)
+    return []  # unreachable
 
 
 async def traduzir_letra(
@@ -297,9 +361,6 @@ Retorne APENAS JSON:
   ...
 ]
 """
-    import logging
-    _logger = logging.getLogger(__name__)
-
     loop = asyncio.get_running_loop()
 
     for tentativa in range(max_retries + 1):
@@ -308,7 +369,7 @@ Retorne APENAS JSON:
                 loop.run_in_executor(None, model.generate_content, prompt),
                 timeout=timeout_seconds,
             )
-            return parse_json_response(response.text)
+            return parse_json_response(_extract_response_text(response))
         except asyncio.TimeoutError:
             _logger.warning(
                 f"Tradução {idioma_alvo} timeout ({timeout_seconds}s), "
@@ -353,4 +414,4 @@ Regras:
 Retorne APENAS a letra, sem explicação ou markdown.
 """
     response = model.generate_content(prompt)
-    return response.text.strip()
+    return _extract_response_text(response).strip()
