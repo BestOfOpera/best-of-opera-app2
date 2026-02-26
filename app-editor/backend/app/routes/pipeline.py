@@ -29,6 +29,25 @@ from shared.storage_service import storage, lang_prefix, check_conflict, save_yo
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
 
 
+def _sanitize_filename(s: str) -> str:
+    """Remove caracteres proibidos em nomes de arquivo (Windows + Unix)."""
+    import re as _re
+    # Remove: / \ : * ? " < > |  e controles ASCII
+    sanitized = _re.sub(r'[<>:"/\\|?*\x00-\x1f]', '', s)
+    return sanitized.strip('. ')
+
+
+def _nome_arquivo_render(artista: str, musica: str, idioma: str) -> str:
+    """Gera nome padronizado: '{Artista} — {Musica} - {Idioma}.mp4'.
+
+    Exemplo: 'Olga Peretyatko — Casta Diva - En.mp4'
+    """
+    safe_artista = _sanitize_filename(artista)
+    safe_musica = _sanitize_filename(musica)
+    idioma_cap = idioma.capitalize()
+    return f"{safe_artista} \u2014 {safe_musica} - {idioma_cap}.mp4"
+
+
 def _get_r2_base(edicao) -> str:
     """Retorna r2_base da edição, computando se necessário."""
     if edicao.r2_base:
@@ -921,6 +940,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             # Copiar dados necessários para variáveis locais (fora da sessão)
             arquivo_video = edicao.arquivo_video_cortado
             idioma_musica = edicao.idioma
+            artista_val = edicao.artista
+            musica_val = edicao.musica
             r2_base_val = _get_r2_base(edicao)
             # Persistir r2_base se não estava setado
             if not edicao.r2_base and r2_base_val:
@@ -1019,12 +1040,14 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     idioma_musica=idioma_musica,
                 )
 
+                nome_render = _nome_arquivo_render(artista_val, musica_val, idioma)
+
                 output_dir = _Path(STORAGE_PATH) / str(edicao_id) / "renders" / idioma
                 output_dir.mkdir(parents=True, exist_ok=True)
                 ass_path = str(output_dir / f"legendas_{idioma}.ass")
                 ass_obj.save(ass_path)
 
-                output_video = str(output_dir / f"video_{idioma}.mp4")
+                output_video = str(output_dir / nome_render)
 
                 # FFmpeg com timeout — banco FECHADO
                 ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
@@ -1056,7 +1079,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 # 4. Upload render para R2
                 arquivo_render = output_video  # fallback: path local (sem R2)
                 if r2_base_val:
-                    r2_key = f"editor/{r2_base_val}/{idioma}/video_{idioma}.mp4"
+                    r2_key = f"editor/{r2_base_val}/{idioma}/{nome_render}"
                     try:
                         storage.upload_file(output_video, r2_key)
                         arquivo_render = r2_key
@@ -1283,7 +1306,8 @@ def _exportar_renders(edicao, db):
             continue
         try:
             local_file = storage.ensure_local(render.arquivo)
-            destino = pasta_projeto / f"{edicao.artista} - {edicao.musica} [{render.idioma.upper()}].mp4"
+            nome_video = _nome_arquivo_render(edicao.artista, edicao.musica, render.idioma)
+            destino = pasta_projeto / nome_video
             shutil.copy2(local_file, str(destino))
             logger.info(f"Exportado: {destino}")
         except Exception as e:
@@ -1366,7 +1390,8 @@ def gerar_pacote(edicao_id: int, body: PacoteParams = PacoteParams(), db: Sessio
                 continue
             try:
                 local_file = storage.ensure_local(render.arquivo)
-                arcname = f"{slug}/{render.idioma}/video_{render.idioma}.mp4"
+                nome_video = _nome_arquivo_render(edicao.artista, edicao.musica, render.idioma)
+                arcname = f"{slug}/{render.idioma}/{nome_video}"
                 zf.write(local_file, arcname)
             except Exception as e:
                 logger.warning(f"Pacote: não conseguiu incluir render {render.idioma}: {e}")
@@ -1441,7 +1466,7 @@ def download_render(edicao_id: int, render_id: int, db: Session = Depends(get_db
         )
 
     edicao = db.get(Edicao, edicao_id)
-    filename = f"{edicao.artista} - {edicao.musica} [{render.idioma.upper()}].mp4" if edicao else FilePath(local_path).name
+    filename = _nome_arquivo_render(edicao.artista, edicao.musica, render.idioma) if edicao else FilePath(local_path).name
 
     return FileResponse(
         path=local_path,
