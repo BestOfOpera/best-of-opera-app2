@@ -81,8 +81,29 @@ def requeue_stale_tasks():
         ).all()
 
         requeued = 0
+        dead_lettered = 0
         for edicao in candidatos:
             eid, status = edicao.id, edicao.status
+            tentativas = edicao.tentativas_requeue or 0
+
+            # Dead-letter: após 3 tentativas, não reenfileirar
+            if tentativas >= 3:
+                edicao.status = "erro"
+                edicao.erro_msg = (
+                    "Falha após 3 tentativas de recovery automático. "
+                    "Use Desbloquear para retry manual."
+                )
+                db.commit()
+                dead_lettered += 1
+                logger.warning(
+                    f"[worker] dead-letter: edicao_id={eid} status={status} "
+                    f"tentativas={tentativas} — movida para erro"
+                )
+                continue
+
+            # Incrementar contador e reenfileirar
+            edicao.tentativas_requeue = tentativas + 1
+            db.commit()
 
             if status == "traducao":
                 task_queue.put_nowait((_traducao_task, eid))
@@ -93,9 +114,15 @@ def requeue_stale_tasks():
                 task_queue.put_nowait((_make_preview_wrapper(eid, idioma_preview), eid))
 
             requeued += 1
-            logger.info(f"[worker] requeue: edicao_id={eid} status={status} reagendada")
+            logger.info(
+                f"[worker] requeue: edicao_id={eid} status={status} "
+                f"tentativa={tentativas + 1}/3 reagendada"
+            )
 
-    logger.info(f"[worker] requeue_stale_tasks: {requeued} task(s) reagendada(s)")
+    logger.info(
+        f"[worker] requeue_stale_tasks: {requeued} reagendada(s), "
+        f"{dead_lettered} dead-letter(s)"
+    )
 
 
 def is_worker_busy() -> dict:

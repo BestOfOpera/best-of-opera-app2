@@ -50,6 +50,7 @@ class Edicao(Base):
 
     task_heartbeat = Column(DateTime, nullable=True)
     progresso_detalhe = Column(JSON, default=dict)
+    tentativas_requeue = Column(Integer, default=0)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

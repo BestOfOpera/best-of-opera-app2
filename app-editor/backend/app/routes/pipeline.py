@@ -751,6 +751,7 @@ async def _traducao_task(edicao_id: int):
             if edicao:
                 edicao.passo_atual = 7
                 edicao.status = "montagem"
+                edicao.tentativas_requeue = 0
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {
                     "etapa": "traducao",
@@ -912,6 +913,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     edicao.status = "concluido"
                     edicao.passo_atual = 9
                 edicao.erro_msg = None
+                edicao.tentativas_requeue = 0
                 db.commit()
                 logger.info(f"[{edicao_id}] Todos os idiomas já renderizados, nada a fazer")
                 return
@@ -1146,6 +1148,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     else:
                         edicao.status = "concluido"
                         edicao.passo_atual = 9
+                    edicao.tentativas_requeue = 0
                     edicao.erro_msg = (
                         f"Renders com falha ({len(falhas)}): {'; '.join(falhas)}"
                         if falhas else None
@@ -1568,10 +1571,11 @@ async def desbloquear_edicao(edicao_id: int):
         edicao.status = novo_status
         edicao.erro_msg = None
         edicao.progresso_detalhe = {}
+        edicao.tentativas_requeue = 0
         db.commit()
 
     logger.info(
         f"[desbloquear] edicao_id={edicao_id} desbloqueada → status='{novo_status}' "
-        f"(renders={n_renders}, traducoes={n_traducoes})"
+        f"(renders={n_renders}, traducoes={n_traducoes}, tentativas_requeue resetado)"
     )
     return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}

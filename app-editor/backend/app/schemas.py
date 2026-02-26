@@ -62,6 +62,7 @@ class EdicaoOut(BaseModel):
     notas_revisao: Optional[str] = None
     task_heartbeat: Optional[datetime] = None
     progresso_detalhe: Optional[Any] = None
+    tentativas_requeue: int = 0
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
