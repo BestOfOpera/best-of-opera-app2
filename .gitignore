@@ -3,4 +3,5 @@ dist/
 *.db
 __pycache__/
 .env
+.env.railway
 *.pyc

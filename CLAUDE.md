@@ -260,6 +260,27 @@ function isProduction() {
 
 ---
 
+## Railway — Regras de Acesso (OBRIGATÓRIO)
+
+### ⛔ NUNCA usar Railway CLI
+- NUNCA executar `railway run`, `railway up`, `railway login`, `railway variables`, `railway logs` ou qualquer subcomando do CLI
+- O CLI tem bug com account tokens UUID — não funciona e desperdiça tempo
+
+### ✅ Como fazer cada operação
+| Operação | Como fazer |
+|----------|-----------|
+| **Deploy** | `git push origin main` → deploy automático |
+| **Ver variáveis** | `./scripts/railway-env.sh list` |
+| **Setar variável** | `./scripts/railway-env.sh set NOME valor` |
+| **Ver logs** | Dashboard web ou log drain |
+| **Forçar redeploy** | `./scripts/railway-env.sh redeploy` |
+
+### Configuração
+- IDs dos serviços estão em `.env.railway` na raiz (gitignored)
+- Se `.env.railway` não existir, AVISAR o operador — não tentar criar
+
+---
+
 ## Armadilhas Conhecidas (LEIA ANTES DE EDITAR)
 
 1. **Railway CLI inutilizável** — Account Tokens são UUID, CLI não aceita. Use sempre a GraphQL API.
