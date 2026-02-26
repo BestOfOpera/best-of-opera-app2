@@ -1167,6 +1167,10 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
             raise HTTPException(404, "Edição não encontrada")
 
         if body.aprovado:
+            # Determinar idioma do preview (mesma lógica de renderizar-preview)
+            idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
+            idiomas_renderizar = [i for i in IDIOMAS_ALVO if i != idioma_preview]
+
             # Check-and-set atômico: só aceitar se preview_pronto
             result = db.execute(
                 update(Edicao)
@@ -1179,15 +1183,19 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
                 db.refresh(edicao)
                 raise HTTPException(409, f"Status atual '{edicao.status}' não permite aprovar preview")
 
-            # Idempotência no _render_task: idioma do preview já tem Render concluído,
-            # será pulado automaticamente no loop de faltantes
-            task_queue.put_nowait((_render_task, edicao_id))
-            return {"status": "renderização dos demais idiomas iniciada"}
         else:
             edicao.status = "revisao"
             edicao.notas_revisao = body.notas_revisao
             db.commit()
             return {"status": "revisão solicitada", "notas": body.notas_revisao}
+
+    # Enfileirar render dos idiomas restantes (fora da sessão de banco)
+    if body.aprovado:
+        async def _render_remaining(_eid: int):
+            await _render_task(_eid, idiomas_renderizar=idiomas_renderizar)
+
+        task_queue.put_nowait((_render_remaining, edicao_id))
+        return {"status": "renderização dos demais idiomas iniciada", "idiomas": idiomas_renderizar}
 
 
 def _exportar_renders(edicao, db):
