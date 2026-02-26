@@ -6,7 +6,7 @@ import Link from "next/link"
 import { editorApi, type Edicao, type Segmento, type AlinhamentoData, type Janela } from "@/lib/api/editor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Check, RefreshCw, Scissors } from "lucide-react"
+import { ArrowLeft, Check, Plus, RefreshCw, Scissors, Trash2 } from "lucide-react"
 
 const FLAG_STYLES: Record<string, string> = {
   VERDE: "border-l-green-500 bg-green-50",
@@ -51,6 +51,9 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
   const [retranscrevendo, setRetranscrevendo] = useState(false)
   const [audioFailed, setAudioFailed] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null)
+  const [manualIndices, setManualIndices] = useState<Set<number>>(new Set())
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = async () => {
     try {
@@ -141,6 +144,68 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
 
     setSegmentos(updated)
   }
+
+  // --- Excluir segmento (confirmação duplo clique) ---
+  const handleDeleteSegmento = (index: number) => {
+    if (segmentos.length <= 1) return
+    if (confirmingDelete === index) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      const updated = segmentos.filter((_, i) => i !== index)
+      setSegmentos(updated)
+      const newManual = new Set<number>()
+      manualIndices.forEach(mi => {
+        if (mi < index) newManual.add(mi)
+        else if (mi > index) newManual.add(mi - 1)
+      })
+      setManualIndices(newManual)
+      setConfirmingDelete(null)
+    } else {
+      setConfirmingDelete(index)
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      confirmTimerRef.current = setTimeout(() => setConfirmingDelete(null), 3000)
+    }
+  }
+
+  // --- Adicionar segmento em branco após o índice ---
+  const handleAddSegmento = (afterIndex: number) => {
+    const newIndex = afterIndex + 1
+    const prevEnd = segmentos[afterIndex]?.end || "00:00.000"
+    const nextStart = segmentos[newIndex]?.start || prevEnd
+    const newSeg: Segmento = {
+      start: prevEnd,
+      end: nextStart,
+      texto_final: "",
+      flag: "VERDE",
+      confianca: 1.0,
+    }
+    const updated = [...segmentos]
+    updated.splice(newIndex, 0, newSeg)
+    setSegmentos(updated)
+    const newManual = new Set<number>()
+    manualIndices.forEach(mi => {
+      newManual.add(mi < newIndex ? mi : mi + 1)
+    })
+    newManual.add(newIndex)
+    setManualIndices(newManual)
+    setTimeout(() => {
+      const input = document.querySelector(`[data-seg-index="${newIndex}"] input[data-field="texto_final"]`) as HTMLInputElement
+      if (input) input.focus()
+    }, 50)
+  }
+
+  // Cancelar confirmação de delete ao clicar fora
+  useEffect(() => {
+    if (confirmingDelete === null) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest(`[data-delete-btn="${confirmingDelete}"]`)) {
+        setConfirmingDelete(null)
+        if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+      }
+    }
+    document.addEventListener("click", handler, true)
+    return () => document.removeEventListener("click", handler, true)
+  }, [confirmingDelete])
 
   const handleValidar = async () => {
     setSalvando(true)
@@ -284,61 +349,95 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
         <h4 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
           Segmentos ({segmentos.length})
         </h4>
-        <div className="space-y-2">
+        <div className="space-y-0">
           {segmentos.map((seg, i) => {
             const isDentro = !janela || (parseTimestamp(seg.start) >= (janela.inicio || 0) && parseTimestamp(seg.start) <= (janela.fim || Infinity))
+            const isManual = manualIndices.has(i)
+            const isConfirming = confirmingDelete === i
             return (
-              <div
-                key={i}
-                className={`border-l-4 rounded-lg p-3 ${FLAG_STYLES[seg.flag] || "border-l-gray-300 bg-gray-50"} ${!isDentro ? "opacity-40" : ""}`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="text-xs mt-1">{FLAG_DOTS[seg.flag]}</span>
-                  <div className="flex flex-col gap-0.5 shrink-0">
-                    <div className="flex items-center gap-1">
-                      <Input
-                        value={seg.start || ""}
-                        onChange={e => updateSegmento(i, "start", e.target.value)}
-                        className="w-[85px] h-6 text-xs font-mono bg-transparent border-dashed"
-                        title="Início (editável)"
-                      />
-                      <span className="text-xs text-muted-foreground">→</span>
-                      <Input
-                        value={seg.end || ""}
-                        onChange={e => updateSegmento(i, "end", e.target.value)}
-                        className="w-[85px] h-6 text-xs font-mono bg-transparent border-dashed"
-                        title="Fim (editável)"
-                      />
+              <div key={i} data-seg-index={i}>
+                <div
+                  className={`border-l-4 rounded-lg p-3 ${isManual ? "border-l-blue-500 bg-blue-50" : FLAG_STYLES[seg.flag] || "border-l-gray-300 bg-gray-50"} ${!isDentro ? "opacity-40" : ""} transition-all`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xs mt-1">{isManual ? "🔵" : FLAG_DOTS[seg.flag]}</span>
+                    <div className="flex flex-col gap-0.5 shrink-0">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          value={seg.start || ""}
+                          onChange={e => updateSegmento(i, "start", e.target.value)}
+                          className="w-[85px] h-6 text-xs font-mono bg-transparent border-dashed"
+                          title="Início (editável)"
+                        />
+                        <span className="text-xs text-muted-foreground">→</span>
+                        <Input
+                          value={seg.end || ""}
+                          onChange={e => updateSegmento(i, "end", e.target.value)}
+                          className="w-[85px] h-6 text-xs font-mono bg-transparent border-dashed"
+                          title="Fim (editável)"
+                        />
+                      </div>
+                      {edicao.arquivo_audio_completo && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (audioRef.current) {
+                              audioRef.current.currentTime = parseTimestamp(seg.start)
+                              audioRef.current.play()
+                            }
+                          }}
+                          className="text-[10px] text-primary hover:underline text-left cursor-pointer"
+                        >
+                          Ouvir
+                        </button>
+                      )}
                     </div>
-                    {edicao.arquivo_audio_completo && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (audioRef.current) {
-                            audioRef.current.currentTime = parseTimestamp(seg.start)
-                            audioRef.current.play()
-                          }
-                        }}
-                        className="text-[10px] text-primary hover:underline text-left cursor-pointer"
-                      >
-                        Ouvir
-                      </button>
-                    )}
+                    <div className="flex-1">
+                      <Input
+                        data-field="texto_final"
+                        value={seg.texto_final || ""}
+                        onChange={e => updateSegmento(i, "texto_final", e.target.value)}
+                        className="h-7 bg-transparent border-transparent hover:border-border focus:border-primary text-sm"
+                      />
+                      {seg.texto_gemini && seg.texto_gemini !== seg.texto_final && (
+                        <div className="text-xs text-muted-foreground mt-1">Gemini: {seg.texto_gemini}</div>
+                      )}
+                      {seg.candidato_letra && (
+                        <div className="text-xs text-yellow-600 mt-1">Candidato: {seg.candidato_letra}</div>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">{((seg.confianca || 0) * 100).toFixed(0)}%</span>
+                    <button
+                      type="button"
+                      data-delete-btn={i}
+                      onClick={() => handleDeleteSegmento(i)}
+                      disabled={segmentos.length <= 1}
+                      className={`shrink-0 p-1 rounded transition-colors ${
+                        segmentos.length <= 1
+                          ? "text-gray-200 cursor-not-allowed"
+                          : isConfirming
+                            ? "text-red-600 bg-red-50"
+                            : "text-gray-400 hover:text-red-500 hover:bg-red-50"
+                      }`}
+                      title={segmentos.length <= 1 ? "Mínimo 1 segmento" : isConfirming ? "Clique para confirmar" : "Excluir segmento"}
+                    >
+                      {isConfirming ? (
+                        <span className="text-[10px] font-semibold whitespace-nowrap">Confirmar?</span>
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
-                  <div className="flex-1">
-                    <Input
-                      value={seg.texto_final || ""}
-                      onChange={e => updateSegmento(i, "texto_final", e.target.value)}
-                      className="h-7 bg-transparent border-transparent hover:border-border focus:border-primary text-sm"
-                    />
-                    {seg.texto_gemini && seg.texto_gemini !== seg.texto_final && (
-                      <div className="text-xs text-muted-foreground mt-1">Gemini: {seg.texto_gemini}</div>
-                    )}
-                    {seg.candidato_letra && (
-                      <div className="text-xs text-yellow-600 mt-1">Candidato: {seg.candidato_letra}</div>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground">{((seg.confianca || 0) * 100).toFixed(0)}%</span>
+                </div>
+                <div className="flex justify-center py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => handleAddSegmento(i)}
+                    className="text-gray-300 hover:text-primary transition-colors p-0.5 rounded hover:bg-gray-100"
+                    title="Adicionar segmento após este"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             )
