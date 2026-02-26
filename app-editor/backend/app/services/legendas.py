@@ -27,7 +27,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 580,    # logo abaixo do vídeo
+        "marginv": 410,    # segundo abaixo do vídeo (y≈1510), amarelo
         "bold": True,
         "italic": True,
     },
@@ -38,8 +38,8 @@ ESTILOS_PADRAO = {
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
-        "alignment": 2,   # base, abaixo dos lyrics
-        "marginv": 520,
+        "alignment": 2,   # base, primeiro abaixo do vídeo
+        "marginv": 570,    # primeiro abaixo do vídeo (y≈1350), branco
         "bold": True,
         "italic": True,
     },
@@ -89,6 +89,41 @@ def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str
     linha1 = " ".join(palavras[:melhor_quebra])
     linha2 = " ".join(palavras[melhor_quebra:])
     return linha1 + "\\N" + linha2
+
+
+def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2) -> str:
+    """Quebra texto longo em linhas de até max_chars, máximo max_linhas.
+    Usa \\N como separador de linha (padrão ASS)."""
+    if not texto:
+        return texto
+
+    # Normalizar: remover quebras ASS existentes
+    texto_limpo = texto.replace("\\N", " ").replace("\\n", " ").strip()
+
+    if len(texto_limpo) <= max_chars:
+        return texto_limpo
+
+    # Word-wrap em linhas de até max_chars
+    palavras = texto_limpo.split()
+    linhas = []
+    linha_atual = ""
+
+    for palavra in palavras:
+        candidata = (linha_atual + " " + palavra).strip() if linha_atual else palavra
+        if len(candidata) <= max_chars:
+            linha_atual = candidata
+        else:
+            if linha_atual:
+                linhas.append(linha_atual)
+            linha_atual = palavra
+
+    if linha_atual:
+        linhas.append(linha_atual)
+
+    # Limitar a max_linhas
+    linhas = linhas[:max_linhas]
+
+    return "\\N".join(linhas)
 
 
 def corrigir_timestamps_sobrepostos(segmentos: list) -> list:
@@ -187,7 +222,7 @@ def gerar_ass(
         # Garantir duração mínima de 2s
         if event.end - event.start < 2000:
             event.end = event.start + 2000
-        event.text = quebrar_texto_overlay(seg["text"])
+        event.text = _formatar_texto_legenda(seg["text"], max_chars=OVERLAY_MAX_CHARS)
         event.style = "Overlay"
         subs.events.append(event)
 
@@ -218,7 +253,7 @@ def gerar_ass(
         event = pysubs2.SSAEvent()
         event.start = seg_to_ms(seg.get("start", 0))
         event.end = seg_to_ms(seg.get("end", 0))
-        event.text = text
+        event.text = _formatar_texto_legenda(text)
         event.style = "Lyrics"
         subs.events.append(event)
 
@@ -228,7 +263,7 @@ def gerar_ass(
             event_trad = pysubs2.SSAEvent()
             event_trad.start = event.start
             event_trad.end = event.end
-            event_trad.text = trad_seg["traducao"]
+            event_trad.text = _formatar_texto_legenda(trad_seg["traducao"])
             event_trad.style = "Traducao"
             subs.events.append(event_trad)
 
