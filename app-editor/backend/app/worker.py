@@ -105,7 +105,7 @@ def is_worker_busy() -> dict:
 
     with SessionLocal() as db:
         em_proc = db.query(Edicao).filter(
-            Edicao.status.in_(["traducao", "renderizando", "preview"])
+            Edicao.status.in_(["baixando", "transcricao", "traducao", "renderizando", "preview"])
         ).first()
 
         if em_proc:

@@ -17,9 +17,8 @@ from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
-from app.services.gemini import buscar_letra as gemini_buscar_letra, transcrever_guiado_completo, transcrever_cego, mapear_estrutura_audio, completar_transcricao, _detect_mime_type, _get_client
+from app.services.gemini import buscar_letra as gemini_buscar_letra
 from app.services.genius import buscar_letra_genius
-from app.services.alinhamento import alinhar_letra_com_timestamps, merge_transcricoes
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
 import os
 import shutil
@@ -251,9 +250,15 @@ def aprovar_letra(edicao_id: int, body: LetraAprovar, db: Session = Depends(get_
     return {"ok": True, "letra_id": letra.id}
 
 
+# Statuses que permitem (re)iniciar transcrição
+_STATUS_PERMITIDOS_TRANSCRICAO = {"letra", "transcricao", "alinhamento", "erro"}
+
+
 # --- Passo 3: Transcrição ---
 @router.post("/edicoes/{edicao_id}/transcricao")
-async def iniciar_transcricao(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def iniciar_transcricao(edicao_id: int, db: Session = Depends(get_db)):
+    from app.worker import task_queue
+
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
@@ -288,91 +293,163 @@ async def iniciar_transcricao(edicao_id: int, background_tasks: BackgroundTasks,
         edicao.arquivo_audio_completo = audio_key
         db.commit()
 
-    edicao.status = "transcricao"
-    edicao.erro_msg = None
+    # Check-and-set atômico: só aceitar se status permite
+    result = db.execute(
+        update(Edicao)
+        .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_TRANSCRICAO))
+        .values(status="transcricao", erro_msg=None)
+    )
     db.commit()
 
-    background_tasks.add_task(_transcricao_task, edicao_id)
-    return {"status": "transcrição iniciada"}
+    if result.rowcount == 0:
+        db.refresh(edicao)
+        raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar transcrição")
+
+    logger.info(f"[transcricao] Enfileirando edicao_id={edicao_id} queue={task_queue.qsize()}")
+    task_queue.put_nowait((_transcricao_task, edicao_id))
+    return {"status": "transcrição enfileirada"}
 
 
 async def _transcricao_task(edicao_id: int):
-    from app.database import SessionLocal
-    db = SessionLocal()
     try:
-        edicao = db.get(Edicao, edicao_id)
+        logger.info(f"[transcricao_task] INÍCIO edicao_id={edicao_id}")
+        from app.database import SessionLocal
+        from app.models import Letra
+        from app.services.gemini import (
+            transcrever_guiado_completo as _transcrever_guiado_completo,
+            mapear_estrutura_audio as _mapear_estrutura_audio,
+            completar_transcricao as _completar_transcricao,
+            _detect_mime_type as _detect_mime,
+            _get_client as _get_gemini_client,
+        )
+        from app.services.alinhamento import (
+            alinhar_letra_com_timestamps as _alinhar_letra,
+            merge_transcricoes as _merge_transcricoes,
+        )
+        from app.services.regua import normalizar_segmentos as _normalizar_segmentos
 
-        # Garantir que o áudio existe no storage
-        r2_base = _get_r2_base(edicao)
-        if not edicao.arquivo_audio_completo or not storage.exists(edicao.arquivo_audio_completo):
-            if edicao.arquivo_video_completo and storage.exists(edicao.arquivo_video_completo):
-                audio_key = await extrair_audio_completo(
-                    edicao.arquivo_video_completo, edicao_id, STORAGE_PATH,
-                    r2_base=r2_base,
+        # PASSO A — Ler estado e inicializar (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                logger.error(f"[{edicao_id}] Edição não encontrada, abortando task")
+                return
+
+            # Idempotência: se já passou para alinhamento ou posterior, não refazer
+            _STATUS_JA_PASSOU = {"alinhamento", "corte", "traducao", "montagem",
+                                 "preview", "preview_pronto", "revisao",
+                                 "renderizando", "concluido"}
+            if edicao.status in _STATUS_JA_PASSOU:
+                logger.info(f"[{edicao_id}] Transcrição já concluída (status={edicao.status}), pulando")
+                return
+
+            # Garantir que o áudio existe no storage
+            r2_base = _get_r2_base(edicao)
+            arquivo_audio = edicao.arquivo_audio_completo
+            arquivo_video = edicao.arquivo_video_completo
+            youtube_url = edicao.youtube_url
+            artista = edicao.artista
+            musica = edicao.musica
+            compositor = edicao.compositor
+            youtube_video_id = edicao.youtube_video_id or ""
+            idioma = edicao.idioma
+
+            # Setar status e heartbeat inicial
+            edicao.status = "transcricao"
+            edicao.task_heartbeat = datetime.now(timezone.utc)
+            edicao.progresso_detalhe = {
+                "etapa": "transcricao",
+                "passo": "inicializando",
+            }
+            db.commit()
+
+        # PASSO B — Garantir áudio (banco FECHADO durante I/O)
+        if not arquivo_audio or not storage.exists(arquivo_audio):
+            if arquivo_video and storage.exists(arquivo_video):
+                arquivo_audio = await extrair_audio_completo(
+                    arquivo_video, edicao_id, STORAGE_PATH, r2_base=r2_base,
                 )
-                edicao.arquivo_audio_completo = audio_key
-                db.commit()
-            elif edicao.youtube_url:
-                logger.info(f"[{edicao_id}] Vídeo e áudio não encontrados no storage, re-baixando...")
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.arquivo_audio_completo = arquivo_audio
+                        db.commit()
+            elif youtube_url:
+                logger.info(f"[{edicao_id}] Vídeo e áudio não encontrados, re-baixando...")
                 resultado_dl = await download_video(
-                    edicao.youtube_url, edicao_id, STORAGE_PATH,
-                    artista=edicao.artista, musica=edicao.musica,
-                    youtube_video_id=edicao.youtube_video_id or "",
+                    youtube_url, edicao_id, STORAGE_PATH,
+                    artista=artista, musica=musica,
+                    youtube_video_id=youtube_video_id,
                 )
-                edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
-                edicao.r2_base = resultado_dl.get("r2_base", edicao.r2_base)
-                r2_base = _get_r2_base(edicao)
-                audio_key = await extrair_audio_completo(
-                    edicao.arquivo_video_completo, edicao_id, STORAGE_PATH,
-                    r2_base=r2_base,
+                arquivo_video = resultado_dl["arquivo_original"]
+                r2_base = resultado_dl.get("r2_base", r2_base)
+                arquivo_audio = await extrair_audio_completo(
+                    arquivo_video, edicao_id, STORAGE_PATH, r2_base=r2_base,
                 )
-                edicao.arquivo_audio_completo = audio_key
-                db.commit()
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.arquivo_video_completo = arquivo_video
+                        edicao.r2_base = r2_base
+                        edicao.arquivo_audio_completo = arquivo_audio
+                        db.commit()
             else:
-                edicao.status = "erro"
-                edicao.erro_msg = "Áudio e vídeo não encontrados. Faça upload novamente."
-                db.commit()
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.status = "erro"
+                        edicao.erro_msg = "Áudio e vídeo não encontrados. Faça upload novamente."
+                        db.commit()
                 return
 
         # Garantir áudio local para envio ao Gemini
-        audio_local = storage.ensure_local(edicao.arquivo_audio_completo)
+        audio_local = storage.ensure_local(arquivo_audio)
 
-        # Buscar letra associada
-        from app.models import Letra
-        letra = db.query(Letra).filter(
-            Letra.musica == edicao.musica,
-            Letra.idioma == edicao.idioma,
-        ).first()
+        # Buscar letra (sessão curta)
+        with SessionLocal() as db:
+            letra = db.query(Letra).filter(
+                Letra.musica == musica,
+                Letra.idioma == idioma,
+            ).first()
+            if not letra:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.status = "erro"
+                    edicao.erro_msg = "Letra não encontrada. Aprove a letra primeiro."
+                    db.commit()
+                return
+            letra_texto = letra.letra
+            letra_id = letra.id
 
-        if not letra:
-            edicao.status = "erro"
-            edicao.erro_msg = "Letra não encontrada. Aprove a letra primeiro."
-            db.commit()
-            return
-
-        metadados = {
-            "artista": edicao.artista,
-            "musica": edicao.musica,
-            "compositor": edicao.compositor,
-        }
-
-        versos_esperados = len([v for v in letra.letra.split("\n") if v.strip()])
+        metadados = {"artista": artista, "musica": musica, "compositor": compositor}
+        versos_esperados = len([v for v in letra_texto.split("\n") if v.strip()])
 
         # ============================================================
         # ESTRATÉGIA: CEGA PRIMEIRO → captura repetições naturalmente
         # ============================================================
 
-        # Passo 1: MAPEAMENTO ESTRUTURAL
+        # Heartbeat antes do Gemini (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "transcricao",
+                    "passo": "mapeamento_estrutural",
+                }
+                db.commit()
+
+        # Passo 1: MAPEAMENTO ESTRUTURAL (banco FECHADO)
         logger.info(f"[{edicao_id}] Passo 1: Mapeamento estrutural do áudio...")
-        genai = _get_client()
-        mime_type = _detect_mime_type(audio_local)
+        genai = _get_gemini_client()
+        mime_type = _detect_mime(audio_local)
         audio_file_ref = genai.upload_file(audio_local, mime_type=mime_type)
 
         melhor_cega = None
         melhor_n_cega = 0
         for tentativa in range(1, 3):
-            segmentos_cegos = await mapear_estrutura_audio(
-                audio_file_ref, edicao.idioma, metadados, letra.letra
+            segmentos_cegos = await _mapear_estrutura_audio(
+                audio_file_ref, idioma, metadados, letra_texto
             )
             n = len(segmentos_cegos)
             logger.info(f"[{edicao_id}] Cega tentativa {tentativa}: {n} segmentos")
@@ -382,20 +459,42 @@ async def _transcricao_task(edicao_id: int):
             if n >= versos_esperados * 0.8:
                 break
 
-        segmentos_cegos = normalizar_segmentos(melhor_cega or [])
+        segmentos_cegos = _normalizar_segmentos(melhor_cega or [])
         logger.info(f"[{edicao_id}] Cega final: {len(segmentos_cegos)} segmentos")
 
-        # Passo 2: Transcrição GUIADA
+        # Heartbeat antes da guiada (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "transcricao",
+                    "passo": "transcricao_guiada",
+                }
+                db.commit()
+
+        # Passo 2: Transcrição GUIADA (banco FECHADO)
         logger.info(f"[{edicao_id}] Passo 2: Transcrição GUIADA (texto fiel à letra)...")
-        segmentos_guiados = await transcrever_guiado_completo(
-            audio_local, letra.letra, edicao.idioma, metadados,
+        segmentos_guiados = await _transcrever_guiado_completo(
+            audio_local, letra_texto, idioma, metadados,
         )
-        segmentos_guiados = normalizar_segmentos(segmentos_guiados)
+        segmentos_guiados = _normalizar_segmentos(segmentos_guiados)
         logger.info(f"[{edicao_id}] Guiada: {len(segmentos_guiados)} segmentos")
+
+        # Heartbeat antes do merge (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "transcricao",
+                    "passo": "merge_alinhamento",
+                }
+                db.commit()
 
         # Passo 3: MERGE
         logger.info(f"[{edicao_id}] Passo 3: Merge (cega {len(segmentos_cegos)} × guiada {len(segmentos_guiados)})...")
-        resultado = merge_transcricoes(segmentos_cegos, segmentos_guiados, letra.letra)
+        resultado = _merge_transcricoes(segmentos_cegos, segmentos_guiados, letra_texto)
         logger.info(
             f"[{edicao_id}] Merge: rota={resultado['rota']} "
             f"confiança={resultado['confianca_media']}"
@@ -404,7 +503,7 @@ async def _transcricao_task(edicao_id: int):
         # Passo 4: Se merge fraco, tentar alinhar guiada direta como fallback
         if resultado["rota"] == "C":
             logger.info(f"[{edicao_id}] Merge fraco (rota C), tentando alinhamento guiada direta...")
-            resultado_guiada = alinhar_letra_com_timestamps(letra.letra, segmentos_guiados)
+            resultado_guiada = _alinhar_letra(letra_texto, segmentos_guiados)
             if resultado_guiada["confianca_media"] > resultado["confianca_media"]:
                 logger.info(
                     f"[{edicao_id}] Guiada direta melhor: {resultado['confianca_media']:.3f} → "
@@ -419,48 +518,77 @@ async def _transcricao_task(edicao_id: int):
                 f"[{edicao_id}] Resultado incompleto ({n_resultado}/{versos_esperados}). "
                 f"Tentando completação..."
             )
+            # Heartbeat antes da completação (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "transcricao",
+                        "passo": "completacao",
+                    }
+                    db.commit()
             try:
-                segmentos_completados = await completar_transcricao(
-                    audio_local, letra.letra,
-                    resultado["segmentos"], edicao.idioma, metadados,
+                segmentos_completados = await _completar_transcricao(
+                    audio_local, letra_texto,
+                    resultado["segmentos"], idioma, metadados,
                 )
                 if len(segmentos_completados) > n_resultado:
                     logger.info(f"[{edicao_id}] Completação: {n_resultado} → {len(segmentos_completados)}")
-                    segmentos_completados = normalizar_segmentos(segmentos_completados)
-                    resultado_completado = alinhar_letra_com_timestamps(letra.letra, segmentos_completados)
+                    segmentos_completados = _normalizar_segmentos(segmentos_completados)
+                    resultado_completado = _alinhar_letra(letra_texto, segmentos_completados)
                     if resultado_completado["confianca_media"] >= resultado["confianca_media"]:
                         resultado = resultado_completado
             except Exception as e:
                 logger.warning(f"[{edicao_id}] Completação falhou: {e}")
 
-        resultado["segmentos"] = normalizar_segmentos(resultado["segmentos"])
+        resultado["segmentos"] = _normalizar_segmentos(resultado["segmentos"])
 
-        alinhamento = Alinhamento(
-            edicao_id=edicao_id,
-            letra_id=letra.id,
-            segmentos_completo=resultado["segmentos"],
-            confianca_media=resultado["confianca_media"],
-            rota=resultado["rota"],
-        )
-        db.add(alinhamento)
+        # PASSO C — Salvar resultado e finalizar (sessão curta)
+        with SessionLocal() as db:
+            alinhamento = Alinhamento(
+                edicao_id=edicao_id,
+                letra_id=letra_id,
+                segmentos_completo=resultado["segmentos"],
+                confianca_media=resultado["confianca_media"],
+                rota=resultado["rota"],
+            )
+            db.add(alinhamento)
 
-        edicao.rota_alinhamento = resultado["rota"]
-        edicao.confianca_alinhamento = resultado["confianca_media"]
-        edicao.status = "alinhamento"
-        edicao.passo_atual = 4
-        edicao.erro_msg = None
-        db.commit()
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.rota_alinhamento = resultado["rota"]
+                edicao.confianca_alinhamento = resultado["confianca_media"]
+                edicao.status = "alinhamento"
+                edicao.passo_atual = 4
+                edicao.erro_msg = None
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {}
+            db.commit()
+
         logger.info(
             f"[{edicao_id}] Transcrição concluída: "
             f"rota={resultado['rota']} confiança={resultado['confianca_media']}"
         )
-    except Exception as e:
-        edicao.status = "erro"
-        edicao.erro_msg = f"Transcrição falhou: {e}"
-        db.commit()
-        logger.error(f"[{edicao_id}] Transcrição falhou: {e}")
-    finally:
-        db.close()
+
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            erro_msg = "Interrompido por reinício do servidor"
+        else:
+            erro_msg = f"Transcrição falhou: {str(e)[:500]}"
+        logger.error(f"[{edicao_id}] _transcricao_task erro: {e}", exc_info=True)
+        try:
+            from app.database import SessionLocal
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.status = "erro"
+                    edicao.erro_msg = erro_msg
+                    db.commit()
+        except Exception:
+            logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
+        if isinstance(e, asyncio.CancelledError):
+            raise
 
 
 # --- Passo 4: Alinhamento ---
@@ -1636,7 +1764,7 @@ def obter_traducoes(edicao_id: int, db: Session = Depends(get_db)):
 # --- Fila / Worker ---
 
 _STALE_THRESHOLD = timedelta(minutes=5)
-_ACTIVE_STATUSES = {"baixando", "transcricao", "traducao", "renderizando", "preview"}
+_ACTIVE_STATUSES = {"baixando", "letra", "transcricao", "alinhamento", "corte", "traducao", "montagem", "preview", "renderizando"}
 
 
 @router.get("/fila/status")
