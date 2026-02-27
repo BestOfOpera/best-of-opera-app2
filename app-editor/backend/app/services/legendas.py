@@ -7,9 +7,9 @@ from app.services.regua import timestamp_to_seconds, seconds_to_timestamp
 # Vídeo escala para 1080x608, centralizado verticalmente
 # Barras pretas: 656px em cima, vídeo 608px (y=656..1264), 656px embaixo
 # Legendas na barra preta inferior, simétrico ao overlay no topo.
-# Cada track tem max 2 linhas (84px com fontsize=35+outline=2).
-# lyrics: marginv=500 → y_base=1420, 2 linhas topo em 1336, gap ao vídeo=72px
-# traducao: marginv=380 → y_base=1540, gap ao lyrics base=36px
+# Cada track tem max 2 linhas (72px com fontsize=30+outline=2).
+# lyrics: marginv=554 → y_base=1366, 2 linhas topo em 1294, gap ao vídeo=30px
+# traducao: marginv=452 → y_base=1468, gap ao lyrics base(1366)=30px
 ESTILOS_PADRAO = {
     "overlay": {
         "fontname": "Georgia",
@@ -25,25 +25,25 @@ ESTILOS_PADRAO = {
     },
     "lyrics": {
         "fontname": "Georgia",
-        "fontsize": 35,
+        "fontsize": 30,
         "primarycolor": "#FFFF64",
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 500,    # y_base=1420 — barra preta inferior, 72px gap ao vídeo (simétrico ao overlay)
+        "marginv": 554,    # y_base=1366 — barra preta inferior, 30px gap ao vídeo
         "bold": True,
         "italic": True,
     },
     "traducao": {
         "fontname": "Georgia",
-        "fontsize": 35,
+        "fontsize": 30,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 380,    # y_base=1540 — 36px abaixo do lyrics, barra preta inferior
+        "marginv": 452,    # y_base=1468 — 30px abaixo do lyrics base(1366)
         "bold": True,
         "italic": True,
     },

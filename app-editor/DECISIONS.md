@@ -103,6 +103,27 @@ Barra preta inf: y = 1264..1920 (656px de espaço)
 - traducao fundo: 1920-1540 = 380px de folga ✓
 - **Overlay não alterado** (marginv=530, alignment=8, topo)
 
+## 10. Fonte menor (30) e margens mais justas para lyrics/traducao
+
+**Motivação:** fontsize=35 ocupava espaço demais na barra preta inferior. Reduzir para 30 permite aproximar as legendas da base do vídeo, melhorando a legibilidade e o aproveitamento visual.
+
+**Alterações em ESTILOS_PADRAO:**
+
+| Track | fontsize | marginv | y_base | 2 linhas topo | Gap ao vídeo (1264) |
+|-------|----------|---------|--------|---------------|---------------------|
+| lyrics (amarelo) | 35→**30** | 500→**554** | 1366 | 1294 | **30px** |
+| traducao (branco) | 35→**30** | 380→**452** | 1468 | 1396 | 30px ao lyrics base |
+
+**Geometria (fontsize=30 + outline=2):**
+- Altura por linha ≈ 36px (era 42px com fontsize=35)
+- 2 linhas = 72px por track (era 84px)
+- Gap entre lyrics base (1366) e traducao topo com 2 linhas (1396) = 30px
+- Gap entre lyrics topo com 2 linhas (1294) e base do vídeo (1264) = 30px
+
+**Overlay NÃO alterado** (fontsize=47, marginv=530).
+
+---
+
 ## 8. Badge unificado na tela de importação (editor_status)
 
 **Problema:** Na listagem de projetos do Redator, o badge "Pronto" (status export_ready do Redator) era ambíguo — parecia "pronto para importar" mas significava "concluído no Redator". Projetos já editados no Editor não tinham marcação clara, e o operador não sabia quais já foram importados/concluídos.
