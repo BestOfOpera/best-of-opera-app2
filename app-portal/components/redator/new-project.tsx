@@ -423,8 +423,20 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                   )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Obra *</Label>
-                      <Input value={shared.work} onChange={(e) => setSharedField("work", e.target.value)} />
+                      <Label className={`text-xs ${!shared.work ? "text-red-600 font-bold" : ""}`}>
+                        Obra * {!shared.work && "— preencha manualmente"}
+                      </Label>
+                      <Input
+                        value={shared.work}
+                        onChange={(e) => setSharedField("work", e.target.value)}
+                        placeholder={!shared.work ? "Nome da ária/peça não detectado — digite aqui" : ""}
+                        className={!shared.work ? "border-red-500 border-2 bg-red-50" : ""}
+                      />
+                      {!shared.work && (
+                        <p className="text-xs text-red-600 mt-1">
+                          O nome da música não foi encontrado no título/descrição do vídeo.
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Compositor *</Label>

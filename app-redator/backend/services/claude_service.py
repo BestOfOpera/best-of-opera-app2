@@ -55,13 +55,15 @@ STEP 2: Determine the performance type:
 - DUET: Two performers — you MUST list BOTH names
 - ENSEMBLE/CHORUS: Multiple performers — list ALL names or ensemble name
 
-STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in ALL fields. You are an expert — you know composers, operas, voice types, biographies. DO NOT leave fields empty if you can determine them.
+STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, operas, voice types, biographies. DO NOT leave biographical fields empty if you can determine them.
+
+CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece/aria that is EXPLICITLY written in the title or description of the video. If the exact name of the aria or piece is NOT clearly stated in the title or description, return "work" as an EMPTY STRING "". Do NOT guess, infer, or deduce the work name based on melody, performer repertoire, or any other indirect clue. It is better to leave it empty than to guess wrong.
 
 FORMATTING for multiple artists: separate with " & " for artists, " / " for voice_type, nationality, birth_date, death_date.
 
 Return ONLY a JSON object with these exact keys:
 - "artist": Performer name(s)
-- "work": The EXACT name of the piece/aria
+- "work": The EXACT name of the piece/aria (EMPTY STRING if not explicitly in title/description)
 - "composer": The composer's full name
 - "composition_year": Year composed (e.g. "1832")
 - "nationality": Artist nationality/ies separated by " / "
@@ -70,7 +72,7 @@ Return ONLY a JSON object with these exact keys:
 - "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
 - "death_date": Death date(s) in dd/mm/yyyy or "" if alive, separated by " / "
 - "album_opera": The opera or album this belongs to
-- "confidence": "high" if you identified artist and work clearly
+- "confidence": "high" if you identified artist and work clearly, "medium" if work was left empty because not explicitly in title/description
 
 Return the JSON object and nothing else."""
 
@@ -97,7 +99,9 @@ STEP 2: Determine the performance type:
 - ENSEMBLE/TRIO: Multiple performers — list ALL names
 - CHORUS: A choir — use the choir/ensemble name as artist, conductor if visible
 
-STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in ALL fields. You are an expert — you know composers, operas, voice types, biographies. DO NOT leave fields empty if you can determine them.
+STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, operas, voice types, biographies. DO NOT leave biographical fields empty if you can determine them.
+
+CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece/aria that is EXPLICITLY visible in the screenshot title or description. If the exact name of the aria or piece is NOT clearly stated in the visible text, return "work" as an EMPTY STRING "". Do NOT guess, infer, or deduce the work name based on melody, performer repertoire, or any other indirect clue. It is better to leave it empty than to guess wrong.
 
 FORMATTING RULES FOR MULTIPLE ARTISTS:
 - Separate multiple artist names with " & " (e.g. "Nicolai Gedda & Mirella Freni")
@@ -112,7 +116,7 @@ EXAMPLE for a duet — if you see "Nicolai Gedda & Mirella Freni - Là ci darem 
 
 Return ONLY a JSON object with these exact keys:
 - "artist": Performer name(s) — use " & " for multiple
-- "work": The EXACT name of the piece/aria (read from screenshot, don't guess)
+- "work": The EXACT name of the piece/aria (EMPTY STRING if not explicitly visible in screenshot)
 - "composer": The composer's full name
 - "composition_year": Year composed (e.g. "1832")
 - "nationality": Artist nationality/ies separated by " / "
@@ -121,7 +125,7 @@ Return ONLY a JSON object with these exact keys:
 - "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
 - "death_date": Death date(s) in dd/mm/yyyy separated by " / ", "" if alive
 - "album_opera": The opera or album this belongs to
-- "confidence": "high" if you identified artist and work clearly from screenshot
+- "confidence": "high" if you identified artist and work clearly from screenshot, "medium" if work was left empty because not explicitly visible
 
 Return the JSON object and nothing else."""
 

@@ -461,8 +461,24 @@ export default function NewProject() {
                 {/* Shared fields */}
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Obra *</label>
-                    <input value={shared.work} onChange={(e) => setSharedField('work', e.target.value)} />
+                    <label style={!shared.work ? { color: '#DC2626', fontWeight: 700 } : {}}>
+                      Obra * {!shared.work && '— preencha manualmente'}
+                    </label>
+                    <input
+                      value={shared.work}
+                      onChange={(e) => setSharedField('work', e.target.value)}
+                      placeholder={!shared.work ? 'Nome da ária/peça não detectado — digite aqui' : ''}
+                      style={!shared.work ? {
+                        borderColor: '#DC2626',
+                        borderWidth: 2,
+                        background: '#FEF2F2',
+                      } : {}}
+                    />
+                    {!shared.work && (
+                      <span style={{ fontSize: 12, color: '#DC2626', marginTop: 4, display: 'block' }}>
+                        O nome da música não foi encontrado no título/descrição do vídeo. Por favor, preencha manualmente.
+                      </span>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Compositor *</label>
