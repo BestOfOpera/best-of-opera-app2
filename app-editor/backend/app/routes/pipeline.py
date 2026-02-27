@@ -60,23 +60,37 @@ class CorteParams(BaseModel):
     janela_fim: Optional[float] = None
 
 
+_STATUS_PERMITIDOS_DOWNLOAD = {"aguardando", "baixando", "letra", "erro"}
+
+
 # --- Passo 1: Garantir vídeo ---
 @router.post("/edicoes/{edicao_id}/garantir-video")
-async def garantir_video(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def garantir_video(edicao_id: int, db: Session = Depends(get_db)):
+    from app.worker import task_queue
+
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
+    # Idempotência: se já tem vídeo no R2, não baixar de novo
     if edicao.arquivo_video_completo and storage.exists(edicao.arquivo_video_completo):
         return {"status": "já disponível", "arquivo": edicao.arquivo_video_completo}
 
-    edicao.status = "baixando"
-    edicao.passo_atual = 1
-    edicao.erro_msg = None
+    # Check-and-set atômico: só aceitar se status permite
+    result = db.execute(
+        update(Edicao)
+        .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_DOWNLOAD))
+        .values(status="baixando", erro_msg=None, passo_atual=1)
+    )
     db.commit()
 
-    background_tasks.add_task(_download_video_task, edicao_id, edicao.youtube_url)
-    return {"status": "download iniciado"}
+    if result.rowcount == 0:
+        db.refresh(edicao)
+        raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar download")
+
+    logger.info(f"[download] Enfileirando edicao_id={edicao_id} queue={task_queue.qsize()}")
+    task_queue.put_nowait((_download_task, edicao_id))
+    return {"status": "download enfileirado"}
 
 
 @router.post("/edicoes/{edicao_id}/upload-video")
@@ -125,47 +139,138 @@ def _find_video_in_export(edicao):
     return None
 
 
-async def _download_video_task(edicao_id: int, youtube_url: str):
-    from app.database import SessionLocal
-    db = SessionLocal()
+async def _download_task(edicao_id: int):
     try:
-        edicao = db.get(Edicao, edicao_id)
+        logger.info(f"[download_task] INÍCIO edicao_id={edicao_id}")
+        from app.database import SessionLocal
+        from app.services.youtube import download_video as _download_video
+        from shared.storage_service import (
+            check_conflict as _check_conflict,
+            save_youtube_marker as _save_youtube_marker,
+        )
 
-        # 1) Tentar usar vídeo já existente na pasta local (APP1/iCloud)
-        video_local = _find_video_in_export(edicao)
-        if video_local:
-            base = check_conflict(edicao.artista, edicao.musica, edicao.youtube_video_id or "")
-            r2_key = f"{base}/video/original.mp4"
-            storage.upload_file(video_local, r2_key)
-            if edicao.youtube_video_id:
-                save_youtube_marker(base, edicao.youtube_video_id)
-            edicao.arquivo_video_completo = r2_key
-            edicao.r2_base = base
-            edicao.status = "letra"
-            edicao.passo_atual = 2
-            edicao.erro_msg = None
+        # PASSO A — Ler estado (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                logger.error(f"[{edicao_id}] Edição não encontrada, abortando task")
+                return
+
+            # Idempotência: se já tem vídeo no R2, não baixar de novo
+            if edicao.arquivo_video_completo and storage.exists(edicao.arquivo_video_completo):
+                logger.info(f"[{edicao_id}] Vídeo já existe no R2 ({edicao.arquivo_video_completo}), pulando download")
+                edicao.status = "letra"
+                edicao.passo_atual = 2
+                edicao.erro_msg = None
+                db.commit()
+                return
+
+            # Check local file (fast filesystem I/O, ok dentro da sessão)
+            video_local = _find_video_in_export(edicao)
+
+            # Copiar dados necessários para fora da sessão
+            youtube_url = edicao.youtube_url
+            artista = edicao.artista
+            musica = edicao.musica
+            youtube_video_id = edicao.youtube_video_id or ""
+
+            # Setar heartbeat inicial
+            edicao.status = "baixando"
+            edicao.task_heartbeat = datetime.now(timezone.utc)
+            edicao.progresso_detalhe = {
+                "etapa": "download",
+                "passo": "inicializando",
+            }
             db.commit()
+
+        # PASSO B — Tentar vídeo local (banco FECHADO durante upload R2)
+        if video_local:
+            base = _check_conflict(artista, musica, youtube_video_id)
+            r2_key = f"{base}/video/original.mp4"
+
+            # Heartbeat antes de upload
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "download",
+                        "passo": "upload_local_r2",
+                    }
+                    db.commit()
+
+            storage.upload_file(video_local, r2_key)
+            if youtube_video_id:
+                _save_youtube_marker(base, youtube_video_id)
+
+            # Salvar resultado (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.arquivo_video_completo = r2_key
+                    edicao.r2_base = base
+                    edicao.status = "letra"
+                    edicao.passo_atual = 2
+                    edicao.erro_msg = None
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {}
+                    db.commit()
+
+            logger.info(f"[{edicao_id}] Download concluído via local: {r2_key}")
             return
 
-        # 2) Fallback: baixar do YouTube (youtube.py já faz upload para R2)
-        resultado = await download_video(
+        # PASSO C — Baixar do YouTube (banco FECHADO durante yt-dlp)
+        # Heartbeat antes do yt-dlp
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {
+                    "etapa": "download",
+                    "passo": "yt-dlp",
+                }
+                db.commit()
+
+        resultado = await _download_video(
             youtube_url, edicao_id, STORAGE_PATH,
-            artista=edicao.artista, musica=edicao.musica,
-            youtube_video_id=edicao.youtube_video_id or "",
+            artista=artista, musica=musica,
+            youtube_video_id=youtube_video_id,
         )
-        edicao.arquivo_video_completo = resultado["arquivo_original"]
-        edicao.r2_base = resultado.get("r2_base", "")
-        edicao.duracao_total_sec = resultado.get("duracao_total")
-        edicao.status = "letra"
-        edicao.passo_atual = 2
-        edicao.erro_msg = None
-        db.commit()
-    except Exception as e:
-        edicao.status = "erro"
-        edicao.erro_msg = str(e)
-        db.commit()
-    finally:
-        db.close()
+
+        # Salvar resultado (sessão curta)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.arquivo_video_completo = resultado["arquivo_original"]
+                edicao.r2_base = resultado.get("r2_base", "")
+                edicao.duracao_total_sec = resultado.get("duracao_total")
+                edicao.status = "letra"
+                edicao.passo_atual = 2
+                edicao.erro_msg = None
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                edicao.progresso_detalhe = {}
+                db.commit()
+
+        logger.info(f"[{edicao_id}] Download YouTube concluído")
+
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            erro_msg = "Interrompido por reinício do servidor"
+        else:
+            erro_msg = f"Erro inesperado: {str(e)[:500]}"
+        logger.error(f"[{edicao_id}] _download_task erro inesperado: {e}", exc_info=True)
+        try:
+            from app.database import SessionLocal
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.status = "erro"
+                    edicao.erro_msg = erro_msg
+                    db.commit()
+        except Exception:
+            logger.error(f"[{edicao_id}] Não conseguiu salvar erro no banco")
+        if isinstance(e, asyncio.CancelledError):
+            raise
 
 
 # --- Passo 2: Letra ---
