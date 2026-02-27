@@ -64,6 +64,34 @@ Barra preta inferior
 - Tradução DE com 71 chars: "Also Liebling, Liebling, steh mir bei, oh steh mir bei, oh steh mir bei"
 - Confirmado: sem sobreposição, sem invasão do vídeo, ordem correta
 
+## 9. Fix marginv lyrics/traducao — legendas sobre o vídeo (não na barra preta)
+
+**Problema:** Com marginv fixo (`lyrics=550`, `traducao=490`), ambas as tracks ficavam abaixo do vídeo.
+No frame 9:16 (1080x1920), o vídeo 16:9 centralizado ocupa y=656..1264 (altura=608px).
+A borda inferior do vídeo em marginv é: 1920 - 1264 = **656px**.
+Com marginv=550, a base do texto cai em y=1370 — 106px abaixo do vídeo, na barra preta.
+Isso só parecia correto em textos longos (2+ linhas) porque o texto crescia para cima.
+Com 1 linha, a legenda ficava invisível (barra preta).
+
+**Solução:**
+Subir marginv para que a base do texto fique dentro (ou muito perto) da área do vídeo:
+
+| Track | marginv anterior | marginv novo | y_base | Posição |
+|-------|-----------------|--------------|--------|---------|
+| lyrics (amarelo) | 550 | **680** | 1240 | 24px acima da borda inferior do vídeo |
+| traducao (branco) | 490 | **620** | 1300 | 36px abaixo do lyrics, perto da base |
+
+**Cálculo de referência:**
+```
+Frame:          1080 × 1920 (9:16)
+Vídeo 16:9:     1080 × 608  (1080 × 9/16 = 607.5 ≈ 608)
+Topo vídeo:     (1920 - 608) / 2 = 656
+Base vídeo:     656 + 608 = 1264
+Base em marginv: 1920 - 1264 = 656
+```
+
+**Overlay:** não alterado (marginv=530, alignment=8, topo).
+
 ## 8. Badge unificado na tela de importação (editor_status)
 
 **Problema:** Na listagem de projetos do Redator, o badge "Pronto" (status export_ready do Redator) era ambíguo — parecia "pronto para importar" mas significava "concluído no Redator". Projetos já editados no Editor não tinham marcação clara, e o operador não sabia quais já foram importados/concluídos.

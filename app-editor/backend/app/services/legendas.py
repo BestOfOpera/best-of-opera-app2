@@ -4,8 +4,11 @@ import pysubs2
 from app.services.regua import timestamp_to_seconds, seconds_to_timestamp
 
 # Layout para vídeo 16:9 dentro de frame 9:16 (1080x1920)
-# Vídeo 640x360 → escala para 1080x608, centralizado verticalmente
-# Barras pretas: 656px em cima, vídeo 608px, 656px embaixo
+# Vídeo escala para 1080x608, centralizado verticalmente
+# Barras pretas: 656px em cima, vídeo 608px (y=656..1264), 656px embaixo
+# Base do vídeo em marginv: 1920 - 1264 = 656px
+# lyrics: marginv=680 → y_base=1240 (24px acima da borda inferior do vídeo)
+# traducao: marginv=620 → y_base=1300 (abaixo de lyrics, perto da base do vídeo)
 ESTILOS_PADRAO = {
     "overlay": {
         "fontname": "Georgia",
@@ -27,7 +30,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 550,    # EM CIMA — original amarelo (y≈1370)
+        "marginv": 680,    # y_base=1240 — 24px acima da borda inferior do vídeo
         "bold": True,
         "italic": True,
     },
@@ -39,7 +42,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 490,    # EMBAIXO — tradução branca (y≈1430)
+        "marginv": 620,    # y_base=1300 — abaixo de lyrics, perto da base do vídeo
         "bold": True,
         "italic": True,
     },
