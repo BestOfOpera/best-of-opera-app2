@@ -663,14 +663,14 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
         db.refresh(edicao)
         raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar tradução")
 
+    logger.info(f"[traducao] Enfileirando edicao_id={edicao_id} queue={task_queue.qsize()}")
     task_queue.put_nowait((_traducao_task, edicao_id))
-    logger.info(f"[endpoint] Task tradução enfileirada para edicao_id={edicao_id}. Tamanho da fila: {task_queue.qsize()}")
     return {"status": "tradução enfileirada"}
 
 
 async def _traducao_task(edicao_id: int):
     try:
-        logger.info(f"[traducao_task] INICIANDO edicao_id={edicao_id}")
+        logger.info(f"[traducao_task] INÍCIO edicao_id={edicao_id}")
         from app.database import SessionLocal
         from app.services.translate_service import traduzir_letra_cloud as traduzir_letra
 

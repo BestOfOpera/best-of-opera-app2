@@ -21,9 +21,10 @@ async def worker_loop():
         try:
             logger.info("[worker] Aguardando próxima task na fila...")
             task_func, edicao_id = await task_queue.get()
-            logger.info(f"[worker] Task retirada da fila: edicao_id={edicao_id}")
+            logger.info(f"[worker] Pegou task edicao_id={edicao_id} queue={task_queue.qsize()}")
             try:
                 await task_func(edicao_id)
+                logger.info(f"[worker] Terminou task edicao_id={edicao_id}")
             except asyncio.CancelledError:
                 # Propagar para o shutdown — não engolir CancelledError da task
                 raise
@@ -66,64 +67,35 @@ def _make_preview_wrapper(eid: int, idioma: str):
 
 
 def requeue_stale_tasks():
-    """Recoloca na fila TODAS as edições em status de processamento no startup.
+    """No startup, marca como erro TODAS as edições presas em status ativo.
 
-    No startup, qualquer edição presa em "traducao"/"renderizando"/"preview"
-    é reagendada incondicionalmente — sem verificar heartbeat.
-    NÃO atualiza o heartbeat — a própria task faz isso quando começa a rodar.
+    NÃO reenfileira automaticamente — evita tasks fantasma que competem
+    com tasks novas disparadas pelo usuário. O usuário pode re-disparar
+    manualmente via botão Desbloquear na UI.
     """
     from app.database import SessionLocal
     from app.models import Edicao
-    from app.routes.pipeline import _traducao_task, _render_task
 
     with SessionLocal() as db:
         candidatos = db.query(Edicao).filter(
             Edicao.status.in_(["traducao", "renderizando", "preview"])
         ).all()
 
-        requeued = 0
-        dead_lettered = 0
+        marcados = 0
         for edicao in candidatos:
             eid, status = edicao.id, edicao.status
-            tentativas = edicao.tentativas_requeue or 0
-
-            # Dead-letter: após 3 tentativas, não reenfileirar
-            if tentativas >= 3:
-                edicao.status = "erro"
-                edicao.erro_msg = (
-                    "Falha após 3 tentativas de recovery automático. "
-                    "Use Desbloquear para retry manual."
-                )
-                db.commit()
-                dead_lettered += 1
-                logger.warning(
-                    f"[worker] dead-letter: edicao_id={eid} status={status} "
-                    f"tentativas={tentativas} — movida para erro"
-                )
-                continue
-
-            # Incrementar contador e reenfileirar
-            edicao.tentativas_requeue = tentativas + 1
+            edicao.status = "erro"
+            edicao.erro_msg = "Interrompido por restart do servidor. Use Desbloquear para retomar."
+            edicao.task_heartbeat = None
+            edicao.progresso_detalhe = {}
             db.commit()
-
-            if status == "traducao":
-                task_queue.put_nowait((_traducao_task, eid))
-            elif status == "renderizando":
-                task_queue.put_nowait((_render_task, eid))
-            elif status == "preview":
-                idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
-                task_queue.put_nowait((_make_preview_wrapper(eid, idioma_preview), eid))
-
-            requeued += 1
+            marcados += 1
             logger.info(
-                f"[worker] requeue: edicao_id={eid} status={status} "
-                f"tentativa={tentativas + 1}/3 reagendada"
+                f"[worker] startup: edicao_id={eid} status={status} → erro "
+                f"(interrompido por restart)"
             )
 
-    logger.info(
-        f"[worker] requeue_stale_tasks: {requeued} reagendada(s), "
-        f"{dead_lettered} dead-letter(s)"
-    )
+    logger.info(f"[worker] requeue_stale_tasks: {marcados} edição(ões) marcada(s) como erro")
 
 
 def is_worker_busy() -> dict:
