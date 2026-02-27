@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle } from "lucide-react"
+import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   aguardando: { label: "Aguardando", variant: "secondary" },
@@ -78,6 +78,10 @@ export function EditorEditingQueue() {
     status: string
     mensagem: string
   } | null>(null)
+
+  const [limparConfirmId, setLimparConfirmId] = useState<number | null>(null)
+  const [limpando, setLimpando] = useState(false)
+  const [erroLimpar, setErroLimpar] = useState("")
 
   const loadEdicoes = () => {
     editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
@@ -173,6 +177,25 @@ export function EditorEditingQueue() {
     const idioma = outroIdioma.trim() || idiomaEscolhido
     if (!idioma || !modalIdioma) return
     handleImportar(modalIdioma.projectId, idioma)
+  }
+
+  const handleLimparEdicao = async () => {
+    if (!limparConfirmId) return
+    setLimpando(true)
+    setErroLimpar("")
+    try {
+      await editorApi.limparEdicao(limparConfirmId)
+      setLimparConfirmId(null)
+      loadEdicoes()
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        setErroLimpar((err as ApiError).message || "Edição está sendo processada agora.")
+      } else {
+        setErroLimpar("Erro ao limpar: " + (err instanceof Error ? err.message : "Erro"))
+      }
+    } finally {
+      setLimpando(false)
+    }
   }
 
   const toggleImportar = () => {
@@ -469,6 +492,33 @@ export function EditorEditingQueue() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal: confirmação Limpar Edição */}
+      <Dialog open={!!limparConfirmId} onOpenChange={open => { if (!open) { setLimparConfirmId(null); setErroLimpar("") } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Limpar Edição
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza? Todo o progresso desta edição será apagado e ela voltará ao início.
+            </DialogDescription>
+          </DialogHeader>
+          {erroLimpar && (
+            <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg text-sm">{erroLimpar}</div>
+          )}
+          <div className="flex gap-3 justify-end pt-2">
+            <Button variant="ghost" onClick={() => { setLimparConfirmId(null); setErroLimpar("") }} disabled={limpando}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleLimparEdicao} disabled={limpando} className="gap-2">
+              {limpando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {limpando ? "Limpando..." : "Sim, Limpar Tudo"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {ativas.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Clapperboard className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -507,6 +557,17 @@ export function EditorEditingQueue() {
                     <Button asChild variant="secondary" size="sm">
                       <Link href={nextStepPath(e)}>Editar</Link>
                     </Button>
+                    {e.status !== "concluido" && e.status !== "preview_pronto" && e.status !== "aguardando" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setLimparConfirmId(e.id)}
+                        className="text-muted-foreground hover:text-red-600"
+                        title="Limpar Edição"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)} className="text-muted-foreground hover:text-destructive">
                       <Trash2 className="h-4 w-4" />
                     </Button>

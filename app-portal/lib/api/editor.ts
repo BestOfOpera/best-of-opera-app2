@@ -182,6 +182,11 @@ export const editorApi = {
       `${BASE()}/edicoes/${id}/desbloquear`, { method: "POST" }
     ),
 
+  limparEdicao: (id: number) =>
+    request<{ status: string; mensagem: string }>(
+      `${BASE()}/edicoes/${id}/limpar-edicao`, { method: "POST" }
+    ),
+
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
   listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),

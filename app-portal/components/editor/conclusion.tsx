@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import {
   ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle,
   ExternalLink, Pencil, RotateCcw, Eye, MessageSquare, Package,
-  Lock, AlertTriangle, Wrench,
+  Lock, AlertTriangle, Wrench, Trash2,
 } from "lucide-react"
 
 const IDIOMAS = [
@@ -68,6 +69,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [desbloqueando, setDesbloqueando] = useState(false)
   const [filaStatus, setFilaStatus] = useState<FilaStatus | null>(null)
   const [semLegendas, setSemLegendas] = useState(false)
+  const [mostrarConfirmLimpar, setMostrarConfirmLimpar] = useState(false)
+  const [limpando, setLimpando] = useState(false)
 
   const load = async () => {
     try {
@@ -260,6 +263,25 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       }
     } finally {
       setDesbloqueando(false)
+    }
+  }
+
+  const handleLimparEdicao = async () => {
+    setLimpando(true)
+    setError("")
+    try {
+      await editorApi.limparEdicao(edicaoId)
+      setMostrarConfirmLimpar(false)
+      await load()
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409) {
+        setError((err as ApiError).message || "Edição está sendo processada agora. Aguarde terminar ou use Desbloquear primeiro.")
+      } else {
+        setError("Erro ao limpar edição: " + (err instanceof Error ? err.message : "Erro"))
+      }
+      setMostrarConfirmLimpar(false)
+    } finally {
+      setLimpando(false)
     }
   }
 
@@ -766,11 +788,52 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       )}
 
       {/* Footer */}
-      <div className="mt-8 text-center pb-8">
+      <div className="mt-8 flex items-center justify-between pb-8">
         <Button asChild variant="secondary" className="gap-2">
           <Link href="/editor"><ArrowLeft className="h-3.5 w-3.5" /> Voltar à Fila de Edição</Link>
         </Button>
+        {!isConcluido && !isPreviewPronto && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+            onClick={() => setMostrarConfirmLimpar(true)}
+            disabled={limpando}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Limpar Edição
+          </Button>
+        )}
       </div>
+
+      {/* Dialog confirmação Limpar Edição */}
+      <Dialog open={mostrarConfirmLimpar} onOpenChange={setMostrarConfirmLimpar}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Limpar Edição
+            </DialogTitle>
+            <DialogDescription>
+              Tem certeza? Todo o progresso desta edição será apagado e ela voltará ao início.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setMostrarConfirmLimpar(false)} disabled={limpando}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleLimparEdicao}
+              disabled={limpando}
+              className="gap-2"
+            >
+              {limpando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {limpando ? "Limpando..." : "Sim, Limpar Tudo"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

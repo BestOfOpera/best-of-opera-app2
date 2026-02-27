@@ -1967,3 +1967,83 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
         f"{', force=True' if force else ''})"
     )
     return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}
+
+
+# --- Limpar Edição ---
+
+_STATUS_PROTEGIDOS_LIMPAR = {"concluido", "preview_pronto"}
+_STATUS_PROCESSANDO_LIMPAR = {"traducao", "renderizando", "preview"}
+
+
+def _limpar_edicao_dados(db: Session, edicao_id: int) -> None:
+    """Deleta traduções, renders (+ R2) e reseta campos da edição para 'aguardando'.
+
+    Reutilizável — não faz validação de status nem commit.
+    O chamador deve validar status antes e fazer db.commit() depois.
+    """
+    # 1. Deletar renders (e arquivos do R2)
+    renders = db.query(Render).filter(Render.edicao_id == edicao_id).all()
+    for r in renders:
+        if r.arquivo:
+            try:
+                storage.delete(r.arquivo)
+            except Exception:
+                logger.warning(f"[limpar] Falha ao deletar R2: {r.arquivo}")
+        db.delete(r)
+
+    # 2. Deletar traduções
+    db.query(TraducaoLetra).filter(TraducaoLetra.edicao_id == edicao_id).delete()
+
+    # 3. Resetar campos da edição
+    edicao = db.get(Edicao, edicao_id)
+    if edicao:
+        edicao.status = "aguardando"
+        edicao.passo_atual = 1
+        edicao.erro_msg = None
+        edicao.task_heartbeat = None
+        edicao.progresso_detalhe = {}
+        edicao.arquivo_video_cortado = None
+        edicao.arquivo_audio_completo = None
+        edicao.rota_alinhamento = None
+        edicao.confianca_alinhamento = None
+        edicao.notas_revisao = None
+        edicao.tentativas_requeue = 0
+
+
+@router.post("/edicoes/{edicao_id}/limpar-edicao")
+async def limpar_edicao(edicao_id: int):
+    """Reseta uma edição travada para 'aguardando', apagando todo o progresso intermediário.
+
+    Protege edições concluídas e edições com processamento ativo recente.
+    """
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        # Status protegidos nunca podem ser limpos
+        if edicao.status in _STATUS_PROTEGIDOS_LIMPAR:
+            raise HTTPException(
+                400,
+                f"Edição com status '{edicao.status}' não pode ser limpa.",
+            )
+
+        # Se está processando E heartbeat é recente (< 5 min), bloquear
+        if edicao.status in _STATUS_PROCESSANDO_LIMPAR:
+            hb = edicao.task_heartbeat
+            if hb is not None:
+                if hb.tzinfo is None:
+                    hb = hb.replace(tzinfo=timezone.utc)
+                if (datetime.now(timezone.utc) - hb) < _STALE_THRESHOLD:
+                    raise HTTPException(
+                        409,
+                        "Edição está sendo processada agora. Aguarde terminar ou use Desbloquear primeiro.",
+                    )
+
+        _limpar_edicao_dados(db, edicao_id)
+        db.commit()
+
+    logger.info(f"[limpar] edicao_id={edicao_id} limpa com sucesso → status='aguardando'")
+    return {"status": "ok", "mensagem": "Edição limpa com sucesso"}
