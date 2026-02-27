@@ -54,6 +54,11 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
   const [confirmingDelete, setConfirmingDelete] = useState<number | null>(null)
   const [manualIndices, setManualIndices] = useState<Set<number>>(new Set())
   const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [addingAfterIndex, setAddingAfterIndex] = useState<number | null>(null)
+  const [addFormStart, setAddFormStart] = useState("")
+  const [addFormEnd, setAddFormEnd] = useState("")
+  const [addFormText, setAddFormText] = useState("")
+  const addFormTextRef = useRef<HTMLInputElement>(null)
 
   const load = async () => {
     try {
@@ -173,15 +178,23 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
     }
   }
 
-  // --- Adicionar segmento em branco após o índice ---
-  const handleAddSegmento = (afterIndex: number) => {
-    const newIndex = afterIndex + 1
+  // --- Adicionar segmento: abrir form inline ---
+  const handleOpenAddForm = (afterIndex: number) => {
     const prevEnd = segmentos[afterIndex]?.end || "00:00.000"
-    const nextStart = segmentos[newIndex]?.start || prevEnd
+    const nextStart = segmentos[afterIndex + 1]?.start || prevEnd
+    setAddFormStart(prevEnd)
+    setAddFormEnd(nextStart)
+    setAddFormText("")
+    setAddingAfterIndex(afterIndex)
+  }
+
+  const handleConfirmAdd = () => {
+    if (addingAfterIndex === null) return
+    const newIndex = addingAfterIndex + 1
     const newSeg: Segmento = {
-      start: prevEnd,
-      end: nextStart,
-      texto_final: "",
+      start: addFormStart,
+      end: addFormEnd,
+      texto_final: addFormText,
       flag: "VERDE",
       confianca: 1.0,
     }
@@ -194,11 +207,19 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
     })
     newManual.add(newIndex)
     setManualIndices(newManual)
-    setTimeout(() => {
-      const input = document.querySelector(`[data-seg-index="${newIndex}"] input[data-field="texto_final"]`) as HTMLInputElement
-      if (input) input.focus()
-    }, 50)
+    setAddingAfterIndex(null)
   }
+
+  const handleCancelAdd = () => {
+    setAddingAfterIndex(null)
+  }
+
+  // Auto-focus no campo de texto quando o form abre
+  useEffect(() => {
+    if (addingAfterIndex !== null && addFormTextRef.current) {
+      addFormTextRef.current.focus()
+    }
+  }, [addingAfterIndex])
 
   // Cancelar confirmação de delete ao clicar fora
   useEffect(() => {
@@ -437,30 +458,81 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
                     </button>
                   </div>
                 </div>
-                <div className="flex justify-center py-0.5">
-                  <button
-                    type="button"
-                    onClick={() => handleAddSegmento(i)}
-                    className="text-gray-300 hover:text-primary transition-colors p-0.5 rounded hover:bg-gray-100"
-                    title="Adicionar segmento após este"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                {addingAfterIndex === i ? (
+                  <div className="border-l-4 border-l-blue-400 bg-blue-50 rounded-lg p-3 my-1">
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs mt-1">➕</span>
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={addFormStart}
+                            onChange={e => setAddFormStart(e.target.value)}
+                            className="w-[85px] h-6 text-xs font-mono"
+                            title="Início"
+                            placeholder="00:00.000"
+                          />
+                          <span className="text-xs text-muted-foreground">→</span>
+                          <Input
+                            value={addFormEnd}
+                            onChange={e => setAddFormEnd(e.target.value)}
+                            className="w-[85px] h-6 text-xs font-mono"
+                            title="Fim"
+                            placeholder="00:00.000"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <Input
+                          ref={addFormTextRef}
+                          value={addFormText}
+                          onChange={e => setAddFormText(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") handleConfirmAdd()
+                            if (e.key === "Escape") handleCancelAdd()
+                          }}
+                          placeholder="Texto do segmento..."
+                          className="h-7 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-2 justify-end">
+                      <Button type="button" size="sm" variant="ghost" onClick={handleCancelAdd}>
+                        Cancelar
+                      </Button>
+                      <Button type="button" size="sm" onClick={handleConfirmAdd} className="gap-1">
+                        <Check className="h-3.5 w-3.5" />
+                        Adicionar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex justify-center py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddForm(i)}
+                      className="text-gray-300 hover:text-primary transition-colors p-0.5 rounded hover:bg-gray-100"
+                      title="Adicionar segmento após este"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => handleAddSegmento(segmentos.length - 1)}
-          className="mt-2 w-full gap-2 border-dashed text-muted-foreground hover:text-primary"
-        >
-          <Plus className="h-4 w-4" />
-          Adicionar segmento
-        </Button>
+        {addingAfterIndex === segmentos.length - 1 ? null : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenAddForm(segmentos.length - 1)}
+            className="mt-2 w-full gap-2 border-dashed text-muted-foreground hover:text-primary"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar segmento
+          </Button>
+        )}
       </div>
 
       {/* Actions */}
