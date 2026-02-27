@@ -1,55 +1,54 @@
 """Serviço de geração de arquivos ASS com 3 tracks de legenda."""
+import logging
 from typing import Optional
 import pysubs2
 from app.services.regua import timestamp_to_seconds, seconds_to_timestamp
 
-# Layout para vídeo 16:9 dentro de frame 9:16 (1080x1920)
-# Vídeo escala para 1080x608, centralizado verticalmente
-# Barras pretas: 656px em cima, vídeo 608px (y=656..1264), 656px embaixo
-# Legendas na barra preta inferior, simétrico ao overlay no topo.
-# Cada track tem max 2 linhas (72px com fontsize=30+outline=2).
-# lyrics: marginv=554 → y_base=1366, 2 linhas topo em 1294, gap ao vídeo=30px
-# traducao: marginv=452 → y_base=1468, gap ao lyrics base(1366)=30px
+logger = logging.getLogger(__name__)
+
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "Georgia",
-        "fontsize": 47,
+        "fontname": "TeX Gyre Pagella",
+        "fontsize": 63,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 3,
         "shadow": 1,
-        "alignment": 8,   # topo
-        "marginv": 530,    # 2 linhas cabem sem invadir vídeo (gap 16px)
+        "alignment": 2,
+        "marginv": 1296,
         "bold": True,
-        "italic": True,
+        "italic": False,
     },
     "lyrics": {
-        "fontname": "Georgia",
-        "fontsize": 30,
+        "fontname": "TeX Gyre Pagella",
+        "fontsize": 45,
         "primarycolor": "#FFFF64",
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
-        "alignment": 2,   # base
-        "marginv": 554,    # y_base=1366 — barra preta inferior, 30px gap ao vídeo
+        "alignment": 2,
+        "marginv": 573,
         "bold": True,
         "italic": True,
     },
     "traducao": {
-        "fontname": "Georgia",
-        "fontsize": 30,
+        "fontname": "TeX Gyre Pagella",
+        "fontsize": 43,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 2,
         "shadow": 0,
-        "alignment": 2,   # base
-        "marginv": 452,    # y_base=1468 — 30px abaixo do lyrics base(1366)
+        "alignment": 8,
+        "marginv": 1353,
         "bold": True,
         "italic": True,
     },
 }
 
-OVERLAY_MAX_CHARS = 35
+OVERLAY_MAX_CHARS = 60
+OVERLAY_MAX_CHARS_LINHA = 30
+LYRICS_MAX_CHARS = 43
+TRADUCAO_MAX_CHARS = 100
 
 
 def hex_to_ssa_color(hex_color: str) -> pysubs2.Color:
@@ -128,6 +127,74 @@ def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2
     linhas = linhas[:max_linhas]
 
     return "\\N".join(linhas)
+
+
+def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
+    """Garante overlay com max 2 linhas equilibradas, max_por_linha chars cada."""
+    texto = texto.strip()
+    if len(texto) <= max_por_linha:
+        return texto
+    # Se já tem quebra manual (\n ou \\N), verificar cada linha
+    for sep in ["\\N", "\n"]:
+        if sep in texto:
+            linhas = texto.split(sep)
+            formatadas = []
+            for l in linhas[:2]:
+                l = l.strip()
+                if len(l) > max_por_linha:
+                    cortado = l[:max_por_linha - 1]
+                    ultimo_esp = cortado.rfind(" ")
+                    if ultimo_esp > max_por_linha * 0.4:
+                        l = cortado[:ultimo_esp].rstrip() + "…"
+                    else:
+                        l = cortado.rstrip() + "…"
+                formatadas.append(l)
+            return "\\N".join(formatadas)
+    # Sem quebra — inserir \\N no ponto mais equilibrado
+    meio = len(texto) // 2
+    pos_esq = texto.rfind(" ", 0, meio + 1)
+    pos_dir = texto.find(" ", meio)
+    if pos_esq == -1 and pos_dir == -1:
+        return texto[:max_por_linha - 1].rstrip() + "…"
+    candidatos = []
+    if pos_esq != -1:
+        l1, l2 = texto[:pos_esq].strip(), texto[pos_esq:].strip()
+        candidatos.append((abs(len(l1) - len(l2)), l1, l2))
+    if pos_dir != -1 and pos_dir != pos_esq:
+        l1, l2 = texto[:pos_dir].strip(), texto[pos_dir:].strip()
+        candidatos.append((abs(len(l1) - len(l2)), l1, l2))
+    candidatos.sort(key=lambda x: x[0])
+    _, linha1, linha2 = candidatos[0]
+    # Guarda: menor linha >= 35% do total
+    total = len(linha1) + len(linha2)
+    if min(len(linha1), len(linha2)) < total * 0.35:
+        for offset in range(1, meio):
+            for pos in [texto.rfind(" ", 0, meio - offset + 1), texto.find(" ", meio + offset)]:
+                if pos is not None and pos > 0:
+                    l1 = texto[:pos].strip()
+                    l2 = texto[pos:].strip()
+                    if min(len(l1), len(l2)) >= (len(l1) + len(l2)) * 0.35:
+                        linha1, linha2 = l1, l2
+                        break
+            else:
+                continue
+            break
+    if len(linha1) > max_por_linha:
+        linha1 = linha1[:max_por_linha - 1].rstrip() + "…"
+    if len(linha2) > max_por_linha:
+        linha2 = linha2[:max_por_linha - 1].rstrip() + "…"
+    return linha1 + "\\N" + linha2
+
+
+def _truncar_texto(texto: str, max_chars: int) -> str:
+    """Trunca texto que excede max_chars, cortando no último espaço."""
+    if len(texto) <= max_chars:
+        return texto
+    cortado = texto[:max_chars - 1]
+    ultimo_espaco = cortado.rfind(" ")
+    if ultimo_espaco > max_chars * 0.4:
+        cortado = cortado[:ultimo_espaco]
+    return cortado.rstrip() + "…"
 
 
 def corrigir_timestamps_sobrepostos(segmentos: list) -> list:
