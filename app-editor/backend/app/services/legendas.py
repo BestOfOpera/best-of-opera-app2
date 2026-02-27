@@ -15,7 +15,7 @@ ESTILOS_PADRAO = {
         "outline": 3,
         "shadow": 1,
         "alignment": 8,   # topo
-        "marginv": 490,    # 2 linhas cabem sem invadir vídeo
+        "marginv": 530,    # 2 linhas cabem sem invadir vídeo (gap 16px)
         "bold": True,
         "italic": True,
     },
@@ -27,7 +27,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 450,    # EM CIMA — original amarelo (y≈1470)
+        "marginv": 550,    # EM CIMA — original amarelo (y≈1370)
         "bold": True,
         "italic": True,
     },
@@ -39,7 +39,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 410,    # EMBAIXO — tradução branca (y≈1510)
+        "marginv": 490,    # EMBAIXO — tradução branca (y≈1430)
         "bold": True,
         "italic": True,
     },
