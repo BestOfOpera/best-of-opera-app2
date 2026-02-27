@@ -6,8 +6,8 @@ import { ScoreRing, scoreColorBg } from "./score-ring"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight, Cloud, CloudOff } from "lucide-react"
-import { useState, useEffect } from "react"
+import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight, Cloud, CloudOff, Upload, Clock, AlertTriangle } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 
 function formatViews(n: number) {
@@ -54,6 +54,37 @@ export function VideoDetailModal({
   const [editArtist, setEditArtist] = useState("")
   const [editSong, setEditSong] = useState("")
 
+  // Timeout fallback state
+  const [showUploadFallback, setShowUploadFallback] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const TIMEOUT_SECONDS = 180 // 3 minutos
+
+  const clearTimers = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    setElapsedSeconds(0)
+    setShowUploadFallback(false)
+  }, [])
+
+  const startTimer = useCallback(() => {
+    clearTimers()
+    const start = Date.now()
+    timerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - start) / 1000)
+      setElapsedSeconds(elapsed)
+      if (elapsed >= TIMEOUT_SECONDS) {
+        setShowUploadFallback(true)
+      }
+    }, 1000)
+  }, [clearTimers])
+
   // Reset fields when video changes or modal opens
   useEffect(() => {
     if (video && open) {
@@ -63,8 +94,19 @@ export function VideoDetailModal({
       setR2Status("unknown")
       setR2Key("")
       setR2Cached(false)
+      setShowUploadFallback(false)
+      setUploading(false)
+      clearTimers()
     }
-  }, [video?.video_id, open])
+  }, [video?.video_id, open, clearTimers])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      clearTimers()
+      abortRef.current?.abort()
+    }
+  }, [clearTimers])
 
   if (!video) return null
 
@@ -76,17 +118,23 @@ export function VideoDetailModal({
     const artist = editArtist.trim() || "Unknown"
     const song = editSong.trim() || "Video"
     setPreparing(true)
+    startTimer()
     try {
       const result = await curadoriaApi.prepareVideo(video.video_id, artist, song)
       setR2Status("ok")
       setR2Key(result.r2_key)
       setR2Cached(result.cached)
       setDownloadDone(true)
+      setShowUploadFallback(false)
+      clearTimers()
       onDownloaded?.()
     } catch (err) {
-      alert("Falha ao preparar vídeo: " + (err instanceof Error ? err.message : "Erro"))
+      if ((err as Error).name !== "AbortError") {
+        alert("Falha ao preparar vídeo: " + (err instanceof Error ? err.message : "Erro"))
+      }
     } finally {
       setPreparing(false)
+      clearTimers()
     }
   }
 
@@ -95,22 +143,66 @@ export function VideoDetailModal({
     const artist = editArtist.trim() || "Unknown"
     const song = editSong.trim() || "Video"
     setDownloading(true)
+    startTimer()
     try {
       const result = await curadoriaApi.downloadVideo(video.video_id, artist, song)
       setR2Status(result.r2Status as "ok" | "failed" | "unknown")
       setR2Key(result.r2Key)
       setDownloadDone(true)
+      setShowUploadFallback(false)
+      clearTimers()
       onDownloaded?.()
     } catch (err) {
-      alert("Download falhou: " + (err instanceof Error ? err.message : "Erro"))
+      if ((err as Error).name !== "AbortError") {
+        alert("Download falhou: " + (err instanceof Error ? err.message : "Erro"))
+      }
     } finally {
       setDownloading(false)
+      clearTimers()
     }
+  }
+
+  /** Upload manual — fallback quando yt-dlp demora */
+  const handleManualUpload = async (file: File) => {
+    const artist = editArtist.trim() || "Unknown"
+    const song = editSong.trim() || "Video"
+    setUploading(true)
+    try {
+      const result = await curadoriaApi.uploadVideo(video.video_id, artist, song, file)
+      setR2Status("ok")
+      setR2Key(result.r2_key)
+      setR2Cached(false)
+      setDownloadDone(true)
+      setShowUploadFallback(false)
+      clearTimers()
+      // Download/prepare automático ainda pode estar rodando — os states
+      // downloading/preparing vão limpar no finally deles
+      onDownloaded?.()
+    } catch (err) {
+      alert("Upload falhou: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleManualUpload(file)
+    }
+    // Reset input para permitir re-selecionar mesmo arquivo
+    e.target.value = ""
   }
 
   const handleGoToRedator = () => {
     onClose()
     router.push("/redator")
+  }
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m}:${String(sec).padStart(2, "0")}`
   }
 
   return (
@@ -250,13 +342,72 @@ export function VideoDetailModal({
               </div>
             </div>
 
+            {/* Timer indicator — mostra durante download/prepare */}
+            {(downloading || preparing) && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{downloading ? "Baixando" : "Preparando"} video...</span>
+                <span className="font-mono text-xs">{formatTime(elapsedSeconds)}</span>
+              </div>
+            )}
+
+            {/* Fallback banner — upload manual após timeout */}
+            {showUploadFallback && !downloadDone && (
+              <div className="border border-amber-300 bg-amber-50 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-amber-800 text-sm">
+                      Download automatico esta demorando
+                    </div>
+                    <p className="text-xs text-amber-700 mt-1">
+                      O download via yt-dlp ja passou de 3 minutos. Voce pode baixar o video
+                      manualmente pelo YouTube e fazer upload aqui. O download automatico continua
+                      em background — se completar, este aviso fecha automaticamente.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 border-amber-400 text-amber-800 hover:bg-amber-100"
+                    asChild
+                  >
+                    <a href={video.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" /> Abrir no YouTube
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="gap-2"
+                  >
+                    {uploading
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Upload className="h-3.5 w-3.5" />
+                    }
+                    {uploading ? "Enviando..." : "Upload manual"}
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/mp4,video/webm,video/x-matroska,video/quicktime,.mp4,.mkv,.webm,.mov"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={onClose}>Fechar</Button>
               <Button
                 variant="outline"
                 onClick={handleDownload}
-                disabled={downloading || preparing || !editArtist.trim() || !editSong.trim()}
+                disabled={downloading || preparing || uploading || !editArtist.trim() || !editSong.trim()}
                 className="gap-2"
               >
                 {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -264,7 +415,7 @@ export function VideoDetailModal({
               </Button>
               <Button
                 onClick={handlePrepare}
-                disabled={downloading || preparing || !editArtist.trim() || !editSong.trim()}
+                disabled={downloading || preparing || uploading || !editArtist.trim() || !editSong.trim()}
                 className="gap-2"
               >
                 {preparing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Cloud className="h-3.5 w-3.5" />}

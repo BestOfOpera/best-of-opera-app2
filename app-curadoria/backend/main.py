@@ -10,7 +10,7 @@ from typing import Optional
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse, Response
@@ -860,6 +860,67 @@ async def prepare_video(video_id: str, artist: str = Query("Unknown"), song: str
         except Exception as e:
             print(f"❌ prepare-video error for {video_id}: {e}")
             raise HTTPException(500, f"Falha ao preparar vídeo: {str(e)}")
+
+
+@app.post("/api/upload-video/{video_id}")
+async def upload_video_manual(
+    video_id: str,
+    file: UploadFile = File(...),
+    artist: str = Query("Unknown"),
+    song: str = Query("Video"),
+):
+    """Upload manual de vídeo para R2.
+
+    Usado quando o download automático (yt-dlp) demora demais.
+    O usuário baixa o vídeo manualmente e faz upload pelo browser.
+    O arquivo é salvo na mesma key R2 que o download automático usaria.
+    """
+    if not file.filename or not file.filename.lower().endswith((".mp4", ".mkv", ".webm", ".mov")):
+        raise HTTPException(400, "Formato inválido. Envie MP4, MKV, WEBM ou MOV.")
+
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+
+    # Salvar arquivo temporário
+    tmp_dir = PROJECTS_DIR / sanitize_filename(f"{artist} - {song}") / "video"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = str(tmp_dir / "upload.mp4")
+
+    try:
+        with open(tmp_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                f.write(chunk)
+
+        file_size = os.path.getsize(tmp_path)
+        print(f"📤 Upload manual recebido: {file.filename} ({file_size / 1024 / 1024:.1f}MB)")
+
+        # Upload para R2
+        storage.upload_file(tmp_path, r2_key)
+        save_youtube_marker(r2_base, video_id)
+        print(f"✅ R2 upload OK (manual): {r2_key}")
+
+        # Registrar download
+        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+        try:
+            db.save_download(video_id, f"{artist} - {song}.mp4", artist, song, youtube_url)
+        except Exception as e:
+            print(f"⚠️ Failed to save download record: {e}")
+
+        return {
+            "status": "ok",
+            "r2_key": r2_key,
+            "r2_base": r2_base,
+            "file_size_mb": round(file_size / 1024 / 1024, 1),
+            "message": "Vídeo enviado e salvo no R2",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Upload manual error for {video_id}: {e}")
+        raise HTTPException(500, f"Falha no upload: {str(e)}")
+    finally:
+        # Limpar arquivo temporário
+        shutil.rmtree(str(tmp_dir.parent), ignore_errors=True)
 
 
 @app.get("/api/r2/check")

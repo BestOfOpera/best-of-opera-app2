@@ -129,6 +129,25 @@ export const curadoriaApi = {
       `${BASE()}/r2/check?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}&video_id=${encodeURIComponent(videoId)}`
     ),
 
+  /** Upload manual de vídeo para R2 (fallback quando yt-dlp demora). */
+  uploadVideo: async (videoId: string, artist: string, song: string, file: File) => {
+    const url = `${BASE()}/upload-video/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`
+    const formData = new FormData()
+    formData.append("file", file)
+    const resp = await fetch(url, { method: "POST", body: formData })
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: "Upload failed" }))
+      throw new Error(err.detail || `HTTP ${resp.status}`)
+    }
+    return resp.json() as Promise<{
+      status: string
+      r2_key: string
+      r2_base: string
+      file_size_mb: number
+      message: string
+    }>
+  },
+
   downloads: () => request<{ downloads: Download[] }>(`${BASE()}/downloads`),
 
   downloadsExportUrl: () => `${BASE()}/downloads/export`,
