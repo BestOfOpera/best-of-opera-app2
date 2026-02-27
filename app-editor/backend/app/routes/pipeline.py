@@ -588,43 +588,75 @@ async def _transcricao_task(edicao_id: int):
 
         # Passo 2: Transcrição GUIADA (banco FECHADO)
         logger.info(f"[{edicao_id}] Passo 2: Transcrição GUIADA (texto fiel à letra)...")
-        segmentos_guiados = await _retry_on_safety(
-            lambda: _transcrever_guiado_completo(
-                audio_local, letra_texto, idioma, metadados,
-            )
-        )
-        segmentos_guiados = _normalizar_segmentos(segmentos_guiados)
-        logger.info(f"[{edicao_id}] Guiada: {len(segmentos_guiados)} segmentos")
-
-        # Heartbeat antes do merge (sessão curta)
-        with SessionLocal() as db:
-            edicao = db.get(Edicao, edicao_id)
-            if edicao:
-                edicao.task_heartbeat = datetime.now(timezone.utc)
-                edicao.progresso_detalhe = {
-                    "etapa": "transcricao",
-                    "passo": "merge_alinhamento",
-                }
-                db.commit()
-
-        # Passo 3: MERGE
-        logger.info(f"[{edicao_id}] Passo 3: Merge (cega {len(segmentos_cegos)} × guiada {len(segmentos_guiados)})...")
-        resultado = _merge_transcricoes(segmentos_cegos, segmentos_guiados, letra_texto)
-        logger.info(
-            f"[{edicao_id}] Merge: rota={resultado['rota']} "
-            f"confiança={resultado['confianca_media']}"
-        )
-
-        # Passo 4: Se merge fraco, tentar alinhar guiada direta como fallback
-        if resultado["rota"] == "C":
-            logger.info(f"[{edicao_id}] Merge fraco (rota C), tentando alinhamento guiada direta...")
-            resultado_guiada = _alinhar_letra(letra_texto, segmentos_guiados)
-            if resultado_guiada["confianca_media"] > resultado["confianca_media"]:
-                logger.info(
-                    f"[{edicao_id}] Guiada direta melhor: {resultado['confianca_media']:.3f} → "
-                    f"{resultado_guiada['confianca_media']:.3f}"
+        guiada_falhou = False
+        try:
+            segmentos_guiados = await _retry_on_safety(
+                lambda: _transcrever_guiado_completo(
+                    audio_local, letra_texto, idioma, metadados,
                 )
-                resultado = resultado_guiada
+            )
+            segmentos_guiados = _normalizar_segmentos(segmentos_guiados)
+            logger.info(f"[{edicao_id}] Guiada: {len(segmentos_guiados)} segmentos")
+        except Exception as e_guiada:
+            guiada_falhou = True
+            segmentos_guiados = []
+            logger.warning(
+                f"[transcricao] Guiada falhou para edicao_id={edicao_id}: {e_guiada}"
+            )
+            # Se a cega também não tem resultado, propagar o erro
+            if not segmentos_cegos:
+                raise
+
+        # Se a guiada falhou mas a cega tem resultado, usar cega como fallback
+        if guiada_falhou and segmentos_cegos:
+            logger.info(
+                f"[transcricao] Guiada falhou, usando resultado da cega como "
+                f"fallback para edicao_id={edicao_id} "
+                f"({len(segmentos_cegos)} segmentos)"
+            )
+            resultado = _alinhar_letra(letra_texto, segmentos_cegos)
+            resultado["rota"] = resultado.get("rota", "cega_fallback")
+            # Marcar fallback no progresso
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "transcricao",
+                        "passo": "fallback_cega",
+                        "fallback": "cega",
+                    }
+                    db.commit()
+        else:
+            # Heartbeat antes do merge (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "transcricao",
+                        "passo": "merge_alinhamento",
+                    }
+                    db.commit()
+
+            # Passo 3: MERGE
+            logger.info(f"[{edicao_id}] Passo 3: Merge (cega {len(segmentos_cegos)} × guiada {len(segmentos_guiados)})...")
+            resultado = _merge_transcricoes(segmentos_cegos, segmentos_guiados, letra_texto)
+            logger.info(
+                f"[{edicao_id}] Merge: rota={resultado['rota']} "
+                f"confiança={resultado['confianca_media']}"
+            )
+
+            # Passo 4: Se merge fraco, tentar alinhar guiada direta como fallback
+            if resultado["rota"] == "C":
+                logger.info(f"[{edicao_id}] Merge fraco (rota C), tentando alinhamento guiada direta...")
+                resultado_guiada = _alinhar_letra(letra_texto, segmentos_guiados)
+                if resultado_guiada["confianca_media"] > resultado["confianca_media"]:
+                    logger.info(
+                        f"[{edicao_id}] Guiada direta melhor: {resultado['confianca_media']:.3f} → "
+                        f"{resultado_guiada['confianca_media']:.3f}"
+                    )
+                    resultado = resultado_guiada
 
         # Passo 5: Se ainda incompleto, tentar completação
         n_resultado = len(resultado.get("segmentos", []))
@@ -657,8 +689,8 @@ async def _transcricao_task(edicao_id: int):
                     if resultado_completado["confianca_media"] >= resultado["confianca_media"]:
                         resultado = resultado_completado
             except Exception as e:
-                if "safety filter" in str(e).lower():
-                    raise  # propagate safety filter to top-level handler
+                if "safety filter" in str(e).lower() and not guiada_falhou:
+                    raise  # propagate safety filter only if we don't have cega fallback
                 logger.warning(f"[{edicao_id}] Completação falhou: {e}")
 
         resultado["segmentos"] = _normalizar_segmentos(resultado["segmentos"])
@@ -682,7 +714,9 @@ async def _transcricao_task(edicao_id: int):
                 edicao.passo_atual = 4
                 edicao.erro_msg = None
                 edicao.task_heartbeat = datetime.now(timezone.utc)
-                edicao.progresso_detalhe = {}
+                edicao.progresso_detalhe = (
+                    {"fallback": "cega"} if guiada_falhou else {}
+                )
             db.commit()
 
         logger.info(
