@@ -1357,9 +1357,34 @@ class PacoteParams(BaseModel):
     redator_project_id: Optional[int] = None
 
 
-# Status do pacote armazenado em memória (por edição)
-# Formato: {edicao_id: {"status": "gerando"|"pronto"|"erro", "url": str|None, "erro": str|None}}
-_pacote_status: dict[int, dict] = {}
+def _set_pacote_status(edicao_id: int, status: str, url: str = None, erro: str = None):
+    """Persiste status do pacote no campo progresso_detalhe da edição."""
+    from app.database import SessionLocal
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if edicao:
+            edicao.progresso_detalhe = {
+                "etapa": "pacote",
+                "status": status,
+                "url": url,
+                "erro": erro,
+            }
+            db.commit()
+
+
+def _get_pacote_status(edicao_id: int, db: Session) -> dict:
+    """Lê status do pacote do campo progresso_detalhe."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        return {"status": "nenhum", "url": None, "erro": None}
+    p = edicao.progresso_detalhe
+    if isinstance(p, dict) and p.get("etapa") == "pacote":
+        return {
+            "status": p.get("status", "nenhum"),
+            "url": p.get("url"),
+            "erro": p.get("erro"),
+        }
+    return {"status": "nenhum", "url": None, "erro": None}
 
 
 def _gerar_pacote_background(edicao_id: int):
@@ -1370,12 +1395,12 @@ def _gerar_pacote_background(edicao_id: int):
     try:
         from app.database import SessionLocal
 
-        _pacote_status[edicao_id] = {"status": "gerando", "url": None, "erro": None}
+        _set_pacote_status(edicao_id, "gerando")
 
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
             if not edicao:
-                _pacote_status[edicao_id] = {"status": "erro", "url": None, "erro": "Edição não encontrada"}
+                _set_pacote_status(edicao_id, "erro", erro="Edição não encontrada")
                 return
 
             slug = f"{edicao.artista} - {edicao.musica}"
@@ -1425,7 +1450,7 @@ def _gerar_pacote_background(edicao_id: int):
             # Gerar URL presigned para download direto
             download_url = storage.get_presigned_url(r2_key, expires_in=7200)
 
-            _pacote_status[edicao_id] = {"status": "pronto", "url": download_url, "erro": None}
+            _set_pacote_status(edicao_id, "pronto", url=download_url)
             logger.info(f"[pacote] Pacote pronto para edicao_id={edicao_id}")
 
         finally:
@@ -1436,7 +1461,7 @@ def _gerar_pacote_background(edicao_id: int):
 
     except Exception as e:
         logger.error(f"[pacote] Erro ao gerar pacote edicao_id={edicao_id}: {e}", exc_info=True)
-        _pacote_status[edicao_id] = {"status": "erro", "url": None, "erro": str(e)[:500]}
+        _set_pacote_status(edicao_id, "erro", erro=str(e)[:500])
 
 
 @router.post("/edicoes/{edicao_id}/pacote")
@@ -1447,11 +1472,11 @@ def iniciar_pacote(edicao_id: int, background_tasks: BackgroundTasks, body: Paco
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    current = _pacote_status.get(edicao_id)
-    if current and current["status"] == "gerando":
+    current = _get_pacote_status(edicao_id, db)
+    if current["status"] == "gerando":
         return {"status": "gerando_pacote", "mensagem": "Pacote já está sendo gerado"}
 
-    _pacote_status[edicao_id] = {"status": "gerando", "url": None, "erro": None}
+    _set_pacote_status(edicao_id, "gerando")
     background_tasks.add_task(_gerar_pacote_background, edicao_id)
 
     return {"status": "gerando_pacote", "mensagem": "Geração do pacote iniciada"}
@@ -1464,11 +1489,7 @@ def status_pacote(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    current = _pacote_status.get(edicao_id)
-    if not current:
-        return {"status": "nenhum", "url": None, "erro": None}
-
-    return current
+    return _get_pacote_status(edicao_id, db)
 
 
 @router.get("/edicoes/{edicao_id}/renders")

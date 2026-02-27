@@ -160,6 +160,14 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     }
   }
 
+  const baixarRendersIndividualmente = async () => {
+    const rendersConcluidos = renders.filter(r => r.status === "concluido")
+    for (const r of rendersConcluidos) {
+      window.open(editorApi.downloadRenderUrl(edicaoId, r.id), "_blank")
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+  }
+
   const handleBaixarTodos = async () => {
     if (!edicao) return
     setBaixandoTodos(true)
@@ -189,13 +197,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           return
         }
         if (st.status === "erro") {
-          setError(`Erro ao gerar pacote: ${st.erro || "erro desconhecido"}`)
+          setError(`Pacote falhou — baixando individualmente...`)
+          await baixarRendersIndividualmente()
           return
         }
       }
-      setError("Timeout na geração do pacote")
+      // Timeout: fallback para download individual
+      setError("Pacote demorou demais — baixando individualmente...")
+      await baixarRendersIndividualmente()
     } catch {
-      setError("Erro ao iniciar geração do pacote")
+      // Erro de rede: fallback para download individual
+      setError("Erro no pacote — baixando individualmente...")
+      await baixarRendersIndividualmente()
     } finally {
       setBaixandoTodos(false)
     }
