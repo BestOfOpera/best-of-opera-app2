@@ -633,7 +633,7 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
 
 
 # Statuses que permitem (re)iniciar tradução
-_STATUS_PERMITIDOS_TRADUCAO = {"traducao", "montagem", "erro"}
+_STATUS_PERMITIDOS_TRADUCAO = {"corte", "traducao", "montagem", "erro"}
 
 
 # --- Passo 6: Tradução lyrics ---
