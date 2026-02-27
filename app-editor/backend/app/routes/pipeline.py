@@ -675,6 +675,7 @@ async def _transcricao_task(edicao_id: int):
             f"[{edicao_id}] Transcrição concluída: "
             f"rota={resultado['rota']} confiança={resultado['confianca_media']}"
         )
+        logger.info(f"[{edicao_id}] _transcricao_task FINALIZOU COMPLETAMENTE")
 
     except BaseException as e:
         if isinstance(e, asyncio.CancelledError):
@@ -895,10 +896,11 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
         return {"status": "instrumental — tradução pulada"}
 
     # Check-and-set atômico: só aceitar se status permite
+    # Zerar heartbeat e progresso para que desbloquear funcione se a task travar
     result = db.execute(
         update(Edicao)
         .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_TRADUCAO))
-        .values(status="traducao")
+        .values(status="traducao", task_heartbeat=None, progresso_detalhe={})
     )
     db.commit()
 
@@ -1033,6 +1035,7 @@ async def _traducao_task(edicao_id: int):
                 db.commit()
 
         logger.info(f"[{edicao_id}] Tradução concluída: {concluidos} OK, {len(falhas)} falhas")
+        logger.info(f"[{edicao_id}] _traducao_task FINALIZOU COMPLETAMENTE")
 
     except BaseException as e:
         if isinstance(e, asyncio.CancelledError):
@@ -1125,7 +1128,7 @@ async def renderizar(edicao_id: int):
         result = db.execute(
             update(Edicao)
             .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_RENDER))
-            .values(status="renderizando")
+            .values(status="renderizando", task_heartbeat=None, progresso_detalhe={})
         )
         db.commit()
 
@@ -1477,7 +1480,7 @@ async def renderizar_preview(edicao_id: int):
         result = db.execute(
             update(Edicao)
             .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_PREVIEW))
-            .values(status="preview")
+            .values(status="preview", task_heartbeat=None, progresso_detalhe={})
         )
         db.commit()
 
@@ -1508,7 +1511,8 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
             result = db.execute(
                 update(Edicao)
                 .where(Edicao.id == edicao_id, Edicao.status == "preview_pronto")
-                .values(status="renderizando", notas_revisao=None)
+                .values(status="renderizando", notas_revisao=None,
+                        task_heartbeat=None, progresso_detalhe={})
             )
             db.commit()
 
@@ -1880,14 +1884,15 @@ async def fila_status():
 
 
 @router.post("/edicoes/{edicao_id}/desbloquear")
-async def desbloquear_edicao(edicao_id: int):
+async def desbloquear_edicao(edicao_id: int, force: bool = False):
     """Recovery manual: infere o status correto e desbloqueia uma edição travada.
 
     Só permitido se:
+    - force=true (ignora check de heartbeat), OU
     - status == "erro", OU
     - status é um status ativo E o heartbeat está stale (> 5 min / NULL)
 
-    Retorna 409 se a edição está em processamento ativo.
+    Retorna 409 se a edição está em processamento ativo (e force=false).
     """
     from app.database import SessionLocal
 
@@ -1905,7 +1910,7 @@ async def desbloquear_edicao(edicao_id: int):
             hb = hb.replace(tzinfo=timezone.utc)
         is_stale = hb is None or (datetime.now(timezone.utc) - hb) > _STALE_THRESHOLD
 
-        if not is_erro and not (is_active and is_stale):
+        if not force and not is_erro and not (is_active and is_stale):
             raise HTTPException(
                 409,
                 f"Edição não pode ser desbloqueada: status='{edicao.status}'"
@@ -1940,6 +1945,7 @@ async def desbloquear_edicao(edicao_id: int):
 
     logger.info(
         f"[desbloquear] edicao_id={edicao_id} desbloqueada → status='{novo_status}' "
-        f"(renders={n_renders}, traducoes={n_traducoes}, tentativas_requeue resetado)"
+        f"(renders={n_renders}, traducoes={n_traducoes}, tentativas_requeue resetado"
+        f"{', force=True' if force else ''})"
     )
     return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}

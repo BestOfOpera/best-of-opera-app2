@@ -11,20 +11,26 @@ logger = logging.getLogger(__name__)
 # Fila global — itens: (async_callable, edicao_id)
 task_queue: asyncio.Queue = asyncio.Queue()
 
+# Flag real do worker — edicao_id da task em execução (None = idle)
+_current_task_edicao_id: int | None = None
+
 _STALE_THRESHOLD = timedelta(minutes=5)
 
 
 async def worker_loop():
     """Consome tasks da fila uma por vez. Roda como asyncio.Task no lifespan."""
+    global _current_task_edicao_id
     logger.info("[worker] Worker sequencial iniciado")
     while True:
         try:
             logger.info("[worker] Aguardando próxima task na fila...")
             task_func, edicao_id = await task_queue.get()
             logger.info(f"[worker] Pegou task edicao_id={edicao_id} queue={task_queue.qsize()}")
+            _current_task_edicao_id = edicao_id
             try:
+                logger.info(f"[worker] Chamando task_func para edicao_id={edicao_id}")
                 await task_func(edicao_id)
-                logger.info(f"[worker] Terminou task edicao_id={edicao_id}")
+                logger.info(f"[worker] task_func RETORNOU para edicao_id={edicao_id}")
             except asyncio.CancelledError:
                 # Propagar para o shutdown — não engolir CancelledError da task
                 raise
@@ -48,7 +54,9 @@ async def worker_loop():
                 except Exception:
                     logger.error(f"[worker] Não conseguiu salvar status 'erro' para edicao_id={edicao_id}")
             finally:
+                _current_task_edicao_id = None
                 task_queue.task_done()
+                logger.info(f"[worker] task_done() chamado, fila tem {task_queue.qsize()} items")
         except asyncio.CancelledError:
             logger.info("[worker] CancelledError — encerrando cleanly")
             raise
@@ -99,23 +107,26 @@ def requeue_stale_tasks():
 
 
 def is_worker_busy() -> dict:
-    """Verifica se há edição sendo processada ativamente."""
-    from app.database import SessionLocal
-    from app.models import Edicao
+    """Verifica se o worker está executando uma task.
 
-    with SessionLocal() as db:
-        em_proc = db.query(Edicao).filter(
-            Edicao.status.in_(["baixando", "transcricao", "traducao", "renderizando", "preview"])
-        ).first()
+    Usa a flag real _current_task_edicao_id (setada pelo worker_loop)
+    em vez de consultar o banco, evitando falsos positivos quando o
+    status no banco ainda não foi limpo.
+    """
+    if _current_task_edicao_id is not None:
+        from app.database import SessionLocal
+        from app.models import Edicao
 
-        if em_proc:
-            resultado = {
-                "ocupado": True,
-                "edicao_id": em_proc.id,
-                "etapa": em_proc.status,
-                "progresso": em_proc.progresso_detalhe or {},
-            }
-        else:
-            resultado = {"ocupado": False}
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, _current_task_edicao_id)
+            if edicao:
+                return {
+                    "ocupado": True,
+                    "edicao_id": edicao.id,
+                    "etapa": edicao.status,
+                    "progresso": edicao.progresso_detalhe or {},
+                }
+        # Flag set mas edição não encontrada — inconsistência, reportar idle
+        return {"ocupado": False}
 
-    return resultado
+    return {"ocupado": False}
