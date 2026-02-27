@@ -15,7 +15,6 @@ from app.database import get_db
 logger = logging.getLogger(__name__)
 from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
-from app.services.youtube import download_video
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
 from app.services.gemini import buscar_letra as gemini_buscar_letra
 from app.services.genius import buscar_letra_genius
@@ -143,7 +142,6 @@ async def _download_task(edicao_id: int):
     try:
         logger.info(f"[download_task] INÍCIO edicao_id={edicao_id}")
         from app.database import SessionLocal
-        from app.services.youtube import download_video as _download_video
         from shared.storage_service import (
             check_conflict as _check_conflict,
             save_youtube_marker as _save_youtube_marker,
@@ -169,7 +167,6 @@ async def _download_task(edicao_id: int):
             video_local = _find_video_in_export(edicao)
 
             # Copiar dados necessários para fora da sessão
-            youtube_url = edicao.youtube_url
             artista = edicao.artista
             musica = edicao.musica
             youtube_video_id = edicao.youtube_video_id or ""
@@ -219,39 +216,55 @@ async def _download_task(edicao_id: int):
             logger.info(f"[{edicao_id}] Download concluído via local: {r2_key}")
             return
 
-        # PASSO C — Baixar do YouTube (banco FECHADO durante yt-dlp)
-        # Heartbeat antes do yt-dlp
+        # PASSO C — Verificar se vídeo já existe no R2 (upload prévio da curadoria)
+        base = _check_conflict(artista, musica, youtube_video_id)
+        r2_key = f"{base}/video/original.mp4"
+
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
             if edicao:
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {
                     "etapa": "download",
-                    "passo": "yt-dlp",
+                    "passo": "verificando_r2",
                 }
                 db.commit()
 
-        resultado = await _download_video(
-            youtube_url, edicao_id, STORAGE_PATH,
-            artista=artista, musica=musica,
-            youtube_video_id=youtube_video_id,
-        )
+        if storage.exists(r2_key):
+            # Vídeo já está no R2 (provavelmente upload da curadoria)
+            if youtube_video_id:
+                _save_youtube_marker(base, youtube_video_id)
 
-        # Salvar resultado (sessão curta)
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.arquivo_video_completo = r2_key
+                    edicao.r2_base = base
+                    edicao.status = "letra"
+                    edicao.passo_atual = 2
+                    edicao.erro_msg = None
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {}
+                    db.commit()
+
+            logger.info(f"[{edicao_id}] Vídeo encontrado no R2 (curadoria): {r2_key}")
+            return
+
+        # Vídeo não encontrado em nenhum lugar — erro com orientação
+        erro_msg = (
+            f"Vídeo não encontrado no R2 (key: {r2_key}). "
+            "Faça upload manual ou verifique se a curadoria já processou este vídeo."
+        )
+        logger.warning(f"[{edicao_id}] {erro_msg}")
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
             if edicao:
-                edicao.arquivo_video_completo = resultado["arquivo_original"]
-                edicao.r2_base = resultado.get("r2_base", "")
-                edicao.duracao_total_sec = resultado.get("duracao_total")
-                edicao.status = "letra"
-                edicao.passo_atual = 2
-                edicao.erro_msg = None
+                edicao.status = "erro"
+                edicao.erro_msg = erro_msg
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {}
                 db.commit()
-
-        logger.info(f"[{edicao_id}] Download YouTube concluído")
+        return
 
     except BaseException as e:
         if isinstance(e, asyncio.CancelledError):
@@ -373,21 +386,12 @@ async def iniciar_transcricao(edicao_id: int, db: Session = Depends(get_db)):
             409, "Vídeo ainda não foi baixado. Aguarde o download completar."
         )
 
-    # Verificar se vídeo existe no R2 (não mais no disco local)
+    # Verificar se vídeo existe no R2
     if not storage.exists(edicao.arquivo_video_completo):
-        if edicao.youtube_url:
-            logger.info(f"[{edicao_id}] Vídeo não encontrado no storage, re-baixando...")
-            resultado_dl = await download_video(
-                edicao.youtube_url, edicao_id, STORAGE_PATH,
-                artista=edicao.artista, musica=edicao.musica,
-                youtube_video_id=edicao.youtube_video_id or "",
-            )
-            edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
-            edicao.r2_base = resultado_dl.get("r2_base", edicao.r2_base)
-            edicao.arquivo_audio_completo = None
-            db.commit()
-        else:
-            raise HTTPException(409, "Vídeo não encontrado no storage e sem URL para re-baixar.")
+        raise HTTPException(
+            409,
+            "Vídeo não encontrado no R2. Faça upload manual ou verifique se a curadoria já processou este vídeo.",
+        )
 
     # Extrair áudio se necessário
     if not edicao.arquivo_audio_completo or not storage.exists(edicao.arquivo_audio_completo):
@@ -452,11 +456,9 @@ async def _transcricao_task(edicao_id: int):
             r2_base = _get_r2_base(edicao)
             arquivo_audio = edicao.arquivo_audio_completo
             arquivo_video = edicao.arquivo_video_completo
-            youtube_url = edicao.youtube_url
             artista = edicao.artista
             musica = edicao.musica
             compositor = edicao.compositor
-            youtube_video_id = edicao.youtube_video_id or ""
             idioma = edicao.idioma
 
             # Setar status e heartbeat inicial
@@ -477,25 +479,6 @@ async def _transcricao_task(edicao_id: int):
                 with SessionLocal() as db:
                     edicao = db.get(Edicao, edicao_id)
                     if edicao:
-                        edicao.arquivo_audio_completo = arquivo_audio
-                        db.commit()
-            elif youtube_url:
-                logger.info(f"[{edicao_id}] Vídeo e áudio não encontrados, re-baixando...")
-                resultado_dl = await download_video(
-                    youtube_url, edicao_id, STORAGE_PATH,
-                    artista=artista, musica=musica,
-                    youtube_video_id=youtube_video_id,
-                )
-                arquivo_video = resultado_dl["arquivo_original"]
-                r2_base = resultado_dl.get("r2_base", r2_base)
-                arquivo_audio = await extrair_audio_completo(
-                    arquivo_video, edicao_id, STORAGE_PATH, r2_base=r2_base,
-                )
-                with SessionLocal() as db:
-                    edicao = db.get(Edicao, edicao_id)
-                    if edicao:
-                        edicao.arquivo_video_completo = arquivo_video
-                        edicao.r2_base = r2_base
                         edicao.arquivo_audio_completo = arquivo_audio
                         db.commit()
             else:
@@ -825,21 +808,10 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     r2_base = _get_r2_base(edicao)
     video_key = edicao.arquivo_video_completo
     if not video_key or not storage.exists(video_key):
-        if edicao.youtube_url:
-            logger.info(f"Vídeo não encontrado no storage — re-baixando...")
-            try:
-                resultado_dl = await download_video(
-                    edicao.youtube_url, edicao_id, STORAGE_PATH,
-                    artista=edicao.artista, musica=edicao.musica,
-                    youtube_video_id=edicao.youtube_video_id or "",
-                )
-                edicao.arquivo_video_completo = resultado_dl["arquivo_original"]
-                edicao.r2_base = resultado_dl.get("r2_base", edicao.r2_base)
-                r2_base = _get_r2_base(edicao)
-                video_key = resultado_dl["arquivo_original"]
-            except Exception as e:
-                logger.error(f"Falha ao re-baixar vídeo: {e}")
-                video_key = None
+        raise HTTPException(
+            409,
+            "Vídeo não encontrado no R2. Faça upload manual ou verifique se a curadoria já processou este vídeo.",
+        )
 
     if video_key and storage.exists(video_key):
         resultado = await cortar_na_janela_overlay(
