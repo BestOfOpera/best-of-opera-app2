@@ -165,8 +165,9 @@ export const editorApi = {
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
     `${BASE()}/edicoes/${edicaoId}/renders/${renderId}/download`,
   pacoteUrl: (id: number) => `${BASE()}/edicoes/${id}/pacote`,
+  pacoteDownloadUrl: (id: number) => `${BASE()}/edicoes/${id}/pacote/download`,
   iniciarPacote: (id: number) =>
-    request<{ status: string; mensagem: string }>(`${BASE()}/edicoes/${id}/pacote`, { method: "POST" }),
+    request<{ status: string; mensagem: string }>(`${BASE()}/edicoes/${id}/pacote`, { method: "POST", body: "{}" }),
   statusPacote: (id: number) =>
     request<PacoteStatus>(`${BASE()}/edicoes/${id}/pacote/status`),
 

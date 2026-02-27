@@ -1353,11 +1353,8 @@ def exportar_renders(edicao_id: int, db: Session = Depends(get_db)):
 
 
 # --- Passo 9: Pacote final assíncrono (renders + textos do Redator) ---
-class PacoteParams(BaseModel):
-    redator_project_id: Optional[int] = None
 
-
-def _set_pacote_status(edicao_id: int, status: str, url: str = None, erro: str = None):
+def _set_pacote_status(edicao_id: int, status: str, url: str = None, erro: str = None, r2_key: str = None):
     """Persiste status do pacote no campo progresso_detalhe da edição."""
     from app.database import SessionLocal
     with SessionLocal() as db:
@@ -1368,6 +1365,7 @@ def _set_pacote_status(edicao_id: int, status: str, url: str = None, erro: str =
                 "status": status,
                 "url": url,
                 "erro": erro,
+                "r2_key": r2_key,
             }
             db.commit()
 
@@ -1383,6 +1381,7 @@ def _get_pacote_status(edicao_id: int, db: Session) -> dict:
             "status": p.get("status", "nenhum"),
             "url": p.get("url"),
             "erro": p.get("erro"),
+            "r2_key": p.get("r2_key"),
         }
     return {"status": "nenhum", "url": None, "erro": None}
 
@@ -1450,7 +1449,7 @@ def _gerar_pacote_background(edicao_id: int):
             # Gerar URL presigned para download direto
             download_url = storage.get_presigned_url(r2_key, expires_in=7200)
 
-            _set_pacote_status(edicao_id, "pronto", url=download_url)
+            _set_pacote_status(edicao_id, "pronto", url=download_url, r2_key=r2_key)
             logger.info(f"[pacote] Pacote pronto para edicao_id={edicao_id}")
 
         finally:
@@ -1465,7 +1464,7 @@ def _gerar_pacote_background(edicao_id: int):
 
 
 @router.post("/edicoes/{edicao_id}/pacote")
-def iniciar_pacote(edicao_id: int, background_tasks: BackgroundTasks, body: PacoteParams = PacoteParams(), db: Session = Depends(get_db)):
+def iniciar_pacote(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Inicia geração assíncrona do pacote ZIP. Retorna imediatamente.
     Use GET /pacote/status para acompanhar."""
     edicao = db.get(Edicao, edicao_id)
@@ -1490,6 +1489,36 @@ def status_pacote(edicao_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Edição não encontrada")
 
     return _get_pacote_status(edicao_id, db)
+
+
+@router.get("/edicoes/{edicao_id}/pacote/download")
+def download_pacote(edicao_id: int, db: Session = Depends(get_db)):
+    """Download direto do pacote ZIP (baixa do R2 e serve via FileResponse)."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    status = _get_pacote_status(edicao_id, db)
+    if status["status"] != "pronto":
+        raise HTTPException(404, "Pacote não está pronto para download")
+
+    r2_key = status.get("r2_key")
+    if not r2_key:
+        # Fallback: tentar reconstruir key
+        r2_base = _get_r2_base(edicao)
+        r2_key = f"{r2_base}/export/pacote.zip" if r2_base else f"exports/{edicao_id}/pacote.zip"
+
+    try:
+        local_path = storage.ensure_local(r2_key)
+    except FileNotFoundError:
+        raise HTTPException(404, "Arquivo do pacote não encontrado no storage. Gere novamente.")
+
+    slug = _sanitize_filename(f"{edicao.artista} - {edicao.musica}")
+    return FileResponse(
+        path=local_path,
+        media_type="application/zip",
+        filename=f"{slug}.zip",
+    )
 
 
 @router.get("/edicoes/{edicao_id}/renders")

@@ -55,6 +55,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
   const [baixandoTodos, setBaixandoTodos] = useState(false)
+  const [baixandoRenders, setBaixandoRenders] = useState<Set<number>>(new Set())
   const [pacoteStatus, setPacoteStatus] = useState<PacoteStatus | null>(null)
   const [error, setError] = useState("")
   const [editandoCorte, setEditandoCorte] = useState(false)
@@ -160,11 +161,27 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     }
   }
 
-  const baixarRendersIndividualmente = async () => {
-    const rendersConcluidos = renders.filter(r => r.status === "concluido")
-    for (const r of rendersConcluidos) {
-      window.open(editorApi.downloadRenderUrl(edicaoId, r.id), "_blank")
-      await new Promise(resolve => setTimeout(resolve, 500))
+  const triggerDownload = (url: string) => {
+    const a = document.createElement("a")
+    a.href = url
+    a.style.display = "none"
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => document.body.removeChild(a), 200)
+  }
+
+  const handleBaixarRender = async (renderId: number) => {
+    setBaixandoRenders(prev => new Set(prev).add(renderId))
+    try {
+      triggerDownload(editorApi.downloadRenderUrl(edicaoId, renderId))
+      // Pequeno delay para o browser processar
+      await new Promise(r => setTimeout(r, 1500))
+    } finally {
+      setBaixandoRenders(prev => {
+        const next = new Set(prev)
+        next.delete(renderId)
+        return next
+      })
     }
   }
 
@@ -175,9 +192,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     try {
       // Verifica se já tem pacote pronto
       const current = await editorApi.statusPacote(edicaoId).catch(() => null)
-      if (current?.status === "pronto" && current.url) {
-        window.open(current.url, "_blank")
-        setBaixandoTodos(false)
+      if (current?.status === "pronto") {
+        triggerDownload(editorApi.pacoteDownloadUrl(edicaoId))
         return
       }
 
@@ -192,23 +208,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         const st = await editorApi.statusPacote(edicaoId).catch(() => null)
         if (!st) continue
         setPacoteStatus(st)
-        if (st.status === "pronto" && st.url) {
-          window.open(st.url, "_blank")
+        if (st.status === "pronto") {
+          triggerDownload(editorApi.pacoteDownloadUrl(edicaoId))
           return
         }
         if (st.status === "erro") {
-          setError(`Pacote falhou — baixando individualmente...`)
-          await baixarRendersIndividualmente()
+          setError(`Erro ao gerar pacote: ${st.erro || "erro desconhecido"}`)
           return
         }
       }
-      // Timeout: fallback para download individual
-      setError("Pacote demorou demais — baixando individualmente...")
-      await baixarRendersIndividualmente()
-    } catch {
-      // Erro de rede: fallback para download individual
-      setError("Erro no pacote — baixando individualmente...")
-      await baixarRendersIndividualmente()
+      setError("Pacote demorou demais. Tente novamente ou baixe individualmente.")
+    } catch (err: unknown) {
+      setError("Erro ao iniciar pacote: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setBaixandoTodos(false)
     }
@@ -339,11 +350,15 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             {baixandoTodos && pacoteStatus?.status === "gerando"
               ? "Gerando pacote ZIP..."
               : baixandoTodos
-                ? "Preparando..."
+                ? "Iniciando..."
                 : "Baixar Todos os Vídeos"}
           </Button>
-          {baixandoTodos && pacoteStatus?.status === "gerando" && (
-            <p className="text-sm text-muted-foreground">Baixando vídeos do R2 e criando ZIP — pode levar alguns minutos</p>
+          {baixandoTodos && (
+            <p className="text-sm text-muted-foreground">
+              {pacoteStatus?.status === "gerando"
+                ? "Empacotando vídeos — isso pode levar alguns minutos..."
+                : "Verificando status do pacote..."}
+            </p>
           )}
         </div>
       )}
@@ -667,7 +682,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                 disabled={baixandoTodos}
               >
                 {baixandoTodos ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
-                {baixandoTodos ? "Gerando pacote..." : "Baixar Todos"}
+                {baixandoTodos && pacoteStatus?.status === "gerando"
+                  ? "Gerando ZIP..."
+                  : baixandoTodos
+                    ? "Iniciando..."
+                    : "Baixar Todos"}
               </Button>
             ) : concluidos.length > 0 ? (
               <span className="text-xs text-muted-foreground">Baixe individualmente</span>
@@ -699,10 +718,17 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                       <>
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
-                        <Button asChild size="sm" variant="outline" className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100">
-                          <a href={editorApi.downloadRenderUrl(edicaoId, render.id)} target="_blank" rel="noopener">
-                            <Download className="h-3.5 w-3.5" /> Baixar
-                          </a>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100"
+                          onClick={() => handleBaixarRender(render.id)}
+                          disabled={baixandoRenders.has(render.id)}
+                        >
+                          {baixandoRenders.has(render.id)
+                            ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Baixando...</>
+                            : <><Download className="h-3.5 w-3.5" /> Baixar</>
+                          }
                         </Button>
                       </>
                     ) : (
