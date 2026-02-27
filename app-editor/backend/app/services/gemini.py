@@ -6,6 +6,12 @@ from app.config import GEMINI_API_KEY
 
 _logger = logging.getLogger(__name__)
 
+
+class SafetyFilterError(RuntimeError):
+    """Gemini blocked the response due to safety filter."""
+    pass
+
+
 # Lazy init do client
 _client = None
 
@@ -42,7 +48,7 @@ def _extract_response_text(response) -> str:
                 blocked = [r for r in ratings if getattr(r, "blocked", False)]
                 if blocked:
                     block_reason = f"safety_ratings: {blocked}"
-        raise RuntimeError(
+        raise SafetyFilterError(
             f"Gemini bloqueou a resposta (safety filter). "
             f"Motivo: {block_reason or 'desconhecido'}. "
             f"Tente novamente ou ajuste o conteúdo."
@@ -131,6 +137,8 @@ FORMATO JSON (retorne APENAS isto):
                 timeout=300,
             )
             return parse_json_response(_extract_response_text(response))
+        except SafetyFilterError:
+            raise  # propagate for pipeline-level retry
         except (RuntimeError, asyncio.TimeoutError) as e:
             _logger.warning(f"mapear_estrutura_audio tentativa {tentativa+1}/2: {e}")
             if tentativa == 1:
@@ -217,6 +225,8 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
                 timeout=300,
             )
             return parse_json_response(_extract_response_text(response))
+        except SafetyFilterError:
+            raise  # propagate for pipeline-level retry
         except (RuntimeError, asyncio.TimeoutError) as e:
             _logger.warning(f"transcrever_guiado_completo tentativa {tentativa+1}/2: {e}")
             if tentativa == 1:
@@ -303,6 +313,8 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
                 timeout=300,
             )
             return parse_json_response(_extract_response_text(response))
+        except SafetyFilterError:
+            raise  # propagate for pipeline-level retry
         except (RuntimeError, asyncio.TimeoutError) as e:
             _logger.warning(f"completar_transcricao tentativa {tentativa+1}/2: {e}")
             if tentativa == 1:

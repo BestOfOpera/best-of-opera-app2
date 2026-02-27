@@ -430,12 +430,35 @@ async def _transcricao_task(edicao_id: int):
             completar_transcricao as _completar_transcricao,
             _detect_mime_type as _detect_mime,
             _get_client as _get_gemini_client,
+            SafetyFilterError,
         )
         from app.services.alinhamento import (
             alinhar_letra_com_timestamps as _alinhar_letra,
             merge_transcricoes as _merge_transcricoes,
         )
         from app.services.regua import normalizar_segmentos as _normalizar_segmentos
+
+        async def _retry_on_safety(fn):
+            """Retry on SafetyFilterError up to 3 times with heartbeat."""
+            for attempt in range(1, 4):
+                try:
+                    return await fn()
+                except SafetyFilterError:
+                    logger.warning(
+                        f"[transcricao] Safety filter tentativa {attempt}/3 "
+                        f"para edicao_id={edicao_id}"
+                    )
+                    if attempt == 3:
+                        raise SafetyFilterError(
+                            "Gemini bloqueou a transcrição por safety filter "
+                            "após 3 tentativas. Música pode conter conteúdo sensível."
+                        )
+                    with SessionLocal() as db:
+                        edicao_hb = db.get(Edicao, edicao_id)
+                        if edicao_hb:
+                            edicao_hb.task_heartbeat = datetime.now(timezone.utc)
+                            db.commit()
+                    await asyncio.sleep(5)
 
         # PASSO A — Ler estado e inicializar (sessão curta)
         with SessionLocal() as db:
@@ -536,8 +559,10 @@ async def _transcricao_task(edicao_id: int):
         melhor_cega = None
         melhor_n_cega = 0
         for tentativa in range(1, 3):
-            segmentos_cegos = await _mapear_estrutura_audio(
-                audio_file_ref, idioma, metadados, letra_texto
+            segmentos_cegos = await _retry_on_safety(
+                lambda: _mapear_estrutura_audio(
+                    audio_file_ref, idioma, metadados, letra_texto
+                )
             )
             n = len(segmentos_cegos)
             logger.info(f"[{edicao_id}] Cega tentativa {tentativa}: {n} segmentos")
@@ -563,8 +588,10 @@ async def _transcricao_task(edicao_id: int):
 
         # Passo 2: Transcrição GUIADA (banco FECHADO)
         logger.info(f"[{edicao_id}] Passo 2: Transcrição GUIADA (texto fiel à letra)...")
-        segmentos_guiados = await _transcrever_guiado_completo(
-            audio_local, letra_texto, idioma, metadados,
+        segmentos_guiados = await _retry_on_safety(
+            lambda: _transcrever_guiado_completo(
+                audio_local, letra_texto, idioma, metadados,
+            )
         )
         segmentos_guiados = _normalizar_segmentos(segmentos_guiados)
         logger.info(f"[{edicao_id}] Guiada: {len(segmentos_guiados)} segmentos")
@@ -617,9 +644,11 @@ async def _transcricao_task(edicao_id: int):
                     }
                     db.commit()
             try:
-                segmentos_completados = await _completar_transcricao(
-                    audio_local, letra_texto,
-                    resultado["segmentos"], idioma, metadados,
+                segmentos_completados = await _retry_on_safety(
+                    lambda: _completar_transcricao(
+                        audio_local, letra_texto,
+                        resultado["segmentos"], idioma, metadados,
+                    )
                 )
                 if len(segmentos_completados) > n_resultado:
                     logger.info(f"[{edicao_id}] Completação: {n_resultado} → {len(segmentos_completados)}")
@@ -628,6 +657,8 @@ async def _transcricao_task(edicao_id: int):
                     if resultado_completado["confianca_media"] >= resultado["confianca_media"]:
                         resultado = resultado_completado
             except Exception as e:
+                if "safety filter" in str(e).lower():
+                    raise  # propagate safety filter to top-level handler
                 logger.warning(f"[{edicao_id}] Completação falhou: {e}")
 
         resultado["segmentos"] = _normalizar_segmentos(resultado["segmentos"])
@@ -663,6 +694,11 @@ async def _transcricao_task(edicao_id: int):
     except BaseException as e:
         if isinstance(e, asyncio.CancelledError):
             erro_msg = "Interrompido por reinício do servidor"
+        elif "safety filter" in str(e).lower():
+            erro_msg = (
+                "Gemini bloqueou a transcrição por safety filter após 3 tentativas. "
+                "Música pode conter conteúdo sensível."
+            )
         else:
             erro_msg = f"Transcrição falhou: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _transcricao_task erro: {e}", exc_info=True)
