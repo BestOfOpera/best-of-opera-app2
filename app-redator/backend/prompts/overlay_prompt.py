@@ -79,6 +79,16 @@ STRUCTURE RULES
 5. FORBIDDEN phrases — never use: "beautiful performance", "amazing voice", "stunning rendition", "incredible talent", "breathtaking", "timeless masterpiece", "legendary performance". These are filler. Be specific instead.
 6. FORBIDDEN jargon — never use: "bel canto", "coloratura", "tessitura", "libretto", "aria" (unless explained), "virtuoso". Write for someone who has never watched opera in their life.
 7. Space subtitles evenly. Gap between one subtitle ending and the next starting: ~1 second.
+8. OVERLAY FORMATTING RULE:
+   - Maximum 60 characters in total per subtitle.
+   - If a subtitle has more than 30 characters, split it into 2 lines using \\n.
+   - Each line: maximum 30 characters.
+   - The 2 lines must be BALANCED in length (maximum 30% difference between them).
+   - Use short, impactful phrases.
+   - Examples:
+     "One of the most demanding\\narias in all of opera!" ✅ (25+22 chars, balanced)
+     "A legendary performance!" ✅ (24 chars, 1 line)
+     "Die\\nanspruchsvollste Arie der Oper!" ❌ (3+31 chars, UNBALANCED)
 
 ═══════════════════════════════
 EMOTIONAL TOOLKIT — use these techniques
