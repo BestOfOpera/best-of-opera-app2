@@ -2005,25 +2005,54 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
                 + (" (processamento ativo)" if is_active and not is_stale else ""),
             )
 
-        # Contar traduções e renders concluídos para inferir status
-        n_traducoes = db.query(TraducaoLetra).filter(
-            TraducaoLetra.edicao_id == edicao_id
-        ).count()
+        # Consultar dados reais do banco para inferir status correto
         n_renders = db.query(Render).filter(
             Render.edicao_id == edicao_id,
             Render.status == "concluido",
         ).count()
-
+        n_traducoes = db.query(TraducaoLetra).filter(
+            TraducaoLetra.edicao_id == edicao_id
+        ).count()
+        alinhamento = db.query(Alinhamento).filter(
+            Alinhamento.edicao_id == edicao_id,
+        ).first()
+        tem_alinhamento_validado = bool(alinhamento and alinhamento.validado)
         tem_corte = bool(edicao.arquivo_video_cortado)
 
+        # Verificar se existe letra aprovada para esta edição
+        from app.models import Letra
+        tem_letra = bool(db.query(Letra).filter(
+            Letra.musica == edicao.musica,
+            Letra.idioma == edicao.idioma,
+        ).first()) if not edicao.eh_instrumental else True
+
+        tem_video = bool(
+            edicao.arquivo_video_completo
+            and storage.exists(edicao.arquivo_video_completo)
+        )
+
+        # Inferir status do mais avançado para o mais básico
         if n_renders > 0:
             novo_status = "preview_pronto"
+            base = "renders"
         elif n_traducoes > 0:
             novo_status = "montagem"
+            base = "traducoes"
         elif tem_corte:
+            novo_status = "montagem"
+            base = "corte_existente"
+        elif tem_alinhamento_validado:
             novo_status = "corte"
+            base = "alinhamento_validado"
+        elif tem_letra:
+            novo_status = "transcricao"
+            base = "letra_aprovada"
+        elif tem_video:
+            novo_status = "letra"
+            base = "video_r2"
         else:
-            novo_status = "alinhamento"
+            novo_status = "aguardando"
+            base = "nenhum_dado"
 
         edicao.status = novo_status
         edicao.erro_msg = None
@@ -2032,11 +2061,23 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
         db.commit()
 
     logger.info(
-        f"[desbloquear] edicao_id={edicao_id} desbloqueada → status='{novo_status}' "
-        f"(renders={n_renders}, traducoes={n_traducoes}, tentativas_requeue resetado"
-        f"{', force=True' if force else ''})"
+        f"[desbloquear] edicao_id={edicao_id} inferido status='{novo_status}' "
+        f"baseado em: renders={n_renders}, traducoes={n_traducoes}, "
+        f"alinhamento={'validado' if tem_alinhamento_validado else ('existe' if alinhamento else 'nao')}, "
+        f"corte={'sim' if tem_corte else 'nao'}, letra={'sim' if tem_letra else 'nao'}, "
+        f"video={'sim' if tem_video else 'nao'} → razao={base}"
+        f"{', force=True' if force else ''}"
     )
-    return {"novo_status": novo_status, "renders_concluidos": n_renders, "traducoes": n_traducoes}
+    return {
+        "novo_status": novo_status,
+        "razao": base,
+        "renders_concluidos": n_renders,
+        "traducoes": n_traducoes,
+        "alinhamento_validado": tem_alinhamento_validado,
+        "tem_corte": tem_corte,
+        "tem_letra": tem_letra,
+        "tem_video": tem_video,
+    }
 
 
 # --- Limpar Edição ---
