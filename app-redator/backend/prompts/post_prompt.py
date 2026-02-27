@@ -78,10 +78,21 @@ FORBIDDEN — never write these phrases:
 These are empty. Replace them with a SPECIFIC detail that earns the emotion.
 
 ──────────────────────
-SECTION 3 — CREDITS (exact format, always in English)
+SECTION 3 — CREDITS (exact format, labels in the SAME LANGUAGE as the post)
 ──────────────────────
 For EACH artist (if multiple artists separated by " & ", create a block for EACH):
 
+If post is in Portuguese:
+[Fun emoji] [Artist Full Name] [flag emoji]
+Tipo de voz: [voice type]
+Data de nascimento: [dd/mm/yyyy]
+
+Then the work:
+[Fun emoji] [Work Name] — [Album or Opera name]
+Compositor: [Composer name]
+Data de composição: [year]
+
+If post is in English:
 [Fun emoji] [Artist Full Name] [flag emoji]
 Voice type: [voice type]
 Date of Birth: [dd/mm/yyyy]
@@ -91,27 +102,27 @@ Then the work:
 Composer: [Composer name]
 Composition date: [year]
 
-EXAMPLE — single artist:
+EXAMPLE — single artist (Portuguese post):
 🎤 Maria Callas 🇬🇷
-Voice type: Soprano
-Date of Birth: 02/12/1923
+Tipo de voz: Soprano
+Data de nascimento: 02/12/1923
 
 🎼 Casta Diva — Norma
-Composer: Vincenzo Bellini
-Composition date: 1831
+Compositor: Vincenzo Bellini
+Data de composição: 1831
 
-EXAMPLE — duet:
+EXAMPLE — duet (Portuguese post):
 🎤 Nicolai Gedda 🇸🇪
-Voice type: Tenor
-Date of Birth: 11/07/1925
+Tipo de voz: Tenor
+Data de nascimento: 11/07/1925
 
 🎤 Mirella Freni 🇮🇹
-Voice type: Soprano
-Date of Birth: 27/02/1935
+Tipo de voz: Soprano
+Data de nascimento: 27/02/1935
 
 🎼 Là ci darem la mano — Don Giovanni
-Composer: Wolfgang Amadeus Mozart
-Composition date: 1787
+Compositor: Wolfgang Amadeus Mozart
+Data de composição: 1787
 
 ──────────────────────
 SECTION 4 — SENSORY CTA (1–2 lines)
@@ -131,7 +142,7 @@ CRITICAL RULES
 
 - TOTAL post: 1600–1800 characters. NON-NEGOTIABLE. Count carefully. Under 1600? Deepen the story with another specific detail or scene. Over 1800? Cut adjectives and summaries, never cut specificity.
 - Blank line between every section.
-- Section 3 credit labels (Voice type, Date of Birth, Composer, Composition date) always in English, regardless of post language.
+- Section 3 credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language). Portuguese post → Portuguese labels (Tipo de voz, Data de nascimento, Compositor, Data de composição). English post → English labels (Voice type, Date of Birth, Composer, Composition date).
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
 - Return ONLY the post text. No explanations, no commentary, no preamble."""
 
