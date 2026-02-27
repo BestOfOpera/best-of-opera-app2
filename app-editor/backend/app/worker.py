@@ -66,11 +66,11 @@ async def worker_loop():
             logger.error(f"[worker] Erro inesperado no loop principal: {e}", exc_info=True)
 
 
-def _make_preview_wrapper(eid: int, idioma: str):
+def _make_preview_wrapper(eid: int, idioma: str, sem_legendas: bool = False):
     """Cria wrapper para _render_task com is_preview=True e idioma fixo."""
     async def _preview_task(_ignored_id: int):
         from app.routes.pipeline import _render_task
-        await _render_task(eid, idiomas_renderizar=[idioma], is_preview=True)
+        await _render_task(eid, idiomas_renderizar=[idioma], is_preview=True, sem_legendas=sem_legendas)
     return _preview_task
 
 

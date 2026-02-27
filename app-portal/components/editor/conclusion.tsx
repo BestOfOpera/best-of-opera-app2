@@ -67,6 +67,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [aprovando, setAprovando] = useState(false)
   const [desbloqueando, setDesbloqueando] = useState(false)
   const [filaStatus, setFilaStatus] = useState<FilaStatus | null>(null)
+  const [semLegendas, setSemLegendas] = useState(false)
 
   const load = async () => {
     try {
@@ -107,7 +108,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setRenderizando(true)
     setError("")
     try {
-      await editorApi.renderizarPreview(edicaoId)
+      await editorApi.renderizarPreview(edicaoId, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
       setError("Erro na renderização: " + (err instanceof Error ? err.message : "Erro"))
@@ -120,7 +121,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setAprovando(true)
     setError("")
     try {
-      await editorApi.aprovarPreview(edicaoId, { aprovado: true })
+      await editorApi.aprovarPreview(edicaoId, { aprovado: true }, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 409) {
@@ -137,7 +138,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setAprovando(true)
     setError("")
     try {
-      await editorApi.aprovarPreview(edicaoId, { aprovado: false, notas_revisao: notasRevisao })
+      await editorApi.aprovarPreview(edicaoId, { aprovado: false, notas_revisao: notasRevisao }, { sem_legendas: semLegendas })
       setMostrarRevisao(false)
       setNotasRevisao("")
       await load()
@@ -152,7 +153,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setRenderizando(true)
     setError("")
     try {
-      await editorApi.renderizar(edicaoId)
+      await editorApi.renderizar(edicaoId, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
       setError("Erro na renderização: " + (err instanceof Error ? err.message : "Erro"))
@@ -267,7 +268,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setError("")
     try {
       await editorApi.desbloquear(edicaoId).catch(() => {})
-      await editorApi.renderizarPreview(edicaoId)
+      await editorApi.renderizarPreview(edicaoId, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
       setError("Erro ao refazer preview: " + (err instanceof Error ? err.message : "Erro"))
@@ -568,6 +569,25 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             <div className="font-semibold text-sm">{edicao.confianca_alinhamento ? `${(edicao.confianca_alinhamento * 100).toFixed(0)}%` : "—"}</div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Toggle sem legendas */}
+      <div className="mb-4">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={semLegendas}
+            onChange={e => setSemLegendas(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 accent-amber-600"
+          />
+          <span className="text-sm font-medium">Renderizar sem legendas</span>
+        </label>
+        {semLegendas && (
+          <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>Vídeo será gerado sem legendas. Você poderá adicionar as legendas manualmente depois.</span>
+          </div>
+        )}
       </div>
 
       {/* Actions */}

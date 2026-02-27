@@ -1116,7 +1116,7 @@ _STATUS_PERMITIDOS_PREVIEW = {"montagem", "revisao", "erro"}
 
 # --- Passos 7-8: Renderização ---
 @router.post("/edicoes/{edicao_id}/renderizar")
-async def renderizar(edicao_id: int):
+async def renderizar(edicao_id: int, sem_legendas: bool = False):
     from app.database import SessionLocal
     from app.worker import task_queue
 
@@ -1136,11 +1136,17 @@ async def renderizar(edicao_id: int):
             db.refresh(edicao)
             raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar renderização")
 
-    task_queue.put_nowait((_render_task, edicao_id))
-    return {"status": "renderização iniciada"}
+    if sem_legendas:
+        _sem = True
+        async def _render_sem_legendas(_eid: int):
+            await _render_task(_eid, sem_legendas=_sem)
+        task_queue.put_nowait((_render_sem_legendas, edicao_id))
+    else:
+        task_queue.put_nowait((_render_task, edicao_id))
+    return {"status": "renderização iniciada", "sem_legendas": sem_legendas}
 
 
-async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False):
+async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False, sem_legendas: bool = False):
     try:
         from app.database import SessionLocal
         from app.services.legendas import gerar_ass
@@ -1280,34 +1286,44 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 d = dados_idiomas[idioma]
 
-                # Gerar ASS (sync, rápido — banco já fechado)
-                ass_obj = gerar_ass(
-                    overlay=d["overlay_segs"] or [],
-                    lyrics=lyrics_segs or [],
-                    traducao=d["traducao_segs"],
-                    idioma_versao=idioma,
-                    idioma_musica=idioma_musica,
-                )
-
                 nome_render = _nome_arquivo_render(artista_val, musica_val, idioma)
 
                 output_dir = _Path(STORAGE_PATH) / str(edicao_id) / "renders" / idioma
                 output_dir.mkdir(parents=True, exist_ok=True)
-                ass_path = str(output_dir / f"legendas_{idioma}.ass")
-                ass_obj.save(ass_path)
-
                 output_video = str(output_dir / nome_render)
 
-                # FFmpeg com timeout — banco FECHADO
-                ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
-                cmd = (
-                    f'ffmpeg -y -i "{local_video}" '
-                    f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
-                    f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
-                    f"ass='{ass_escaped}'\" "
-                    f'-c:v libx264 -preset medium -crf 23 '
-                    f'-c:a aac -b:a 128k "{output_video}"'
-                )
+                if sem_legendas:
+                    # Sem legendas: só escalar/pad, sem ASS
+                    cmd = (
+                        f'ffmpeg -y -i "{local_video}" '
+                        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
+                        f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black" '
+                        f'-c:v libx264 -preset medium -crf 23 '
+                        f'-c:a aac -b:a 128k "{output_video}"'
+                    )
+                else:
+                    # Gerar ASS (sync, rápido — banco já fechado)
+                    ass_obj = gerar_ass(
+                        overlay=d["overlay_segs"] or [],
+                        lyrics=lyrics_segs or [],
+                        traducao=d["traducao_segs"],
+                        idioma_versao=idioma,
+                        idioma_musica=idioma_musica,
+                    )
+
+                    ass_path = str(output_dir / f"legendas_{idioma}.ass")
+                    ass_obj.save(ass_path)
+
+                    # FFmpeg com timeout — banco FECHADO
+                    ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+                    cmd = (
+                        f'ffmpeg -y -i "{local_video}" '
+                        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
+                        f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
+                        f"ass='{ass_escaped}'\" "
+                        f'-c:v libx264 -preset medium -crf 23 '
+                        f'-c:a aac -b:a 128k "{output_video}"'
+                    )
                 processo = await asyncio.create_subprocess_shell(
                     cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -1347,10 +1363,11 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     logger.warning(f"[{edicao_id}] Falha ao deletar vídeo local {output_video}: {cleanup_err}")
 
                 # 6. Cleanup: deletar ASS temporário
-                try:
-                    _Path(ass_path).unlink(missing_ok=True)
-                except Exception as cleanup_err:
-                    logger.warning(f"[{edicao_id}] Falha ao deletar ASS {ass_path}: {cleanup_err}")
+                if ass_path:
+                    try:
+                        _Path(ass_path).unlink(missing_ok=True)
+                    except Exception as cleanup_err:
+                        logger.warning(f"[{edicao_id}] Falha ao deletar ASS {ass_path}: {cleanup_err}")
 
                 # 7. Salvar resultado (sessão curta)
                 with SessionLocal() as db:
@@ -1462,7 +1479,7 @@ class AprovarPreviewParams(BaseModel):
 
 # --- Preview: Renderizar 1 vídeo para aprovação ---
 @router.post("/edicoes/{edicao_id}/renderizar-preview")
-async def renderizar_preview(edicao_id: int):
+async def renderizar_preview(edicao_id: int, sem_legendas: bool = False):
     from app.database import SessionLocal
     from app.worker import task_queue, _make_preview_wrapper
 
@@ -1488,12 +1505,12 @@ async def renderizar_preview(edicao_id: int):
             db.refresh(edicao)
             raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar preview")
 
-    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma_preview), edicao_id))
-    return {"status": "preview iniciado", "idioma": idioma_preview}
+    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma_preview, sem_legendas=sem_legendas), edicao_id))
+    return {"status": "preview iniciado", "idioma": idioma_preview, "sem_legendas": sem_legendas}
 
 
 @router.post("/edicoes/{edicao_id}/aprovar-preview")
-async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
+async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams, sem_legendas: bool = False):
     from app.database import SessionLocal
     from app.worker import task_queue
 
@@ -1528,8 +1545,9 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams):
 
     # Enfileirar render dos idiomas restantes (fora da sessão de banco)
     if body.aprovado:
+        _sem = sem_legendas
         async def _render_remaining(_eid: int):
-            await _render_task(_eid, idiomas_renderizar=idiomas_renderizar)
+            await _render_task(_eid, idiomas_renderizar=idiomas_renderizar, sem_legendas=_sem)
 
         task_queue.put_nowait((_render_remaining, edicao_id))
         return {"status": "renderização dos demais idiomas iniciada", "idiomas": idiomas_renderizar}

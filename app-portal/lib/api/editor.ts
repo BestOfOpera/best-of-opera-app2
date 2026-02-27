@@ -150,12 +150,18 @@ export const editorApi = {
     request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`, { method: "POST" }),
   obterTraducoes: (id: number) =>
     request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`),
-  renderizar: (id: number) =>
-    request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar`, { method: "POST" }),
-  renderizarPreview: (id: number) =>
-    request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar-preview`, { method: "POST" }),
-  aprovarPreview: (id: number, params: { aprovado: boolean; notas_revisao?: string }) =>
-    request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview`, { method: "POST", body: JSON.stringify(params) }),
+  renderizar: (id: number, opts?: { sem_legendas?: boolean }) => {
+    const qs = opts?.sem_legendas ? "?sem_legendas=true" : ""
+    return request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar${qs}`, { method: "POST" })
+  },
+  renderizarPreview: (id: number, opts?: { sem_legendas?: boolean }) => {
+    const qs = opts?.sem_legendas ? "?sem_legendas=true" : ""
+    return request<{ status: string }>(`${BASE()}/edicoes/${id}/renderizar-preview${qs}`, { method: "POST" })
+  },
+  aprovarPreview: (id: number, params: { aprovado: boolean; notas_revisao?: string }, opts?: { sem_legendas?: boolean }) => {
+    const qs = opts?.sem_legendas ? "?sem_legendas=true" : ""
+    return request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview${qs}`, { method: "POST", body: JSON.stringify(params) })
+  },
   listarRenders: (id: number) =>
     request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
   exportarRenders: (id: number) =>
