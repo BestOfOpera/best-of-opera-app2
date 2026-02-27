@@ -855,10 +855,18 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     edicao.progresso_detalhe = {}
     db.commit()
 
-    # Enfileirar tradução automática no worker (evita deadlock silencioso)
+    # Enfileirar tradução automática no worker (evita deadlock silencioso).
+    # Se o enqueue falhar, reverter status para evitar deadlock.
     from app.worker import task_queue
-    logger.info(f"[aplicar_corte] Enfileirando tradução edicao_id={edicao_id} queue={task_queue.qsize()}")
-    task_queue.put_nowait((_traducao_task, edicao_id))
+    try:
+        task_queue.put_nowait((_traducao_task, edicao_id))
+        logger.info(f"[aplicar_corte] Tradução enfileirada edicao_id={edicao_id} queue={task_queue.qsize()}")
+    except Exception as enqueue_err:
+        logger.error(f"[aplicar_corte] Falha ao enfileirar tradução edicao_id={edicao_id}: {enqueue_err}")
+        edicao.status = "erro"
+        edicao.erro_msg = f"Falha ao enfileirar tradução: {enqueue_err}"
+        db.commit()
+        raise HTTPException(500, f"Corte aplicado mas falha ao enfileirar tradução: {enqueue_err}")
 
     return {
         "janela": janela,
