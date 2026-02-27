@@ -64,33 +64,44 @@ Barra preta inferior
 - Tradução DE com 71 chars: "Also Liebling, Liebling, steh mir bei, oh steh mir bei, oh steh mir bei"
 - Confirmado: sem sobreposição, sem invasão do vídeo, ordem correta
 
-## 9. Fix marginv lyrics/traducao — legendas sobre o vídeo (não na barra preta)
+## 9. Fix marginv lyrics/traducao — legendas na barra preta inferior, simétricas ao overlay
 
-**Problema:** Com marginv fixo (`lyrics=550`, `traducao=490`), ambas as tracks ficavam abaixo do vídeo.
-No frame 9:16 (1080x1920), o vídeo 16:9 centralizado ocupa y=656..1264 (altura=608px).
-A borda inferior do vídeo em marginv é: 1920 - 1264 = **656px**.
-Com marginv=550, a base do texto cai em y=1370 — 106px abaixo do vídeo, na barra preta.
-Isso só parecia correto em textos longos (2+ linhas) porque o texto crescia para cima.
-Com 1 linha, a legenda ficava invisível (barra preta).
+**Problema anterior (commit errado):** Decisão 9 anterior usava marginv=680/620, que colocava
+as legendas DENTRO do vídeo (y_base=1240/1300, ambos acima de y=1264 que é a base do vídeo).
+O objetivo era descer as legendas para a barra preta, mas o commit fez o oposto — subiu.
 
-**Solução:**
-Subir marginv para que a base do texto fique dentro (ou muito perto) da área do vídeo:
-
-| Track | marginv anterior | marginv novo | y_base | Posição |
-|-------|-----------------|--------------|--------|---------|
-| lyrics (amarelo) | 550 | **680** | 1240 | 24px acima da borda inferior do vídeo |
-| traducao (branco) | 490 | **620** | 1300 | 36px abaixo do lyrics, perto da base |
-
-**Cálculo de referência:**
+**Geometria confirmada:**
 ```
-Frame:          1080 × 1920 (9:16)
-Vídeo 16:9:     1080 × 608  (1080 × 9/16 = 607.5 ≈ 608)
-Topo vídeo:     (1920 - 608) / 2 = 656
-Base vídeo:     656 + 608 = 1264
-Base em marginv: 1920 - 1264 = 656
+Frame:           1080 × 1920 (9:16)
+Vídeo 16:9:      1080 × 608
+Topo vídeo:      y = 656
+Base vídeo:      y = 1264
+Barra preta inf: y = 1264..1920 (656px de espaço)
 ```
 
-**Overlay:** não alterado (marginv=530, alignment=8, topo).
+**Constraints de layout:**
+- Todas as 3 tracks têm max 2 linhas (overlay via `quebrar_texto_overlay`, lyrics/traducao via `_formatar_texto_legenda(max_linhas=2)`)
+- fontsize=35 + outline=2 → altura por linha ≈ 42px, 2 linhas = 84px
+- alignment=2 (bottom-center): `y_base = 1920 - marginv`, texto cresce para cima
+
+**Referência de simetria — overlay (topo):**
+- overlay: alignment=8, marginv=530 (era 490, corrigido separadamente)
+- Com 2 linhas (~94px): base do overlay em y≈584
+- Gap entre base do overlay e topo do vídeo (656): ~72px
+
+**Solução — simetria exata com overlay:**
+
+| Track | marginv | y_base | 2 linhas topo | Gap ao vídeo (1264) | Gap entre tracks |
+|-------|---------|--------|---------------|---------------------|------------------|
+| lyrics (amarelo) | **500** | 1420 | 1336 | **72px** ← simétrico ao overlay | — |
+| traducao (branco) | **380** | 1540 | 1456 | — | 36px abaixo do lyrics |
+
+**Verificação:**
+- lyrics 2 linhas: topo em 1336, gap ao vídeo = 1336-1264 = 72px ✓ (= overlay gap)
+- lyrics 1 linha: topo em 1378, gap = 114px ✓
+- traducao 2 linhas: topo em 1456, gap ao lyrics base (1420) = 36px ✓
+- traducao fundo: 1920-1540 = 380px de folga ✓
+- **Overlay não alterado** (marginv=530, alignment=8, topo)
 
 ## 8. Badge unificado na tela de importação (editor_status)
 

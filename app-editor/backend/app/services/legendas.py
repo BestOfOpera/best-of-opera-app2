@@ -6,9 +6,10 @@ from app.services.regua import timestamp_to_seconds, seconds_to_timestamp
 # Layout para vídeo 16:9 dentro de frame 9:16 (1080x1920)
 # Vídeo escala para 1080x608, centralizado verticalmente
 # Barras pretas: 656px em cima, vídeo 608px (y=656..1264), 656px embaixo
-# Base do vídeo em marginv: 1920 - 1264 = 656px
-# lyrics: marginv=680 → y_base=1240 (24px acima da borda inferior do vídeo)
-# traducao: marginv=620 → y_base=1300 (abaixo de lyrics, perto da base do vídeo)
+# Legendas na barra preta inferior, simétrico ao overlay no topo.
+# Cada track tem max 2 linhas (84px com fontsize=35+outline=2).
+# lyrics: marginv=500 → y_base=1420, 2 linhas topo em 1336, gap ao vídeo=72px
+# traducao: marginv=380 → y_base=1540, gap ao lyrics base=36px
 ESTILOS_PADRAO = {
     "overlay": {
         "fontname": "Georgia",
@@ -30,7 +31,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 680,    # y_base=1240 — 24px acima da borda inferior do vídeo
+        "marginv": 500,    # y_base=1420 — barra preta inferior, 72px gap ao vídeo (simétrico ao overlay)
         "bold": True,
         "italic": True,
     },
@@ -42,7 +43,7 @@ ESTILOS_PADRAO = {
         "outline": 2,
         "shadow": 0,
         "alignment": 2,   # base
-        "marginv": 620,    # y_base=1300 — abaixo de lyrics, perto da base do vídeo
+        "marginv": 380,    # y_base=1540 — 36px abaixo do lyrics, barra preta inferior
         "bold": True,
         "italic": True,
     },
