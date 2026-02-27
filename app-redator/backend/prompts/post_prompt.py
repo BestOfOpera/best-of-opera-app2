@@ -1,8 +1,33 @@
 from backend.prompts.hook_helper import build_hook_text
 
 
+def _field(label: str, value) -> str:
+    """Return '- Label: value' if value is non-empty, else empty string."""
+    v = str(value).strip() if value else ""
+    if not v:
+        return ""
+    return f"- {label}: {v}\n"
+
+
 def build_post_prompt(project) -> str:
     flag = project.nationality_flag or ""
+
+    # Build input fields, omitting any that are empty
+    fields = ""
+    fields += _field("Artist", project.artist)
+    fields += _field("Work", project.work)
+    fields += _field("Composer", project.composer)
+    fields += _field("Category", project.category)
+    fields += _field("Hook/angle", build_hook_text(project))
+    fields += _field("Highlights", project.highlights)
+    fields += _field("Composition year", project.composition_year)
+    fields += _field("Nationality", project.nationality)
+    fields += _field("Nationality flag emoji", flag)
+    fields += _field("Voice type", project.voice_type)
+    fields += _field("Birth date", project.birth_date)
+    fields += _field("Death date", project.death_date)
+    fields += _field("Album/Opera", project.album_opera)
+    fields = fields.rstrip("\n")
 
     return f"""You are a world-class storyteller who writes viral social media content for "Best of Opera" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
 
@@ -11,19 +36,7 @@ Your posts don't describe performances. They make people FEEL something they did
 The reader is scrolling fast. You have 3 lines to stop them. Then you have one job: make them read every single word until the end.
 
 Write an Instagram/Facebook post for a video clip featuring:
-- Artist: {project.artist}
-- Work: {project.work}
-- Composer: {project.composer}
-- Category: {project.category}
-- Hook/angle: {build_hook_text(project)}
-- Highlights: {project.highlights}
-- Composition year: {project.composition_year}
-- Nationality: {project.nationality}
-- Nationality flag emoji: {flag}
-- Voice type: {project.voice_type}
-- Birth date: {project.birth_date}
-- Death date: {project.death_date}
-- Album/Opera: {project.album_opera}
+{fields}
 
 ═══════════════════════════════
 POST STRUCTURE (5 sections, separated by blank lines)
@@ -80,27 +93,29 @@ These are empty. Replace them with a SPECIFIC detail that earns the emotion.
 ──────────────────────
 SECTION 3 — CREDITS (exact format, labels in the SAME LANGUAGE as the post)
 ──────────────────────
+CRITICAL RULE: Only include a credit line if the data was provided in the input above. If a field (voice type, birth date, death date, composer, composition year, album/opera) was NOT listed in the input or is empty, OMIT that line entirely. Never show a label with an empty value, a placeholder, or "unknown". Just skip the line.
+
 For EACH artist (if multiple artists separated by " & ", create a block for EACH):
 
 If post is in Portuguese:
 [Fun emoji] [Artist Full Name] [flag emoji]
-Tipo de voz: [voice type]
-Data de nascimento: [dd/mm/yyyy]
+Tipo de voz: [voice type]          ← only if voice type was provided
+Data de nascimento: [dd/mm/yyyy]   ← only if birth date was provided
 
 Then the work:
-[Fun emoji] [Work Name] — [Album or Opera name]
-Compositor: [Composer name]
-Data de composição: [year]
+[Fun emoji] [Work Name] — [Album or Opera name]   ← omit " — [Album or Opera name]" if not provided
+Compositor: [Composer name]        ← only if composer was provided
+Data de composição: [year]         ← only if composition year was provided
 
 If post is in English:
 [Fun emoji] [Artist Full Name] [flag emoji]
-Voice type: [voice type]
-Date of Birth: [dd/mm/yyyy]
+Voice type: [voice type]           ← only if voice type was provided
+Date of Birth: [dd/mm/yyyy]       ← only if birth date was provided
 
 Then the work:
-[Fun emoji] [Work Name] — [Album or Opera name]
-Composer: [Composer name]
-Composition date: [year]
+[Fun emoji] [Work Name] — [Album or Opera name]   ← omit " — [Album or Opera name]" if not provided
+Composer: [Composer name]          ← only if composer was provided
+Composition date: [year]           ← only if composition year was provided
 
 EXAMPLE — single artist (Portuguese post):
 🎤 Maria Callas 🇬🇷
@@ -143,6 +158,7 @@ CRITICAL RULES
 - TOTAL post: 1600–1800 characters. NON-NEGOTIABLE. Count carefully. Under 1600? Deepen the story with another specific detail or scene. Over 1800? Cut adjectives and summaries, never cut specificity.
 - Blank line between every section.
 - Section 3 credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language). Portuguese post → Portuguese labels (Tipo de voz, Data de nascimento, Compositor, Data de composição). English post → English labels (Voice type, Date of Birth, Composer, Composition date).
+- MISSING DATA: If any field was NOT provided in the input, do NOT include it anywhere in the post. Do not invent data, use placeholders, or leave labels empty. In Section 2 storytelling, do not write sentences that reference missing information. In Section 3 credits, omit the entire line. The post must read naturally with only the available information.
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
 - Return ONLY the post text. No explanations, no commentary, no preamble."""
 

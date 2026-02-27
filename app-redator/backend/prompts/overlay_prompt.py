@@ -1,6 +1,14 @@
 from backend.prompts.hook_helper import build_hook_text
 
 
+def _field(label: str, value) -> str:
+    """Return '- Label: value' if value is non-empty, else empty string."""
+    v = str(value).strip() if value else ""
+    if not v:
+        return ""
+    return f"- {label}: {v}\n"
+
+
 def _calc_subtitle_count(project) -> str:
     """Calculate approximate number of subtitles based on cut duration (~1 every 15s)."""
     try:
@@ -36,16 +44,8 @@ def build_overlay_prompt(project) -> str:
 Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
 
 Generate overlay subtitles for a video featuring:
-- Artist: {project.artist}
-- Work: {project.work}
-- Composer: {project.composer}
-- Category: {project.category}
-- Hook/angle: {build_hook_text(project)}
-- Highlights: {project.highlights}
-- Composition year: {project.composition_year}
-- Nationality: {project.nationality}
-- Voice type: {project.voice_type}
-{duration_info}
+{_field("Artist", project.artist)}{_field("Work", project.work)}{_field("Composer", project.composer)}{_field("Category", project.category)}{_field("Hook/angle", build_hook_text(project))}{_field("Highlights", project.highlights)}{_field("Composition year", project.composition_year)}{_field("Nationality", project.nationality)}{_field("Voice type", project.voice_type)}{duration_info}
+Only use information that was provided above. Do not reference or invent data for fields that were not listed.
 
 ═══════════════════════════════
 RETENTION PRINCIPLES (follow all of them)

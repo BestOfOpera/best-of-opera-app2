@@ -1,16 +1,28 @@
 from backend.prompts.hook_helper import build_hook_text
 
 
+def _field(label: str, value) -> str:
+    """Return '- Label: value' if value is non-empty, else empty string."""
+    v = str(value).strip() if value else ""
+    if not v:
+        return ""
+    return f"- {label}: {v}\n"
+
+
 def build_youtube_prompt(project) -> str:
+    fields = ""
+    fields += _field("Artist", project.artist)
+    fields += _field("Work", project.work)
+    fields += _field("Composer", project.composer)
+    fields += _field("Category", project.category)
+    fields += _field("Hook/angle", build_hook_text(project))
+    fields += _field("Voice type", project.voice_type)
+    fields = fields.rstrip("\n")
+
     return f"""You are a YouTube SEO expert for "Best of Opera", a channel sharing short opera clips.
 
 Generate a YouTube title and tags for a video featuring:
-- Artist: {project.artist}
-- Work: {project.work}
-- Composer: {project.composer}
-- Category: {project.category}
-- Hook/angle: {build_hook_text(project)}
-- Voice type: {project.voice_type}
+{fields}
 
 TITLE RULES:
 1. Maximum 100 characters
@@ -32,6 +44,7 @@ Line 1: The title
 Line 2: The tags (comma-separated)
 
 Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
+Only use information that was provided above. If a field (composer, voice type, etc.) was not listed, do not include it in the title or tags.
 
 Nothing else."""
 
