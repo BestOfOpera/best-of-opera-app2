@@ -293,7 +293,12 @@ def gerar_ass(
         # Garantir duração mínima de 2s
         if event.end - event.start < 2000:
             event.end = event.start + 2000
-        event.text = quebrar_texto_overlay(seg["text"], max_chars=OVERLAY_MAX_CHARS)
+        texto = seg["text"]
+        texto_original = texto
+        texto = _formatar_overlay(texto, OVERLAY_MAX_CHARS_LINHA)
+        if texto != texto_original:
+            logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
+        event.text = "{\\q2}" + texto
         event.style = "Overlay"
         subs.events.append(event)
 
@@ -324,7 +329,12 @@ def gerar_ass(
         event = pysubs2.SSAEvent()
         event.start = seg_to_ms(seg.get("start", 0))
         event.end = seg_to_ms(seg.get("end", 0))
-        event.text = _formatar_texto_legenda(text)
+        texto = text
+        texto_original = texto
+        texto = _truncar_texto(texto, LYRICS_MAX_CHARS)
+        if texto != texto_original:
+            logger.warning(f"[legendas] Lyrics truncado: '{texto_original[:50]}' ({len(texto_original)}→{len(texto)})")
+        event.text = "{\\q2}" + texto
         event.style = "Lyrics"
         subs.events.append(event)
 
@@ -334,7 +344,12 @@ def gerar_ass(
             event_trad = pysubs2.SSAEvent()
             event_trad.start = event.start
             event_trad.end = event.end
-            event_trad.text = _formatar_texto_legenda(trad_seg["traducao"])
+            texto_trad = trad_seg["traducao"]
+            texto_trad_original = texto_trad
+            texto_trad = _truncar_texto(texto_trad, TRADUCAO_MAX_CHARS)
+            if texto_trad != texto_trad_original:
+                logger.warning(f"[legendas] Tradução truncado: '{texto_trad_original[:50]}' ({len(texto_trad_original)}→{len(texto_trad)})")
+            event_trad.text = texto_trad
             event_trad.style = "Traducao"
             subs.events.append(event_trad)
 
