@@ -1,9 +1,26 @@
 """Serviço de download de vídeos do YouTube via yt-dlp."""
 import asyncio
+import base64
 import json
+import os
 from pathlib import Path
 
 from shared.storage_service import storage, check_conflict, save_youtube_marker
+
+_COOKIES_PATH = "/tmp/yt_cookies.txt"
+
+
+def _ensure_cookies_file() -> str | None:
+    """Decodifica YOUTUBE_COOKIES_BASE64 para arquivo temporário se disponível."""
+    b64 = os.environ.get("YOUTUBE_COOKIES_BASE64")
+    if not b64:
+        return None
+    try:
+        data = base64.b64decode(b64)
+        Path(_COOKIES_PATH).write_bytes(data)
+        return _COOKIES_PATH
+    except Exception:
+        return None
 
 
 async def download_video(youtube_url: str, video_id: int, storage_path: str,
@@ -24,6 +41,8 @@ async def download_video(youtube_url: str, video_id: int, storage_path: str,
 
     local_file = str(output_dir / "original.mp4")
 
+    cookies_file = _ensure_cookies_file()
+
     cmd = [
         "yt-dlp",
         "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
@@ -34,8 +53,10 @@ async def download_video(youtube_url: str, video_id: int, storage_path: str,
         "--write-subs",
         "--no-warnings",
         "--no-progress",
-        youtube_url,
     ]
+    if cookies_file:
+        cmd.extend(["--cookies", cookies_file])
+    cmd.append(youtube_url)
 
     process = await asyncio.create_subprocess_exec(
         *cmd,
