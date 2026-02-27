@@ -73,6 +73,7 @@ async def garantir_video(edicao_id: int, background_tasks: BackgroundTasks, db: 
 
     edicao.status = "baixando"
     edicao.passo_atual = 1
+    edicao.erro_msg = None
     db.commit()
 
     background_tasks.add_task(_download_video_task, edicao_id, edicao.youtube_url)
@@ -284,6 +285,7 @@ async def iniciar_transcricao(edicao_id: int, background_tasks: BackgroundTasks,
         db.commit()
 
     edicao.status = "transcricao"
+    edicao.erro_msg = None
     db.commit()
 
     background_tasks.add_task(_transcricao_task, edicao_id)
