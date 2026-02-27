@@ -144,6 +144,7 @@ async def _download_video_task(edicao_id: int, youtube_url: str):
             edicao.r2_base = base
             edicao.status = "letra"
             edicao.passo_atual = 2
+            edicao.erro_msg = None
             db.commit()
             return
 
@@ -158,6 +159,7 @@ async def _download_video_task(edicao_id: int, youtube_url: str):
         edicao.duracao_total_sec = resultado.get("duracao_total")
         edicao.status = "letra"
         edicao.passo_atual = 2
+        edicao.erro_msg = None
         db.commit()
     except Exception as e:
         edicao.status = "erro"
@@ -177,6 +179,7 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
     if edicao.eh_instrumental:
         edicao.passo_atual = 5
         edicao.status = "corte"
+        edicao.erro_msg = None
         db.commit()
         return {"status": "instrumental — passo de letra pulado"}
 
@@ -242,6 +245,7 @@ def aprovar_letra(edicao_id: int, body: LetraAprovar, db: Session = Depends(get_
 
     edicao.passo_atual = 3
     edicao.status = "transcricao"
+    edicao.erro_msg = None
     db.commit()
     db.refresh(letra)
     return {"ok": True, "letra_id": letra.id}
@@ -444,6 +448,7 @@ async def _transcricao_task(edicao_id: int):
         edicao.confianca_alinhamento = resultado["confianca_media"]
         edicao.status = "alinhamento"
         edicao.passo_atual = 4
+        edicao.erro_msg = None
         db.commit()
         logger.info(
             f"[{edicao_id}] Transcrição concluída: "
@@ -500,6 +505,7 @@ def validar_alinhamento(edicao_id: int, body: AlinhamentoValidar, db: Session = 
     edicao = db.get(Edicao, edicao_id)
     edicao.passo_atual = 5
     edicao.status = "corte"
+    edicao.erro_msg = None
     db.commit()
     return {"ok": True}
 
@@ -626,6 +632,7 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
 
     edicao.passo_atual = 6
     edicao.status = "traducao"
+    edicao.erro_msg = None
     db.commit()
 
     return {
@@ -650,6 +657,7 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
     if edicao.eh_instrumental:
         edicao.passo_atual = 7
         edicao.status = "montagem"
+        edicao.erro_msg = None
         db.commit()
         return {"status": "instrumental — tradução pulada"}
 
@@ -774,6 +782,7 @@ async def _traducao_task(edicao_id: int):
             if edicao:
                 edicao.passo_atual = 7
                 edicao.status = "montagem"
+                edicao.erro_msg = None
                 edicao.tentativas_requeue = 0
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {
