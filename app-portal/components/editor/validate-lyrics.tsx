@@ -4,12 +4,12 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Edicao } from "@/lib/api/editor"
-import { usePolling } from "@/lib/hooks/use-polling"
+import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink, Upload } from "lucide-react"
+import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink, Upload, AlertTriangle } from "lucide-react"
 
 export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
   const router = useRouter()
@@ -20,7 +20,8 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
   const [buscando, setBuscando] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [error, setError] = useState("")
-  const [videoStatus, setVideoStatus] = useState<{ status: string; progresso?: number; video_completo?: boolean } | null>(null)
+  const [videoCompleto, setVideoCompleto] = useState(false)
+  const [videoErro, setVideoErro] = useState(false)
   const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
@@ -30,20 +31,32 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
         router.push(`/editor/edicao/${edicaoId}/conclusao`)
         return
       }
+      setVideoCompleto(!!e.arquivo_video_completo)
+      setVideoErro(e.status === "erro")
       setLoading(false)
-      if (!e.arquivo_video_completo) {
+      if (!e.arquivo_video_completo && e.status !== "erro") {
         editorApi.garantirVideo(edicaoId).catch(() => {})
       }
     })
   }, [edicaoId, router])
 
-  usePolling(
+  // Poll video status — stops on terminal states (video ready, error, concluido)
+  const shouldPoll = !!edicao && !videoCompleto && !videoErro
+  useAdaptivePolling(
     async () => {
-      const s = await editorApi.statusVideo(edicaoId).catch(() => null)
-      if (s) setVideoStatus(s)
+      const [s, e] = await Promise.all([
+        editorApi.statusVideo(edicaoId).catch(() => null),
+        editorApi.obterEdicao(edicaoId).catch(() => null),
+      ])
+      if (e) {
+        setEdicao(e)
+        if (e.arquivo_video_completo) setVideoCompleto(true)
+        if (e.status === "erro") setVideoErro(true)
+      }
+      if (s?.video_completo) setVideoCompleto(true)
+      if (s?.status === "erro") setVideoErro(true)
     },
-    5000,
-    !!edicao
+    shouldPoll,
   )
 
   const buscarLetra = async () => {
@@ -76,7 +89,6 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
 
   if (loading || !edicao) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
-  const videoReady = videoStatus?.video_completo
   const jaTemLetra = letra.trim().length > 0
 
   return (
@@ -98,38 +110,76 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
       </div>
 
       {/* Video status */}
-      <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${videoReady ? "bg-green-50 text-green-700" : edicao.erro_msg ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
-        {videoReady ? (
-          <><Check className="h-3.5 w-3.5" /> Vídeo disponível</>
-        ) : edicao.erro_msg ? (
-          <><span className="font-bold">Erro no download:</span> {edicao.erro_msg}</>
-        ) : uploading ? (
-          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando vídeo...</>
-        ) : (
-          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Baixando vídeo em background...</>
-        )}
-        {!videoReady && (
-          <label className="ml-auto cursor-pointer flex items-center gap-1 bg-white border px-3 py-1 rounded text-muted-foreground hover:bg-muted/50 text-xs">
-            <Upload className="h-3 w-3" />
-            {uploading ? "Enviando..." : "Subir vídeo"}
-            <input type="file" accept="video/*" className="hidden" disabled={uploading} onChange={async (ev) => {
-              const file = ev.target.files?.[0]
-              if (!file) return
-              setUploading(true)
-              setError("")
-              try {
-                await editorApi.uploadVideo(edicaoId, file)
-                const e2 = await editorApi.obterEdicao(edicaoId)
-                setEdicao(e2)
-              } catch (err: unknown) {
-                setError("Erro no upload: " + (err instanceof Error ? err.message : "Erro"))
-              } finally {
-                setUploading(false)
-              }
-            }} />
-          </label>
-        )}
-      </div>
+      {videoErro && edicao.erro_msg ? (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-800">Erro no download do vídeo</p>
+              <p className="text-sm text-red-700 mt-1">{edicao.erro_msg}</p>
+              {/download|yt-dlp|youtube/i.test(edicao.erro_msg) && (
+                <div className="mt-3">
+                  <label className="inline-flex items-center gap-2 cursor-pointer bg-white border border-red-300 px-4 py-2 rounded-lg text-sm font-medium text-red-700 hover:bg-red-50 transition">
+                    <Upload className="h-4 w-4" />
+                    {uploading ? "Enviando..." : "Enviar vídeo manualmente"}
+                    <input type="file" accept="video/*" className="hidden" disabled={uploading} onChange={async (ev) => {
+                      const file = ev.target.files?.[0]
+                      if (!file) return
+                      setUploading(true)
+                      setError("")
+                      try {
+                        await editorApi.uploadVideo(edicaoId, file)
+                        const e2 = await editorApi.obterEdicao(edicaoId)
+                        setEdicao(e2)
+                        setVideoCompleto(!!e2.arquivo_video_completo)
+                        setVideoErro(false)
+                      } catch (err: unknown) {
+                        setError("Erro no upload: " + (err instanceof Error ? err.message : "Erro"))
+                      } finally {
+                        setUploading(false)
+                      }
+                    }} />
+                  </label>
+                  <p className="text-xs text-red-600 mt-1.5">Baixe o vídeo do YouTube por outra via e envie aqui.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className={`flex items-center gap-2 text-xs px-3 py-2 rounded-lg mb-4 ${videoCompleto ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"}`}>
+          {videoCompleto ? (
+            <><Check className="h-3.5 w-3.5" /> Vídeo disponível</>
+          ) : uploading ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando vídeo...</>
+          ) : (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Baixando vídeo em background...</>
+          )}
+          {!videoCompleto && (
+            <label className="ml-auto cursor-pointer flex items-center gap-1 bg-white border px-3 py-1 rounded text-muted-foreground hover:bg-muted/50 text-xs">
+              <Upload className="h-3 w-3" />
+              {uploading ? "Enviando..." : "Subir vídeo"}
+              <input type="file" accept="video/*" className="hidden" disabled={uploading} onChange={async (ev) => {
+                const file = ev.target.files?.[0]
+                if (!file) return
+                setUploading(true)
+                setError("")
+                try {
+                  await editorApi.uploadVideo(edicaoId, file)
+                  const e2 = await editorApi.obterEdicao(edicaoId)
+                  setEdicao(e2)
+                  setVideoCompleto(!!e2.arquivo_video_completo)
+                  setVideoErro(false)
+                } catch (err: unknown) {
+                  setError("Erro no upload: " + (err instanceof Error ? err.message : "Erro"))
+                } finally {
+                  setUploading(false)
+                }
+              }} />
+            </label>
+          )}
+        </div>
+      )}
 
       <Card>
         <CardHeader>

@@ -131,7 +131,7 @@ export const editorApi = {
     return requestFormData<{ status: string }>(`${BASE()}/edicoes/${id}/upload-video`, form)
   },
   statusVideo: (id: number) =>
-    request<{ status: string; progresso?: number }>(`${BASE()}/edicoes/${id}/video/status`),
+    request<{ status: string; video_completo: boolean; audio_completo: boolean; duracao_total: number | null }>(`${BASE()}/edicoes/${id}/video/status`),
   buscarLetra: (id: number) =>
     request<{ letra: string; fonte: string }>(`${BASE()}/edicoes/${id}/letra`, { method: "POST" }),
   aprovarLetra: (id: number, data: { letra: string }) =>
