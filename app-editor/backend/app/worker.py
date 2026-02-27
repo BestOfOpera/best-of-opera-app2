@@ -78,7 +78,7 @@ def requeue_stale_tasks():
 
     with SessionLocal() as db:
         candidatos = db.query(Edicao).filter(
-            Edicao.status.in_(["traducao", "renderizando", "preview"])
+            Edicao.status.in_(["baixando", "transcricao", "traducao", "renderizando", "preview"])
         ).all()
 
         marcados = 0

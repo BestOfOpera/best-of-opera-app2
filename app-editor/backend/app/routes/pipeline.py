@@ -1625,7 +1625,7 @@ def obter_traducoes(edicao_id: int, db: Session = Depends(get_db)):
 # --- Fila / Worker ---
 
 _STALE_THRESHOLD = timedelta(minutes=5)
-_ACTIVE_STATUSES = {"traducao", "renderizando", "preview"}
+_ACTIVE_STATUSES = {"baixando", "transcricao", "traducao", "renderizando", "preview"}
 
 
 @router.get("/fila/status")
