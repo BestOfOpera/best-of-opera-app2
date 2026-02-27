@@ -45,7 +45,7 @@ async def download_video(youtube_url: str, video_id: int, storage_path: str,
 
     cmd = [
         "yt-dlp",
-        "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+        "-f", "bv*[height<=1080]+ba/bv*+ba/b",
         "--merge-output-format", "mp4",
         "-o", local_file,
         "--write-info-json",
