@@ -864,14 +864,34 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             janela["janela_fim_sec"],
         )
 
+    # Se instrumental, pular tradução direto para montagem
+    if edicao.eh_instrumental:
+        edicao.passo_atual = 7
+        edicao.status = "montagem"
+        edicao.erro_msg = None
+        db.commit()
+        return {
+            "janela": janela,
+            "video_cortado": edicao.arquivo_video_cortado,
+            "traducao": "instrumental — tradução pulada",
+        }
+
     edicao.passo_atual = 6
     edicao.status = "traducao"
     edicao.erro_msg = None
+    edicao.task_heartbeat = None
+    edicao.progresso_detalhe = {}
     db.commit()
+
+    # Enfileirar tradução automática no worker (evita deadlock silencioso)
+    from app.worker import task_queue
+    logger.info(f"[aplicar_corte] Enfileirando tradução edicao_id={edicao_id} queue={task_queue.qsize()}")
+    task_queue.put_nowait((_traducao_task, edicao_id))
 
     return {
         "janela": janela,
         "video_cortado": edicao.arquivo_video_cortado,
+        "traducao": "tradução enfileirada automaticamente",
     }
 
 
