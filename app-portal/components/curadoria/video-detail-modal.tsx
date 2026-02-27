@@ -6,7 +6,7 @@ import { ScoreRing, scoreColorBg } from "./score-ring"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight } from "lucide-react"
+import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight, Cloud, CloudOff } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 
@@ -46,7 +46,11 @@ export function VideoDetailModal({
 }) {
   const router = useRouter()
   const [downloading, setDownloading] = useState(false)
+  const [preparing, setPreparing] = useState(false)
   const [downloadDone, setDownloadDone] = useState(false)
+  const [r2Status, setR2Status] = useState<"ok" | "failed" | "unknown">("unknown")
+  const [r2Key, setR2Key] = useState("")
+  const [r2Cached, setR2Cached] = useState(false)
   const [editArtist, setEditArtist] = useState("")
   const [editSong, setEditSong] = useState("")
 
@@ -56,6 +60,9 @@ export function VideoDetailModal({
       setEditArtist(video.artist || "")
       setEditSong(video.song || video.title || "")
       setDownloadDone(false)
+      setR2Status("unknown")
+      setR2Key("")
+      setR2Cached(false)
     }
   }, [video?.video_id, open])
 
@@ -64,12 +71,34 @@ export function VideoDetailModal({
   const score = video.score?.total || 0
   const reasons = video.score?.reasons || []
 
+  /** Apenas salva no R2 (sem download pro browser) — fluxo principal */
+  const handlePrepare = async () => {
+    const artist = editArtist.trim() || "Unknown"
+    const song = editSong.trim() || "Video"
+    setPreparing(true)
+    try {
+      const result = await curadoriaApi.prepareVideo(video.video_id, artist, song)
+      setR2Status("ok")
+      setR2Key(result.r2_key)
+      setR2Cached(result.cached)
+      setDownloadDone(true)
+      onDownloaded?.()
+    } catch (err) {
+      alert("Falha ao preparar vídeo: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  /** Download pro browser + upload R2 (fluxo legado) */
   const handleDownload = async () => {
     const artist = editArtist.trim() || "Unknown"
     const song = editSong.trim() || "Video"
     setDownloading(true)
     try {
-      await curadoriaApi.downloadVideo(video.video_id, artist, song)
+      const result = await curadoriaApi.downloadVideo(video.video_id, artist, song)
+      setR2Status(result.r2Status as "ok" | "failed" | "unknown")
+      setR2Key(result.r2Key)
       setDownloadDone(true)
       onDownloaded?.()
     } catch (err) {
@@ -99,15 +128,30 @@ export function VideoDetailModal({
           )}
         </DialogHeader>
 
-        {/* Download success state */}
+        {/* Download/Prepare success state */}
         {downloadDone ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
-              <CheckCircle2 className="h-6 w-6 text-green-600 flex-shrink-0" />
+            <div className={`flex items-center gap-3 p-4 rounded-lg border ${
+              r2Status === "ok"
+                ? "bg-green-50 border-green-200"
+                : "bg-amber-50 border-amber-200"
+            }`}>
+              {r2Status === "ok"
+                ? <Cloud className="h-6 w-6 text-green-600 flex-shrink-0" />
+                : <CloudOff className="h-6 w-6 text-amber-600 flex-shrink-0" />
+              }
               <div>
-                <div className="font-semibold text-green-800">Download concluido com sucesso</div>
-                <div className="text-sm text-green-700">
-                  Salvo na nuvem como: <span className="font-mono text-xs">{editArtist.trim()} - {editSong.trim()}</span>
+                <div className={`font-semibold ${r2Status === "ok" ? "text-green-800" : "text-amber-800"}`}>
+                  {r2Status === "ok"
+                    ? (r2Cached ? "Video ja estava no R2" : "Video salvo e pronto para edicao")
+                    : "Download concluido (upload R2 falhou)"
+                  }
+                </div>
+                <div className={`text-sm ${r2Status === "ok" ? "text-green-700" : "text-amber-700"}`}>
+                  {r2Status === "ok"
+                    ? <><span className="font-mono text-xs">{r2Key}</span></>
+                    : "O video foi baixado mas nao foi salvo na nuvem. Tente novamente."
+                  }
                 </div>
               </div>
             </div>
@@ -208,11 +252,24 @@ export function VideoDetailModal({
 
             {/* Actions */}
             <div className="flex gap-3 justify-end">
-              <Button onClick={handleDownload} disabled={downloading || !editArtist.trim() || !editSong.trim()} className="gap-2">
-                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                {downloading ? "Baixando..." : "Download"}
-              </Button>
               <Button variant="outline" onClick={onClose}>Fechar</Button>
+              <Button
+                variant="outline"
+                onClick={handleDownload}
+                disabled={downloading || preparing || !editArtist.trim() || !editSong.trim()}
+                className="gap-2"
+              >
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {downloading ? "Baixando..." : "Download local"}
+              </Button>
+              <Button
+                onClick={handlePrepare}
+                disabled={downloading || preparing || !editArtist.trim() || !editSong.trim()}
+                className="gap-2"
+              >
+                {preparing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Cloud className="h-3.5 w-3.5" />}
+                {preparing ? "Preparando..." : "Preparar para Edicao"}
+              </Button>
             </div>
           </>
         )}

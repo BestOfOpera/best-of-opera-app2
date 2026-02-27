@@ -715,34 +715,165 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
                 print(f"⚠️ Failed to save download record: {e}")
 
             # Upload para R2 — pasta unificada {Artista} - {Musica}/video/original.mp4
+            r2_ok = False
+            r2_key = ""
+            r2_base = ""
             try:
-                base = check_conflict(artist, song, video_id)
-                r2_key = f"{base}/video/original.mp4"
+                r2_base = check_conflict(artist, song, video_id)
+                r2_key = f"{r2_base}/video/original.mp4"
                 storage.upload_file(dl_path_actual, r2_key)
-                save_youtube_marker(base, video_id)
+                save_youtube_marker(r2_base, video_id)
+                r2_ok = True
+                print(f"✅ R2 upload OK: {r2_key}")
             except Exception as e:
                 print(f"⚠️ R2 upload failed (streaming anyway): {e}")
 
+            # Limpar arquivo local após upload R2 bem-sucedido (Railway disco efêmero)
+            cleanup_path = dl_path_actual
             def iter_file():
-                with open(dl_path_actual, 'rb') as f:
-                    while chunk := f.read(1024 * 1024):
-                        yield chunk
+                try:
+                    with open(cleanup_path, 'rb') as f:
+                        while chunk := f.read(1024 * 1024):
+                            yield chunk
+                finally:
+                    if r2_ok:
+                        try:
+                            shutil.rmtree(str(project_dir), ignore_errors=True)
+                            print(f"🧹 Limpeza local: {project_dir}")
+                        except Exception:
+                            pass
 
             # filename* usa RFC 5987 para suportar unicode (acentos etc)
             import unicodedata as _ud
             ascii_name = _ud.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
             from urllib.parse import quote
+            resp_headers = {
+                "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}",
+                "X-R2-Upload": "ok" if r2_ok else "failed",
+            }
+            if r2_ok:
+                resp_headers["X-R2-Key"] = r2_key
+                resp_headers["X-R2-Base"] = r2_base
             return StreamingResponse(
                 iter_file(), media_type="video/mp4",
-                headers={
-                    "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
-                },
+                headers=resp_headers,
             )
         except HTTPException:
             raise
         except Exception as e:
             print(f"❌ Download error for {video_id}: {e}")
             raise HTTPException(500, f"Download failed: {str(e)}")
+
+@app.post("/api/prepare-video/{video_id}")
+async def prepare_video(video_id: str, artist: str = Query("Unknown"), song: str = Query("Video")):
+    """Download + upload R2 sem streaming. Retorna JSON com status.
+
+    Uso programático: Portal/Editor chamam este endpoint para garantir
+    que o vídeo está no R2 antes de iniciar a edição.
+    """
+    safe_artist = sanitize_filename(artist)
+    safe_song = sanitize_filename(song)
+    project_name = f"{safe_artist} - {safe_song}"
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    # Verificar se já existe no R2 (skip download)
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+    if storage.exists(r2_key):
+        return {
+            "status": "ok",
+            "r2_key": r2_key,
+            "r2_base": r2_base,
+            "cached": True,
+            "message": "Vídeo já está no R2",
+        }
+
+    # Download via yt-dlp
+    project_dir = PROJECTS_DIR / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "video").mkdir(exist_ok=True)
+    dl_path = str(project_dir / "video" / f"{project_name}.mp4")
+
+    async with download_semaphore:
+        try:
+            import yt_dlp
+            ydl_opts = {
+                'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+                'merge_output_format': 'mp4',
+                'outtmpl': dl_path,
+                'noplaylist': True,
+                'quiet': True,
+                'no_warnings': True,
+                'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
+                'socket_timeout': 30,
+                'retries': 3,
+                'fragment_retries': 5,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                },
+            }
+            cookies_path = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
+            if os.path.exists(cookies_path):
+                ydl_opts['cookiefile'] = cookies_path
+
+            def _download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
+            await asyncio.to_thread(_download)
+
+            if not os.path.exists(dl_path):
+                import glob as _glob
+                files = _glob.glob(str(project_dir / "video" / '*'))
+                dl_path_actual = files[0] if files else None
+                if not dl_path_actual:
+                    raise HTTPException(500, "Download falhou: arquivo não encontrado")
+            else:
+                dl_path_actual = dl_path
+
+            # Salvar registro
+            try:
+                db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
+            except Exception as e:
+                print(f"⚠️ Failed to save download record: {e}")
+
+            # Upload para R2
+            storage.upload_file(dl_path_actual, r2_key)
+            save_youtube_marker(r2_base, video_id)
+            file_size = os.path.getsize(dl_path_actual)
+            print(f"✅ R2 upload OK: {r2_key} ({file_size / 1024 / 1024:.1f}MB)")
+
+            # Limpar arquivo local
+            shutil.rmtree(str(project_dir), ignore_errors=True)
+            print(f"🧹 Limpeza local: {project_dir}")
+
+            return {
+                "status": "ok",
+                "r2_key": r2_key,
+                "r2_base": r2_base,
+                "cached": False,
+                "file_size_mb": round(file_size / 1024 / 1024, 1),
+                "message": "Vídeo baixado e salvo no R2",
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ prepare-video error for {video_id}: {e}")
+            raise HTTPException(500, f"Falha ao preparar vídeo: {str(e)}")
+
+
+@app.get("/api/r2/check")
+async def r2_check(artist: str = Query(...), song: str = Query(...), video_id: str = Query("")):
+    """Verifica se o vídeo já está no R2. Retorna status e key."""
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+    exists = storage.exists(r2_key)
+    return {
+        "exists": exists,
+        "r2_key": r2_key,
+        "r2_base": r2_base,
+    }
+
 
 @app.get("/api/r2/info")
 async def r2_info(folder: str = Query(...)):

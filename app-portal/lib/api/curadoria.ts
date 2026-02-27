@@ -94,6 +94,8 @@ export const curadoriaApi = {
       const err = await resp.json().catch(() => ({ detail: "Download failed" }))
       throw new Error(err.detail || `HTTP ${resp.status}`)
     }
+    const r2Status = resp.headers.get("x-r2-upload") || "unknown"
+    const r2Key = resp.headers.get("x-r2-key") || ""
     const blob = await resp.blob()
     const cd = resp.headers.get("content-disposition")
     const fnMatch = cd && cd.match(/filename="(.+?)"/)
@@ -105,7 +107,27 @@ export const curadoriaApi = {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(a.href)
+    return { r2Status, r2Key, filename }
   },
+
+  /** Download + upload R2 sem streaming pro browser. Retorna JSON. */
+  prepareVideo: (videoId: string, artist: string, song: string) =>
+    request<{
+      status: string
+      r2_key: string
+      r2_base: string
+      cached: boolean
+      file_size_mb?: number
+      message: string
+    }>(`${BASE()}/prepare-video/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`, {
+      method: "POST",
+    }),
+
+  /** Verifica se vídeo já está no R2. */
+  checkR2: (artist: string, song: string, videoId = "") =>
+    request<{ exists: boolean; r2_key: string; r2_base: string }>(
+      `${BASE()}/r2/check?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}&video_id=${encodeURIComponent(videoId)}`
+    ),
 
   downloads: () => request<{ downloads: Download[] }>(`${BASE()}/downloads`),
 
