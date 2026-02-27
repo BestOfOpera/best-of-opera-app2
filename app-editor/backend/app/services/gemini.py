@@ -122,6 +122,15 @@ IMPORTANTE SOBRE ÓPERA:
 - O resultado deve ter 30-50 segmentos para uma ária completa
 - Timestamps em MM:SS,mmm (ex: 01:25,300)
 
+REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+Quebre em pausas naturais: vírgulas, pontos, ou pausas na música.
+Exemplos:
+- BOM: "Tempra ancora lo zelo audace." (31 chars) → 1 segmento
+- BOM: "Casta diva, che inargenti" (25 chars) → 1 segmento
+- RUIM: "La donna è mobile qual piuma al vento muta d'accento" (52 chars) → dividir em 2
+- CORRETO: "La donna è mobile qual piuma" + "al vento muta d'accento" → 2 segmentos
+
 FORMATO JSON (retorne APENAS isto):
 [
   {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Casta Diva, che inargenti"}},
@@ -210,6 +219,15 @@ REGRAS:
 7. NÃO agrupe versos — cada frase separada
 8. Ouça até o FINAL do áudio
 
+REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+Quebre em pausas naturais: vírgulas, pontos, ou pausas na música.
+Exemplos:
+- BOM: "Tempra ancora lo zelo audace." (31 chars) → 1 segmento
+- BOM: "Casta diva, che inargenti" (25 chars) → 1 segmento
+- RUIM: "La donna è mobile qual piuma al vento muta d'accento" (52 chars) → dividir em 2
+- CORRETO: "La donna è mobile qual piuma" + "al vento muta d'accento" → 2 segmentos
+
 FORMATO JSON (retorne APENAS isto, sem markdown):
 [
   {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "Nessun dorma! Nessun dorma!"}},
@@ -297,6 +315,15 @@ REGRAS:
 3. TODOS os {len(versos)} versos DEVEM aparecer
 4. Mantenha os timestamps bons da transcrição anterior, corrija os ruins
 5. ADICIONE os versos que estavam faltando com seus timestamps reais do áudio
+
+REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+Quebre em pausas naturais: vírgulas, pontos, ou pausas na música.
+Exemplos:
+- BOM: "Tempra ancora lo zelo audace." (31 chars) → 1 segmento
+- BOM: "Casta diva, che inargenti" (25 chars) → 1 segmento
+- RUIM: "La donna è mobile qual piuma al vento muta d'accento" (52 chars) → dividir em 2
+- CORRETO: "La donna è mobile qual piuma" + "al vento muta d'accento" → 2 segmentos
 
 FORMATO JSON (retorne APENAS isto, sem markdown):
 [
