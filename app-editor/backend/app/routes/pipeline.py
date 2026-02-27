@@ -21,7 +21,7 @@ from app.services.genius import buscar_letra_genius
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
 import os
 import shutil
-from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL
+from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL, CURADORIA_API_URL
 from shared.storage_service import storage, lang_prefix, check_conflict, save_youtube_marker
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
@@ -249,6 +249,50 @@ async def _download_task(edicao_id: int):
 
             logger.info(f"[{edicao_id}] Vídeo encontrado no R2 (curadoria): {r2_key}")
             return
+
+        # PASSO D — Pedir à curadoria para baixar do YouTube e salvar no R2
+        if youtube_video_id and CURADORIA_API_URL:
+            logger.info(f"[{edicao_id}] Vídeo não está no R2, pedindo à curadoria para baixar...")
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {
+                        "etapa": "download",
+                        "passo": "curadoria_baixando",
+                    }
+                    db.commit()
+
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=httpx.Timeout(300, connect=15)) as client:
+                    resp = await client.post(
+                        f"{CURADORIA_API_URL}/api/prepare-video/{youtube_video_id}",
+                        params={"artist": artista, "song": musica},
+                    )
+                if resp.status_code == 200:
+                    result = resp.json()
+                    cur_r2_key = result.get("r2_key", r2_key)
+                    cur_r2_base = result.get("r2_base", base)
+
+                    with SessionLocal() as db:
+                        edicao = db.get(Edicao, edicao_id)
+                        if edicao:
+                            edicao.arquivo_video_completo = cur_r2_key
+                            edicao.r2_base = cur_r2_base
+                            edicao.status = "letra"
+                            edicao.passo_atual = 2
+                            edicao.erro_msg = None
+                            edicao.task_heartbeat = datetime.now(timezone.utc)
+                            edicao.progresso_detalhe = {}
+                            db.commit()
+
+                    logger.info(f"[{edicao_id}] Vídeo baixado via curadoria: {cur_r2_key}")
+                    return
+                else:
+                    logger.warning(f"[{edicao_id}] Curadoria retornou {resp.status_code}: {resp.text[:300]}")
+            except Exception as e:
+                logger.warning(f"[{edicao_id}] Falha ao chamar curadoria: {e}")
 
         # Vídeo não encontrado em nenhum lugar — erro com orientação
         erro_msg = (
