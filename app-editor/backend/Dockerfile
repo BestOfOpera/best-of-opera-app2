@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-RUN pip install yt-dlp
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir yt-dlp
 
 WORKDIR /app
 COPY app-editor/backend/requirements.txt .
