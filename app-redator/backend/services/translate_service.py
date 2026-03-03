@@ -110,14 +110,97 @@ def _translate_credit_labels(section3_and_rest: str, target_lang: str) -> str:
     return section3_and_rest
 
 
+def _split_credits_cta_hashtags(after_text: str) -> tuple[str, str, str]:
+    """Split after-Section2 text into (credits, cta, hashtags).
+
+    Post structure after the storytelling:
+    - Section 3: Credits block (artist info, composer, dates)
+    - Section 4: CTA — short call-to-action line(s)
+    - Section 5: Hashtags — line starting with #
+    """
+    paragraphs = after_text.split("\n\n")
+
+    # Find hashtag paragraph (last one starting with #)
+    hashtags = ""
+    for i in range(len(paragraphs) - 1, -1, -1):
+        if paragraphs[i].strip().startswith("#"):
+            hashtags = paragraphs.pop(i).strip()
+            break
+
+    if not paragraphs:
+        return "", "", hashtags
+
+    # The last remaining paragraph that does NOT contain credit labels is the CTA
+    credit_markers = [
+        "voice type:", "tipo de voz:", "date of birth:", "data de nascimento:",
+        "composer:", "compositor:", "composition date:", "data de composição:",
+        "stimmtyp:", "geburtsdatum:", "komponist:", "kompositionsdatum:",
+        "type de voix:", "date de naissance:", "compositeur:", "date de composition:",
+        "tipo di voce:", "data di nascita:", "compositore:", "data di composizione:",
+        "typ głosu:", "data urodzenia:", "kompozytor:", "data kompozycji:",
+        "fecha de nacimiento:", "fecha de composición:",
+    ]
+
+    cta = ""
+    if paragraphs:
+        last = paragraphs[-1].strip()
+        is_credit = any(marker in last.lower() for marker in credit_markers)
+        if not is_credit and last:
+            cta = paragraphs.pop().strip()
+
+    credits = "\n\n".join(paragraphs)
+    return credits, cta, hashtags
+
+
+def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
+    """Translate hashtags while preserving # prefix and brand tags."""
+    if not hashtag_line or not hashtag_line.strip():
+        return hashtag_line
+    tags = hashtag_line.strip().split()
+    result = []
+    for tag in tags:
+        if not tag.startswith("#"):
+            result.append(tag)
+            continue
+        word = tag[1:]
+        # Preserve brand hashtag
+        if word.lower() == "bestofopera":
+            result.append(tag)
+            continue
+        translated = translate_text(word, target_lang)
+        # Hashtags can't have spaces — collapse
+        translated = translated.replace(" ", "")
+        result.append(f"#{translated}")
+    return " ".join(result)
+
+
 def translate_post_text(post_text: str, target_lang: str) -> str:
-    """Translate Section 2 (storytelling) and credit labels in Section 3."""
+    """Translate Section 2 (storytelling), CTA (Section 4), and hashtags (Section 5).
+
+    Credit labels in Section 3 are translated via hardcoded mappings.
+    """
     before, section2, after = extract_post_section2(post_text)
     if not section2:
         return post_text
+
     translated_section2 = translate_text(section2, target_lang)
-    translated_after = _translate_credit_labels(after, target_lang)
-    return f"{before}\n{translated_section2}\n{translated_after}"
+
+    # Split after into credits, CTA, and hashtags
+    credits, cta, hashtags = _split_credits_cta_hashtags(after)
+
+    # Translate each part
+    translated_credits = _translate_credit_labels(credits, target_lang)
+    translated_cta = translate_text(cta, target_lang) if cta else ""
+    translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
+
+    # Reassemble — strip each part to avoid double blank lines
+    parts = [before.strip("\n"), translated_section2.strip("\n"), translated_credits.strip("\n")]
+    if translated_cta:
+        parts.append(translated_cta.strip("\n"))
+    if translated_hashtags:
+        parts.append(translated_hashtags.strip("\n"))
+
+    return "\n\n".join(p for p in parts if p)
 
 
 def translate_overlay_json(overlay_json: list, target_lang: str) -> list:

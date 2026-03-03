@@ -1,5 +1,31 @@
 # DECISIONS.md — Decisões Técnicas
 
+## 2026-03-03: CTA e hashtags não traduzidos nos posts (fix tradução parcial)
+
+**Problema:** Em produção, os CTAs de rodapé (ex: "Isso te dá 🕊️ ou 🔥? Conta pra gente!") e o bloco de hashtags permaneciam em português em todas as 6 versões traduzidas (EN, ES, DE, FR, IT, PL).
+
+**Causa raiz:** A função `translate_post_text()` em `translate_service.py` só traduzia a Seção 2 (storytelling) via Google Translate API. As seções 3, 4 e 5 eram tratadas juntas como `after`, e a única transformação aplicada era `_translate_credit_labels()` — que substitui apenas os rótulos de crédito (ex: "Tipo de voz" → "Voice type") via mapeamento hardcoded. As seções 4 (CTA) e 5 (hashtags) passavam intactas.
+
+**Correção:**
+
+1. Nova função `_split_credits_cta_hashtags(after)` — separa o bloco `after` em 3 partes:
+   - **credits**: bloco de créditos (identificado por presença de rótulos como "Tipo de voz:", "Compositor:", etc.)
+   - **cta**: parágrafo curto sem rótulos de crédito (call-to-action)
+   - **hashtags**: último parágrafo começando com `#`
+
+2. Nova função `_translate_hashtags(hashtag_line, target_lang)` — traduz cada hashtag individualmente, preservando o prefixo `#` e a tag de marca `#BestOfOpera`.
+
+3. `translate_post_text()` agora traduz:
+   - Seção 2 (storytelling) → Google Translate ✓ (já existia)
+   - Seção 3 (créditos) → mapeamento hardcoded de rótulos ✓ (já existia)
+   - Seção 4 (CTA) → Google Translate ✓ **NOVO**
+   - Seção 5 (hashtags) → tradução individual por hashtag ✓ **NOVO**
+
+**Arquivos alterados:**
+- `app-redator/backend/services/translate_service.py` — `_split_credits_cta_hashtags()`, `_translate_hashtags()`, `translate_post_text()` refatorado
+
+---
+
 ## 2026-03-03: Reforço de idioma nos prompts do Redator (language leak fix)
 
 **Problema:** O Claude às vezes finalizava o texto gerado em português, mesmo quando o hook estava em outro idioma (inglês, alemão, italiano, etc.). A última frase "escapava" para português.
