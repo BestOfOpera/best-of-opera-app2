@@ -10,17 +10,23 @@ interface NavItem { label: string; href: string; icon: React.ElementType }
 interface ToolSection { id: string; label: string; icon: React.ElementType; items: NavItem[] }
 
 const tools: ToolSection[] = [
-  { id: "curadoria", label: "Curadoria", icon: Search, items: [
-    { label: "Dashboard", href: "/curadoria", icon: LayoutDashboard },
-    { label: "Downloads", href: "/curadoria/downloads", icon: Download },
-  ]},
-  { id: "redator", label: "Redator", icon: PenTool, items: [
-    { label: "Projetos", href: "/redator", icon: ListPlus },
-    { label: "Novo Projeto", href: "/redator/novo", icon: FileText },
-  ]},
-  { id: "editor", label: "Editor", icon: Film, items: [
-    { label: "Fila de Edicao", href: "/editor", icon: ListOrdered },
-  ]},
+  {
+    id: "curadoria", label: "Curadoria", icon: Search, items: [
+      { label: "Dashboard", href: "/curadoria", icon: LayoutDashboard },
+      { label: "Downloads", href: "/curadoria/downloads", icon: Download },
+    ]
+  },
+  {
+    id: "redator", label: "Redator de Conteúdo", icon: PenTool, items: [
+      { label: "Projetos", href: "/redator", icon: ListPlus },
+      { label: "Novo Projeto", href: "/redator/novo", icon: FileText },
+    ]
+  },
+  {
+    id: "editor", label: "Editor de Vídeo", icon: Film, items: [
+      { label: "Fila de Edicao", href: "/editor", icon: ListOrdered },
+    ]
+  },
 ]
 
 function deriveActiveTool(pathname: string): string {
