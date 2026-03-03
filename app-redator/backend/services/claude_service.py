@@ -4,6 +4,7 @@ from typing import Optional
 import anthropic
 
 from backend.config import ANTHROPIC_API_KEY
+from backend.prompts.hook_helper import detect_hook_language
 from backend.prompts.overlay_prompt import (
     build_overlay_prompt,
     build_overlay_prompt_with_custom,
@@ -17,13 +18,47 @@ from backend.prompts.youtube_prompt import (
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 MODEL = "claude-sonnet-4-5-20250929"
 
+# Common Portuguese words for post-generation leak detection
+_PT_COMMON_WORDS = {"e", "de", "do", "da", "que", "com", "para", "uma", "um", "os", "as"}
 
-def _call_claude(prompt: str) -> str:
-    message = client.messages.create(
+
+def _build_language_system_prompt(language: str) -> str:
+    """Build system-level language enforcement instruction."""
+    if language == "português":
+        return "You must write ALL output exclusively in português. Never switch languages mid-text."
+    return (
+        f"You must write ALL output exclusively in {language}. "
+        "Never switch to Portuguese, even in the final sentence."
+    )
+
+
+def _check_language_leak(text: str, target_language: str) -> None:
+    """Log warning if the last sentence of generated text appears to contain Portuguese."""
+    if target_language == "português":
+        return
+    # Get last meaningful sentence
+    sentences = [s.strip() for s in text.replace("\n", " ").split(".") if s.strip()]
+    if not sentences:
+        return
+    last = sentences[-1].lower()
+    words = set(last.split())
+    found = words & _PT_COMMON_WORDS
+    if len(found) >= 3:
+        print(
+            f"ALERTA: possível trecho em português detectado na geração — revisar manualmente. "
+            f"Idioma alvo: {target_language}. Palavras PT encontradas: {found}"
+        )
+
+
+def _call_claude(prompt: str, system: str | None = None) -> str:
+    kwargs: dict = dict(
         model=MODEL,
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
+    if system:
+        kwargs["system"] = system
+    message = client.messages.create(**kwargs)
     return message.content[0].text.strip()
 
 
@@ -150,28 +185,41 @@ Return the JSON object and nothing else."""
 
 
 def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]:
+    lang = detect_hook_language(project)
+    system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_overlay_prompt_with_custom(project, custom_prompt)
     else:
         prompt = build_overlay_prompt(project)
-    raw = _call_claude(prompt)
-    return json.loads(_strip_json_fences(raw))
+    raw = _call_claude(prompt, system=system)
+    parsed = json.loads(_strip_json_fences(raw))
+    # Check language leak on subtitle texts
+    all_text = " ".join(item.get("text", "") for item in parsed)
+    _check_language_leak(all_text, lang)
+    return parsed
 
 
 def generate_post(project, custom_prompt: Optional[str] = None) -> str:
+    lang = detect_hook_language(project)
+    system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_post_prompt_with_custom(project, custom_prompt)
     else:
         prompt = build_post_prompt(project)
-    return _call_claude(prompt)
+    result = _call_claude(prompt, system=system)
+    _check_language_leak(result, lang)
+    return result
 
 
 def generate_youtube(project, custom_prompt: Optional[str] = None) -> tuple[str, str]:
+    lang = detect_hook_language(project)
+    system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_youtube_prompt_with_custom(project, custom_prompt)
     else:
         prompt = build_youtube_prompt(project)
-    raw = _call_claude(prompt)
+    raw = _call_claude(prompt, system=system)
+    _check_language_leak(raw, lang)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
     if not lines:
         return "", ""

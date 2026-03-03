@@ -1,4 +1,4 @@
-from backend.prompts.hook_helper import build_hook_text
+from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
 
 
 def _field(label: str, value) -> str:
@@ -46,7 +46,7 @@ Line 2: The tags (comma-separated)
 Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
 Only use information that was provided above. If a field (composer, voice type, etc.) was not listed, do not include it in the title or tags.
 
-Nothing else."""
+Nothing else.{build_language_reinforcement(project)}"""
 
 
 def build_youtube_prompt_with_custom(project, custom_prompt: str) -> str:
@@ -54,4 +54,4 @@ def build_youtube_prompt_with_custom(project, custom_prompt: str) -> str:
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
-{custom_prompt}"""
+{custom_prompt}{build_language_reinforcement(project)}"""

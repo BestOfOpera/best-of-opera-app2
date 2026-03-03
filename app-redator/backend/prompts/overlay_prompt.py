@@ -1,4 +1,4 @@
-from backend.prompts.hook_helper import build_hook_text
+from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
 
 
 def _field(label: str, value) -> str:
@@ -108,7 +108,7 @@ OUTPUT FORMAT
 Return ONLY a JSON array with objects having "timestamp" (MM:SS format) and "text" fields.
 Example: [{{"timestamp": "00:00", "text": "Nobody believed she could do this"}}, {{"timestamp": "00:06", "text": "Maria Callas, live in Paris — 1958"}}]
 
-Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly."""
+Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.{build_language_reinforcement(project)}"""
 
 
 def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:
@@ -116,4 +116,4 @@ def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
-{custom_prompt}"""
+{custom_prompt}{build_language_reinforcement(project)}"""

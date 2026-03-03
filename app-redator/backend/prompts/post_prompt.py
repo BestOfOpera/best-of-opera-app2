@@ -1,4 +1,4 @@
-from backend.prompts.hook_helper import build_hook_text
+from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
 
 
 def _field(label: str, value) -> str:
@@ -160,7 +160,7 @@ CRITICAL RULES
 - Section 3 credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language). Portuguese post → Portuguese labels (Tipo de voz, Data de nascimento, Compositor, Data de composição). English post → English labels (Voice type, Date of Birth, Composer, Composition date).
 - MISSING DATA: If any field was NOT provided in the input, do NOT include it anywhere in the post. Do not invent data, use placeholders, or leave labels empty. In Section 2 storytelling, do not write sentences that reference missing information. In Section 3 credits, omit the entire line. The post must read naturally with only the available information.
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
-- Return ONLY the post text. No explanations, no commentary, no preamble."""
+- Return ONLY the post text. No explanations, no commentary, no preamble.{build_language_reinforcement(project)}"""
 
 
 def build_post_prompt_with_custom(project, custom_prompt: str) -> str:
@@ -168,4 +168,4 @@ def build_post_prompt_with_custom(project, custom_prompt: str) -> str:
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
-{custom_prompt}"""
+{custom_prompt}{build_language_reinforcement(project)}"""
