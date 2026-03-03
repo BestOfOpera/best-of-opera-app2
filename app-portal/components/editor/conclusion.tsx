@@ -24,7 +24,6 @@ const IDIOMAS = [
   { code: "de", flag: "🇩🇪", label: "Alemão" },
   { code: "fr", flag: "🇫🇷", label: "Francês" },
   { code: "it", flag: "🇮🇹", label: "Italiano" },
-  { code: "pl", flag: "🇵🇱", label: "Polonês" },
 ]
 
 function formatProgresso(p: ProgressoDetalhe | null | undefined): string | null {
@@ -291,7 +290,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setRenderizando(true)
     setError("")
     try {
-      await editorApi.desbloquear(edicaoId).catch(() => {})
+      await editorApi.desbloquear(edicaoId).catch(() => { })
       await editorApi.renderizarPreview(edicaoId, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
@@ -305,7 +304,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
   const concluidos = renders.filter(r => r.status === "concluido")
   const erros = renders.filter(r => r.status === "erro")
-  const todosOk = concluidos.length === 7 && erros.length === 0
+  const todosOk = concluidos.length === IDIOMAS.length && erros.length === 0
   const isConcluido = edicao.status === "concluido"
   const isPreviewPronto = edicao.status === "preview_pronto"
   const isPreview = edicao.status === "preview"
@@ -652,7 +651,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         {!edicao.eh_instrumental && (
           <Button variant="outline" size="sm" className="gap-2" onClick={handleTraduzir} disabled={traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
             {(traduzindo || edicao.status === "traducao") && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-            {traduzindo || edicao.status === "traducao" ? "Traduzindo..." : "Traduzir Lyrics x7 idiomas"}
+            {traduzindo || edicao.status === "traducao" ? "Traduzindo..." : `Traduzir Lyrics x${IDIOMAS.length} idiomas`}
           </Button>
         )}
         {!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== "renderizando" && (

@@ -18,7 +18,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', fontWeight: 700 }}>
             Best of Opera
           </h1>
-          <span style={{ fontSize: '12px', opacity: 0.8 }}>APP2 — Módulo de Conteúdo</span>
+          <span style={{ fontSize: '12px', opacity: 0.8 }}>Redator de Conteúdo</span>
         </Link>
         <Link to="/new-project">
           <button className="btn-secondary">+ Novo Projeto</button>

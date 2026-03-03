@@ -29,7 +29,7 @@ export function CuradoriaDashboard() {
   const [hidePosted, setHidePosted] = useState(true)
   const [activeCat, setActiveCat] = useState<string | null>(null)
   const [apiOk, setApiOk] = useState<boolean | null>(null)
-  const [quota, setQuota] = useState<Quota>({ total_points: 0, remaining: 0, limit: 0 })
+  const [quota, setQuota] = useState<Quota | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [seedInfo, setSeedInfo] = useState<Record<string, SeedInfo>>({})
   const [playlistCount, setPlaylistCount] = useState(0)
@@ -39,14 +39,14 @@ export function CuradoriaDashboard() {
     try {
       const q = await curadoriaApi.quota()
       setQuota(q)
-    } catch {}
+    } catch { }
   }, [])
 
   const loadCategories = useCallback(async () => {
     try {
       const data = await curadoriaApi.categories()
       setCategories(data.categories || [])
-    } catch {}
+    } catch { }
   }, [])
 
   const checkHealth = useCallback(async () => {
@@ -62,7 +62,7 @@ export function CuradoriaDashboard() {
     try {
       const s = await curadoriaApi.cacheStatus()
       setPlaylistCount(s.playlist?.count || 0)
-    } catch {}
+    } catch { }
   }, [])
 
   useEffect(() => {
@@ -148,8 +148,8 @@ export function CuradoriaDashboard() {
   const visibleResults = hidePosted ? results.filter(r => !r.posted) : results
   const detailVideo = detailIdx !== null ? visibleResults[detailIdx] : null
 
-  const quotaPercent = quota.limit > 0 ? (quota.total_points / quota.limit) * 100 : 0
-  const quotaColor = quotaPercent > 80 ? "text-red-600" : quotaPercent > 50 ? "text-amber-600" : "text-green-600"
+  const quotaPercent = quota && quota.limit > 0 ? (quota.total_points / quota.limit) * 100 : 0
+  const quotaColor = !quota ? "text-muted-foreground" : quotaPercent > 80 ? "text-red-600" : quotaPercent > 50 ? "text-amber-600" : "text-green-600"
 
   return (
     <div>
@@ -165,7 +165,7 @@ export function CuradoriaDashboard() {
             <div className="flex items-center gap-2">
               <Progress value={quotaPercent} className="w-24 h-2" />
               <span className={`text-xs font-semibold ${quotaColor}`}>
-                {quota.remaining} restantes
+                {quota ? `${quota.remaining} restantes` : "-- restantes"}
               </span>
             </div>
           </div>
@@ -241,12 +241,11 @@ export function CuradoriaDashboard() {
 
       {/* Message */}
       {msg && (
-        <div className={`text-sm px-3 py-2 rounded-lg mb-4 ${
-          msgType === "ok" ? "bg-green-50 text-green-700" :
-          msgType === "loading" ? "bg-amber-50 text-amber-700" :
-          msgType === "error" ? "bg-red-50 text-red-700" :
-          "bg-muted text-muted-foreground"
-        }`}>
+        <div className={`text-sm px-3 py-2 rounded-lg mb-4 ${msgType === "ok" ? "bg-green-50 text-green-700" :
+            msgType === "loading" ? "bg-amber-50 text-amber-700" :
+              msgType === "error" ? "bg-red-50 text-red-700" :
+                "bg-muted text-muted-foreground"
+          }`}>
           {msgType === "loading" && <Loader2 className="h-3.5 w-3.5 inline animate-spin mr-2" />}
           {msg}
           {postedHidden > 0 && msgType === "ok" && (
@@ -280,8 +279,10 @@ export function CuradoriaDashboard() {
       {/* Empty state */}
       {!loading && results.length === 0 && !msg && (
         <div className="text-center py-16 text-muted-foreground">
-          <span className="text-5xl block mb-4">🎭</span>
-          <p>Clique numa categoria ou busque um termo</p>
+          <p className="flex items-center justify-center gap-2">
+            <span className="text-xl">🎭</span>
+            <span>Clique numa categoria ou busque um termo</span>
+          </p>
           <Button variant="link" onClick={() => doSearch()} className="mt-2">
             Ver ranking
           </Button>

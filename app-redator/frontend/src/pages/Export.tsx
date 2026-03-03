@@ -42,7 +42,7 @@ export default function Export() {
 
   useEffect(() => {
     api.getProject(projectId).then(setProject).finally(() => setLoading(false))
-    api.getExportConfig().then(c => setHasExportPath(!!c.export_path)).catch(() => {})
+    api.getExportConfig().then(c => setHasExportPath(!!c.export_path)).catch(() => { })
   }, [projectId])
 
   const loadLang = (lang: string) => {
@@ -264,7 +264,7 @@ export default function Export() {
             onClick={handleRetranslate}
             disabled={retranslating}
           >
-            {retranslating ? 'Retraduzindo...' : `Retraduzir ${LANGUAGES.find(l => l.code === activeLang)?.label || activeLang}`}
+            {retranslating ? 'Regerando...' : `Regerar Tradução (${activeLang})`}
           </button>
         </div>
       )}

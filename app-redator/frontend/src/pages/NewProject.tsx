@@ -501,19 +501,17 @@ export default function NewProject() {
         )}
 
         {/* Submit */}
-        {detected && (
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading || !canSubmit}
-            style={{ width: '100%', padding: 14, fontSize: 16, opacity: canSubmit ? 1 : 0.5 }}
-          >
-            {loading ? 'Criando & Gerando Conteúdo...' : 'Criar Projeto e Gerar Conteúdo'}
-          </button>
-        )}
-        {detected && !canSubmit && !loading && (
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !canSubmit || !detected}
+          style={{ width: '100%', padding: 14, fontSize: 16, opacity: (canSubmit && detected) ? 1 : 0.5, marginTop: detected ? 0 : 24 }}
+        >
+          {loading ? 'Criando & Gerando Conteúdo...' : 'Criar Projeto e Gerar Conteúdo'}
+        </button>
+        {(!canSubmit || !detected) && !loading && (
           <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-light)', marginTop: 8 }}>
-            Preencha todos os campos obrigatórios (*) para continuar
+            {!detected ? 'Faça o upload do screenshot e detecte os metadados primeiro' : 'Preencha todos os campos obrigatórios (*) para continuar'}
           </p>
         )}
       </form>

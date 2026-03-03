@@ -223,11 +223,10 @@ export function VideoDetailModal({
         {/* Download/Prepare success state */}
         {downloadDone ? (
           <div className="space-y-4">
-            <div className={`flex items-center gap-3 p-4 rounded-lg border ${
-              r2Status === "ok"
-                ? "bg-green-50 border-green-200"
-                : "bg-amber-50 border-amber-200"
-            }`}>
+            <div className={`flex items-center gap-3 p-4 rounded-lg border ${r2Status === "ok"
+              ? "bg-green-50 border-green-200"
+              : "bg-amber-50 border-amber-200"
+              }`}>
               {r2Status === "ok"
                 ? <Cloud className="h-6 w-6 text-green-600 flex-shrink-0" />
                 : <CloudOff className="h-6 w-6 text-amber-600 flex-shrink-0" />
@@ -292,12 +291,12 @@ export function VideoDetailModal({
                 ["Ano", video.year > 0 ? String(video.year) : "--"],
                 ["Duração", formatDuration(video.duration)],
                 ["HD", video.hd ? "Sim" : "Não"],
-                ["Canal", video.channel || "--"],
-                ["Cat.", video.category || "--"],
+                ["Canal", video.channel?.trim() || "--"],
+                ["Cat.", video.category?.trim() || "Não definida"],
               ].map(([label, val]) => (
                 <div key={label} className="bg-muted/50 rounded-lg p-2">
                   <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
-                  <div className="text-sm font-semibold truncate">{val}</div>
+                  <div className={`text-sm font-semibold truncate ${val === "--" || val === "Não definida" ? "text-muted-foreground font-normal" : ""}`}>{val}</div>
                 </div>
               ))}
             </div>
@@ -425,6 +424,6 @@ export function VideoDetailModal({
           </>
         )}
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }
