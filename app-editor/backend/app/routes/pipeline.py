@@ -1319,6 +1319,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             idioma_musica = edicao.idioma
             artista_val = edicao.artista
             musica_val = edicao.musica
+            sem_lyrics_val = bool(edicao.sem_lyrics)
             r2_base_val = _get_r2_base(edicao)
             # Persistir r2_base se não estava setado
             if not edicao.r2_base and r2_base_val:
@@ -1480,6 +1481,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         traducao=d["traducao_segs"],
                         idioma_versao=idioma,
                         idioma_musica=idioma_musica,
+                        sem_lyrics=sem_lyrics_val,
                     )
 
                     ass_path = str(output_dir / f"legendas_{idioma}.ass")

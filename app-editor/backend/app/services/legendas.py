@@ -224,8 +224,13 @@ def gerar_ass(
     idioma_versao: str,
     idioma_musica: str,
     estilos: dict = None,
+    sem_lyrics: bool = False,
 ) -> pysubs2.SSAFile:
-    """Gera arquivo ASS com até 3 tracks."""
+    """Gera arquivo ASS com até 3 tracks.
+
+    Quando sem_lyrics=True, gera apenas a track de overlay (topo),
+    omitindo completamente as tracks de lyrics e tradução.
+    """
     estilos = estilos or ESTILOS_PADRAO
     subs = pysubs2.SSAFile()
     subs.info["PlayResX"] = "1080"
@@ -301,6 +306,10 @@ def gerar_ass(
         event.text = "{\\q2}" + texto
         event.style = "Overlay"
         subs.events.append(event)
+
+    if sem_lyrics:
+        logger.info("[legendas] sem_lyrics=True: omitindo tracks de lyrics e tradução")
+        return subs
 
     # Preparar mapa de traduções por index (para sincronizar lyrics ↔ tradução)
     precisa_traducao = idioma_versao != idioma_musica and traducao

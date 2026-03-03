@@ -20,6 +20,7 @@ class Edicao(Base):
     categoria = Column(String(50))
     idioma = Column(String(10), nullable=False)
     eh_instrumental = Column(Boolean, default=False)
+    sem_lyrics = Column(Boolean, default=False)
     duracao_total_sec = Column(Float)
 
     status = Column(String(30), default="aguardando")

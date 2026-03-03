@@ -13,6 +13,7 @@ export interface Edicao {
   idioma: string
   categoria: string
   eh_instrumental: boolean
+  sem_lyrics: boolean
   status: string
   cut_start: string | null
   cut_end: string | null

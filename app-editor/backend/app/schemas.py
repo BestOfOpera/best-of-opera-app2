@@ -30,6 +30,7 @@ class EdicaoUpdate(BaseModel):
     categoria: Optional[str] = None
     idioma: Optional[str] = None
     eh_instrumental: Optional[bool] = None
+    sem_lyrics: Optional[bool] = None
     status: Optional[str] = None
     passo_atual: Optional[int] = None
     erro_msg: Optional[str] = None
@@ -46,6 +47,7 @@ class EdicaoOut(BaseModel):
     categoria: Optional[str] = None
     idioma: str
     eh_instrumental: bool
+    sem_lyrics: Optional[bool] = False
     duracao_total_sec: Optional[float] = None
     status: str
     passo_atual: int

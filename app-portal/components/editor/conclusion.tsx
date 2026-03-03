@@ -68,6 +68,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [aprovando, setAprovando] = useState(false)
   const [desbloqueando, setDesbloqueando] = useState(false)
   const [filaStatus, setFilaStatus] = useState<FilaStatus | null>(null)
+  const [semLyrics, setSemLyrics] = useState(false)
   const [semLegendas, setSemLegendas] = useState(false)
   const [mostrarConfirmLimpar, setMostrarConfirmLimpar] = useState(false)
   const [limpando, setLimpando] = useState(false)
@@ -80,6 +81,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         editorApi.filaStatus().catch(() => null),
       ])
       setEdicao(e)
+      setSemLyrics(!!e.sem_lyrics)
       setRenders(r)
       setFilaStatus(fila)
     } catch (err: unknown) {
@@ -593,21 +595,47 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </Card>
       </div>
 
-      {/* Toggle sem legendas */}
-      <div className="mb-4">
+      {/* Toggle sem lyrics (persiste no banco) */}
+      <div className="mb-4 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer select-none" title="Ative para músicas instrumentais ou com texto mínimo repetitivo">
+          <input
+            type="checkbox"
+            checked={semLyrics}
+            onChange={async (e) => {
+              const val = e.target.checked
+              setSemLyrics(val)
+              try {
+                await editorApi.atualizarEdicao(edicaoId, { sem_lyrics: val } as Partial<Edicao>)
+              } catch {
+                setSemLyrics(!val)
+              }
+            }}
+            className="h-4 w-4 rounded border-gray-300 accent-amber-600"
+          />
+          <span className="text-sm font-medium">Sem legendas de transcrição</span>
+          <span className="text-xs text-muted-foreground">(músicas instrumentais / texto mínimo)</span>
+        </label>
+        {semLyrics && (
+          <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <span>Vídeo será gerado apenas com overlay editorial (topo). Legendas de letra e tradução serão omitidas.</span>
+          </div>
+        )}
+
+        {/* Toggle sem legendas (remove todas, inclusive overlay) */}
         <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={semLegendas}
             onChange={e => setSemLegendas(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 accent-amber-600"
+            className="h-4 w-4 rounded border-gray-300 accent-gray-600"
           />
-          <span className="text-sm font-medium">Renderizar sem legendas</span>
+          <span className="text-sm font-medium">Renderizar sem nenhuma legenda</span>
         </label>
         {semLegendas && (
-          <div className="mt-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
+          <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>Vídeo será gerado sem legendas. Você poderá adicionar as legendas manualmente depois.</span>
+            <span>Vídeo será gerado sem nenhuma legenda (overlay, letra e tradução).</span>
           </div>
         )}
       </div>

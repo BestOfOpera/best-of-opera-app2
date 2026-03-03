@@ -33,6 +33,7 @@ def _run_migrations():
             ("task_heartbeat", "TIMESTAMP"),
             ("progresso_detalhe", "JSON"),
             ("tentativas_requeue", "INTEGER DEFAULT 0"),
+            ("sem_lyrics", "BOOLEAN DEFAULT FALSE"),
         ]:
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))

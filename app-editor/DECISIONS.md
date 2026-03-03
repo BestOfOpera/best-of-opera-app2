@@ -167,3 +167,34 @@ Barra preta inf: y = 1264..1920 (656px de espaço)
 **Princípio:** O overlay é IMUTÁVEL após importação. O Editor nunca re-busca
 overlay do Redator durante render — lê exclusivamente do banco local
 (`editor_overlays.segmentos_original` / `segmentos_reindexado`).
+
+## 12. Toggle "Sem legendas de transcrição" (sem_lyrics) (2026-03-03)
+
+**Motivação:** Músicas instrumentais ou com texto mínimo repetitivo (ex: "Ave Maria")
+não precisam de legendas de letra (amarelo) nem tradução (branco) — apenas o overlay
+editorial no topo.
+
+**Implementação (4 partes):**
+
+### Banco de dados
+- Novo campo `sem_lyrics` (Boolean, default=False) em `editor_edicoes`
+- Migration automática em `_run_migrations()`: `ALTER TABLE ... ADD COLUMN sem_lyrics BOOLEAN DEFAULT FALSE`
+- Exposto em `EdicaoOut` e `EdicaoUpdate` (schemas Pydantic)
+
+### Serviço de legendas
+- `gerar_ass()` recebe parâmetro `sem_lyrics: bool = False`
+- Quando True: gera apenas a track de overlay (topo), retorna antes de criar tracks de lyrics/tradução
+- Quando False: comportamento inalterado (3 tracks)
+
+### Task de render
+- `_render_task` lê `edicao.sem_lyrics` no Passo A (sessão curta)
+- Passa para `gerar_ass(sem_lyrics=sem_lyrics_val)`
+
+### Frontend (Portal)
+- Toggle "Sem legendas de transcrição" na página de conclusão, persistido via PATCH
+- Estado carregado do campo `sem_lyrics` da edição
+- Tooltip: "Ative para músicas instrumentais ou com texto mínimo repetitivo"
+
+**Distinção de `sem_legendas` (existente):**
+- `sem_lyrics=True`: mantém overlay, omite lyrics+tradução (ASS com 1 track)
+- `sem_legendas=True`: remove TODAS as legendas (sem ASS, apenas scale+pad)
