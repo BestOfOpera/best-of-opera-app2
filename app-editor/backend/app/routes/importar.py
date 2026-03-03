@@ -1,4 +1,5 @@
 """Rotas de importação do Redator (APP2) para o Editor (APP3)."""
+import logging
 import re
 
 import httpx
@@ -8,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.config import REDATOR_API_URL
 from app.database import get_db
 from app.models import Edicao, Overlay, Post, Seo
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/editor", tags=["importar"])
 
@@ -193,8 +196,13 @@ async def importar_do_redator(
     db.add(edicao)
     db.flush()
 
-    # Salvar overlays
+    # Salvar overlays (congelados — texto imutável a partir daqui)
     for idioma, segmentos in overlays.items():
+        textos = [s.get("text", "") for s in segmentos if s.get("text")]
+        logger.info(
+            f"[importar] edicao={edicao.id} idioma={idioma} "
+            f"overlay CONGELADO: {len(segmentos)} segs, textos={textos}"
+        )
         db.add(Overlay(edicao_id=edicao.id, idioma=idioma, segmentos_original=segmentos))
 
     # Salvar posts

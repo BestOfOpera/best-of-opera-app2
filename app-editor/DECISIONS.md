@@ -64,6 +64,24 @@ Barra preta inferior
 - Tradução DE com 71 chars: "Also Liebling, Liebling, steh mir bei, oh steh mir bei, oh steh mir bei"
 - Confirmado: sem sobreposição, sem invasão do vídeo, ordem correta
 
+## 8. Badge unificado na tela de importação (editor_status)
+
+**Problema:** Na listagem de projetos do Redator, o badge "Pronto" (status export_ready do Redator) era ambíguo — parecia "pronto para importar" mas significava "concluído no Redator". Projetos já editados no Editor não tinham marcação clara, e o operador não sabia quais já foram importados/concluídos.
+
+**Solução:** Badge unificado que prioriza o status no Editor sobre o status no Redator:
+
+| editor_status | Badge | Cor | Botão |
+|---|---|---|---|
+| null + export_ready | "Disponível para edição" | Verde | Importar |
+| null + outro status | Label original do Redator | Padrão | Importar |
+| "em_andamento" | "Em edição #XX" (link) | Âmbar | "Ir para edição #XX" |
+| "concluido" | "Concluído ✓" | Cinza | Desabilitado |
+
+- Projetos concluídos ficam com opacidade reduzida (50%)
+- Projetos em andamento ficam levemente esmaecidos (80%)
+- Link do badge "Em edição" e botão apontam para `/editor/edicao/{id}/conclusao`
+- Backend já retornava `editor_status` e `editor_edicao_id` (Decisão 6, Camada 3)
+
 ## 9. Fix marginv lyrics/traducao — legendas na barra preta inferior, simétricas ao overlay
 
 **Problema anterior (commit errado):** Decisão 9 anterior usava marginv=680/620, que colocava
@@ -122,22 +140,30 @@ Barra preta inf: y = 1264..1920 (656px de espaço)
 
 **Overlay NÃO alterado** (fontsize=47, marginv=530).
 
----
+## 11. Overlay congelado na importação (2026-03-03)
 
-## 8. Badge unificado na tela de importação (editor_status)
+**Problema:** O vídeo renderizado exibia texto de overlay diferente do aprovado pelo operador.
 
-**Problema:** Na listagem de projetos do Redator, o badge "Pronto" (status export_ready do Redator) era ambíguo — parecia "pronto para importar" mas significava "concluído no Redator". Projetos já editados no Editor não tinham marcação clara, e o operador não sabia quais já foram importados/concluídos.
+**Causa raiz (3 bugs combinados):**
+1. **Bug de `None` vs `[]`**: Na `_render_task`, a expressão
+   `overlay.segmentos_reindexado if overlay else []` avaliava para `None`
+   quando o overlay existia mas `segmentos_reindexado` era NULL (antes de
+   `aplicar_corte` rodar ou se este falhasse). Isso causava crash ou overlay
+   vazio no render.
+2. **Sem fallback**: Se `segmentos_reindexado` não estava populado, não havia
+   fallback para `segmentos_original` (o campo congelado na importação).
+3. **Sem rastreabilidade**: Nenhum log registrava qual texto de overlay era
+   usado em cada render, impossibilitando diagnóstico.
 
-**Solução:** Badge unificado que prioriza o status no Editor sobre o status no Redator:
+**Correção aplicada:**
+- `_render_task` agora usa `segmentos_reindexado` com fallback para
+  `segmentos_original`. Se ambos forem NULL, falha com erro claro:
+  "Overlay não encontrado — reimporte o projeto".
+- Log explícito no início de cada render por idioma com o texto exato do overlay.
+- Log na importação (`importar.py`) registrando o texto congelado.
+- Log de alerta em `aplicar_corte` se `normalizar_segmentos` alterar texto.
+- `redator_project_id` agora é salvo na importação para rastreabilidade.
 
-| editor_status | Badge | Cor | Botão |
-|---|---|---|---|
-| null + export_ready | "Disponível para edição" | Verde | Importar |
-| null + outro status | Label original do Redator | Padrão | Importar |
-| "em_andamento" | "Em edição #XX" (link) | Âmbar | "Ir para edição #XX" |
-| "concluido" | "Concluído ✓" | Cinza | Desabilitado |
-
-- Projetos concluídos ficam com opacidade reduzida (50%)
-- Projetos em andamento ficam levemente esmaecidos (80%)
-- Link do badge "Em edição" e botão apontam para `/editor/edicao/{id}/conclusao`
-- Backend já retornava `editor_status` e `editor_edicao_id` (Decisão 6, Camada 3)
+**Princípio:** O overlay é IMUTÁVEL após importação. O Editor nunca re-busca
+overlay do Redator durante render — lê exclusivamente do banco local
+(`editor_overlays.segmentos_original` / `segmentos_reindexado`).

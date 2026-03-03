@@ -917,6 +917,14 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     # Apenas normalizar o formato — NÃO subtrair janela_inicio (isso zeraria tudo).
     for ov in overlays:
         ov.segmentos_reindexado = normalizar_segmentos(ov.segmentos_original)
+        # Log para rastreabilidade: confirmar que texto não foi alterado
+        textos_orig = [s.get("text", "") for s in (ov.segmentos_original or [])]
+        textos_reind = [s.get("text", "") for s in (ov.segmentos_reindexado or [])]
+        if textos_orig != textos_reind:
+            logger.warning(
+                f"[{edicao_id}] ALERTA: overlay {ov.idioma} texto mudou na normalização! "
+                f"original={textos_orig} reindexado={textos_reind}"
+            )
 
     # Cortar vídeo — usar R2 storage (ensure_local garante disponibilidade)
     r2_base = _get_r2_base(edicao)
@@ -1326,14 +1334,51 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 overlay = db.query(Overlay).filter(
                     Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
                 ).first()
+                if not overlay:
+                    logger.error(
+                        f"[{edicao_id}] Overlay não encontrado para idioma={idioma}. "
+                        f"Reimporte o projeto do Redator."
+                    )
+                    falhas_pre = dados_idiomas.get("_falhas_pre", [])
+                    falhas_pre.append(idioma)
+                    dados_idiomas["_falhas_pre"] = falhas_pre
+                    continue
+
+                # Prioridade: segmentos_reindexado (pós aplicar-corte),
+                # fallback: segmentos_original (congelado na importação)
+                overlay_segs = overlay.segmentos_reindexado
+                if not overlay_segs:
+                    overlay_segs = overlay.segmentos_original
+                if not overlay_segs:
+                    logger.error(
+                        f"[{edicao_id}] Overlay {idioma} existe mas sem segmentos. "
+                        f"Reimporte o projeto."
+                    )
+                    falhas_pre = dados_idiomas.get("_falhas_pre", [])
+                    falhas_pre.append(idioma)
+                    dados_idiomas["_falhas_pre"] = falhas_pre
+                    continue
+
+                # Log explícito: texto exato do overlay que será renderizado
+                overlay_textos = [s.get("text", "") for s in overlay_segs if s.get("text")]
+                logger.info(
+                    f"[{edicao_id}] OVERLAY RENDER {idioma}: "
+                    f"{len(overlay_segs)} segmentos, textos={overlay_textos}"
+                )
+
                 traducao = db.query(TraducaoLetra).filter(
                     TraducaoLetra.edicao_id == edicao_id,
                     TraducaoLetra.idioma == idioma,
                 ).first()
                 dados_idiomas[idioma] = {
-                    "overlay_segs": overlay.segmentos_reindexado if overlay else [],
+                    "overlay_segs": overlay_segs,
                     "traducao_segs": traducao.segmentos if traducao else None,
                 }
+
+            # Remover idiomas sem overlay da lista de faltantes
+            idiomas_sem_overlay = dados_idiomas.pop("_falhas_pre", [])
+            if idiomas_sem_overlay:
+                faltantes = [i for i in faltantes if i not in idiomas_sem_overlay]
 
             # Setar status e heartbeat inicial
             status_inicial = "preview" if is_preview else "renderizando"
@@ -1348,9 +1393,21 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             }
             db.commit()
 
+        # Registrar falhas de overlay ausente
+        falhas = []
+        if idiomas_sem_overlay:
+            for idioma_falta in idiomas_sem_overlay:
+                msg = f"{idioma_falta}: Overlay não encontrado — reimporte o projeto"
+                falhas.append(msg)
+                with SessionLocal() as db:
+                    db.add(Render(
+                        edicao_id=edicao_id, idioma=idioma_falta, tipo="9:16",
+                        status="erro", erro_msg="Overlay não encontrado — reimporte o projeto",
+                    ))
+                    db.commit()
+
         # PASSO B — Loop de render (banco FECHADO durante FFmpeg)
         renders_ok = 0
-        falhas = []
 
         # Limpeza preventiva de /tmp: remover *.mp4 e *.ass residuais de execuções anteriores
         import glob as _glob
