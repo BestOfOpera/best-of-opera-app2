@@ -36,7 +36,7 @@ export function CuradoriaDashboard() {
   const [postedHidden, setPostedHidden] = useState(0)
   const [manualUrl, setManualUrl] = useState("")
   const [manualLoading, setManualLoading] = useState(false)
-  const [manualVideos, setManualVideos] = useState<Video[]>([])
+  const [sessionVideos, setSessionVideos] = useState<Video[]>([])
 
   const loadQuota = useCallback(async () => {
     try {
@@ -158,10 +158,15 @@ export function CuradoriaDashboard() {
 
     try {
       const video = await curadoriaApi.manualVideo(manualUrl.trim())
-      setManualVideos(prev => [video, ...prev])
+      // Adiciona ao topo dos vídeos da sessão
+      setSessionVideos(prev => [video, ...prev])
       setManualUrl("")
-      setMsg("Vídeo adicionado com sucesso!")
+      setMsg("Vídeo encontrado! Abrindo detalhes...")
       setMsgType("ok")
+
+      // Abre o modal de detalhes para este vídeo imediatamente
+      // Como o vídeo manual será o primeiro de visibleResults, definimos index 0
+      setDetailIdx(0)
     } catch (err) {
       setMsg("Erro ao adicionar vídeo: " + (err instanceof Error ? err.message : "Erro"))
       setMsgType("error")
@@ -170,8 +175,8 @@ export function CuradoriaDashboard() {
     }
   }
 
-  const filteredManual = hidePosted ? manualVideos.filter(r => !r.posted) : manualVideos
-  const visibleResults = [...filteredManual, ...(hidePosted ? results.filter(r => !r.posted) : results)]
+  const filteredSession = hidePosted ? sessionVideos.filter(r => !r.posted) : sessionVideos
+  const visibleResults = [...filteredSession, ...(hidePosted ? results.filter(r => !r.posted) : results)]
   const detailVideo = detailIdx !== null ? visibleResults[detailIdx] : null
 
   const quotaPercent = quota && quota.limit > 0 ? (quota.total_points / quota.limit) * 100 : 0
