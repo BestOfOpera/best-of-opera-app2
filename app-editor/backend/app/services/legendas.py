@@ -62,11 +62,11 @@ def hex_to_ssa_color(hex_color: str) -> pysubs2.Color:
 
 def seg_to_ms(value) -> int:
     """Converte valor para milissegundos."""
-    if isinstance(value, (int, float)):
-        return int(value * 1000)
-    if isinstance(value, str):
-        return int(timestamp_to_seconds(value) * 1000)
-    return 0
+    if value is None:
+        return 0
+    # Delegar para timestamp_to_seconds para lidar com heurística de s vs ms
+    sec = timestamp_to_seconds(value)
+    return int(sec * 1000)
 
 
 def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str:
@@ -262,19 +262,23 @@ def gerar_ass(
             duracao_total_ms = end_ms
 
     # Track 1: Overlay (com word wrap e timing contínuo)
-    # Cada overlay dura até 1s antes do próximo; último até o fim do corte
+    # Cada overlay dura até o próximo; último até o fim do corte
     overlay_filtrado = [seg for seg in overlay if seg.get("text")]
 
-    # Detectar caso degenerado: todos os timestamps iguais (ex: todos zerados)
+    # Bug B: Garantir ordenação temporal antes de processar os overlays
     def _get_start_ms(s):
-        k = "start" if "start" in s else "timestamp"
+        k = "start" if "start" in s else ("timestamp" if "timestamp" in s else "start")
         return seg_to_ms(s.get(k, 0))
 
+    overlay_filtrado.sort(key=_get_start_ms)
+
+    # Detectar caso degenerado: todos os timestamps iguais (ex: todos zerados)
     overlay_starts = [_get_start_ms(s) for s in overlay_filtrado]
     todos_iguais = len(overlay_filtrado) > 1 and len(set(overlay_starts)) <= 1
 
     for i, seg in enumerate(overlay_filtrado):
         event = pysubs2.SSAEvent()
+        start_ms = _get_start_ms(seg)
 
         if todos_iguais and duracao_total_ms > 0:
             # Fallback: distribuir igualmente pelo vídeo quando timestamps são todos iguais
@@ -283,21 +287,31 @@ def gerar_ass(
             event.start = i * interval
             event.end = (i + 1) * interval
         else:
-            start_key = "start" if "start" in seg else "timestamp"
-            event.start = seg_to_ms(seg.get(start_key, 0))
-            # End = próximo overlay - 1s gap, ou fim do vídeo
-            if i + 1 < len(overlay_filtrado):
-                next_seg = overlay_filtrado[i + 1]
-                next_start_key = "start" if "start" in next_seg else "timestamp"
-                next_start_ms = seg_to_ms(next_seg.get(next_start_key, 0))
-                event.end = max(event.start + 1, next_start_ms - 1000)  # 1s gap
+            event.start = start_ms
+            # End: prioridade para o campo 'end' se existir, senão usa o próximo start
+            end_ms = seg_to_ms(seg.get("end")) if "end" in seg else 0
+            
+            if end_ms > event.start:
+                event.end = end_ms
+            elif i + 1 < len(overlay_filtrado):
+                next_start_ms = _get_start_ms(overlay_filtrado[i + 1])
+                # Garante que o fim é pelo menos 1ms após o início, e idealmente o próximo start
+                event.end = max(event.start + 1, next_start_ms)
             else:
                 # Último overlay: até o fim do corte
-                event.end = duracao_total_ms if duracao_total_ms > 0 else event.start + 10000
+                event.end = duracao_total_ms if duracao_total_ms > event.start else event.start + 10000
 
-        # Garantir duração mínima de 2s
-        if event.end - event.start < 2000:
-            event.end = event.start + 2000
+        # Garantir duração mínima de 2s para legibilidade, a menos que o próximo sobreponha
+        if i + 1 < len(overlay_filtrado):
+            next_start_ms = _get_start_ms(overlay_filtrado[i + 1])
+            # Se der pra expandir pra 2s sem atropelar o próximo, expande
+            if event.end - event.start < 2000 and next_start_ms > event.start + 2000:
+                event.end = event.start + 2000
+        else:
+            # Último: força 2s se possível
+            if event.end - event.start < 2000:
+                event.end = event.start + 2000
+
         texto = seg["text"]
         texto_original = texto
         texto = _formatar_overlay(texto, OVERLAY_MAX_CHARS_LINHA)

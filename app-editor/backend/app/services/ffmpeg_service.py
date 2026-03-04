@@ -63,10 +63,14 @@ async def cortar_na_janela_overlay(
     cortado_local = str(output_dir / "video_cortado.mp4")
     cru_local = str(output_dir / "video_cru.mp4")
 
+    # Bug A Fix: Usar busca precisa com re-encode para garantir que o corte 
+    # comece exatamente no frame solicitado, sem depender de keyframes próximos.
     await run_ffmpeg(
-        f'ffmpeg -y -i "{local_video}" '
-        f"-ss {janela_inicio_sec} -to {janela_fim_sec} "
-        f'-c copy "{cortado_local}"'
+        f'ffmpeg -y -ss {janela_inicio_sec} -to {janela_fim_sec} -i "{local_video}" '
+        f'-avoid_negative_ts make_zero '
+        f'-vf "setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" '
+        f'-c:v libx264 -preset ultrafast -crf 18 '
+        f'-c:a aac -b:a 192k "{cortado_local}"'
     )
 
     shutil.copy(cortado_local, cru_local)

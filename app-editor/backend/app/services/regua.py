@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 MAX_SECONDS = 86400.0
 
 
-def timestamp_to_seconds(ts: str) -> float:
+def timestamp_to_seconds(ts) -> float:
     """Converte QUALQUER formato de timestamp para float em segundos.
 
     Formatos aceitos:
@@ -26,14 +26,35 @@ def timestamp_to_seconds(ts: str) -> float:
     - MM:SS.mmm (ex: 1:25.300 → 85.3s)
     - MM:SS (ex: 1:25 → 85s)
     - SS.mmm (ex: 25.3 → 25.3s)
+    - Inteiro/Float (considerado segundos, a menos que > 3600, aí tratado como MS)
 
     Regra de desambiguação para 3 partes (A:B:C):
     - Se C >= 100 → formato MM:SS:mmm (Gemini) → A*60 + B + C/1000
     - Se C < 100  → formato HH:MM:SS.frac (SRT)  → A*3600 + B*60 + C
     """
-    if not ts or not isinstance(ts, str):
+    if ts is None:
         return 0.0
+    
+    # Se já for número
+    if isinstance(ts, (int, float)):
+        # Heurística: se > 3600 (1 hora) e é um inteiro/float puro, 
+        # é altamente provável que seja Milissegundos vindo do Redator.
+        if ts > 3600:
+            return float(ts) / 1000.0
+        return float(ts)
+
+    if not isinstance(ts, str):
+        return 0.0
+
     ts = ts.strip().replace(",", ".")
+    
+    # Se for uma string puramente numérica (ex: "6000")
+    if ts.replace(".", "", 1).isdigit():
+        val = float(ts)
+        if val > 3600:
+            return val / 1000.0
+        return val
+
     parts = ts.split(":")
     try:
         if len(parts) == 3:
@@ -87,8 +108,14 @@ def normalizar_segmentos(segmentos: list) -> list:
     if not segmentos:
         return []
 
+    # Ordenar por tempo antes de qualquer processamento
+    def _sort_key(s):
+        k = "start" if "start" in s else "timestamp"
+        return timestamp_to_seconds(s.get(k, 0))
+    
+    segmentos_ordenados = sorted(segmentos, key=_sort_key)
     resultado = []
-    for seg in segmentos:
+    for seg in segmentos_ordenados:
         novo = dict(seg)
 
         if "start" in seg:

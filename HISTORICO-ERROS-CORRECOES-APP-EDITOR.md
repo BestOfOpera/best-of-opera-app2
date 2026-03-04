@@ -49,3 +49,17 @@
   - `claude_service.py`: `_call_claude()` aceita parâmetro `system`; todas as 3 funções `generate_*` passam system message explícita: "You must write ALL output exclusively in {idioma}. Never switch to Portuguese, even in the final sentence."
   - `claude_service.py`: `_check_language_leak()` detecta se última frase contém >= 3 palavras PT — loga ALERTA sem bloquear, para revisão manual
 - **Status: ✅ CORRIGIDO E DEPLOYADO**
+ 
++### ERR-055 · Erro HTTP 403 Forbidden no download do YouTube (Curadoria)
++
++- **Sintoma:** Downloads de vídeos do YouTube no app-curadoria falhando com "HTTP Error 403: Forbidden"
++- **Causa raiz:** Mudanças nas restrições do YouTube impedindo downloads sem cookies de sessão autenticados.
++- **Arquivos corrigidos:** `app-curadoria/backend/main.py`, `app-curadoria/backend/Dockerfile`
++- **Correção aplicada (04/03/2026):**
++  - `main.py`: Adicionado helper `_get_ydl_opts` centralizando configuração do `yt-dlp`.
++  - `main.py`: Suporte à variável de ambiente `YOUTUBE_COOKIES`. Quando presente, o conteúdo é salvo em `/tmp/yt_cookies.txt` e passado para o `yt-dlp`.
++  - `main.py`: Adicionadas flags de robustez: `--no-check-certificate`, `--user-agent` (moderno), `--extractor-retries 3`.
++  - `main.py`: Tratamento de erro aprimorado para exibir no frontend a mensagem original do `yt-dlp` (err_dlp: {e}).
++  - `Dockerfile`: Adicionado `RUN pip install -U yt-dlp` para garantir a versão mais recente durante o build.
++- **Status: ✅ CORRIGIDO (Aguardando Deploy Railway)**
++

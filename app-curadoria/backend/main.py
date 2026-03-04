@@ -317,6 +317,49 @@ def extract_artist_song(title: str) -> tuple:
         if m: return m.group(1).strip(), m.group(2).strip()
     return clean, ""
 
+def _get_ydl_opts(dl_path: str):
+    """Generate yt-dlp options with cookie support and robustness flags (ERR-055)"""
+    import yt_dlp
+    opts = {
+        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+        'merge_output_format': 'mp4',
+        'outtmpl': dl_path,
+        'noplaylist': True,
+        'quiet': True,
+        'no_warnings': True,
+        'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
+        'socket_timeout': 30,
+        'retries': 3,
+        'fragment_retries': 5,
+        'extractor_retries': 3,
+        'nocheckcertificate': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+        },
+    }
+
+    # Cookies support via YOUTUBE_COOKIES env var (ERR-055)
+    cookies_content = os.getenv("YOUTUBE_COOKIES")
+    if cookies_content:
+        cookies_path = "/tmp/yt_cookies.txt"
+        try:
+            with open(cookies_path, "w") as f:
+                f.write(cookies_content)
+            opts['cookiefile'] = cookies_path
+            print(f"🍪 Using YOUTUBE_COOKIES (saved to {cookies_path})")
+        except Exception as e:
+            print(f"⚠️ Error saving YOUTUBE_COOKIES: {e}")
+    else:
+        # Fallback to legacy path
+        legacy_cookies = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
+        if os.path.exists(legacy_cookies):
+            opts['cookiefile'] = legacy_cookies
+            print(f"🍪 Using legacy cookies from {legacy_cookies}")
+
+    return opts
+
 
 # ─── YOUTUBE API v3 (with anti-spam & quota tracking) ───
 async def yt_search(query: str, max_results: int = 25) -> list:
@@ -765,27 +808,7 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
     async with download_semaphore:
         try:
             import yt_dlp
-            ydl_opts = {
-                'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
-                'merge_output_format': 'mp4',
-                'outtmpl': dl_path,
-                'noplaylist': True,
-                'quiet': True,
-                'no_warnings': True,
-                'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 5,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                },
-            }
-            # Use cookies file if available
-            cookies_path = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
-            if os.path.exists(cookies_path):
-                ydl_opts['cookiefile'] = cookies_path
-                print(f"🍪 Using cookies from {cookies_path}")
+            ydl_opts = _get_ydl_opts(dl_path)
 
             def _download():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -855,7 +878,7 @@ async def download_video(video_id: str, artist: str = Query("Unknown"), song: st
             raise
         except Exception as e:
             print(f"❌ Download error for {video_id}: {e}")
-            raise HTTPException(500, f"Download failed: {str(e)}")
+            raise HTTPException(500, f"Erro yt-dlp: {str(e)}")
 
 @app.post("/api/prepare-video/{video_id}")
 async def prepare_video(video_id: str, artist: str = Query("Unknown"), song: str = Query("Video")):
@@ -890,25 +913,7 @@ async def prepare_video(video_id: str, artist: str = Query("Unknown"), song: str
     async with download_semaphore:
         try:
             import yt_dlp
-            ydl_opts = {
-                'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
-                'merge_output_format': 'mp4',
-                'outtmpl': dl_path,
-                'noplaylist': True,
-                'quiet': True,
-                'no_warnings': True,
-                'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
-                'socket_timeout': 30,
-                'retries': 3,
-                'fragment_retries': 5,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-                    'Accept-Language': 'en-US,en;q=0.9',
-                },
-            }
-            cookies_path = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
-            if os.path.exists(cookies_path):
-                ydl_opts['cookiefile'] = cookies_path
+            ydl_opts = _get_ydl_opts(dl_path)
 
             def _download():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -952,7 +957,7 @@ async def prepare_video(video_id: str, artist: str = Query("Unknown"), song: str
             raise
         except Exception as e:
             print(f"❌ prepare-video error for {video_id}: {e}")
-            raise HTTPException(500, f"Falha ao preparar vídeo: {str(e)}")
+            raise HTTPException(500, f"Erro yt-dlp (prepare): {str(e)}")
 
 
 @app.post("/api/upload-video/{video_id}")

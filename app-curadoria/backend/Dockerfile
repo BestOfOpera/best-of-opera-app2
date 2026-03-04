@@ -11,6 +11,7 @@ ENV PATH="/root/.deno/bin:${PATH}"
 
 COPY app-curadoria/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -U yt-dlp
 
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/
