@@ -45,7 +45,16 @@ function formatDuration(sec: number | null | undefined) {
 }
 
 function nextStepPath(e: Edicao) {
-  if (e.status === "aguardando" || e.status === "baixando" || e.status === "letra") return `/editor/edicao/${e.id}/letra`
+  // passo_atual >= 2 → vai para a página do passo correspondente
+  if (e.passo_atual >= 2) {
+    if (e.passo_atual <= 2) return `/editor/edicao/${e.id}/letra`
+    if (e.passo_atual <= 4) return `/editor/edicao/${e.id}/alinhamento`
+    return `/editor/edicao/${e.id}/conclusao`
+  }
+  // passo_atual = 1 (ou undefined) com status aguardando → overview
+  if (e.status === "aguardando") return `/editor/edicao/${e.id}/overview`
+  // fallback: status-based para compatibilidade
+  if (e.status === "baixando" || e.status === "letra") return `/editor/edicao/${e.id}/letra`
   if (e.status === "transcricao" || e.status === "alinhamento") return `/editor/edicao/${e.id}/alinhamento`
   return `/editor/edicao/${e.id}/conclusao`
 }
@@ -479,9 +488,11 @@ export function EditorEditingQueue() {
             <Button variant="ghost" onClick={() => setModalDuplicata(null)}>Cancelar</Button>
             <Button onClick={() => {
               if (!modalDuplicata) return
-              const path = modalDuplicata.status === "concluido"
-                ? `/editor/edicao/${modalDuplicata.edicao_id}/conclusao`
-                : `/editor/edicao/${modalDuplicata.edicao_id}/letra`
+              const path = modalDuplicata.status === "aguardando"
+                ? `/editor/edicao/${modalDuplicata.edicao_id}/overview`
+                : modalDuplicata.status === "concluido"
+                  ? `/editor/edicao/${modalDuplicata.edicao_id}/conclusao`
+                  : `/editor/edicao/${modalDuplicata.edicao_id}/letra`
               setModalDuplicata(null)
               router.push(path)
             }}>

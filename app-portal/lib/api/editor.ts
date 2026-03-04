@@ -27,6 +27,7 @@ export interface Edicao {
   notas_revisao: string | null
   arquivo_video_completo: boolean
   arquivo_audio_completo: boolean
+  passo_atual: number
   erro_msg: string | null
   progresso_detalhe: ProgressoDetalhe | null
   task_heartbeat: string | null
