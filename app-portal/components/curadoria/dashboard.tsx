@@ -34,6 +34,9 @@ export function CuradoriaDashboard() {
   const [seedInfo, setSeedInfo] = useState<Record<string, SeedInfo>>({})
   const [playlistCount, setPlaylistCount] = useState(0)
   const [postedHidden, setPostedHidden] = useState(0)
+  const [manualUrl, setManualUrl] = useState("")
+  const [manualLoading, setManualLoading] = useState(false)
+  const [manualVideos, setManualVideos] = useState<Video[]>([])
 
   const loadQuota = useCallback(async () => {
     try {
@@ -145,7 +148,30 @@ export function CuradoriaDashboard() {
     if (query.trim()) doSearch(query.trim())
   }
 
-  const visibleResults = hidePosted ? results.filter(r => !r.posted) : results
+  const handleManualAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!manualUrl.trim()) return
+
+    setManualLoading(true)
+    setMsg("Buscando metadados do vídeo...")
+    setMsgType("loading")
+
+    try {
+      const video = await curadoriaApi.manualVideo(manualUrl.trim())
+      setManualVideos(prev => [video, ...prev])
+      setManualUrl("")
+      setMsg("Vídeo adicionado com sucesso!")
+      setMsgType("ok")
+    } catch (err) {
+      setMsg("Erro ao adicionar vídeo: " + (err instanceof Error ? err.message : "Erro"))
+      setMsgType("error")
+    } finally {
+      setManualLoading(false)
+    }
+  }
+
+  const filteredManual = hidePosted ? manualVideos.filter(r => !r.posted) : manualVideos
+  const visibleResults = [...filteredManual, ...(hidePosted ? results.filter(r => !r.posted) : results)]
   const detailVideo = detailIdx !== null ? visibleResults[detailIdx] : null
 
   const quotaPercent = quota && quota.limit > 0 ? (quota.total_points / quota.limit) * 100 : 0
@@ -182,7 +208,7 @@ export function CuradoriaDashboard() {
       </div>
 
       {/* Search bar */}
-      <form onSubmit={handleSearch} className="flex gap-2 mb-6">
+      <form onSubmit={handleSearch} className="flex gap-2 mb-4">
         <Input
           value={query}
           onChange={e => setQuery(e.target.value)}
@@ -199,6 +225,34 @@ export function CuradoriaDashboard() {
           </Button>
         )}
       </form>
+
+      {/* Manual Add block */}
+      <Card className="mb-6 border-dashed border-primary/50 bg-primary/5">
+        <CardContent className="p-4">
+          <form onSubmit={handleManualAdd} className="flex flex-col gap-2">
+            <Label htmlFor="manual-url" className="text-xs font-semibold text-primary/80">Adicionar vídeo manualmente</Label>
+            <div className="flex gap-2">
+              <Input
+                id="manual-url"
+                value={manualUrl}
+                onChange={e => setManualUrl(e.target.value)}
+                placeholder="Cole o link do YouTube aqui..."
+                disabled={manualLoading}
+                className="flex-1 bg-background"
+              />
+              <Button
+                type="submit"
+                disabled={manualLoading || !manualUrl.trim()}
+                variant="default"
+                className="gap-2 px-6"
+              >
+                {manualLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">Permite adicionar vídeos que não apareceram nas seeds de busca.</p>
+          </form>
+        </CardContent>
+      </Card>
 
       {/* Categories grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">

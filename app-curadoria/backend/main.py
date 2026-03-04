@@ -516,6 +516,99 @@ async def debug_ffmpeg():
         info["which_ffmpeg"] = "not found"
     return info
 
+@app.post("/api/manual-video")
+async def add_manual_video(payload: dict):
+    youtube_url = payload.get("youtube_url", "")
+    if not youtube_url:
+        raise HTTPException(400, "URL do YouTube é obrigatória")
+
+    # Extrair video_id
+    video_id = None
+    # Regex para vários formatos de URL do YouTube
+    patterns = [
+        r"v=([0-9A-Za-z_-]{11})",
+        r"be\/([0-9A-Za-z_-]{11})",
+        r"embed\/([0-9A-Za-z_-]{11})",
+        r"shorts\/([0-9A-Za-z_-]{11})"
+    ]
+    for p in patterns:
+        m = re.search(p, youtube_url)
+        if m:
+            video_id = m.group(1)
+            break
+
+    if not video_id:
+        raise HTTPException(400, "URL do YouTube inválida")
+
+    # Buscar metadados via YouTube Data API
+    if YOUTUBE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get("https://www.googleapis.com/youtube/v3/videos", params={
+                    "part": "snippet,contentDetails,statistics", "id": video_id, "key": YOUTUBE_API_KEY
+                })
+                if r.status_code == 200:
+                    items = r.json().get("items", [])
+                    if items:
+                        v = items[0]
+                        sn = v.get("snippet", {})
+                        det = v.get("contentDetails", {})
+                        stat = v.get("statistics", {})
+                        
+                        title = sn.get("title", "")
+                        artist, song = extract_artist_song(title)
+                        pub = sn.get("publishedAt", "")[:10]
+                        yr = int(pub[:4]) if pub else 0
+                        thumb = sn.get("thumbnails", {}).get("high", {}).get("url", "")
+                        dur = parse_iso_dur(det.get("duration", ""))
+                        defn = det.get("definition", "sd")
+                        views = int(stat.get("viewCount", 0))
+
+                        video_data = {
+                            "video_id": video_id, 
+                            "url": f"https://www.youtube.com/watch?v={video_id}",
+                            "title": title, "artist": artist, "song": song or title,
+                            "channel": sn.get("channelTitle", ""), "year": yr, "published": pub,
+                            "duration": dur, "views": views, "hd": defn in ("hd", "4k"),
+                            "thumbnail": thumb, "category": "Manual"
+                        }
+                        
+                        # Registrar quota
+                        try:
+                            db.register_quota_usage(search_calls=0, detail_calls=1)
+                        except: pass
+                        
+                        # Calcular score
+                        sc = calc_score_v7(video_data, "Manual")
+                        p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
+                        return {**video_data, "score": sc, "posted": p}
+        except Exception as e:
+            print(f"⚠️ Error fetching from YT API: {e}")
+
+    # Fallback via oEmbed se API key não disponível ou vídeo não encontrado na API
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get("https://www.youtube.com/oembed", params={"url": youtube_url, "format": "json"})
+            if r.status_code == 200:
+                data = r.json()
+                title = data.get("title", "YouTube Video")
+                artist, song = extract_artist_song(title)
+                video_data = {
+                    "video_id": video_id, 
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "title": title, "artist": artist, "song": song or title,
+                    "channel": data.get("author_name", "Unknown"), "year": 0, "published": "",
+                    "duration": 0, "views": 0, "hd": False,
+                    "thumbnail": data.get("thumbnail_url", ""), "category": "Manual"
+                }
+                sc = calc_score_v7(video_data, "Manual")
+                p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
+                return {**video_data, "score": sc, "posted": p}
+    except Exception as e:
+        print(f"⚠️ Error fetching from oEmbed: {e}")
+
+    raise HTTPException(404, "Vídeo não encontrado ou URL inválida")
+
 @app.get("/api/health")
 async def health():
     quota = db.get_quota_status()

@@ -61,6 +61,12 @@ export function VideoCard({ video, onClick }: { video: Video; onClick: () => voi
         <div className="absolute top-1.5 right-1.5">
           <ScoreRing score={score} size={38} />
         </div>
+        {/* Manual badge */}
+        {video.category === "Manual" && (
+          <div className="absolute top-1.5 left-1.5">
+            <Badge className="bg-blue-600 hover:bg-blue-700 text-white border-none text-[10px] h-5 px-1.5 shadow-sm">Manual</Badge>
+          </div>
+        )}
       </div>
 
       {/* Info */}

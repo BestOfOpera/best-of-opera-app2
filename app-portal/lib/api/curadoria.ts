@@ -82,6 +82,13 @@ export const curadoriaApi = {
   ranking: (hidePosted = true) =>
     request<SearchResult>(`${BASE()}/ranking?hide_posted=${hidePosted}`),
 
+  manualVideo: (youtubeUrl: string) =>
+    request<Video>(`${BASE()}/manual-video`, {
+      method: "POST",
+      body: JSON.stringify({ youtube_url: youtubeUrl }),
+      headers: { "Content-Type": "application/json" }
+    }),
+
   playlistVideos: (hidePosted = true) =>
     request<{ videos: Video[] }>(`${BASE()}/playlist/videos?hide_posted=${hidePosted}`),
 
