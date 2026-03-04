@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink, Upload, AlertTriangle } from "lucide-react"
+import { getYoutubeUrl } from "@/lib/utils"
 
 export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
   const router = useRouter()
@@ -101,8 +102,8 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
         <h2 className="text-2xl font-bold">{edicao.artista} — {edicao.musica}</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {edicao.compositor} {edicao.opera ? `· ${edicao.opera}` : ""} · {edicao.idioma?.toUpperCase()}
-          {edicao.youtube_url && (
-            <a href={edicao.youtube_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-primary hover:underline">
+          {getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id) && (
+            <a href={getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-primary hover:underline">
               <ExternalLink className="h-3 w-3" /> Abrir no YouTube
             </a>
           )}

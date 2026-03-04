@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Play, ExternalLink, Music, User, Globe, Loader2 } from "lucide-react"
+import { getYoutubeUrl } from "@/lib/utils"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   aguardando: { label: "Aguardando", variant: "secondary" },
@@ -139,17 +140,17 @@ export function EditorOverview({ edicaoId }: { edicaoId: number }) {
             )}
           </div>
 
-          {edicao.youtube_url && (
+          {getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id) && (
             <div className="pt-2 border-t">
               <p className="text-xs text-muted-foreground mb-1">YouTube</p>
               <a
-                href={edicao.youtube_url}
+                href={getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                {edicao.youtube_url}
+                {getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id)}
               </a>
             </div>
           )}

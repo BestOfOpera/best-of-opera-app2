@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type PacoteStatus } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
+import { getYoutubeUrl } from "@/lib/utils"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -353,8 +354,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <h2 className="text-2xl font-bold">{edicao.artista} — {edicao.musica}</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Conclusão
-            {edicao.youtube_url && (
-              <a href={edicao.youtube_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-primary hover:underline">
+            {getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id) && (
+              <a href={getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id)!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 ml-3 text-primary hover:underline">
                 <ExternalLink className="h-3 w-3" /> YouTube
               </a>
             )}
