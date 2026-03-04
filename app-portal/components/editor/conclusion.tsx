@@ -24,6 +24,7 @@ const IDIOMAS = [
   { code: "de", flag: "🇩🇪", label: "Alemão" },
   { code: "fr", flag: "🇫🇷", label: "Francês" },
   { code: "it", flag: "🇮🇹", label: "Italiano" },
+  { code: "pl", flag: "🇵🇱", label: "Polonês" },
 ]
 
 function formatProgresso(p: ProgressoDetalhe | null | undefined): string | null {

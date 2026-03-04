@@ -252,8 +252,8 @@ export function EditorEditingQueue() {
                   const prontoNoRedator = p.status === "export_ready"
                   return (
                     <div key={p.id} className={`flex items-center gap-4 p-3 rounded-lg border transition ${p.editor_status === "concluido" ? "opacity-50 bg-muted/30" :
-                        p.editor_status === "em_andamento" ? "opacity-80 bg-muted/20" :
-                          "hover:bg-muted/50"
+                      p.editor_status === "em_andamento" ? "opacity-80 bg-muted/20" :
+                        "hover:bg-muted/50"
                       }`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
@@ -553,9 +553,11 @@ export function EditorEditingQueue() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {e.status === "concluido" ? (
-                      <Button variant="outline" size="sm" disabled className="gap-1.5 opacity-50">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Concluído
+                    {e.status === "concluido" || e.status === "preview_pronto" ? (
+                      <Button asChild variant="outline" size="sm" className="gap-1.5">
+                        <Link href={nextStepPath(e)}>
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Ver / Baixar
+                        </Link>
                       </Button>
                     ) : (
                       <Button asChild variant="secondary" size="sm">

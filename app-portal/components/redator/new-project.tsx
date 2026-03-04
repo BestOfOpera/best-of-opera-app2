@@ -457,19 +457,22 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
           </Card>
         )}
 
-        {detected && (
-          <>
-            <Button type="submit" className="w-full" size="lg" disabled={loading || !canSubmit}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Criando & Gerando Conteudo..." : "Criar Projeto e Gerar Conteudo"}
-            </Button>
-            {!canSubmit && !loading && (
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                Preencha todos os campos obrigatorios (*) para continuar
-              </p>
-            )}
-          </>
-        )}
+        <div className="pt-4 border-t">
+          <Button type="submit" className="w-full" size="lg" disabled={loading || !canSubmit}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? "Criando & Gerando Conteúdo..." : "Próximo: Gerar Conteúdo"}
+          </Button>
+          {!detected && !loading && !r2Folder && (
+            <p className="mt-3 text-center text-sm font-medium text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
+              Faça upload do screenshot do YouTube para continuar
+            </p>
+          )}
+          {detected && !canSubmit && !loading && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Preencha todos os campos obrigatórios (*) para continuar
+            </p>
+          )}
+        </div>
       </form>
     </div>
   )

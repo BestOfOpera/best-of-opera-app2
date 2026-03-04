@@ -264,7 +264,7 @@ export default function Export() {
             onClick={handleRetranslate}
             disabled={retranslating}
           >
-            {retranslating ? 'Regerando...' : `Regerar Tradução (${activeLang})`}
+            {retranslating ? 'Regerando...' : `Regerar Tradução (${LANGUAGES.find(l => l.code === activeLang)?.label || activeLang})`}
           </button>
         </div>
       )}

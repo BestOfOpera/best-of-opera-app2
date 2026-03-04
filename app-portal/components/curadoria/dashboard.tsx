@@ -163,10 +163,16 @@ export function CuradoriaDashboard() {
           <div className="text-right">
             <div className="text-xs text-muted-foreground">Cota YouTube API</div>
             <div className="flex items-center gap-2">
-              <Progress value={quotaPercent} className="w-24 h-2" />
-              <span className={`text-xs font-semibold ${quotaColor}`}>
-                {quota ? `${quota.remaining} restantes` : "-- restantes"}
-              </span>
+              {quota ? (
+                <>
+                  <Progress value={quotaPercent} className="w-24 h-2" />
+                  <span className={`text-xs font-semibold ${quotaColor}`}>
+                    {quota.remaining} restantes
+                  </span>
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground">-- restantes</span>
+              )}
             </div>
           </div>
           <Badge variant={apiOk === true ? "default" : apiOk === false ? "destructive" : "secondary"}>
@@ -242,9 +248,9 @@ export function CuradoriaDashboard() {
       {/* Message */}
       {msg && (
         <div className={`text-sm px-3 py-2 rounded-lg mb-4 ${msgType === "ok" ? "bg-green-50 text-green-700" :
-            msgType === "loading" ? "bg-amber-50 text-amber-700" :
-              msgType === "error" ? "bg-red-50 text-red-700" :
-                "bg-muted text-muted-foreground"
+          msgType === "loading" ? "bg-amber-50 text-amber-700" :
+            msgType === "error" ? "bg-red-50 text-red-700" :
+              "bg-muted text-muted-foreground"
           }`}>
           {msgType === "loading" && <Loader2 className="h-3.5 w-3.5 inline animate-spin mr-2" />}
           {msg}
@@ -279,12 +285,14 @@ export function CuradoriaDashboard() {
       {/* Empty state */}
       {!loading && results.length === 0 && !msg && (
         <div className="text-center py-16 text-muted-foreground">
-          <p className="flex items-center justify-center gap-2">
-            <span className="text-xl">🎭</span>
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <span className="text-3xl">🎭</span>
+            </div>
             <span>Clique numa categoria ou busque um termo</span>
-          </p>
+          </div>
           <Button variant="link" onClick={() => doSearch()} className="mt-2">
-            Ver ranking
+            Ver Ranking de Hits
           </Button>
         </div>
       )}

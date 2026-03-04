@@ -292,7 +292,7 @@ export function VideoDetailModal({
                 ["Duração", formatDuration(video.duration)],
                 ["HD", video.hd ? "Sim" : "Não"],
                 ["Canal", video.channel?.trim() || "--"],
-                ["Cat.", video.category?.trim() || "Não definida"],
+                ["Cat.", video.category?.trim() || video.score.reasons?.[0]?.label || "Não definida"],
               ].map(([label, val]) => (
                 <div key={label} className="bg-muted/50 rounded-lg p-2">
                   <div className="text-[10px] text-muted-foreground uppercase">{label}</div>
