@@ -418,34 +418,62 @@ async def yt_search(query: str, max_results: int = 25) -> list:
 
 async def yt_playlist(playlist_id: str, max_results: int = 50) -> list:
     if not YOUTUBE_API_KEY: return []
-    async with httpx.AsyncClient(timeout=15) as client:
-        r1 = await client.get("https://www.googleapis.com/youtube/v3/playlistItems", params={
-            "part": "snippet", "playlistId": playlist_id,
-            "maxResults": max_results, "key": YOUTUBE_API_KEY
-        })
-        if r1.status_code != 200:
-            print(f"⚠️ YT playlist error {r1.status_code}: {r1.text[:200]}")
-            return []
-        items = r1.json().get("items", [])
-        if not items: return []
+    
+    all_items = []
+    next_page_token = None
+    
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            params = {
+                "part": "snippet",
+                "playlistId": playlist_id,
+                "maxResults": 50,
+                "key": YOUTUBE_API_KEY
+            }
+            if next_page_token:
+                params["pageToken"] = next_page_token
+            
+            r1 = await client.get("https://www.googleapis.com/youtube/v3/playlistItems", params=params)
+            
+            if r1.status_code != 200:
+                print(f"⚠️ YT playlist error {r1.status_code}: {r1.text[:200]}")
+                break
+                
+            data = r1.json()
+            items = data.get("items", [])
+            all_items.extend(items)
+            
+            # Register quota (1 unit for playlistItems.list)
+            try:
+                db.register_quota_usage(search_calls=0, detail_calls=1)
+            except: pass
+            
+            next_page_token = data.get("nextPageToken")
+            if not next_page_token:
+                break
+        
+        if not all_items: return []
 
-        vids = [it["snippet"]["resourceId"]["videoId"] for it in items]
-        if not vids: return []
-
-        r2 = await client.get("https://www.googleapis.com/youtube/v3/videos", params={
-            "part": "contentDetails,statistics", "id": ",".join(vids), "key": YOUTUBE_API_KEY
-        })
+        # Get details for all videos in batches of 50
+        vids = [it["snippet"]["resourceId"]["videoId"] for it in all_items]
         dm = {}
-        if r2.status_code == 200:
-            for v in r2.json().get("items", []): dm[v["id"]] = v
-
-        try:
-            db.register_quota_usage(search_calls=0, detail_calls=1)
-        except Exception:
-            pass
+        
+        for i in range(0, len(vids), 50):
+            batch = vids[i:i+50]
+            r2 = await client.get("https://www.googleapis.com/youtube/v3/videos", params={
+                "part": "contentDetails,statistics", "id": ",".join(batch), "key": YOUTUBE_API_KEY
+            })
+            if r2.status_code == 200:
+                for v in r2.json().get("items", []):
+                    dm[v["id"]] = v
+            
+            # Register quota (1 unit for videos.list)
+            try:
+                db.register_quota_usage(search_calls=0, detail_calls=1)
+            except: pass
 
         results = []
-        for it in items:
+        for it in all_items:
             vid = it["snippet"]["resourceId"]["videoId"]
             sn = it.get("snippet", {})
             title = sn.get("title", "")
@@ -524,12 +552,12 @@ async def populate_initial_cache():
 
 
 async def refresh_playlist():
-    print("🔄 Refreshing playlist...")
-    raw = await yt_playlist(PLAYLIST_ID, 50)
+    print("🔄 Refreshing full playlist with pagination...")
+    raw = await yt_playlist(PLAYLIST_ID)
     processed = _process_v7(raw, "Playlist", False, "Playlist")
     db.save_playlist_videos(processed["videos"])
     db.set_config("last_playlist_refresh", datetime.now().isoformat())
-    print(f"✅ Playlist refreshed: {len(processed['videos'])} videos")
+    print(f"✅ Playlist refreshed: {len(processed['videos'])} videos found in total")
 
 
 # ─── ENDPOINTS ───

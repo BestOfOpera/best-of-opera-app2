@@ -123,23 +123,53 @@ export function CuradoriaDashboard() {
     }
   }
 
+  const [refreshingPlaylist, setRefreshingPlaylist] = useState(false)
+
   const loadPlaylist = async () => {
     setLoading(true)
     setResults([])
     setQuery("Playlist")
     setActiveCat("Playlist")
-    setMsg("Carregando playlist...")
+    setMsg("Carregando playlist do banco...")
     setMsgType("loading")
     try {
       const data = await curadoriaApi.playlistVideos(hidePosted)
       setResults(data.videos || [])
-      setMsg(`${data.videos?.length || 0} vídeos da playlist`)
+      setMsg(`${data.videos?.length || 0} vídeos da playlist (em cache)`)
       setMsgType("ok")
+      updatePlaylistStatus()
     } catch (err) {
       setMsg("Erro: " + (err instanceof Error ? err.message : "Erro"))
       setMsgType("error")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRefreshPlaylist = async () => {
+    if (!confirm("Esta busca percorre a playlist completa do YouTube e consome cotas da API. Continuar?")) return
+
+    setRefreshingPlaylist(true)
+    setMsg("Buscando playlist completa no YouTube e salvando no banco...")
+    setMsgType("loading")
+
+    try {
+      const res = await curadoriaApi.refreshPlaylist()
+      setMsg("Busca completa iniciada em background. Aguarde alguns segundos...")
+
+      // Polling sutil para ver quando terminar (opcional, aqui apenas avisamos)
+      setTimeout(() => {
+        updatePlaylistStatus()
+        setMsg("Playlist atualizada com sucesso no banco!")
+        setMsgType("ok")
+        setRefreshingPlaylist(false)
+        loadPlaylist() // Recarrega do banco os novos dados
+      }, 5000)
+
+    } catch (err) {
+      setMsg("Erro ao atualizar playlist: " + (err instanceof Error ? err.message : "Erro"))
+      setMsgType("error")
+      setRefreshingPlaylist(false)
     }
   }
 
@@ -296,11 +326,22 @@ export function CuradoriaDashboard() {
         })}
       </div>
 
-      {/* Playlist button */}
-      <div className="mb-6">
+      {/* Playlist and Refresh */}
+      <div className="flex items-center gap-2 mb-6">
         <Button variant="outline" size="sm" onClick={loadPlaylist} disabled={loading} className="gap-2">
           <ListMusic className="h-4 w-4" />
           Playlist {playlistCount > 0 ? `(${playlistCount} vídeos em cache)` : "(Carregar)"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleRefreshPlaylist}
+          disabled={loading || refreshingPlaylist}
+          className="gap-2 text-muted-foreground hover:text-primary"
+          title="Buscar novos vídeos na playlist do YouTube (~150)"
+        >
+          {refreshingPlaylist ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Atualizar Playlist
         </Button>
       </div>
 

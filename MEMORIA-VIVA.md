@@ -105,3 +105,62 @@
 
 ### Pendências
 - Nenhuma
+
+## Sessão 2026-03-05
+
+### O que foi feito
+- **ERR-057 corrigido: curadoria agora busca playlist completa com paginação**
+- Implementada paginação (nextPageToken loop) no backend da Curadoria (`yt_playlist`) para buscar todos os vídeos da playlist (~150).
+- Adicionado botão "Atualizar Playlist" no Dashboard para disparar a busca completa manualmente.
+- O carregamento padrão da Playlist agora lê exclusivamente do banco, economizando API quota.
+- Log detalhado no backend informando o total de vídeos encontrados.
+
+### Decisões
+- Busca escalonada em batches de 50 para os detalhes dos vídeos (videos.list) visando eficiência.
+- Timeout aumentado para 30s na chamada da API para lidar com playlists maiores.
+- Interface ganhou feedback visual durante o processo de atualização (Loader e mensagens de status).
+
+### Pendências
+- Nenhuma
+
+## Sessão 2026-03-05 (Continuação)
+
+### O que foi feito
+- **ERR-056 corrigido: truncamento de overlay agora respeita limites de palavra**
+- Bug: O overlay cortava o texto no 30º caractere exato, adicionando "..." no meio de palavras (ex: "faz" -> "f...").
+- **Backend (Editor)**:
+    - Atualizada constante `OVERLAY_MAX_CHARS_LINHA` de 30 para 35 em `legendas.py`.
+    - Atualizada constante `OVERLAY_MAX_CHARS` de 60 para 70.
+    - Reescrevida a função `_truncar_texto` para buscar o último espaço antes do limite (max 35), garantindo que nenhuma palavra seja cortada.
+    - `_formatar_overlay` agora utiliza `_truncar_texto` em todos os fluxos de quebra de linha.
+    - Símbolo de elipse alterado de `…` (Unicode) para `...` (3 pontos) conforme solicitado.
+- **Backend (Redator)**:
+    - Atualizados os prompts em `overlay_prompt.py` para refletir os novos limites (35 por linha, 70 no total), orientando o Claude a gerar textos mais ricos que aproveitem o espaço disponível.
+- **Testes**:
+    - Criado script `verify_fix.py` que validou com sucesso strings longas garantindo o corte apenas em espaços.
+
+### Decisões
+- Limite de 35 caracteres adotado como padrão oficial para overlays em ambas as aplicações.
+- Truncamento conservador: prioriza sempre o espaço antes do limite para evitar cortes de palavras.
+- Unificação de limites: Prompt do Redator e Lógica do Editor sincronizados para evitar inconsistências.
+
+### Pendências
+- Nenhuma
+
+## Sessão 2026-03-05 (Continuação 2)
+
+### O que foi feito
+- **ERR-055 corrigido: filtro de segmentos inválidos no track lyrics**
+- Corrigido bug onde as legendas "lyrics" sumiam em determinados momentos do vídeo.
+- **Causa:** O sistema estava tentando renderizar segmentos com duração zero (`start == end`) ou negativa, o que fazia as legendas serem ignoradas pelo formato ASS.
+- **Solução:**
+    - Implementado filtro em `gerar_ass` (serviço `legendas.py`) para descartar segmentos onde `end <= start` ou texto está vazio.
+    - Adicionado log detalhado que imprime cada segmento válido e avisa quando um é descartado.
+    - Melhorada a função `corrigir_timestamps_sobrepostos` para garantir que o ajuste de fim de segmento não crie durações inválidas (garante min 0.1s entre start e end em caso de colisão).
+- **Efeito:** Track de lyrics agora é robusto contra dados de timing corrompidos e log facilita debug de sincronismo.
+
+### Decisões
+- Optou-se por filtrar silenciosamente os segmentos inválidos no nível do gerador de ASS (com log de warning) para garantir que o render continue sem crashar ou sumir com a track toda.
+
+### Pendências
+- Nenhuma

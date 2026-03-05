@@ -80,9 +80,9 @@ STRUCTURE RULES
 6. FORBIDDEN jargon — never use: "bel canto", "coloratura", "tessitura", "libretto", "aria" (unless explained), "virtuoso". Write for someone who has never watched opera in their life.
 7. Space subtitles evenly. Gap between one subtitle ending and the next starting: ~1 second.
 8. OVERLAY FORMATTING RULE:
-   - Maximum 60 characters in total per subtitle.
-   - If a subtitle has more than 30 characters, split it into 2 lines using \\n.
-   - Each line: maximum 30 characters.
+   - Maximum 70 characters in total per subtitle.
+   - If a subtitle has more than 35 characters, split it into 2 lines using \\n.
+   - Each line: maximum 35 characters.
    - The 2 lines must be BALANCED in length (maximum 30% difference between them).
    - Use short, impactful phrases.
    - Examples:

@@ -92,6 +92,9 @@ export const curadoriaApi = {
   playlistVideos: (hidePosted = true) =>
     request<{ videos: Video[] }>(`${BASE()}/playlist/videos?hide_posted=${hidePosted}`),
 
+  refreshPlaylist: () =>
+    request<{ status: string; message: string }>(`${BASE()}/playlist/refresh`, { method: "POST" }),
+
   cacheStatus: () => request<{ playlist?: { count: number } }>(`${BASE()}/cache/status`),
 
   downloadVideo: async (videoId: string, artist: string, song: string) => {

@@ -45,8 +45,8 @@ ESTILOS_PADRAO = {
     },
 }
 
-OVERLAY_MAX_CHARS = 60
-OVERLAY_MAX_CHARS_LINHA = 30
+OVERLAY_MAX_CHARS = 70
+OVERLAY_MAX_CHARS_LINHA = 35
 LYRICS_MAX_CHARS = 43
 TRADUCAO_MAX_CHARS = 100
 
@@ -142,12 +142,7 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
             for l in linhas[:2]:
                 l = l.strip()
                 if len(l) > max_por_linha:
-                    cortado = l[:max_por_linha - 1]
-                    ultimo_esp = cortado.rfind(" ")
-                    if ultimo_esp > max_por_linha * 0.4:
-                        l = cortado[:ultimo_esp].rstrip() + "…"
-                    else:
-                        l = cortado.rstrip() + "…"
+                    l = _truncar_texto(l, max_por_linha)
                 formatadas.append(l)
             return "\\N".join(formatadas)
     # Sem quebra — inserir \\N no ponto mais equilibrado
@@ -180,21 +175,36 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
                 continue
             break
     if len(linha1) > max_por_linha:
-        linha1 = linha1[:max_por_linha - 1].rstrip() + "…"
+        linha1 = _truncar_texto(linha1, max_por_linha)
     if len(linha2) > max_por_linha:
-        linha2 = linha2[:max_por_linha - 1].rstrip() + "…"
+        linha2 = _truncar_texto(linha2, max_por_linha)
     return linha1 + "\\N" + linha2
 
 
 def _truncar_texto(texto: str, max_chars: int) -> str:
-    """Trunca texto que excede max_chars, cortando no último espaço."""
+    """Trunca texto que excede max_chars, cortando no último espaço.
+    Garante que nenhuma palavra seja cortada ao meio.
+    Adiciona '...' no final."""
     if len(texto) <= max_chars:
         return texto
-    cortado = texto[:max_chars - 1]
+    
+    # Limite efetivo para o texto antes dos pontos
+    limite = max_chars - 3
+    if limite <= 0:
+        return "..."
+    
+    # Pega o trecho até o limite
+    cortado = texto[:limite]
+    
+    # Tenta encontrar o último espaço ANTES do limite
     ultimo_espaco = cortado.rfind(" ")
-    if ultimo_espaco > max_chars * 0.4:
-        cortado = cortado[:ultimo_espaco]
-    return cortado.rstrip() + "…"
+    
+    if ultimo_espaco != -1:
+        # Trunca no espaço encontrado
+        return cortado[:ultimo_espaco].rstrip() + "..."
+    
+    # Em caso de palavra única maior que o limite, trunca no limite (fallback)
+    return cortado.rstrip() + "..."
 
 
 def corrigir_timestamps_sobrepostos(segmentos: list) -> list:
@@ -204,10 +214,14 @@ def corrigir_timestamps_sobrepostos(segmentos: list) -> list:
         return segmentos
     result = [dict(s) for s in segmentos]
     for i in range(len(result) - 1):
-        end_sec = timestamp_to_seconds(result[i].get("end", "0"))
-        next_start_sec = timestamp_to_seconds(result[i + 1].get("start", "0"))
-        if end_sec > next_start_sec:
-            result[i]["end"] = seconds_to_timestamp(max(0, next_start_sec - 0.1))
+        s1 = timestamp_to_seconds(result[i].get("start", "0"))
+        e1 = timestamp_to_seconds(result[i].get("end", "0"))
+        s2 = timestamp_to_seconds(result[i + 1].get("start", "0"))
+
+        if e1 > s2:
+            # Garante que o fim não ultrapassa o início do próximo, mas também não fica menor que o próprio início
+            result[i]["end"] = seconds_to_timestamp(max(s1 + 0.1, s2 - 0.1))
+    
     # Último segmento: garantir duração mínima de 2s
     last = result[-1]
     start_sec = timestamp_to_seconds(last.get("start", "0"))
@@ -349,9 +363,19 @@ def gerar_ass(
             continue
 
         # Lyrics
+        start_ms = seg_to_ms(seg.get("start", 0))
+        end_ms = seg_to_ms(seg.get("end", 0))
+
+        # ERR-055: Filtrar segmentos com duração <= 0
+        if end_ms <= start_ms:
+            logger.warning(f"[legendas] Segmento de lyrics descartado (duração zero ou negativa) em idx={idx}: {start_ms} - {end_ms}")
+            continue
+
+        logger.info(f"[legendas] Lyrics segment: idx={idx} {start_ms} - {end_ms} '{text[:30]}...'")
+
         event = pysubs2.SSAEvent()
-        event.start = seg_to_ms(seg.get("start", 0))
-        event.end = seg_to_ms(seg.get("end", 0))
+        event.start = start_ms
+        event.end = end_ms
         texto = text
         texto_original = texto
         texto = _truncar_texto(texto, LYRICS_MAX_CHARS)
