@@ -100,6 +100,7 @@ async def listar_projetos_redator(db: Session = Depends(get_db)):
 async def importar_do_redator(
     project_id: int,
     idioma: str = None,
+    eh_instrumental: bool = False,
     db: Session = Depends(get_db),
 ):
     """Importa um projeto do Redator e cria uma edição no Editor.
@@ -183,12 +184,14 @@ async def importar_do_redator(
     edicao = Edicao(
         youtube_url=youtube_url,
         youtube_video_id=video_id,
-        artista=proj.get("artist", ""),
-        musica=proj.get("work", ""),
-        compositor=proj.get("composer", ""),
+        artista=proj.get("artista", "") or proj.get("artist", ""),
+        musica=proj.get("musica", "") or proj.get("work", ""),
+        compositor=proj.get("compositor", "") or proj.get("composer", ""),
         opera=proj.get("album_opera", ""),
         categoria=proj.get("category", ""),
         idioma=music_lang,
+        eh_instrumental=eh_instrumental,
+        sem_lyrics=eh_instrumental,
         corte_original_inicio=proj.get("cut_start"),
         corte_original_fim=proj.get("cut_end"),
         redator_project_id=project_id,

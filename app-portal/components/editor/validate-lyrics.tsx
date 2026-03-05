@@ -28,15 +28,11 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
   useEffect(() => {
     editorApi.obterEdicao(edicaoId).then(e => {
       setEdicao(e)
-      if (e.eh_instrumental) {
-        router.push(`/editor/edicao/${edicaoId}/conclusao`)
-        return
-      }
       setVideoCompleto(!!e.arquivo_video_completo)
       setVideoErro(e.status === "erro")
       setLoading(false)
       if (!e.arquivo_video_completo && e.status !== "erro") {
-        editorApi.garantirVideo(edicaoId).catch(() => {})
+        editorApi.garantirVideo(edicaoId).catch(() => { })
       }
     })
   }, [edicaoId, router])
@@ -80,7 +76,7 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
     setError("")
     try {
       await editorApi.aprovarLetra(edicaoId, { letra })
-      editorApi.iniciarTranscricao(edicaoId).catch(() => {})
+      editorApi.iniciarTranscricao(edicaoId).catch(() => { })
       router.push(`/editor/edicao/${edicaoId}/alinhamento`)
     } catch (err: unknown) {
       setError("Erro ao salvar: " + (err instanceof Error ? err.message : "Erro"))

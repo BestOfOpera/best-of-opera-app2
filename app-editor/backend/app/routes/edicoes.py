@@ -36,6 +36,7 @@ def criar_edicao(data: EdicaoCreate, db: Session = Depends(get_db)):
         categoria=data.categoria,
         idioma=data.idioma,
         eh_instrumental=data.eh_instrumental,
+        sem_lyrics=data.eh_instrumental,
     )
     db.add(edicao)
     db.flush()

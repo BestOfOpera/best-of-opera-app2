@@ -192,6 +192,11 @@ export const editorApi = {
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
   listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
-  importarDoRedator: (projectId: number, idioma?: string) =>
-    request<Edicao>(`${BASE()}/redator/importar/${projectId}${idioma ? `?idioma=${idioma}` : ""}`, { method: "POST" }),
+  importarDoRedator: (projectId: number, idioma?: string, ehInstrumental?: boolean) => {
+    const params = new URLSearchParams()
+    if (idioma) params.append("idioma", idioma)
+    if (ehInstrumental) params.append("eh_instrumental", "true")
+    const qs = params.toString() ? `?${params.toString()}` : ""
+    return request<Edicao>(`${BASE()}/redator/importar/${projectId}${qs}`, { method: "POST" })
+  },
 }

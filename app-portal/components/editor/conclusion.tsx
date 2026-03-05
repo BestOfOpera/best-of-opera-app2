@@ -596,32 +596,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </Card>
       </div>
 
-      {/* Toggle sem lyrics (persiste no banco) */}
+      {/* Toggles de renderização */}
       <div className="mb-4 space-y-2">
-        <label className="flex items-center gap-2 cursor-pointer select-none" title="Ative para músicas instrumentais ou com texto mínimo repetitivo">
-          <input
-            type="checkbox"
-            checked={semLyrics}
-            onChange={async (e) => {
-              const val = e.target.checked
-              setSemLyrics(val)
-              try {
-                await editorApi.atualizarEdicao(edicaoId, { sem_lyrics: val } as Partial<Edicao>)
-              } catch {
-                setSemLyrics(!val)
-              }
-            }}
-            className="h-4 w-4 rounded border-gray-300 accent-amber-600"
-          />
-          <span className="text-sm font-medium">Sem legendas de transcrição</span>
-          <span className="text-xs text-muted-foreground">(músicas instrumentais / texto mínimo)</span>
-        </label>
-        {semLyrics && (
-          <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 text-sm text-amber-800 flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-            <span>Vídeo será gerado apenas com overlay editorial (topo). Legendas de letra e tradução serão omitidas.</span>
-          </div>
-        )}
+
 
         {/* Toggle sem legendas (remove todas, inclusive overlay) */}
         <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -650,11 +627,32 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <RotateCcw className="h-3.5 w-3.5" />
           {reaplicando ? "Recalculando..." : "Refazer Corte"}
         </Button>
+        {/* Indicador de Status da Tradução Automatizada */}
         {!edicao.eh_instrumental && (
-          <Button variant="outline" size="sm" className="gap-2" onClick={handleTraduzir} disabled={traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
-            {(traduzindo || edicao.status === "traducao") && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
-            {traduzindo || edicao.status === "traducao" ? "Traduzindo..." : `Traduzir Lyrics x${IDIOMAS.length} idiomas`}
-          </Button>
+          <div className="flex items-center">
+            {edicao.status === "traducao" ? (
+              <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-sm border border-blue-100 font-medium">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>🌍 Tradução em andamento... {edicao.progresso_detalhe?.concluidos ?? 0}/{edicao.progresso_detalhe?.total ?? IDIOMAS.length} idiomas</span>
+              </div>
+            ) : (["montagem", "preview_pronto", "preview", "revisao", "concluido", "renderizando"].includes(edicao.status)) ? (
+              <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm border border-green-100 font-medium">
+                <CheckCircle className="h-4 w-4" />
+                <span>✅ Tradução concluída — {IDIOMAS.length}/{IDIOMAS.length} idiomas</span>
+              </div>
+            ) : (isErro && (erroRelatedToTranslation || edicao.progresso_detalhe?.etapa === "traducao")) ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                onClick={handleTraduzir}
+                disabled={traduzindo || sistemaBloqueado}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${traduzindo ? "animate-spin" : ""}`} />
+                {traduzindo ? "Tentando..." : "🔄 Tentar novamente"}
+              </Button>
+            ) : null}
+          </div>
         )}
         {!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== "renderizando" && (
           <Button size="sm" className="gap-2" onClick={handleRenderizarPreview} disabled={renderizando || traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
@@ -697,17 +695,17 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                 {desbloqueando ? "Desbloqueando..." : "Desbloquear Edição"}
               </Button>
             )}
-            {/* Refazer Tradução: montagem or error (with translation hint or always) */}
-            {(isMontagem || (isErro && (erroRelatedToTranslation || !erroRelatedToRender))) && !edicao.eh_instrumental && (
+            {/* Botão de Tentar novamente (Tradução) — apenas em erro */}
+            {isErro && (erroRelatedToTranslation || edicao.progresso_detalhe?.etapa === "traducao") && !edicao.eh_instrumental && (
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2"
+                className="gap-2 border-red-200 text-red-700 hover:bg-red-50"
                 onClick={handleTraduzir}
                 disabled={traduzindo || sistemaBloqueado}
               >
-                {traduzindo ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
-                Refazer Tradução
+                <RefreshCw className={`h-3.5 w-3.5 ${traduzindo ? "animate-spin" : ""}`} />
+                {traduzindo ? "Tentando..." : "🔄 Tentar novamente"}
               </Button>
             )}
             {/* Refazer Preview: preview_pronto or error */}

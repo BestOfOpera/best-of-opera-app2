@@ -76,10 +76,10 @@ export function EditorEditingQueue() {
   const [importando, setImportando] = useState<number | null>(null)
   const [erroRedator, setErroRedator] = useState("")
 
-  // Modal seleção de idioma
-  const [modalIdioma, setModalIdioma] = useState<{ projectId: number } | null>(null)
-  const [idiomaEscolhido, setIdiomaEscolhido] = useState("it")
+  const [modalIdioma, setModalIdioma] = useState<{ projectId: number, artist: string, work: string, category?: string } | null>(null)
+  const [idiomaEscolhido, setIdiomaEscolhido] = useState("auto")
   const [outroIdioma, setOutroIdioma] = useState("")
+  const [temLetraImport, setTemLetraImport] = useState<boolean | null>(null)
 
   // Modal duplicata (409)
   const [modalDuplicata, setModalDuplicata] = useState<{
@@ -157,16 +157,18 @@ export function EditorEditingQueue() {
   const handleImportar = async (projectId: number, idioma?: string) => {
     setImportando(projectId)
     try {
-      const result = await editorApi.importarDoRedator(projectId, idioma)
+      const finalIdioma = (idioma === "auto" || idioma === "other") ? undefined : idioma
+      const result = await editorApi.importarDoRedator(projectId, finalIdioma, !temLetraImport)
       setShowImportar(false)
       setModalIdioma(null)
       loadEdicoes()
       alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 422 && (err.detail as Record<string, unknown>)?.idioma_necessario === true) {
-        setModalIdioma({ projectId })
-        setIdiomaEscolhido("it")
-        setOutroIdioma("")
+        // Se falhou detecção automática, apenas garante que o modal está aberto (já deveria estar)
+        // e limpa o idioma escolhido para forçar seleção
+        setIdiomaEscolhido("")
+        alert("Não foi possível detectar o idioma. Por favor, selecione um manualmente.")
       } else if (err instanceof ApiError && err.status === 409 && (err.detail as Record<string, unknown>)?.duplicata === true) {
         const detail = err.detail as Record<string, unknown>
         setModalDuplicata({
@@ -305,9 +307,14 @@ export function EditorEditingQueue() {
                           </Link>
                         </Button>
                       ) : (
-                        <Button size="sm" onClick={() => handleImportar(p.id)} disabled={importando !== null} className="gap-1.5">
+                        <Button size="sm" onClick={() => {
+                          setModalIdioma({ projectId: p.id, artist: p.artist, work: p.work, category: p.category })
+                          setIdiomaEscolhido("auto")
+                          setOutroIdioma("")
+                          setTemLetraImport(null)
+                        }} disabled={importando !== null} className="gap-1.5">
                           {importando === p.id ? (
-                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importando...</>
+                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> ...</>
                           ) : (
                             <><Download className="h-3.5 w-3.5" /> Importar</>
                           )}
@@ -411,61 +418,110 @@ export function EditorEditingQueue() {
       <Dialog open={!!modalIdioma} onOpenChange={open => { if (!open) setModalIdioma(null) }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Idioma da música</DialogTitle>
+            <DialogTitle>Importar do Redator</DialogTitle>
             <DialogDescription>
-              Não foi possível detectar automaticamente. Selecione o idioma original da música.
+              {modalIdioma?.artist} — {modalIdioma?.work}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-2">
+          <div className="space-y-5 pt-2">
             <div>
-              <Label className="mb-1 block">Idioma</Label>
+              <Label className="mb-2 block text-sm font-medium">Idioma da música</Label>
               <Select
                 value={idiomaEscolhido}
-                onValueChange={setIdiomaEscolhido}
-                disabled={!!outroIdioma.trim()}
+                onValueChange={v => { setIdiomaEscolhido(v); if (v !== "other") setOutroIdioma("") }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="auto">Detectar automaticamente</SelectItem>
                   <SelectItem value="it">Italiano (it)</SelectItem>
                   <SelectItem value="en">English (en)</SelectItem>
                   <SelectItem value="de">Deutsch (de)</SelectItem>
                   <SelectItem value="fr">Français (fr)</SelectItem>
                   <SelectItem value="es">Español (es)</SelectItem>
                   <SelectItem value="pt">Português (pt)</SelectItem>
-                  <SelectItem value="la">Latin (la)</SelectItem>
-                  <SelectItem value="pl">Polski (pl)</SelectItem>
-                  <SelectItem value="ru">Russian (ru)</SelectItem>
-                  <SelectItem value="cs">Czech (cs)</SelectItem>
-                  <SelectItem value="hu">Hungarian (hu)</SelectItem>
-                  <SelectItem value="sv">Swedish (sv)</SelectItem>
-                  <SelectItem value="no">Norwegian (no)</SelectItem>
-                  <SelectItem value="fi">Finnish (fi)</SelectItem>
-                  <SelectItem value="ja">Japanese (ja)</SelectItem>
-                  <SelectItem value="ko">Korean (ko)</SelectItem>
-                  <SelectItem value="zh">Chinese (zh)</SelectItem>
-                  <SelectItem value="ar">Arabic (ar)</SelectItem>
-                  <SelectItem value="he">Hebrew (he)</SelectItem>
-                  <SelectItem value="sw">Swahili (sw)</SelectItem>
-                  <SelectItem value="yo">Yoruba (yo)</SelectItem>
-                  <SelectItem value="zu">Zulu (zu)</SelectItem>
-                  <SelectItem value="hi">Hindi (hi)</SelectItem>
-                  <SelectItem value="ka">Georgian (ka)</SelectItem>
+                  <SelectItem value="la">Latim (la)</SelectItem>
+                  <SelectItem value="ru">Russo (ru)</SelectItem>
+                  <SelectItem value="cs">Tcheco (cs)</SelectItem>
+                  <SelectItem value="other">Outro...</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="mb-1 block">Outro idioma (código ISO)</Label>
-              <Input
-                value={outroIdioma}
-                onChange={e => setOutroIdioma(e.target.value)}
-                placeholder="ex: la, ru, cs..."
-                maxLength={10}
-              />
+
+            {idiomaEscolhido === "other" && (
+              <div>
+                <Label className="mb-1 block text-xs">Código ISO do idioma</Label>
+                <Input
+                  value={outroIdioma}
+                  onChange={e => setOutroIdioma(e.target.value)}
+                  placeholder="ex: ru, cs, hu..."
+                  maxLength={10}
+                />
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Transcrição de Letra (Lyrics)</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTemLetraImport(true)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${temLetraImport === true
+                    ? "border-amber-500 bg-amber-50 text-amber-900 shadow-sm"
+                    : "border-muted bg-white hover:border-muted-foreground/30 text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  <span className="text-2xl mb-2">🎵</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Com Lyrics</span>
+                  <span className="text-[10px] opacity-70 mt-1 text-center">Fazer transcrição e tradução</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTemLetraImport(false)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${temLetraImport === false
+                    ? "border-blue-500 bg-blue-50 text-blue-900 shadow-sm"
+                    : "border-muted bg-white hover:border-muted-foreground/30 text-muted-foreground hover:text-foreground"
+                    }`}
+                >
+                  <span className="text-2xl mb-2">🎼</span>
+                  <span className="text-xs font-bold uppercase tracking-wider">Sem Lyrics</span>
+                  <span className="text-[10px] opacity-70 mt-1 text-center">Instrumental ou sem legenda</span>
+                </button>
+              </div>
+
+              {modalIdioma && (
+                <div className="flex justify-center">
+                  {["Aria", "Duet", "Chorus"].includes(modalIdioma.category || "") ? (
+                    <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 italic">
+                      💡 Recomendado: Com Lyrics (detectada categoria vocal: {modalIdioma.category})
+                    </span>
+                  ) : modalIdioma.category === "Overture" ? (
+                    <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 italic">
+                      💡 Recomendado: Sem Lyrics (detectada categoria instrumental: Abertura)
+                    </span>
+                  ) : null}
+                </div>
+              )}
+
+              <p className="text-[10px] text-center text-muted-foreground">
+                A escolha é obrigatória. Ela define se haverá transcrição de lyrics e traducão nos vídeos finalizados.
+              </p>
             </div>
+
             <div className="flex gap-3 justify-end pt-2">
-              <Button variant="ghost" onClick={() => setModalIdioma(null)}>Cancelar</Button>
-              <Button onClick={handleConfirmarIdioma} disabled={importando !== null}>
-                {importando !== null ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Importando...</> : "Importar"}
+              <Button variant="ghost" onClick={() => setModalIdioma(null)} disabled={importando !== null}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmarIdioma}
+                disabled={importando !== null || temLetraImport === null}
+                className={`transition-all ${temLetraImport === null ? "opacity-50 grayscale" : "bg-green-600 hover:bg-green-700"}`}
+              >
+                {importando !== null ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" />Importando...</>
+                ) : (
+                  "Iniciar Importação"
+                )}
               </Button>
             </div>
           </div>

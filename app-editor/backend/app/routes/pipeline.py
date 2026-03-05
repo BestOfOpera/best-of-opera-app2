@@ -337,13 +337,6 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    if edicao.eh_instrumental:
-        edicao.passo_atual = 5
-        edicao.status = "corte"
-        edicao.erro_msg = None
-        db.commit()
-        return {"status": "instrumental — passo de letra pulado"}
-
     # Buscar no banco primeiro
     from app.models import Letra
     letra_existente = db.query(Letra).filter(
@@ -959,17 +952,6 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
         )
 
     # Se instrumental, pular tradução direto para montagem
-    if edicao.eh_instrumental:
-        edicao.passo_atual = 7
-        edicao.status = "montagem"
-        edicao.erro_msg = None
-        db.commit()
-        return {
-            "janela": janela,
-            "video_cortado": edicao.arquivo_video_cortado,
-            "traducao": "instrumental — tradução pulada",
-        }
-
     edicao.passo_atual = 6
     edicao.status = "traducao"
     edicao.erro_msg = None
@@ -1010,12 +992,6 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    if edicao.eh_instrumental:
-        edicao.passo_atual = 7
-        edicao.status = "montagem"
-        edicao.erro_msg = None
-        db.commit()
-        return {"status": "instrumental — tradução pulada"}
 
     # Check-and-set atômico: só aceitar se status permite
     # Zerar heartbeat e progresso para que desbloquear funcione se a task travar
@@ -2127,7 +2103,7 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
         tem_letra = bool(db.query(Letra).filter(
             Letra.musica == edicao.musica,
             Letra.idioma == edicao.idioma,
-        ).first()) if not edicao.eh_instrumental else True
+        ).first())
 
         tem_video = bool(
             edicao.arquivo_video_completo
