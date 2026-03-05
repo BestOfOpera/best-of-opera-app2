@@ -47,7 +47,54 @@ print(f"🎬 FFprobe: {FFPROBE_BIN}")
 # ─── ANTI-SPAM (appended to all YouTube searches) ───
 ANTI_SPAM = "-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords"
 
-# ─── DOWNLOAD CONFIG ───
+# ─── DOWNLOAD WORKER (ERR-055) ───
+class TaskManager:
+    def __init__(self):
+        self.tasks = {} # video_id -> status dict
+        self.queue = asyncio.Queue()
+        self.current_task = None
+        self.lock = asyncio.Lock()
+
+    def set_task(self, video_id, data):
+        self.tasks[video_id] = {**data, "updated_at": datetime.now().isoformat()}
+
+    def get_task(self, video_id):
+        return self.tasks.get(video_id)
+
+    def get_all_tasks(self):
+        return self.tasks
+
+manager = TaskManager()
+
+async def download_worker():
+    """Worker loop following app-editor pattern (asyncio.Queue)"""
+    print("🚀 Download worker started")
+    while True:
+        try:
+            # Get next task from queue
+            video_id, artist, song, callback = await manager.queue.get()
+            manager.current_task = video_id
+            print(f"📥 Worker processing: {video_id} ({artist} - {song})")
+            
+            try:
+                # Update status to processing
+                manager.set_task(video_id, {"status": "processing", "progress": 0, "message": "Iniciando download..."})
+                
+                # Run the actual work
+                await callback(video_id, artist, song)
+                
+                manager.set_task(video_id, {"status": "completed", "progress": 100, "message": "Concluído!"})
+                print(f"✅ Worker completed: {video_id}")
+            except Exception as e:
+                print(f"❌ Worker error for {video_id}: {e}")
+                manager.set_task(video_id, {"status": "error", "message": str(e)})
+            finally:
+                manager.current_task = None
+                manager.queue.task_done()
+        except Exception as e:
+            print(f"⚠️ Worker loop error: {e}")
+            await asyncio.sleep(1)
+
 download_semaphore = asyncio.Semaphore(2)
 
 def sanitize_filename(s: str) -> str:
@@ -501,6 +548,10 @@ async def lifespan(app: FastAPI):
     db.init_db()
     load_posted()
     print(f"{'✅' if YOUTUBE_API_KEY else '⚠️'} YouTube API {'configured' if YOUTUBE_API_KEY else 'NOT SET'}")
+    
+    # Start download worker
+    asyncio.create_task(download_worker())
+    
     if db.is_cache_empty():
         print("🔄 Cache empty — auto-populating with V7 seeds...")
         asyncio.create_task(populate_initial_cache())
@@ -805,6 +856,106 @@ async def get_playlist(hide_posted: bool = Query(True)):
 async def refresh_playlist_endpoint(background_tasks: BackgroundTasks):
     background_tasks.add_task(refresh_playlist)
     return {"status": "started", "message": "Playlist refresh started"}
+
+@app.post("/api/playlist/download-all")
+async def download_all_playlist(background_tasks: BackgroundTasks):
+    videos = db.get_playlist_videos(hide_posted=False)
+    if not videos:
+        return {"status": "error", "message": "Playlist vazia"}
+    
+    # Filter only those not in R2
+    added = 0
+    for v in videos:
+        vid = v["video_id"]
+        artist = v["artist"]
+        song = v["song"]
+        
+        # Check if already in R2 via storage (shared logic)
+        r2_base = check_conflict(artist, song, vid)
+        r2_key = f"{r2_base}/video/original.mp4"
+        
+        if storage.exists(r2_key):
+            manager.set_task(vid, {"status": "completed", "progress": 100, "message": "Já no R2"})
+            continue
+            
+        # Check if already in queue or processing
+        if vid in manager.tasks and manager.tasks[vid]["status"] in ("pending", "processing"):
+            continue
+            
+        manager.set_task(vid, {"status": "pending", "progress": 0, "message": "Na fila"})
+        await manager.queue.put((vid, artist, song, _wrapped_prepare_video))
+        added += 1
+        
+    return {"status": "started", "added": added, "total": len(videos)}
+
+@app.get("/api/playlist/download-status")
+async def get_download_status():
+    return manager.get_all_tasks()
+
+async def _wrapped_prepare_video(video_id, artist, song):
+    """Internal helper for the worker to call prepare_video logic"""
+    # Simply call the existing logic but update progress
+    manager.set_task(video_id, {"status": "processing", "progress": 10, "message": "Baixando do YouTube..."})
+    
+    # We'll call the internal logic of prepare_video but update progress in between
+    # For now, we'll use a slightly modified version of prepare_video logic here
+    # to allow progress updates if we want to be fancy later.
+    await _prepare_video_logic(video_id, artist, song)
+
+async def _prepare_video_logic(video_id: str, artist: str, song: str):
+    safe_artist = sanitize_filename(artist)
+    safe_song = sanitize_filename(song)
+    project_name = f"{safe_artist} - {safe_song}"
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    # Download via yt-dlp
+    project_dir = PROJECTS_DIR / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "video").mkdir(exist_ok=True)
+    dl_path = str(project_dir / "video" / f"{project_name}.mp4")
+
+    # Use a helper to report yt-dlp progress if possible, 
+    # but for now simple step updates
+    manager.set_task(video_id, {"status": "processing", "progress": 30, "message": "Fazendo download..."})
+    
+    try:
+        import yt_dlp
+        ydl_opts = _get_ydl_opts(dl_path)
+
+        def _download():
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([youtube_url])
+        await asyncio.to_thread(_download)
+
+        if not os.path.exists(dl_path):
+            import glob as _glob
+            files = _glob.glob(str(project_dir / "video" / '*'))
+            dl_path_actual = files[0] if files else None
+            if not dl_path_actual:
+                raise Exception("Download falhou: arquivo não encontrado")
+        else:
+            dl_path_actual = dl_path
+
+        manager.set_task(video_id, {"status": "processing", "progress": 70, "message": "Enviando para o R2..."})
+
+        # Save record
+        try: db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
+        except: pass
+
+        # Upload para R2
+        r2_base = check_conflict(artist, song, video_id)
+        r2_key = f"{r2_base}/video/original.mp4"
+        storage.upload_file(dl_path_actual, r2_key)
+        save_youtube_marker(r2_base, video_id)
+        
+        # Cleanup
+        shutil.rmtree(str(project_dir), ignore_errors=True)
+        manager.set_task(video_id, {"status": "completed", "progress": 100, "message": "Concluído!"})
+        
+    except Exception as e:
+        if project_dir.exists():
+            shutil.rmtree(str(project_dir), ignore_errors=True)
+        raise e
 
 
 # ─── QUOTA ENDPOINTS (V7) ───

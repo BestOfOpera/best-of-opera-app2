@@ -164,3 +164,38 @@
 
 ### Pendências
 - Nenhuma
+
+## Sessão 2026-03-05 (Continuação 3)
+
+### O que foi feito
+- **ERR-052 e ERR-056 corrigidos — prompts de overlay reescritos por categoria + limpeza ortográfica**
+- **Prompts Criativos**: Substituídos os prompts genéricos de 10 categorias no `app-redator/backend/config.py` por instruções ricas e específicas (Hook/angle) escritas pelo Diretor de TI. As novas instruções focam em narrativas surpreeendentes, abertura de loops de curiosidade e fuga de clichês.
+- **Limpeza Ortográfica**: Implementada a função `_limpar_texto_overlay` em `claude_service.py` para corrigir automaticamente erros de digitação e formatação do Claude:
+    - Adição de espaço faltante após pontuação (`,;:!?`).
+    - Separação de palavras "grudadas" (CamelCase acidental).
+    - Remoção de espaços duplos.
+- **Fluxo de Geração**: A limpeza é aplicada automaticamente a todas as legendas do overlay antes da persistência no banco de dados.
+
+### Decisões
+- Os prompts do Diretor de TI foram implementados ipsissima verba para garantir a qualidade editorial desejada.
+- A limpeza ortográfica ocorre no nível de serviço (`claude_service.py`), garantindo que tanto a geração inicial quanto a regeneração manual sejam beneficiadas.
+
+### Pendências
+- Nenhuma
+## Sessão 2026-03-05 (Continuação 5)
+
+### O que foi feito
+- **ERR-053 e ERR-054 corrigidos: CTA fixo na última legenda + validação de timing**
+- **Backend (Redator)**:
+    - Atualizado `overlay_prompt.py` com instrução obrigatória para que a ÚLTIMA legenda do array seja sempre um CTA de engajamento (Follow, Save, etc.), adaptado ao contexto da música.
+    - Implementada função de validação pós-geração em `claude_service.py` que garante que a última legenda termine pelo menos 5s antes do fim do vídeo (calculado via `cut_start/cut_end` ou `original_duration`).
+    - Se o timestamp ultrapassar o limite (duracao - 5s), ele é automaticamente recalculado para (duracao - 8s) para garantir margem de segurança.
+- **Testes**:
+    - Criado script de regressão `test_overlay_fix.py` que validou com sucesso o ajuste automático de timestamps.
+
+### Decisões
+- Timestamp de 8s (recalculado) adotado para garantir que o CTA seja lido com folga antes do fade-out do vídeo.
+- Lógica de timing centralizada no `generate_overlay` para benefício de todas as gerações (inicial e manual/custom).
+
+### Pendências
+- Nenhuma

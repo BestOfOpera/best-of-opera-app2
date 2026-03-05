@@ -21,6 +21,20 @@ MODEL = "claude-sonnet-4-5-20250929"
 # Common Portuguese words for post-generation leak detection
 _PT_COMMON_WORDS = {"e", "de", "do", "da", "que", "com", "para", "uma", "um", "os", "as"}
 
+import re
+
+def _limpar_texto_overlay(texto: str) -> str:
+    """Fix common orthographic issues: stuck words and missing spaces after punctuation."""
+    if not texto:
+        return texto
+    # Espaço após pontuação colada a palavra
+    texto = re.sub(r'([,;:!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
+    # Espaço antes de maiúscula colada após minúscula (palavras unidas)
+    texto = re.sub(r'([a-záàãâéêíóõôúç])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    # Múltiplos espaços → um espaço
+    texto = re.sub(r' {2,}', ' ', texto)
+    return texto.strip()
+
 
 def _build_language_system_prompt(language: str) -> str:
     """Build system-level language enforcement instruction."""
@@ -193,6 +207,46 @@ def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]
         prompt = build_overlay_prompt(project)
     raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
+    
+    # Apply orthographic cleaning (ERR-056)
+    for leg in parsed:
+        if "text" in leg:
+            leg["text"] = _limpar_texto_overlay(leg["text"])
+            
+    # Validation: Last subtitle timing (ERR-054)
+    if parsed:
+        duration_secs = 0
+        if project.cut_start and project.cut_end:
+            try:
+                s_parts = project.cut_start.split(":")
+                e_parts = project.cut_end.split(":")
+                s_total = int(s_parts[0]) * 60 + int(s_parts[1])
+                e_total = int(e_parts[0]) * 60 + int(e_parts[1])
+                duration_secs = e_total - s_total
+            except (ValueError, IndexError):
+                pass
+        elif project.original_duration:
+            try:
+                parts = project.original_duration.split(":")
+                duration_secs = int(parts[0]) * 60 + int(parts[1])
+            except (ValueError, IndexError):
+                pass
+
+        if duration_secs > 10:  # Only validate if we have a reasonable duration
+            last_leg = parsed[-1]
+            try:
+                ts_parts = last_leg["timestamp"].split(":")
+                ts_secs = int(ts_parts[0]) * 60 + int(ts_parts[1])
+                limit = duration_secs - 5
+                if ts_secs > limit:
+                    new_ts = max(0, duration_secs - 8)
+                    mins = new_ts // 60
+                    secs = new_ts % 60
+                    last_leg["timestamp"] = f"{mins:02d}:{secs:02d}"
+                    print(f"[generate_overlay] Adjusted last subtitle timestamp to {last_leg['timestamp']} (duration: {duration_secs}s)")
+            except (ValueError, IndexError, KeyError):
+                pass
+
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
     _check_language_leak(all_text, lang)

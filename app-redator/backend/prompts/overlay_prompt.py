@@ -100,6 +100,7 @@ EMOTIONAL TOOLKIT — use these techniques
 - **The confession**: "This is the part where people always start crying"
 - **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
 - **The countdown**: "The note that's coming will change how you hear music"
+- **The CTA (Engagement)**: The VERY LAST subtitle of the array MUST always be a CTA. Examples: "Follow for more moments like this", "Turn on notifications and don't miss a thing", "Save this video for later". Adapt to the song's context, but always invite engagement.
 
 ═══════════════════════════════
 OUTPUT FORMAT
