@@ -6,8 +6,9 @@ from app.models.seo import Seo
 from app.models.alinhamento import Alinhamento
 from app.models.traducao_letra import TraducaoLetra
 from app.models.render import Render
+from app.models.report import Report
 
 __all__ = [
     "Edicao", "Letra", "Overlay", "Post", "Seo",
-    "Alinhamento", "TraducaoLetra", "Render",
+    "Alinhamento", "TraducaoLetra", "Render", "Report",
 ]

@@ -1,14 +1,17 @@
 """APP Editor — Best of Opera. Ponto de entrada FastAPI."""
 import asyncio
 import json
+import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
 from app.config import STORAGE_PATH, SENTRY_DSN
+
+logger = logging.getLogger(__name__)
 
 # Sentry — inicializar antes do lifespan para capturar erros de startup
 if SENTRY_DSN:
@@ -19,11 +22,9 @@ if SENTRY_DSN:
         environment="production",
     )
     logger.info("[sentry] Sentry inicializado")
-from app.database import engine, Base
-from app.routes import edicoes, letras, pipeline, health, importar
 
-import logging
-logger = logging.getLogger(__name__)
+from app.database import engine, Base
+from app.routes import edicoes, letras, pipeline, health, importar, dashboard, reports
 
 
 def _run_migrations():
@@ -93,6 +94,22 @@ def _run_migrations():
         except Exception as e:
             logger.warning(f"Migration uix_redator_project_id: {e}")
 
+    # Migration: tabela editor_reports (criada pelo create_all, mas garantir colunas)
+    if "editor_reports" in insp.get_table_names():
+        report_cols = [c["name"] for c in insp.get_columns("editor_reports")]
+        with engine.begin() as conn:
+            for col_name, col_type in [
+                ("prioridade", "VARCHAR(20) DEFAULT 'media'"),
+                ("resolvido_em", "TIMESTAMP"),
+                ("updated_at", "TIMESTAMP"),
+            ]:
+                if col_name not in report_cols:
+                    try:
+                        conn.execute(text(f"ALTER TABLE editor_reports ADD COLUMN {col_name} {col_type}"))
+                        logger.info(f"Migration editor_reports: added column {col_name}")
+                    except Exception as e:
+                        logger.warning(f"Migration editor_reports/{col_name}: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -136,3 +153,5 @@ app.include_router(edicoes.router)
 app.include_router(letras.router)
 app.include_router(pipeline.router)
 app.include_router(importar.router)
+app.include_router(dashboard.router)
+app.include_router(reports.router)

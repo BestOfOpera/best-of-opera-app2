@@ -128,3 +128,35 @@ class LetraAprovar(BaseModel):
     letra: str
     fonte: Optional[str] = "manual"
     validado_por: Optional[str] = "operador"
+
+
+# --- Report ---
+class ReportCreate(BaseModel):
+    edicao_id: Optional[int] = None
+    tipo: str  # "bug", "qualidade", "audio", "legenda", "outro"
+    titulo: str
+    descricao: Optional[str] = None
+    prioridade: Optional[str] = "media"
+
+
+class ReportUpdate(BaseModel):
+    status: Optional[str] = None
+    prioridade: Optional[str] = None
+    descricao: Optional[str] = None
+
+
+class ReportOut(BaseModel):
+    id: int
+    edicao_id: Optional[int] = None
+    tipo: str
+    titulo: str
+    descricao: Optional[str] = None
+    screenshot_r2_key: Optional[str] = None
+    status: str
+    prioridade: str
+    resolvido_em: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
