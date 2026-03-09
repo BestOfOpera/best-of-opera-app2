@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type PacoteStatus } from "@/lib/api/editor"
+import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type ProgressoDetalheInner, type PacoteStatus } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
 import { getYoutubeUrl } from "@/lib/utils"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
@@ -28,7 +28,21 @@ const IDIOMAS = [
   { code: "pl", flag: "🇵🇱", label: "Polonês" },
 ]
 
-function formatProgresso(p: ProgressoDetalhe | null | undefined): string | null {
+/**
+ * Extrai o inner progresso de um namespace específico.
+ * Suporta novo formato {"traducao":{...}} e antigo {etapa:"traducao",...}.
+ */
+function getProgresso(p: ProgressoDetalhe | null | undefined, namespace: string): ProgressoDetalheInner | null {
+  if (!p || typeof p !== "object") return null
+  // Novo formato: chave de namespace
+  if (namespace in p) return (p as Record<string, ProgressoDetalheInner>)[namespace]
+  // Formato antigo: objeto flat com etapa
+  const flat = p as ProgressoDetalheInner
+  if (flat.etapa === namespace) return flat
+  return null
+}
+
+function formatProgresso(p: ProgressoDetalheInner | null | undefined): string | null {
   if (!p || typeof p !== "object") return null
   if (!p.etapa || p.total == null || p.concluidos == null) return null
   const label = p.etapa === "traducao" ? "Traduzindo" : "Renderizando"
@@ -398,8 +412,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             Sistema processando edição #{filaStatus.edicao_id} — {filaStatus.etapa ?? "processando"}.
             Aguarde ou volte depois.
           </p>
-          {formatProgresso(filaStatus.progresso) && (
-            <p className="mt-1 text-amber-700">{formatProgresso(filaStatus.progresso)}</p>
+          {formatProgresso(getProgresso(filaStatus.progresso, filaStatus.etapa === "traducao" ? "traducao" : "render")) && (
+            <p className="mt-1 text-amber-700">{formatProgresso(getProgresso(filaStatus.progresso, filaStatus.etapa === "traducao" ? "traducao" : "render"))}</p>
           )}
         </div>
       )}
@@ -451,8 +465,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       {isProcessing && filaStatus?.ocupado && filaStatus.edicao_id === edicaoId && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 mb-4 text-sm text-blue-700 flex items-center gap-2">
           <RefreshCw className="h-3.5 w-3.5 animate-spin flex-shrink-0" />
-          {formatProgresso(edicao.progresso_detalhe)
-            ?? formatProgresso(filaStatus.progresso as ProgressoDetalhe | null)
+          {formatProgresso(getProgresso(edicao.progresso_detalhe, edicao.status === "traducao" ? "traducao" : "render"))
+            ?? formatProgresso(getProgresso(filaStatus.progresso, filaStatus.etapa === "traducao" ? "traducao" : "render"))
             ?? `Processando: ${filaStatus.etapa ?? edicao.status}…`}
         </div>
       )}
@@ -633,14 +647,14 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             {edicao.status === "traducao" ? (
               <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-2 rounded-lg text-sm border border-blue-100 font-medium">
                 <RefreshCw className="h-4 w-4 animate-spin" />
-                <span>🌍 Tradução em andamento... {edicao.progresso_detalhe?.concluidos ?? 0}/{edicao.progresso_detalhe?.total ?? IDIOMAS.length} idiomas</span>
+                <span>🌍 Tradução em andamento... {getProgresso(edicao.progresso_detalhe, "traducao")?.concluidos ?? 0}/{getProgresso(edicao.progresso_detalhe, "traducao")?.total ?? IDIOMAS.length} idiomas</span>
               </div>
             ) : (["montagem", "preview_pronto", "preview", "revisao", "concluido", "renderizando"].includes(edicao.status)) ? (
               <div className="flex items-center gap-2 bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm border border-green-100 font-medium">
                 <CheckCircle className="h-4 w-4" />
                 <span>✅ Tradução concluída — {IDIOMAS.length}/{IDIOMAS.length} idiomas</span>
               </div>
-            ) : (isErro && (erroRelatedToTranslation || edicao.progresso_detalhe?.etapa === "traducao")) ? (
+            ) : (isErro && (erroRelatedToTranslation || getProgresso(edicao.progresso_detalhe, "traducao") !== null)) ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -696,7 +710,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
               </Button>
             )}
             {/* Botão de Tentar novamente (Tradução) — apenas em erro */}
-            {isErro && (erroRelatedToTranslation || edicao.progresso_detalhe?.etapa === "traducao") && !edicao.eh_instrumental && (
+            {isErro && (erroRelatedToTranslation || getProgresso(edicao.progresso_detalhe, "traducao") !== null) && !edicao.eh_instrumental && (
               <Button
                 variant="outline"
                 size="sm"
@@ -765,7 +779,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
             <div className="space-y-2">
               {IDIOMAS.map(({ code, flag, label }) => {
                 const render = renders.find(r => r.idioma === code)
-                const isAtual = edicao.status === "renderizando" && edicao.progresso_detalhe?.atual === code
+                const isAtual = edicao.status === "renderizando" && getProgresso(edicao.progresso_detalhe, "render")?.atual === code
                 if (!render) return (
                   <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isAtual ? "bg-blue-50" : "bg-muted/50 text-muted-foreground"}`}>
                     <span className="text-lg">{flag}</span>

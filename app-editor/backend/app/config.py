@@ -16,3 +16,5 @@ REDATOR_API_URL = os.getenv("REDATOR_API_URL", "https://app-production-870c.up.r
 EXPORT_PATH = os.getenv("EXPORT_PATH", "")
 CURADORIA_API_URL = os.getenv("CURADORIA_API_URL", "https://curadoria-backend-production.up.railway.app")
 GENIUS_API_TOKEN = os.getenv("GENIUS_API_TOKEN", "")
+SENTRY_DSN = os.getenv("SENTRY_DSN", None)
+COBALT_API_URL = os.getenv("COBALT_API_URL", "https://api.cobalt.tools")

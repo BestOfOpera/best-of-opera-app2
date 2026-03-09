@@ -1,5 +1,24 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-09 — BLAST v3
+
+### O que foi feito
+- **BLOCO 0:** Configuradas variáveis `SENTRY_DSN` e `COBALT_API_URL` em `config.py`; atualizado `.env.example` com 4 grupos; criado `dados-relevantes/BLAST-expansao.md`
+- **BLOCO 1 (ERR-056):** cobalt.tools integrado como 3ª fonte na cascata de download (após R2, antes da Curadoria). Funções `_download_via_cobalt()` e `_download_via_ytdlp()` adicionadas em `pipeline.py`
+- **BLOCO 2 (ERR-057):** Pacote ZIP migrado de `BackgroundTasks` para worker sequencial. `_gerar_pacote_background` virou `_pacote_task` async com `BaseException` e heartbeats
+- **BLOCO 3 (ERR-013):** Verificado que preview já era salvo no R2 — sem alteração de código
+- **BLOCO 4 (ERR-059):** Retry automático de tradução: 2ª passada em idiomas que falharam na 1ª. Status "erro" só se ainda falhar no retry
+- **BLOCO 5 (ERR-060):** Sentry integrado via `sentry-sdk[fastapi]>=2.0.0`; opcional via `SENTRY_DSN`; captura exceções no worker com contexto `edicao_id`
+- **BLOCO 6 (ERR-061/ERR-062):** UNIQUE indexes em `editor_traducoes_letras` e `editor_renders`; upserts em `_traducao_task` e `_render_task`; namespaces `"traducao"/"render"/"pacote"` no `progresso_detalhe`; `conclusion.tsx` atualizado com helper `getProgresso()` com compat. retroativa
+
+### Decisões
+- `_get_pacote_status`: lê `p["pacote"]` no novo formato; fallback `p.etapa === "pacote"` para compat. com dados antigos no banco
+- `ProgressoDetalhe` em `editor.ts` virou union type: `Record<string, ProgressoDetalheInner> | ProgressoDetalheInner | null`
+- `getProgresso(p, namespace)` em `conclusion.tsx`: tenta namespace novo, fallback flat `etapa ===`
+
+### Pendências
+- Nenhuma — todos os 7 blocos concluídos e commitados
+
 ## Sessão 2026-03-03
 
 ### O que foi feito

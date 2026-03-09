@@ -39,6 +39,13 @@ async def worker_loop():
                     f"[worker] Task edicao_id={edicao_id} falhou com exceção não tratada: {e}",
                     exc_info=True,
                 )
+                # Reportar ao Sentry se configurado
+                try:
+                    import sentry_sdk
+                    sentry_sdk.set_context("edicao", {"id": edicao_id})
+                    sentry_sdk.capture_exception(e)
+                except Exception:
+                    pass
                 # Garantir que o status não fique preso — a própria task deveria
                 # fazer isso, mas se crashou antes do try-except interno, fazemos aqui
                 try:

@@ -76,18 +76,26 @@ export interface Render {
   created_at: string
 }
 
-export interface ProgressoDetalhe {
-  etapa: "traducao" | "render"
-  total: number
-  concluidos: number
-  atual: string | null
+/** Formato interno (inner) do progresso — armazenado sob uma chave de namespace. */
+export interface ProgressoDetalheInner {
+  etapa: "traducao" | "render" | "pacote" | string
+  total?: number
+  concluidos?: number
+  atual?: string | null
 }
+
+/**
+ * progresso_detalhe da API — pode ser:
+ *  - Novo formato: { "traducao": {...}, "render": {...}, "pacote": {...} }
+ *  - Formato antigo (compat): { etapa: "traducao"|"render", total, concluidos, atual }
+ */
+export type ProgressoDetalhe = Record<string, ProgressoDetalheInner> | ProgressoDetalheInner | null
 
 export interface FilaStatus {
   ocupado: boolean
   edicao_id: number | null
   etapa: string | null
-  progresso: ProgressoDetalhe | null
+  progresso: ProgressoDetalhe
 }
 
 export interface PacoteStatus {

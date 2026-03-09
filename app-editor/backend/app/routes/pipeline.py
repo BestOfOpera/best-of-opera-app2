@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path as FilePath
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import update
@@ -21,10 +21,82 @@ from app.services.genius import buscar_letra_genius
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
 import os
 import shutil
-from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL, CURADORIA_API_URL
+from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL, CURADORIA_API_URL, COBALT_API_URL
 from shared.storage_service import storage, lang_prefix, check_conflict, save_youtube_marker
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
+
+
+async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
+    """Baixa vídeo usando cobalt.tools API. Retorna True se ok, False se falhar."""
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+            resp = await client.post(
+                COBALT_API_URL,
+                json={"url": youtube_url, "videoQuality": "1080"},
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+        if resp.status_code != 200:
+            logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")
+            return False
+        data = resp.json()
+        status = data.get("status")
+        if status not in ("tunnel", "redirect"):
+            logger.warning(f"[cobalt] Status inesperado: {status} — {data}")
+            return False
+        download_url = data.get("url")
+        if not download_url:
+            logger.warning(f"[cobalt] URL ausente na resposta")
+            return False
+
+        # Baixar o vídeo
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300, connect=15)) as client:
+            async with client.stream("GET", download_url) as r:
+                if r.status_code != 200:
+                    logger.warning(f"[cobalt] Download falhou HTTP {r.status_code}")
+                    return False
+                with open(output_path, "wb") as f:
+                    async for chunk in r.aiter_bytes(chunk_size=1024 * 1024):
+                        f.write(chunk)
+        logger.info(f"[cobalt] Download concluído → {output_path}")
+        return True
+    except Exception as e:
+        logger.warning(f"[cobalt] Falha: {e}")
+        return False
+
+
+async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
+    """Baixa vídeo usando yt-dlp como último fallback. Retorna True se ok."""
+    try:
+        cmd = (
+            f'yt-dlp "{youtube_url}" '
+            f'-o "{output_path}" '
+            f'-f "bv[ext=mp4][height<=1080]+ba[ext=m4a]/best[ext=mp4]/best" '
+            f'--merge-output-format mp4 '
+            f'--no-playlist '
+            f'--quiet'
+        )
+        processo = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            _, stderr_out = await asyncio.wait_for(processo.communicate(), timeout=300)
+        except asyncio.TimeoutError:
+            processo.kill()
+            await processo.wait()
+            logger.warning("[yt-dlp] Timeout após 300s")
+            return False
+        if processo.returncode != 0:
+            logger.warning(f"[yt-dlp] Falhou: {stderr_out.decode()[-500:]}")
+            return False
+        logger.info(f"[yt-dlp] Download concluído → {output_path}")
+        return True
+    except Exception as e:
+        logger.warning(f"[yt-dlp] Falha: {e}")
+        return False
 
 
 def _sanitize_filename(s: str) -> str:
@@ -294,10 +366,93 @@ async def _download_task(edicao_id: int):
             except Exception as e:
                 logger.warning(f"[{edicao_id}] Falha ao chamar curadoria: {e}")
 
+        # PASSO E — cobalt.tools (download direto, antes do yt-dlp)
+        if youtube_video_id and COBALT_API_URL:
+            logger.info(f"[{edicao_id}] Tentando cobalt.tools para {youtube_video_id}...")
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {"etapa": "download", "passo": "cobalt"}
+                    db.commit()
+
+            cobalt_dir = FilePath(STORAGE_PATH) / str(edicao_id)
+            cobalt_dir.mkdir(parents=True, exist_ok=True)
+            cobalt_local = str(cobalt_dir / "original.mp4")
+            youtube_url_full = f"https://www.youtube.com/watch?v={youtube_video_id}"
+            cobalt_ok = await _download_via_cobalt(youtube_url_full, cobalt_local)
+
+            if cobalt_ok:
+                base2 = _check_conflict(artista, musica, youtube_video_id)
+                r2_key2 = f"{base2}/video/original.mp4"
+                storage.upload_file(cobalt_local, r2_key2)
+                if youtube_video_id:
+                    _save_youtube_marker(base2, youtube_video_id)
+                try:
+                    import os as _os
+                    _os.unlink(cobalt_local)
+                except Exception:
+                    pass
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.arquivo_video_completo = r2_key2
+                        edicao.r2_base = base2
+                        edicao.status = "letra"
+                        edicao.passo_atual = 2
+                        edicao.erro_msg = None
+                        edicao.task_heartbeat = datetime.now(timezone.utc)
+                        edicao.progresso_detalhe = {}
+                        db.commit()
+                logger.info(f"[{edicao_id}] Download concluído via cobalt: {r2_key2}")
+                return
+
+        # PASSO F — yt-dlp (último fallback antes de erro)
+        if youtube_video_id:
+            logger.info(f"[{edicao_id}] Tentando yt-dlp para {youtube_video_id}...")
+            with SessionLocal() as db:
+                edicao = db.get(Edicao, edicao_id)
+                if edicao:
+                    edicao.task_heartbeat = datetime.now(timezone.utc)
+                    edicao.progresso_detalhe = {"etapa": "download", "passo": "yt_dlp"}
+                    db.commit()
+
+            ytdlp_dir = FilePath(STORAGE_PATH) / str(edicao_id)
+            ytdlp_dir.mkdir(parents=True, exist_ok=True)
+            ytdlp_local = str(ytdlp_dir / "original.mp4")
+            youtube_url_full = f"https://www.youtube.com/watch?v={youtube_video_id}"
+            ytdlp_ok = await _download_via_ytdlp(youtube_url_full, ytdlp_local)
+
+            if ytdlp_ok:
+                base3 = _check_conflict(artista, musica, youtube_video_id)
+                r2_key3 = f"{base3}/video/original.mp4"
+                storage.upload_file(ytdlp_local, r2_key3)
+                if youtube_video_id:
+                    _save_youtube_marker(base3, youtube_video_id)
+                try:
+                    import os as _os
+                    _os.unlink(ytdlp_local)
+                except Exception:
+                    pass
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.arquivo_video_completo = r2_key3
+                        edicao.r2_base = base3
+                        edicao.status = "letra"
+                        edicao.passo_atual = 2
+                        edicao.erro_msg = None
+                        edicao.task_heartbeat = datetime.now(timezone.utc)
+                        edicao.progresso_detalhe = {}
+                        db.commit()
+                logger.info(f"[{edicao_id}] Download concluído via yt-dlp: {r2_key3}")
+                return
+
         # Vídeo não encontrado em nenhum lugar — erro com orientação
         erro_msg = (
             f"Vídeo não encontrado no R2 (key: {r2_key}). "
-            "Faça upload manual ou verifique se a curadoria já processou este vídeo."
+            "Tentativas: curadoria, cobalt.tools e yt-dlp falharam. "
+            "Faça upload manual."
         )
         logger.warning(f"[{edicao_id}] {erro_msg}")
         with SessionLocal() as db:
@@ -1056,16 +1211,18 @@ async def _traducao_task(edicao_id: int):
             edicao.status = "traducao"
             edicao.task_heartbeat = datetime.now(timezone.utc)
             edicao.progresso_detalhe = {
-                "etapa": "traducao",
-                "total": total,
-                "concluidos": concluidos,
-                "atual": None,
-                "erros": [],
+                "traducao": {
+                    "etapa": "traducao",
+                    "total": total,
+                    "concluidos": concluidos,
+                    "atual": None,
+                    "erros": [],
+                }
             }
             db.commit()
 
-        # PASSO B — Loop de tradução (banco FECHADO durante I/O externo)
-        falhas = []
+        # PASSO B — Loop de tradução, passada 1 (banco FECHADO durante I/O externo)
+        falhou_primeira_vez = []
         for idioma in faltantes:
             # Heartbeat antes de cada chamada de tradução (sessão curta)
             with SessionLocal() as db:
@@ -1073,11 +1230,13 @@ async def _traducao_task(edicao_id: int):
                 if edicao:
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {
-                        "etapa": "traducao",
-                        "total": total,
-                        "concluidos": concluidos,
-                        "atual": idioma,
-                        "erros": falhas,
+                        "traducao": {
+                            "etapa": "traducao",
+                            "total": total,
+                            "concluidos": concluidos,
+                            "atual": idioma,
+                            "erros": [f"{i}: falhou" for i in falhou_primeira_vez],
+                        }
                     }
                     db.commit()
 
@@ -1089,46 +1248,95 @@ async def _traducao_task(edicao_id: int):
                     timeout=180,
                 )
 
-                # Salvar resultado (sessão curta)
+                # Upsert: atualiza se já existe, insere se não
                 with SessionLocal() as db:
-                    trad = TraducaoLetra(
-                        edicao_id=edicao_id,
-                        idioma=idioma,
-                        segmentos=resultado,
-                    )
-                    db.add(trad)
+                    existing_trad = db.query(TraducaoLetra).filter(
+                        TraducaoLetra.edicao_id == edicao_id,
+                        TraducaoLetra.idioma == idioma,
+                    ).first()
+                    if existing_trad:
+                        existing_trad.segmentos = resultado
+                    else:
+                        db.add(TraducaoLetra(edicao_id=edicao_id, idioma=idioma, segmentos=resultado))
                     db.commit()
 
                 concluidos += 1
                 logger.info(f"[{edicao_id}] Tradução {idioma} OK ({concluidos}/{total})")
 
             except asyncio.TimeoutError:
-                falhas.append(f"{idioma}: timeout (180s)")
-                logger.warning(f"[{edicao_id}] Tradução {idioma} timeout após 180s")
+                falhou_primeira_vez.append(idioma)
+                logger.warning(f"[{edicao_id}] Tradução {idioma} timeout após 180s (1ª passada)")
             except Exception as e:
-                falhas.append(f"{idioma}: {e}")
-                logger.warning(f"[{edicao_id}] Tradução {idioma} falhou: {e}")
+                falhou_primeira_vez.append(idioma)
+                logger.warning(f"[{edicao_id}] Tradução {idioma} falhou: {e} (1ª passada)")
+
+        # PASSO B2 — Segunda passada: retry dos idiomas que falharam
+        falhas_finais = []
+        if falhou_primeira_vez:
+            logger.info(f"[{edicao_id}] Retry de {len(falhou_primeira_vez)} tradução(ões): {falhou_primeira_vez}")
+            for idioma in falhou_primeira_vez:
+                with SessionLocal() as db:
+                    edicao = db.get(Edicao, edicao_id)
+                    if edicao:
+                        edicao.task_heartbeat = datetime.now(timezone.utc)
+                        edicao.progresso_detalhe = {
+                            "traducao": {
+                                "etapa": "traducao",
+                                "total": total,
+                                "concluidos": concluidos,
+                                "atual": f"{idioma} (retry)",
+                                "erros": [f"{i}: retry" for i in falhou_primeira_vez],
+                            }
+                        }
+                        db.commit()
+
+                try:
+                    logger.info(f"[{edicao_id}] Retry tradução {idioma}...")
+                    resultado = await asyncio.wait_for(
+                        traduzir_letra(segmentos_cortado, idioma_origem, idioma, metadados),
+                        timeout=180,
+                    )
+                    with SessionLocal() as db:
+                        existing_trad = db.query(TraducaoLetra).filter(
+                            TraducaoLetra.edicao_id == edicao_id,
+                            TraducaoLetra.idioma == idioma,
+                        ).first()
+                        if existing_trad:
+                            existing_trad.segmentos = resultado
+                        else:
+                            db.add(TraducaoLetra(edicao_id=edicao_id, idioma=idioma, segmentos=resultado))
+                        db.commit()
+                    concluidos += 1
+                    logger.info(f"[{edicao_id}] Retry {idioma} OK ({concluidos}/{total})")
+                except asyncio.TimeoutError:
+                    falhas_finais.append(f"{idioma}: timeout (retry)")
+                    logger.warning(f"[{edicao_id}] Retry {idioma} timeout após 180s")
+                except Exception as e:
+                    falhas_finais.append(f"{idioma}: {e}")
+                    logger.warning(f"[{edicao_id}] Retry {idioma} falhou: {e}")
 
         # PASSO C — Finalização (sessão curta)
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
             if edicao:
                 edicao.passo_atual = 7
-                edicao.status = "montagem"
-                edicao.erro_msg = None
                 edicao.tentativas_requeue = 0
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {
-                    "etapa": "traducao",
-                    "total": total,
-                    "concluidos": concluidos,
-                    "atual": None,
-                    "erros": falhas,
+                    "traducao": {
+                        "etapa": "traducao",
+                        "total": total,
+                        "concluidos": concluidos,
+                        "atual": None,
+                        "erros": falhas_finais,
+                    }
                 }
-                if falhas:
-                    edicao.erro_msg = f"Traduções com falha ({len(falhas)}): {'; '.join(falhas)}"
-                    logger.warning(f"[{edicao_id}] {len(falhas)} traduções falharam")
+                if falhas_finais:
+                    edicao.status = "erro"
+                    edicao.erro_msg = f"Traduções com falha após retry ({len(falhas_finais)}): {'; '.join(falhas_finais)}"
+                    logger.warning(f"[{edicao_id}] {len(falhas_finais)} traduções falharam após retry")
                 else:
+                    edicao.status = "montagem"
                     edicao.erro_msg = None
                 db.commit()
 
@@ -1362,11 +1570,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             edicao.status = status_inicial
             edicao.task_heartbeat = datetime.now(timezone.utc)
             edicao.progresso_detalhe = {
-                "etapa": "render",
-                "total": total,
-                "concluidos": concluidos,
-                "atual": None,
-                "erros": [],
+                "render": {
+                    "etapa": "render",
+                    "total": total,
+                    "concluidos": concluidos,
+                    "atual": None,
+                    "erros": [],
+                }
             }
             db.commit()
 
@@ -1405,11 +1615,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 if edicao:
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {
-                        "etapa": "render",
-                        "total": total,
-                        "concluidos": concluidos,
-                        "atual": idioma,
-                        "erros": falhas,
+                        "render": {
+                            "etapa": "render",
+                            "total": total,
+                            "concluidos": concluidos,
+                            "atual": idioma,
+                            "erros": falhas,
+                        }
                     }
                     db.commit()
 
@@ -1518,16 +1730,26 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     except Exception as cleanup_err:
                         logger.warning(f"[{edicao_id}] Falha ao deletar ASS {ass_path}: {cleanup_err}")
 
-                # 7. Salvar resultado (sessão curta)
+                # 7. Salvar resultado — upsert (sessão curta)
                 with SessionLocal() as db:
-                    db.add(Render(
-                        edicao_id=edicao_id,
-                        idioma=idioma,
-                        tipo="9:16",
-                        arquivo=arquivo_render,
-                        tamanho_bytes=tamanho,
-                        status="concluido",
-                    ))
+                    existing_render = db.query(Render).filter(
+                        Render.edicao_id == edicao_id, Render.idioma == idioma
+                    ).first()
+                    if existing_render:
+                        existing_render.tipo = "9:16"
+                        existing_render.arquivo = arquivo_render
+                        existing_render.tamanho_bytes = tamanho
+                        existing_render.status = "concluido"
+                        existing_render.erro_msg = None
+                    else:
+                        db.add(Render(
+                            edicao_id=edicao_id,
+                            idioma=idioma,
+                            tipo="9:16",
+                            arquivo=arquivo_render,
+                            tamanho_bytes=tamanho,
+                            status="concluido",
+                        ))
                     db.commit()
 
                 renders_ok += 1
@@ -1573,11 +1795,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             if edicao:
                 edicao.task_heartbeat = datetime.now(timezone.utc)
                 edicao.progresso_detalhe = {
-                    "etapa": "render",
-                    "total": total,
-                    "concluidos": concluidos,
-                    "atual": None,
-                    "erros": falhas,
+                    "render": {
+                        "etapa": "render",
+                        "total": total,
+                        "concluidos": concluidos,
+                        "atual": None,
+                        "erros": falhas,
+                    }
                 }
                 if renders_ok > 0:
                     if is_preview:
@@ -1776,22 +2000,36 @@ def _set_pacote_status(edicao_id: int, status: str, url: str = None, erro: str =
         edicao = db.get(Edicao, edicao_id)
         if edicao:
             edicao.progresso_detalhe = {
-                "etapa": "pacote",
-                "status": status,
-                "url": url,
-                "erro": erro,
-                "r2_key": r2_key,
+                "pacote": {
+                    "etapa": "pacote",
+                    "status": status,
+                    "url": url,
+                    "erro": erro,
+                    "r2_key": r2_key,
+                }
             }
             db.commit()
 
 
 def _get_pacote_status(edicao_id: int, db: Session) -> dict:
-    """Lê status do pacote do campo progresso_detalhe."""
+    """Lê status do pacote do campo progresso_detalhe (namespace 'pacote', compat. formato antigo)."""
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         return {"status": "nenhum", "url": None, "erro": None}
     p = edicao.progresso_detalhe
-    if isinstance(p, dict) and p.get("etapa") == "pacote":
+    if not isinstance(p, dict):
+        return {"status": "nenhum", "url": None, "erro": None}
+    # Novo formato: {"pacote": {...}}
+    if "pacote" in p:
+        inner = p["pacote"]
+        return {
+            "status": inner.get("status", "nenhum"),
+            "url": inner.get("url"),
+            "erro": inner.get("erro"),
+            "r2_key": inner.get("r2_key"),
+        }
+    # Formato antigo (compat. retroativa): {"etapa": "pacote", ...}
+    if p.get("etapa") == "pacote":
         return {
             "status": p.get("status", "nenhum"),
             "url": p.get("url"),
@@ -1801,16 +2039,17 @@ def _get_pacote_status(edicao_id: int, db: Session) -> dict:
     return {"status": "nenhum", "url": None, "erro": None}
 
 
-def _gerar_pacote_background(edicao_id: int):
-    """Task de background que gera o ZIP e faz upload pro R2."""
-    import zipfile
-    import tempfile
-
+async def _pacote_task(edicao_id: int):
+    """Task assíncrona no worker que gera o ZIP e faz upload pro R2."""
     try:
+        import zipfile
+        import tempfile
         from app.database import SessionLocal
 
+        logger.info(f"[pacote_task] INÍCIO edicao_id={edicao_id}")
         _set_pacote_status(edicao_id, "gerando")
 
+        # PASSO A — Ler estado (sessão curta)
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
             if not edicao:
@@ -1821,13 +2060,22 @@ def _gerar_pacote_background(edicao_id: int):
             r2_base = _get_r2_base(edicao)
             artista = edicao.artista
             musica = edicao.musica
+            edicao.task_heartbeat = datetime.now(timezone.utc)
+            db.commit()
 
             renders = db.query(Render).filter(
                 Render.edicao_id == edicao_id, Render.status == "concluido"
             ).all()
             render_data = [(r.arquivo, r.idioma) for r in renders if r.arquivo]
 
-        # Gerar ZIP em arquivo temporário (não em memória — pode ser grande)
+        # Heartbeat antes da operação pesada (banco FECHADO)
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if edicao:
+                edicao.task_heartbeat = datetime.now(timezone.utc)
+                db.commit()
+
+        # PASSO B — Gerar ZIP e upload (banco FECHADO durante I/O pesado)
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             tmp_path = tmp.name
 
@@ -1873,25 +2121,34 @@ def _gerar_pacote_background(edicao_id: int):
             except OSError:
                 pass
 
-    except Exception as e:
-        logger.error(f"[pacote] Erro ao gerar pacote edicao_id={edicao_id}: {e}", exc_info=True)
+        logger.info(f"[pacote_task] FINALIZOU edicao_id={edicao_id}")
+
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            _set_pacote_status(edicao_id, "erro", erro="Interrompido por reinício do servidor")
+            raise
+        logger.error(f"[pacote_task] Erro edicao_id={edicao_id}: {e}", exc_info=True)
         _set_pacote_status(edicao_id, "erro", erro=str(e)[:500])
 
 
 @router.post("/edicoes/{edicao_id}/pacote")
-def iniciar_pacote(edicao_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Inicia geração assíncrona do pacote ZIP. Retorna imediatamente.
+async def iniciar_pacote(edicao_id: int, db: Session = Depends(get_db)):
+    """Inicia geração do pacote ZIP via worker sequencial. Retorna imediatamente.
     Use GET /pacote/status para acompanhar."""
+    from app.worker import task_queue
+
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
+    # Check-and-set atômico: não enfileirar se já está gerando
     current = _get_pacote_status(edicao_id, db)
     if current["status"] == "gerando":
         return {"status": "gerando_pacote", "mensagem": "Pacote já está sendo gerado"}
 
     _set_pacote_status(edicao_id, "gerando")
-    background_tasks.add_task(_gerar_pacote_background, edicao_id)
+    task_queue.put_nowait((_pacote_task, edicao_id))
+    logger.info(f"[pacote] Enfileirado edicao_id={edicao_id} queue={task_queue.qsize()}")
 
     return {"status": "gerando_pacote", "mensagem": "Geração do pacote iniciada"}
 

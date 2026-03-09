@@ -1,7 +1,88 @@
 # Histórico Completo de Erros e Correções — App-Editor (Best of Opera)
 
-**Gerado em:** 03 de março de 2026
+**Gerado em:** 03 de março de 2026 (atualizado 09/03/2026 — BLAST v3)
 **Projeto:** Best of Opera — App-Editor (APP3) + App-Redator (APP2)
+
+---
+
+## Fase 13 — BLAST v3: Expansão do Pipeline (09/03/2026)
+
+### ERR-056 · cobalt.tools ausente como fonte de download primária
+
+- **Sintoma:** Pipeline dependia de yt-dlp diretamente (limitado por bloqueios do YouTube) e curadoria como segunda opção, sem aproveitar cobalt.tools que tem alta taxa de sucesso e qualidade
+- **Causa raiz:** `_download_task` não incluía cobalt na cascata de fallbacks
+- **Arquivos corrigidos:** `pipeline.py`, `config.py`, `.env.example`
+- **Correção (09/03/2026):**
+  - Adicionada variável `COBALT_API_URL` em `config.py` (default: `https://api.cobalt.tools`)
+  - Implementada `_download_via_cobalt()`: `POST /` com `{"url": ..., "videoQuality": "1080"}`, suporta resposta `tunnel`/`redirect`
+  - Implementada `_download_via_ytdlp()` como último fallback antes do erro
+  - Cascata final: local → R2 → cobalt → curadoria → yt-dlp → erro
+- **Status: ✅ CORRIGIDO**
+
+### ERR-057 · Pacote ZIP rodava em BackgroundTasks (preso em background sem worker)
+
+- **Sintoma:** `_gerar_pacote_background` era síncrono e rodava via `BackgroundTasks` do FastAPI, fora do worker sequencial. Em produção, tarefas longas de ZIP eram canceladas ou corrompidas silenciosamente
+- **Causa raiz:** Arquitetura errada — pacote não usava o worker sequencial com asyncio.Queue
+- **Arquivos corrigidos:** `pipeline.py`
+- **Correção (09/03/2026):**
+  - Convertida `_gerar_pacote_background` (sync) para `_pacote_task` (async, com `BaseException`, heartbeats, sessões curtas)
+  - `iniciar_pacote` endpoint: removido `BackgroundTasks`, usa `task_queue.put_nowait((_pacote_task, edicao_id))`
+  - Seguindo padrão idêntico ao `_traducao_task` e `_render_task`
+- **Status: ✅ CORRIGIDO**
+
+### ERR-013 · Preview não salvo no R2
+
+- **Sintoma (reportado anteriormente):** Dúvida se o preview era persistido no R2 ou apenas localmente
+- **Causa raiz:** Não era bug — `_render_task` já fazia upload para R2 independente de `is_preview`
+- **Correção (09/03/2026):** Verificação e documentação — sem alteração de código necessária
+- **Status: ✅ DOCUMENTADO (sem mudança de código)**
+
+### ERR-059 · Falhas de tradução sem retry automático
+
+- **Sintoma:** Se um idioma falhava (timeout ou erro de API), ficava permanentemente ausente no resultado final
+- **Causa raiz:** `_traducao_task` não tinha mecanismo de segunda passada nos idiomas com falha
+- **Arquivos corrigidos:** `pipeline.py`
+- **Correção (09/03/2026):**
+  - Adicionado `falhou_primeira_vez = []` na 1ª passada
+  - Adicionado PASSO B2: segunda passada nos idiomas que falharam, com heartbeat mostrando "(retry)"
+  - `falhas_finais` → status "erro" se ainda falhar; sem falhas → status "montagem"
+- **Status: ✅ CORRIGIDO**
+
+### ERR-060 · Sentry não integrado
+
+- **Sintoma:** Erros de produção não eram capturados em ferramenta de monitoramento
+- **Causa raiz:** Sentry SDK não estava instalado nem inicializado
+- **Arquivos corrigidos:** `requirements.txt`, `config.py`, `main.py`, `worker.py`
+- **Correção (09/03/2026):**
+  - Adicionado `sentry-sdk[fastapi]>=2.0.0` em `requirements.txt`
+  - `SENTRY_DSN` em `config.py` (opcional via variável de ambiente)
+  - Inicialização em `main.py` antes do lifespan (captura erros de startup)
+  - `worker.py`: contexto `edicao_id` + `capture_exception` no bloco de erro
+- **Status: ✅ CORRIGIDO**
+
+### ERR-061 · Sem UNIQUE constraints em traducao_letra e render
+
+- **Sintoma:** Chamadas repetidas de tradução/render criavam registros duplicados no banco, causando comportamento indefinido em queries sem `LIMIT 1`
+- **Causa raiz:** Tabelas `editor_traducoes_letras` e `editor_renders` não tinham índice UNIQUE em `(edicao_id, idioma)`
+- **Arquivos corrigidos:** `main.py` (migrations), `pipeline.py` (upserts)
+- **Correção (09/03/2026):**
+  - `_run_migrations()` cria `uq_traducao_edicao_idioma` e `uq_render_edicao_idioma` via `CREATE UNIQUE INDEX IF NOT EXISTS`
+  - `_traducao_task` e `_render_task` convertidos para upsert (query-then-update-or-insert)
+- **Status: ✅ CORRIGIDO**
+
+### ERR-062 · Namespaces ausentes no progresso_detalhe
+
+- **Sintoma:** Frontend lia `progresso_detalhe.etapa`, `progresso_detalhe.atual` diretamente, mas backend gravava flat. Com múltiplas tasks (tradução/render/pacote), não havia como distinguir a que etapa pertencia o progresso
+- **Causa raiz:** progresso_detalhe era um objeto flat sem namespace
+- **Arquivos corrigidos:** `pipeline.py`, `conclusion.tsx`, `editor.ts`
+- **Correção (09/03/2026):**
+  - `_traducao_task` grava em `{"traducao": {etapa, total, concluidos, atual, erros}}`
+  - `_render_task` grava em `{"render": {etapa, total, concluidos, atual, erros}}`
+  - `_set_pacote_status` grava em `{"pacote": {etapa, status, url, erro, r2_key}}`
+  - `_get_pacote_status` lê de `p["pacote"]` com compat. retroativa para formato antigo
+  - `editor.ts`: adicionado `ProgressoDetalheInner` (inner type) e `ProgressoDetalhe` (union outer/inner)
+  - `conclusion.tsx`: adicionado helper `getProgresso(p, namespace)` com compat. retroativa
+- **Status: ✅ CORRIGIDO**
 
 ---
 

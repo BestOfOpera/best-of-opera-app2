@@ -8,7 +8,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from app.config import STORAGE_PATH
+from app.config import STORAGE_PATH, SENTRY_DSN
+
+# Sentry — inicializar antes do lifespan para capturar erros de startup
+if SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=0.1,
+        environment="production",
+    )
+    logger.info("[sentry] Sentry inicializado")
 from app.database import engine, Base
 from app.routes import edicoes, letras, pipeline, health, importar
 
@@ -38,6 +48,26 @@ def _run_migrations():
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
                 logger.info(f"Migration: added column {col_name}")
+
+        # Migration: UNIQUE index em traducao_letra (edicao_id, idioma)
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_traducao_edicao_idioma "
+                "ON editor_traducoes_letras (edicao_id, idioma)"
+            ))
+            logger.info("Migration: created unique index uq_traducao_edicao_idioma")
+        except Exception as e:
+            logger.warning(f"Migration uq_traducao_edicao_idioma: {e}")
+
+        # Migration: UNIQUE index em render (edicao_id, idioma)
+        try:
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_render_edicao_idioma "
+                "ON editor_renders (edicao_id, idioma)"
+            ))
+            logger.info("Migration: created unique index uq_render_edicao_idioma")
+        except Exception as e:
+            logger.warning(f"Migration uq_render_edicao_idioma: {e}")
 
         # Migration: UNIQUE index em redator_project_id (anti-duplicata)
         try:
