@@ -224,8 +224,8 @@ def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
 
 @router.get("/dashboard/visao-geral")
 def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
-    """Visão geral consolidada: edições, renders, worker e saúde do sistema."""
-    total_edicoes = db.query(func.count(Edicao.id)).scalar() or 0
+    """Visão geral consolidada — formato esperado pelo frontend DashboardVisaoGeral."""
+    total = db.query(func.count(Edicao.id)).scalar() or 0
 
     status_rows = (
         db.query(Edicao.status, func.count(Edicao.id))
@@ -234,131 +234,228 @@ def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
     )
     por_status = {row[0]: row[1] for row in status_rows}
 
-    renders_concluidos = (
-        db.query(func.count(Render.id))
-        .filter(Render.status == "concluido")
-        .scalar()
-        or 0
-    )
-    renders_com_erro = (
-        db.query(func.count(Render.id))
-        .filter(Render.status == "erro")
-        .scalar()
-        or 0
-    )
-
-    agora = datetime.now(timezone.utc)
-    edicoes_24h = (
-        db.query(func.count(Edicao.id))
-        .filter(Edicao.created_at >= agora - timedelta(hours=24))
-        .scalar()
-        or 0
-    )
+    em_andamento = por_status.get("processando", 0) + por_status.get("renderizando", 0)
+    concluidos = por_status.get("concluido", 0)
+    em_erro = por_status.get("erro", 0)
 
     try:
         info = is_worker_busy()
-        worker_status = "busy" if info.get("ocupado") else "idle"
-        fila_tamanho = task_queue.qsize()
+        worker_status = "ocupado" if info.get("ocupado") else "ocioso"
+        if info.get("etapa"):
+            worker_status += f" — {info['etapa']}"
     except Exception:
-        worker_status = "unknown"
-        fila_tamanho = 0
+        worker_status = "desconhecido"
+
+    # Projetos (todas as edições, mais recentes primeiro)
+    edicoes = db.query(Edicao).order_by(Edicao.updated_at.desc()).all()
+    projetos = []
+    for e in edicoes:
+        projetos.append({
+            "id": e.id,
+            "youtube_url": e.youtube_url or "",
+            "youtube_video_id": e.youtube_video_id or "",
+            "artista": e.artista or "",
+            "musica": e.musica or "",
+            "compositor": e.compositor or "",
+            "opera": e.opera or "",
+            "idioma": e.idioma or "",
+            "categoria": e.categoria or "",
+            "eh_instrumental": e.eh_instrumental or False,
+            "sem_lyrics": e.sem_lyrics or False,
+            "status": e.status or "aguardando",
+            "cut_start": e.corte_original_inicio,
+            "cut_end": e.corte_original_fim,
+            "rota_alinhamento": e.rota_alinhamento,
+            "confianca_alinhamento": float(e.confianca_alinhamento) if e.confianca_alinhamento else None,
+            "duracao_corte_sec": float(e.duracao_corte_sec) if e.duracao_corte_sec else None,
+            "janela_inicio_sec": float(e.janela_inicio_sec) if e.janela_inicio_sec else None,
+            "janela_fim_sec": float(e.janela_fim_sec) if e.janela_fim_sec else None,
+            "letra": None,  # omitido por peso
+            "letra_fonte": None,
+            "notas_revisao": e.notas_revisao,
+            "arquivo_video_completo": bool(e.arquivo_video_completo),
+            "arquivo_audio_completo": bool(e.arquivo_audio_completo),
+            "passo_atual": e.passo_atual or 1,
+            "erro_msg": e.erro_msg,
+            "progresso_detalhe": e.progresso_detalhe,
+            "task_heartbeat": e.task_heartbeat.isoformat() if e.task_heartbeat else None,
+            "created_at": e.created_at.isoformat() if e.created_at else "",
+            "updated_at": e.updated_at.isoformat() if e.updated_at else "",
+            "link_direto": f"/editor/{e.id}",
+        })
 
     return {
-        "total_edicoes": total_edicoes,
-        "por_status": por_status,
-        "renders_concluidos": renders_concluidos,
-        "renders_com_erro": renders_com_erro,
-        "edicoes_ultimas_24h": edicoes_24h,
-        "worker": worker_status,
-        "fila_tamanho": fila_tamanho,
+        "resumo": {
+            "total": total,
+            "em_andamento": em_andamento,
+            "concluidos": concluidos,
+            "em_erro": em_erro,
+            "worker_status": worker_status,
+        },
+        "projetos": projetos,
     }
 
 
 @router.get("/dashboard/producao")
 def dashboard_producao(db: Session = Depends(get_db)) -> dict:
-    """Métricas de produção focadas em renders: volume, idiomas, tamanho."""
-    renders_por_status = {
-        row[0]: row[1]
-        for row in db.query(Render.status, func.count(Render.id))
-        .group_by(Render.status)
-        .all()
-    }
-
-    renders_por_idioma = {
-        row[0]: row[1]
-        for row in db.query(Render.idioma, func.count(Render.id))
-        .filter(Render.status == "concluido")
-        .group_by(Render.idioma)
-        .all()
-    }
-
-    total_tamanho = (
-        db.query(func.sum(Render.tamanho_bytes))
-        .filter(Render.status == "concluido")
-        .scalar()
-        or 0
-    )
-
+    """Métricas de produção — formato esperado pelo frontend DashboardProducao."""
     agora = datetime.now(timezone.utc)
-    renders_24h = (
-        db.query(func.count(Render.id))
-        .filter(Render.status == "concluido", Render.updated_at >= agora - timedelta(hours=24))
-        .scalar()
-        or 0
+
+    # Gráfico: últimos 30 dias — renders concluídos vs erros por dia
+    grafico = []
+    for i in range(29, -1, -1):
+        dia = (agora - timedelta(days=i)).date()
+        dia_inicio = datetime(dia.year, dia.month, dia.day, tzinfo=timezone.utc)
+        dia_fim = dia_inicio + timedelta(days=1)
+
+        sucesso = (
+            db.query(func.count(Render.id))
+            .filter(Render.status == "concluido", Render.created_at >= dia_inicio, Render.created_at < dia_fim)
+            .scalar() or 0
+        )
+        erro = (
+            db.query(func.count(Render.id))
+            .filter(Render.status == "erro", Render.created_at >= dia_inicio, Render.created_at < dia_fim)
+            .scalar() or 0
+        )
+        grafico.append({"data": dia.isoformat(), "sucesso": sucesso, "erro": erro})
+
+    # Métricas gerais
+    total_concluidos = db.query(func.count(Render.id)).filter(Render.status == "concluido").scalar() or 0
+    total_erro = db.query(func.count(Render.id)).filter(Render.status == "erro").scalar() or 0
+    total_renders = total_concluidos + total_erro
+    taxa_sucesso = f"{round(total_concluidos / total_renders * 100)}%" if total_renders > 0 else "0%"
+
+    # Tempo médio (baseado em edições concluídas)
+    edicoes_concluidas = (
+        db.query(Edicao)
+        .filter(Edicao.status == "concluido", Edicao.created_at.isnot(None), Edicao.updated_at.isnot(None))
+        .all()
     )
-    renders_7d = (
-        db.query(func.count(Render.id))
-        .filter(Render.status == "concluido", Render.updated_at >= agora - timedelta(days=7))
-        .scalar()
-        or 0
+    if edicoes_concluidas:
+        tempos = [(e.updated_at - e.created_at).total_seconds() / 3600 for e in edicoes_concluidas]
+        media_h = sum(tempos) / len(tempos)
+        tempo_medio = f"{media_h:.1f}h" if media_h >= 1 else f"{media_h * 60:.0f}min"
+    else:
+        tempo_medio = "N/A"
+
+    # Gargalo: etapa com mais erros
+    erro_por_passo = (
+        db.query(Edicao.passo_atual, func.count(Edicao.id))
+        .filter(Edicao.status == "erro")
+        .group_by(Edicao.passo_atual)
+        .order_by(func.count(Edicao.id).desc())
+        .first()
     )
+    gargalo = PASSO_LABELS.get(erro_por_passo[0], f"Passo {erro_por_passo[0]}") if erro_por_passo else "Nenhum"
+
+    # Etapas com tempo médio (simplificado: edições que passaram por cada passo)
+    etapas = [{"etapa": label, "tempo_medio": "—"} for _, label in sorted(PASSO_LABELS.items())]
 
     return {
-        "renders_por_status": renders_por_status,
-        "renders_concluidos_por_idioma": renders_por_idioma,
-        "total_tamanho_bytes": total_tamanho,
-        "renders_concluidos_24h": renders_24h,
-        "renders_concluidos_7d": renders_7d,
+        "grafico": grafico,
+        "metricas": {
+            "taxa_sucesso": taxa_sucesso,
+            "tempo_medio": tempo_medio,
+            "gargalo": gargalo,
+        },
+        "etapas": etapas,
     }
 
 
 @router.get("/dashboard/saude")
 def dashboard_saude(db: Session = Depends(get_db)) -> dict:
-    """Verifica saúde dos componentes do sistema."""
+    """Saúde do sistema — formato esperado pelo frontend DashboardSaude."""
     # Banco de dados
-    banco_status = "ok"
-    total_edicoes = 0
+    banco_ok = True
     try:
         db.execute(text("SELECT 1"))
-        total_edicoes = db.query(func.count(Edicao.id)).scalar() or 0
     except Exception:
-        banco_status = "degraded"
+        banco_ok = False
 
     # Worker
+    worker_status = "desconhecido"
+    worker_progresso = 0
     try:
         info = is_worker_busy()
-        worker_status = "busy" if info.get("ocupado") else "idle"
+        if info.get("ocupado"):
+            worker_status = "processando"
+            prog = info.get("progresso") or {}
+            if isinstance(prog, dict):
+                total = prog.get("total", 0)
+                concluidos = prog.get("concluidos", 0)
+                worker_progresso = round(concluidos / total * 100) if total > 0 else 0
+        else:
+            worker_status = "ocioso"
     except Exception:
-        worker_status = "unknown"
+        pass
 
     # R2
-    r2_status = "ok"
+    r2_ok = True
     try:
         from shared.storage_service import StorageService
-
         s = StorageService()
         s.list_files(prefix="")
     except Exception:
-        r2_status = "degraded"
+        r2_ok = False
 
-    status_geral = "ok"
-    if banco_status != "ok" or r2_status != "ok":
-        status_geral = "degraded"
+    # Semáforo
+    if not banco_ok:
+        semaforo = "vermelho"
+    elif worker_status == "desconhecido" or not r2_ok:
+        semaforo = "amarelo"
+    else:
+        semaforo = "verde"
+
+    # Fila
+    try:
+        fila_quantidade = task_queue.qsize()
+    except Exception:
+        fila_quantidade = 0
+
+    # Próxima task (simplificado)
+    proxima_task = None
+    if fila_quantidade > 0:
+        proxima_task = f"{fila_quantidade} tarefa(s) na fila"
+
+    # Último erro
+    ultimo_erro_edicao = (
+        db.query(Edicao)
+        .filter(Edicao.status == "erro", Edicao.erro_msg.isnot(None))
+        .order_by(Edicao.updated_at.desc())
+        .first()
+    )
+    ultimo_erro = None
+    if ultimo_erro_edicao:
+        ts = ultimo_erro_edicao.updated_at
+        if ts:
+            delta = datetime.now(timezone.utc) - ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else datetime.now(timezone.utc) - ts
+            minutos = int(delta.total_seconds() / 60)
+            if minutos < 60:
+                timestamp_str = f"{minutos}min"
+            elif minutos < 1440:
+                timestamp_str = f"{minutos // 60}h"
+            else:
+                timestamp_str = f"{minutos // 1440}d"
+        else:
+            timestamp_str = "?"
+        ultimo_erro = {
+            "edicao_id": ultimo_erro_edicao.id,
+            "msg": ultimo_erro_edicao.erro_msg,
+            "timestamp": timestamp_str,
+        }
 
     return {
-        "banco": banco_status,
-        "worker": worker_status,
-        "r2": r2_status,
-        "total_edicoes": total_edicoes,
-        "status": status_geral,
+        "semaforo": semaforo,
+        "worker": {
+            "status": worker_status,
+            "progresso": worker_progresso,
+            "uptime": "—",
+        },
+        "fila": {
+            "quantidade": fila_quantidade,
+            "proxima_task": proxima_task,
+        },
+        "ultimo_erro": ultimo_erro,
+        "sentry_url": "https://sentry.io",
     }
