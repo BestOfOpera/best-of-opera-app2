@@ -22,7 +22,7 @@ export default function LoginPage() {
     setLoading(true)
     
     try {
-      const { access_token } = await editorApi.login({ username: email, password })
+      const { access_token } = await editorApi.login({ email, senha: password })
       login(access_token)
       router.push("/dashboard")
     } catch (err: any) {
@@ -33,12 +33,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border bg-card p-8 shadow-sm">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-[#1a1a2e] to-[#0f3460] p-4">
+      <div className="w-full max-w-md space-y-8 rounded-2xl border border-border/50 bg-card p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-500">
         <div className="flex flex-col items-center text-center space-y-2">
           <div className="flex items-center gap-2">
             <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Arias</h1>
-            <span className="font-serif text-3xl tracking-tight text-muted-foreground">Conteudo</span>
+            <span className="font-serif text-3xl tracking-tight text-muted-foreground">Conteúdo</span>
           </div>
           <p className="text-sm text-muted-foreground">Faça login na sua conta para continuar</p>
         </div>

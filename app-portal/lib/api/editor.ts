@@ -353,8 +353,8 @@ export const editorApi = {
   resumoReports: () => request<ReportResumo>(`${BASE()}/reports/resumo`),
 
   // Auth API
-  login: (data: Record<string, string>) =>
-    request<{ access_token: string }>(`${BASE()}/auth/login`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString() }),
+  login: (data: { email: string; senha: string }) =>
+    request<{ access_token: string }>(`${BASE()}/auth/login`, { method: "POST", body: JSON.stringify(data) }),
   getMe: () => request<AuthUser>(`${BASE()}/auth/me`),
   listarUsuarios: () => request<AuthUser[]>(`${BASE()}/auth/usuarios`),
   registrarUsuario: (data: Partial<AuthUser> & { senha?: string }) =>
