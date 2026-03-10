@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -44,6 +45,39 @@ def criar_report(data: ReportCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(report)
     return report
+
+
+@router.get("/reports/resumo")
+def resumo_reports(db: Session = Depends(get_db)) -> dict:
+    """Retorna contagens agregadas de reports por status, tipo e prioridade."""
+    por_status = {
+        row[0]: row[1]
+        for row in db.query(Report.status, func.count(Report.id))
+        .group_by(Report.status)
+        .all()
+    }
+    por_tipo = {
+        row[0]: row[1]
+        for row in db.query(Report.tipo, func.count(Report.id))
+        .group_by(Report.tipo)
+        .all()
+    }
+    por_prioridade = {
+        row[0]: row[1]
+        for row in db.query(Report.prioridade, func.count(Report.id))
+        .group_by(Report.prioridade)
+        .all()
+    }
+    total_abertos = db.query(func.count(Report.id)).filter(Report.status == "aberto").scalar() or 0
+    total = db.query(func.count(Report.id)).scalar() or 0
+
+    return {
+        "total": total,
+        "total_abertos": total_abertos,
+        "por_status": por_status,
+        "por_tipo": por_tipo,
+        "por_prioridade": por_prioridade,
+    }
 
 
 @router.get("/reports/{report_id}", response_model=ReportOut)

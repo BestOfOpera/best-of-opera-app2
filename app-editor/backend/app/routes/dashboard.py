@@ -222,6 +222,106 @@ def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
     }
 
 
+@router.get("/dashboard/visao-geral")
+def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
+    """Visão geral consolidada: edições, renders, worker e saúde do sistema."""
+    total_edicoes = db.query(func.count(Edicao.id)).scalar() or 0
+
+    status_rows = (
+        db.query(Edicao.status, func.count(Edicao.id))
+        .group_by(Edicao.status)
+        .all()
+    )
+    por_status = {row[0]: row[1] for row in status_rows}
+
+    renders_concluidos = (
+        db.query(func.count(Render.id))
+        .filter(Render.status == "concluido")
+        .scalar()
+        or 0
+    )
+    renders_com_erro = (
+        db.query(func.count(Render.id))
+        .filter(Render.status == "erro")
+        .scalar()
+        or 0
+    )
+
+    agora = datetime.now(timezone.utc)
+    edicoes_24h = (
+        db.query(func.count(Edicao.id))
+        .filter(Edicao.created_at >= agora - timedelta(hours=24))
+        .scalar()
+        or 0
+    )
+
+    try:
+        info = is_worker_busy()
+        worker_status = "busy" if info.get("ocupado") else "idle"
+        fila_tamanho = task_queue.qsize()
+    except Exception:
+        worker_status = "unknown"
+        fila_tamanho = 0
+
+    return {
+        "total_edicoes": total_edicoes,
+        "por_status": por_status,
+        "renders_concluidos": renders_concluidos,
+        "renders_com_erro": renders_com_erro,
+        "edicoes_ultimas_24h": edicoes_24h,
+        "worker": worker_status,
+        "fila_tamanho": fila_tamanho,
+    }
+
+
+@router.get("/dashboard/producao")
+def dashboard_producao(db: Session = Depends(get_db)) -> dict:
+    """Métricas de produção focadas em renders: volume, idiomas, tamanho."""
+    renders_por_status = {
+        row[0]: row[1]
+        for row in db.query(Render.status, func.count(Render.id))
+        .group_by(Render.status)
+        .all()
+    }
+
+    renders_por_idioma = {
+        row[0]: row[1]
+        for row in db.query(Render.idioma, func.count(Render.id))
+        .filter(Render.status == "concluido")
+        .group_by(Render.idioma)
+        .all()
+    }
+
+    total_tamanho = (
+        db.query(func.sum(Render.tamanho_bytes))
+        .filter(Render.status == "concluido")
+        .scalar()
+        or 0
+    )
+
+    agora = datetime.now(timezone.utc)
+    renders_24h = (
+        db.query(func.count(Render.id))
+        .filter(Render.status == "concluido", Render.updated_at >= agora - timedelta(hours=24))
+        .scalar()
+        or 0
+    )
+    renders_7d = (
+        db.query(func.count(Render.id))
+        .filter(Render.status == "concluido", Render.updated_at >= agora - timedelta(days=7))
+        .scalar()
+        or 0
+    )
+
+    return {
+        "renders_por_status": renders_por_status,
+        "renders_concluidos_por_idioma": renders_por_idioma,
+        "total_tamanho_bytes": total_tamanho,
+        "renders_concluidos_24h": renders_24h,
+        "renders_concluidos_7d": renders_7d,
+    }
+
+
 @router.get("/dashboard/saude")
 def dashboard_saude(db: Session = Depends(get_db)) -> dict:
     """Verifica saúde dos componentes do sistema."""
