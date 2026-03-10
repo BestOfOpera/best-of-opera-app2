@@ -27,12 +27,21 @@ const tools: ToolSection[] = [
       { label: "Fila de Edicao", href: "/editor", icon: ListOrdered },
     ]
   },
+  {
+    id: "dashboard", label: "Dashboard", icon: LayoutDashboard, items: [
+      { label: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Saúde", href: "/dashboard/saude", icon: HardDrive },
+      { label: "Produção", href: "/dashboard/producao", icon: ListOrdered },
+      { label: "Reports", href: "/dashboard/reports", icon: FileText },
+    ]
+  },
 ]
 
 function deriveActiveTool(pathname: string): string {
   if (pathname.startsWith("/curadoria")) return "curadoria"
   if (pathname.startsWith("/redator")) return "redator"
   if (pathname.startsWith("/editor")) return "editor"
+  if (pathname.startsWith("/dashboard")) return "dashboard"
   return "curadoria"
 }
 

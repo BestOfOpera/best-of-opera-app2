@@ -120,6 +120,82 @@ export interface RedatorProject {
   editor_edicao_id: number | null
 }
 
+// --- Dashboard Interfaces ---
+
+export interface DashboardVisaoGeral {
+  resumo: {
+    total: number
+    em_andamento: number
+    concluidos: number
+    em_erro: number
+    worker_status: string
+  }
+  projetos: (Edicao & { link_direto: string })[]
+}
+
+export interface DashboardR2Inventario {
+  categorias: {
+    nome: string
+    arquivos: { nome: string; status: "ok" | "falta" | "erro"; tamanho?: string }[]
+    concluido: boolean
+  }[]
+  total_arquivos: number
+  total_tamanho: string
+}
+
+export interface DashboardSaude {
+  semaforo: "verde" | "amarelo" | "vermelho"
+  worker: {
+    status: string
+    progresso: number
+    uptime: string
+  }
+  fila: {
+    quantidade: number
+    proxima_task: string | null
+  }
+  ultimo_erro: {
+    edicao_id: number
+    msg: string
+    timestamp: string
+  } | null
+  sentry_url: string
+}
+
+export interface DashboardProducao {
+  grafico: { data: string; sucesso: number; erro: number }[]
+  metricas: {
+    taxa_sucesso: string
+    tempo_medio: string
+    gargalo: string
+  }
+  etapas: { etapa: string; tempo_medio: string }[]
+}
+
+// --- Reports Interfaces ---
+
+export interface Report {
+  id: number
+  colaborador: string
+  titulo: string
+  descricao: string
+  tipo: "bug" | "melhoria" | "sugestao"
+  prioridade: "alta" | "media" | "baixa"
+  status: "novo" | "analise" | "resolvido"
+  projeto_id?: number
+  screenshots: string[]
+  resolucao?: string
+  resolvido_por?: string
+  codigo_err?: string
+  created_at: string
+}
+
+export interface ReportResumo {
+  novos: number
+  em_analise: number
+  resolvidos: number
+}
+
 export const editorApi = {
   listarEdicoes: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : ""
@@ -207,4 +283,28 @@ export const editorApi = {
     const qs = params.toString() ? `?${params.toString()}` : ""
     return request<Edicao>(`${BASE()}/redator/importar/${projectId}${qs}`, { method: "POST" })
   },
+
+  // Dashboard API
+  dashboardVisaoGeral: () => request<DashboardVisaoGeral>(`${BASE()}/dashboard/visao-geral`),
+  dashboardProjeto: (id: number) => request<Edicao>(`${BASE()}/dashboard/projeto/${id}`),
+  dashboardR2Inventario: (id: number) => request<DashboardR2Inventario>(`${BASE()}/dashboard/projeto/${id}/r2-inventario`),
+  dashboardSaude: () => request<DashboardSaude>(`${BASE()}/dashboard/saude`),
+  dashboardProducao: () => request<DashboardProducao>(`${BASE()}/dashboard/producao`),
+
+  // Reports API
+  criarReport: (data: Partial<Report>) =>
+    request<Report>(`${BASE()}/reports`, { method: "POST", body: JSON.stringify(data) }),
+  uploadScreenshot: (id: number, file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return requestFormData<{ url: string }>(`${BASE()}/reports/${id}/screenshots`, form)
+  },
+  listarReports: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : ""
+    return request<Report[]>(`${BASE()}/reports${qs}`)
+  },
+  detalheReport: (id: number) => request<Report>(`${BASE()}/reports/${id}`),
+  atualizarReport: (id: number, data: Partial<Report>) =>
+    request<Report>(`${BASE()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  resumoReports: () => request<ReportResumo>(`${BASE()}/reports/resumo`),
 }

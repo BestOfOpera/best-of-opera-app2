@@ -51,3 +51,30 @@
 5. yt-dlp — último fallback
 6. ERRO — vídeo não disponível
 ```
+
+## Testes de API (pós-deploy)
+
+Script: `dados-relevantes/testes-blast-v3.sh`
+
+### Cobertura
+
+| Grupo | Endpoint | Testado |
+|-------|----------|---------|
+| Dashboard | `GET /dashboard/stats` | ✅ |
+| Dashboard | `GET /dashboard/edicoes-recentes` | ✅ |
+| Dashboard | `GET /dashboard/fila` | ✅ |
+| Dashboard | `GET /dashboard/pipeline` | ✅ |
+| Dashboard | `GET /dashboard/saude` | ✅ |
+| Reports | `GET /reports` | ✅ |
+| Reports | `POST /reports` | ✅ |
+| Reports | `GET /reports/{id}` | ✅ |
+| Reports | `PATCH /reports/{id}` | ✅ |
+| Reports | `DELETE /reports/{id}` | ❌ Não coberto |
+| Reports | `POST /reports/{id}/screenshot` | ❌ Não coberto |
+
+### Observações
+
+1. **`DELETE /reports/{id}`** — existe no backend (`reports.py:122`) mas não testado pelo script. Retorna 204.
+2. **`POST /reports/{id}/screenshot`** — upload de imagem para R2. Não testado (requer `multipart/form-data`).
+3. **`GET /reports/resumo`** — solicitado nos testes mas **não existe no backend** e não estava no escopo BLAST v3. Retorna 404. Pode ser implementado como feature futura (contagem por status/prioridade).
+4. **Cleanup** — o script cria um report de teste em produção sem deletar. Cada execução acumula lixo no banco.
