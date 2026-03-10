@@ -18,3 +18,4 @@ CURADORIA_API_URL = os.getenv("CURADORIA_API_URL", "https://curadoria-backend-pr
 GENIUS_API_TOKEN = os.getenv("GENIUS_API_TOKEN", "")
 SENTRY_DSN = os.getenv("SENTRY_DSN", None)
 COBALT_API_URL = os.getenv("COBALT_API_URL", "https://api.cobalt.tools")
+JWT_EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "24"))

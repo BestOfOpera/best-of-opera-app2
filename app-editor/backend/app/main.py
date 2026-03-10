@@ -24,7 +24,7 @@ if SENTRY_DSN:
     logger.info("[sentry] Sentry inicializado")
 
 from app.database import engine, Base
-from app.routes import edicoes, letras, pipeline, health, importar, dashboard, reports
+from app.routes import edicoes, letras, pipeline, health, importar, dashboard, reports, auth, admin_perfil
 
 
 def _run_migrations():
@@ -124,6 +124,39 @@ def _run_migrations():
             "categorias": categorias,
         })
         logger.info("Migration: seed editor_perfis Best of Opera OK (idempotente)")
+
+    # Migration: tabela editor_usuarios (auth)
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS editor_usuarios (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(100) NOT NULL,
+                email VARCHAR(200) UNIQUE NOT NULL,
+                senha_hash VARCHAR(500) NOT NULL,
+                role VARCHAR(20) DEFAULT 'operador',
+                ativo BOOLEAN DEFAULT TRUE,
+                ultimo_login TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_editor_usuarios_email ON editor_usuarios (email)"))
+        logger.info("Migration: tabela editor_usuarios garantida")
+
+        # Seed: usuario admin padrão (idempotente)
+        ja_existe = conn.execute(text(
+            "SELECT 1 FROM editor_usuarios WHERE email = 'admin@bestofopera.com'"
+        )).fetchone()
+        if not ja_existe:
+            from passlib.context import CryptContext as _CryptContext
+            _pwd = _CryptContext(schemes=["bcrypt"], deprecated="auto")
+            _admin_hash = _pwd.hash("BestOfOpera2026!")
+            conn.execute(text("""
+                INSERT INTO editor_usuarios (nome, email, senha_hash, role, ativo)
+                VALUES ('Admin', 'admin@bestofopera.com', :senha_hash, 'admin', TRUE)
+            """), {"senha_hash": _admin_hash})
+            logger.info("Migration: seed usuario admin@bestofopera.com criado. TROQUE A SENHA APÓS O PRIMEIRO LOGIN.")
+        else:
+            logger.info("Migration: seed usuario admin@bestofopera.com ja existe (ok)")
 
     if "editor_edicoes" not in insp.get_table_names():
         return
@@ -261,3 +294,5 @@ app.include_router(pipeline.router)
 app.include_router(importar.router)
 app.include_router(dashboard.router)
 app.include_router(reports.router)
+app.include_router(auth.router)
+app.include_router(admin_perfil.router)

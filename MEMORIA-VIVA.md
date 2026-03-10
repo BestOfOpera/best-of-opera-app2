@@ -1,5 +1,30 @@
 # Memória Viva — Best of Opera App2
 
+## Referências de Infra (Railway + Postgres)
+- Git remote: `https://github.com/BestOfOpera/best-of-opera-app2.git`
+- Railway project ID: `c4d0468d-f3da-4765-b582-42cf6ef5ff66`
+- Railway env ID: `4ec5a08f-d29e-4d7b-a54d-a3e161edd716`
+- Editor backend service ID: `7e42a778-aa1e-4648-9ce1-07f5d6896fd5`
+- Editor backend URL prod: `https://editor-backend-production.up.railway.app`
+- Postgres service ID: `1f423154-d150-46a3-a459-b62b55fe1004`
+- Postgres internal: `postgres.railway.internal:5432` (user: postgres, pass: bestofopera2024, db: railway)
+- Postgres TCP proxy: `caboose.proxy.rlwy.net:49324` (pode mudar — verificar se ainda válido)
+- Conectar: `python3 -c "import psycopg2; conn = psycopg2.connect(host='caboose.proxy.rlwy.net', port=49324, user='postgres', password='bestofopera2024', dbname='railway'); ..."`
+- Railway token válido (2025-02): `5d70b3e4-85cf-43d9-893c-38578a90b8e9` (Code Token 2502)
+- psql não disponível no Mac — usar python3 com psycopg2
+
+## Padrões técnicos do projeto
+- Timestamps internos: `MM:SS,mmm` (função `seconds_to_timestamp`)
+- ASS gerado por `app/services/legendas.py:gerar_ass()`
+- Preview sempre em "pt" (exceto músicas em PT)
+- `idioma` da edição = idioma da MÚSICA (não da versão/overlay)
+- Modelos FK order para delete: Render → TraducaoLetra → Alinhamento → Overlay → Post → Seo → Edicao
+- R2 key para renders: `{r2_prefix}/{r2_base}/{idioma}/video_{idioma}.mp4`
+- `_get_r2_base(edicao)` em pipeline.py retorna a base R2 do projeto
+
+## TODO pendentes
+- Remover endpoint `admin/reset-total` de `app-editor/backend/app/routes/` por segurança (criado no commit `96d45ea`, nunca usado — substituído por cleanup psql direto)
+
 ## Sessão 2026-03-09 — BLAST v3
 
 ### O que foi feito
@@ -267,6 +292,30 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 - perfil_id=None → comportamento IDÊNTICO ao anterior (IDIOMAS_ALVO, "pt" hardcoded, "editor/" R2 prefix)
 - Edições existentes migradas para perfil_id = id do perfil "BO"
 
-### Próximo passo
-- Prompt 2: Auth backend + Admin CRUD (DEPENDE deste Prompt 1)
-- Fazer deploy no Railway + testar migration em produção
+### Próximo passo (atualizado 10/03/2026)
+- ~~Prompt 2: Auth backend + Admin CRUD~~ ✅ CONCLUÍDO
+- Prompt 3: Frontend Admin + Stepper + Auth UI (Antigravity)
+- Fazer deploy no Railway + testar migrations em produção
+
+---
+
+## Estado Atual: Prompt 2 CONCLUÍDO (10/03/2026)
+
+### O que foi implementado
+- **Auth backend:** `models/usuario.py` + `middleware/auth.py` + `routes/auth.py`
+  - JWT HS256, 24h expiry, roles admin/operador
+  - Endpoints: POST /login, POST /registrar (admin only), GET /me, PATCH /usuarios/{id}, GET /usuarios
+- **Admin CRUD:** `routes/admin_perfil.py`
+  - Endpoints: GET/, GET/{id}, POST/, PUT/{id}, PATCH/{id}, POST/{id}/duplicar, GET/{id}/preview-legenda
+  - Perfil BO protegido (403 em write)
+- **Migration:** `editor_usuarios` criada no startup, seed admin@bestofopera.com
+- **Novas deps:** python-jose[cryptography], passlib[bcrypt]
+
+### Credencial admin padrão
+- Email: `admin@bestofopera.com`
+- Senha: `BestOfOpera2026!` — **TROCAR após 1º login em produção**
+
+### Arquitetura de auth
+- Token JWT no header `Authorization: Bearer {token}` (não cookie)
+- `SECRET_KEY` de `config.py` (env var em Railway)
+- `require_admin` = Dependency do FastAPI, protege rotas admin
