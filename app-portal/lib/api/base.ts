@@ -20,10 +20,18 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("bo_auth_token")
+    if (token) headers["Authorization"] = `Bearer ${token}`
+  }
+
   const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
+    headers: { ...headers, ...(options?.headers as any) },
     ...options,
   })
+  
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }))
     throw new ApiError(res.status, body.detail ?? body)
@@ -32,7 +40,14 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 }
 
 export async function requestFormData<T>(path: string, body: FormData): Promise<T> {
-  const res = await fetch(path, { method: "POST", body })
+  const headers: Record<string, string> = {}
+  
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("bo_auth_token")
+    if (token) headers["Authorization"] = `Bearer ${token}`
+  }
+
+  const res = await fetch(path, { method: "POST", headers, body })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || "Request failed")

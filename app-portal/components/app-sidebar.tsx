@@ -4,10 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Search, LayoutDashboard, Download, PenTool, ListPlus, FileCheck, FileText, Globe, Send, Film, ListOrdered, Music, AlignLeft, HardDrive, Settings, ChevronDown } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { Search, LayoutDashboard, Download, PenTool, ListPlus, FileCheck, FileText, Globe, Send, Film, ListOrdered, Music, AlignLeft, HardDrive, Settings, ChevronDown, User, ShieldCheck, LogOut } from "lucide-react"
 
-interface NavItem { label: string; href: string; icon: React.ElementType }
-interface ToolSection { id: string; label: string; icon: React.ElementType; items: NavItem[] }
+interface NavItem { label: string; href: string; icon: React.ElementType; adminOnly?: boolean }
+interface ToolSection { id: string; label: string; icon: React.ElementType; items: NavItem[]; adminOnly?: boolean }
 
 const tools: ToolSection[] = [
   {
@@ -35,6 +36,12 @@ const tools: ToolSection[] = [
       { label: "Reports", href: "/dashboard/reports", icon: FileText },
     ]
   },
+  {
+    id: "admin", label: "Administração", icon: ShieldCheck, adminOnly: true, items: [
+      { label: "Marcas / Perfis", href: "/admin/marcas", icon: Globe },
+      { label: "Usuários", href: "/admin/usuarios", icon: User },
+    ]
+  },
 ]
 
 function deriveActiveTool(pathname: string): string {
@@ -42,6 +49,7 @@ function deriveActiveTool(pathname: string): string {
   if (pathname.startsWith("/redator")) return "redator"
   if (pathname.startsWith("/editor")) return "editor"
   if (pathname.startsWith("/dashboard")) return "dashboard"
+  if (pathname.startsWith("/admin")) return "admin"
   return "curadoria"
 }
 
@@ -49,6 +57,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const activeTool = deriveActiveTool(pathname)
   const [expandedTools, setExpandedTools] = useState<string[]>([activeTool])
+  const { user, isAdmin, logout, isLoading } = useAuth()
 
   function toggleTool(toolId: string) {
     setExpandedTools((prev) => prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId])
@@ -63,7 +72,7 @@ export function AppSidebar() {
       <div className="mx-4 mb-4 h-px bg-border" />
       <nav className="flex-1 overflow-y-auto px-3">
         <div className="flex flex-col gap-0.5">
-          {tools.map((tool) => {
+          {tools.filter(t => !t.adminOnly || isAdmin).map((tool) => {
             const isExpanded = expandedTools.includes(tool.id)
             return (
               <div key={tool.id}>
@@ -91,16 +100,28 @@ export function AppSidebar() {
         </div>
       </nav>
       <div className="border-t border-border px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground">A</div>
-          <div className="flex-1 truncate">
-            <p className="truncate text-xs font-medium text-foreground">Admin</p>
-            <p className="text-[10px] text-muted-foreground">admin@arias.com</p>
+        {!isLoading && user ? (
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary uppercase">
+              {user.nome ? user.nome.charAt(0) : "U"}
+            </div>
+            <div className="flex-1 truncate">
+              <p className="truncate text-xs font-medium text-foreground">{user.nome}</p>
+              <p className="text-[10px] text-muted-foreground">{user.email}</p>
+            </div>
+            <button onClick={logout} className="rounded-md p-1.5 transition-colors hover:bg-muted text-destructive hover:text-destructive/80" title="Sair" aria-label="Deslogar">
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button className="rounded-md p-1 transition-colors hover:bg-muted" aria-label="Configuracoes">
-            <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-full bg-muted animate-pulse" />
+            <div className="flex-1 space-y-1">
+              <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+              <div className="h-2 w-24 bg-muted rounded animate-pulse" />
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )

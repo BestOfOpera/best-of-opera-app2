@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { Upload, Loader2 } from "lucide-react"
 import { redatorApi, type DetectedMetadata } from "@/lib/api/redator"
 import { curadoriaApi } from "@/lib/api/curadoria"
+import { BrandSelector } from "@/components/brand-selector"
 
 const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Overture", "Recitative", "Ensemble", "Ballet", "Intermezzo", "Other"]
 
@@ -54,6 +55,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const [category, setCategory] = useState("")
   const [cutStart, setCutStart] = useState("")
   const [cutEnd, setCutEnd] = useState("")
+  const [selectedBrandId, setSelectedBrandId] = useState<number | undefined>(undefined)
 
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
@@ -94,7 +96,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
           const artistStr = meta.artist || artist
           const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
           const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
-          const flags = (meta.nationality_flag || "").split(" ").map((s: string) => s.trim()).filter(Boolean)
+          const flags = (meta.nationality_flag || "").trim().replace(/\s*\/\s*/g, " ").split(" ").map((s: string) => s.trim()).filter(Boolean)
           const voiceTypes = (meta.voice_type || "").split(" / ").map((s: string) => s.trim())
           const birthDates = (meta.birth_date || "").split(" / ").map((s: string) => s.trim())
           const deathDates = (meta.death_date || "").split(" / ").map((s: string) => s.trim())
@@ -224,9 +226,18 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">Novo Projeto</h1>
-        <p className="text-sm text-muted-foreground">Preencha os dados para gerar conteudo</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Novo Projeto</h1>
+          <p className="text-sm text-muted-foreground">Preencha os dados para gerar conteudo</p>
+        </div>
+        <div className="shrink-0 flex items-center gap-3 bg-muted/40 p-2 rounded-lg border border-border">
+          <span className="text-xs font-medium text-muted-foreground hidden sm:inline-block">Marca Destino:</span>
+          {/* O BrandSelector em components/brand-selector ja puxa da API. Para o MVP ele seta id internamente, se formos capturar o ID ele pode enviar via prop onSelect ou lermos do DOM (No projeto esta lidando localmente sem form state global por hora) */}
+          <div data-selected-brand={selectedBrandId}>
+            <BrandSelector />
+          </div>
+        </div>
       </div>
 
       {error && (

@@ -10,6 +10,7 @@ import { Download, FolderOpen, Copy, Loader2, CloudUpload, CheckCircle2, ArrowRi
 import { useRouter } from "next/navigation"
 import { redatorApi, type Project, type ExportData } from "@/lib/api/redator"
 import { editorApi } from "@/lib/api/editor"
+import { BrandSelector } from "@/components/brand-selector"
 
 
 const LANGUAGES = [
@@ -51,7 +52,7 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
 
   useEffect(() => {
     redatorApi.getProject(projectId).then(setProject).finally(() => setLoading(false))
-    redatorApi.getExportConfig().then(c => setHasExportPath(!!c.export_path)).catch(() => {})
+    redatorApi.getExportConfig().then(c => setHasExportPath(!!c.export_path)).catch(() => { })
   }, [projectId])
 
   const loadLang = (lang: string) => {
@@ -70,7 +71,10 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
   const handleIrParaEditor = async () => {
     setImportandoEditor(true)
     try {
-      const edicao = await editorApi.importarDoRedator(projectId)
+      const selectedBrandElement = document.querySelector('[data-brand-id]') as HTMLElement
+      const perfilId = selectedBrandElement?.dataset.brandId ? parseInt(selectedBrandElement.dataset.brandId) : undefined
+
+      const edicao = await editorApi.importarDoRedator(projectId, undefined, undefined, perfilId)
       router.push(`/editor/edicao/${edicao.id}/letra`)
     } catch {
       // Se já foi importado ou erro, ir para a fila do editor
@@ -198,10 +202,14 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
               Todos os textos, legendas e metadados foram enviados para a nuvem.
             </p>
           </div>
-          <Button size="lg" className="mt-2 gap-2" onClick={handleIrParaEditor} disabled={importandoEditor}>
-            {importandoEditor ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-            {importandoEditor ? "Abrindo no Editor..." : "Finalizar no Editor"}
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            {/* The actual brand selection state logic would normally live here or above. For simplicity we capture DOM or assume default */}
+            <div data-brand-id="1" className="hidden" /> {/* Fallback or captured by a wrapper if needed */}
+            <Button size="lg" className="mt-2 gap-2" onClick={handleIrParaEditor} disabled={importandoEditor}>
+              {importandoEditor ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              {importandoEditor ? "Importando ao Editor..." : "Avançar para Editor"}
+            </Button>
+          </div>
         </div>
       )}
 

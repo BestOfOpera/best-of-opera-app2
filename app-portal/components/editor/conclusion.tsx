@@ -70,6 +70,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [loading, setLoading] = useState(true)
   const [renderizando, setRenderizando] = useState(false)
   const [traduzindo, setTraduzindo] = useState(false)
+  const [rendendoIndividuais, setRendendoIndividuais] = useState<Set<string>>(new Set())
+  const [traduzindoIndividuais, setTraduzindoIndividuais] = useState<Set<string>>(new Set())
   const [baixandoTodos, setBaixandoTodos] = useState(false)
   const [baixandoRenders, setBaixandoRenders] = useState<Set<number>>(new Set())
   const [pacoteStatus, setPacoteStatus] = useState<PacoteStatus | null>(null)
@@ -134,6 +136,40 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setError("Erro na renderização: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setRenderizando(false)
+    }
+  }
+
+  const handleReRenderizarIndividual = async (idioma: string) => {
+    setRendendoIndividuais(prev => new Set(prev).add(idioma))
+    setError("")
+    try {
+      await editorApi.reRenderizar(edicaoId, idioma)
+      await load()
+    } catch (err: unknown) {
+      setError(`Erro ao re-renderizar ${idioma.toUpperCase()}: ` + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setRendendoIndividuais(prev => {
+        const next = new Set(prev)
+        next.delete(idioma)
+        return next
+      })
+    }
+  }
+
+  const handleReTraduzirIndividual = async (idioma: string) => {
+    setTraduzindoIndividuais(prev => new Set(prev).add(idioma))
+    setError("")
+    try {
+      await editorApi.reTraduzir(edicaoId, idioma)
+      await load()
+    } catch (err: unknown) {
+      setError(`Erro ao re-traduzir ${idioma.toUpperCase()}: ` + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setTraduzindoIndividuais(prev => {
+        const next = new Set(prev)
+        next.delete(idioma)
+        return next
+      })
     }
   }
 
@@ -789,7 +825,39 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         <RefreshCw className="h-3 w-3 animate-spin" /> Renderizando...
                       </span>
                     ) : (
-                      <span className="text-xs">Pendente</span>
+                      <>
+                        <span className="text-xs">Pendente</span>
+                        {/* Se tem tradução mas não renderizou ainda, p/ instrumental ou recem-limpa */}
+                        {!edicao.eh_instrumental && ["concluido", "preview_pronto", "renderizando", "erro"].includes(edicao.status) && (
+                          <Dialog>
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Tem certeza?</DialogTitle>
+                                <DialogDescription>
+                                  O arquivo renderizado mais recente para este idioma será sobrescrito ou enfileirado caso refaça!
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full gap-1.5"
+                                  onClick={() => handleReTraduzirIndividual(code)}
+                                  disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
+                                >
+                                  {traduzindoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                  Refazer Tradução (+ Render)
+                                </Button>
+                              </div>
+                            </DialogContent>
+                            <div className="flex gap-1.5 ml-auto">
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-muted" asChild>
+                                <button title="Forçar re-tradução / re-geração"><RefreshCw className="h-3.5 w-3.5" /></button>
+                              </Button>
+                            </div>
+                          </Dialog>
+                        )}
+                      </>
                     )}
                   </div>
                 )
@@ -801,6 +869,47 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                       <>
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
+                        <Dialog>
+                          <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Re-processar idioma</DialogTitle>
+                              <DialogDescription>
+                                Selecione se deseja apenas gerar um novo vídeo com base atual ({label}), ou se deseja forçar uma refacção/cota de IA para tradução antes. O vídeo atual será substituído.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex flex-col gap-2 mt-2">
+                              <Button
+                                variant="secondary"
+                                className="justify-start gap-3 w-full"
+                                onClick={() => handleReRenderizarIndividual(code)}
+                                disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                              >
+                                {rendendoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                <div>
+                                  <div className="font-semibold text-left">Somente Refazer Render</div>
+                                  <div className="text-xs text-muted-foreground text-left font-normal">Ideal caso layouts globais tenham mudado.</div>
+                                </div>
+                              </Button>
+                              {!edicao.eh_instrumental && (
+                                <Button
+                                  variant="outline"
+                                  className="justify-start gap-3 w-full border-red-200 hover:bg-red-50"
+                                  onClick={() => handleReTraduzirIndividual(code)}
+                                  disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
+                                >
+                                  {traduzindoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                  <div>
+                                    <div className="font-semibold text-left text-red-600">Re-traduzir Letra (+ Render)</div>
+                                    <div className="text-xs text-muted-foreground text-left font-normal">Gera uma nova versão LLM traduzida & re-renderiza.</div>
+                                  </div>
+                                </Button>
+                              )}
+                            </div>
+                          </DialogContent>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto text-green-700/60 hover:text-green-800 hover:bg-green-100/50" asChild>
+                            <button title="Ações Avançadas de Recriação"><RefreshCw className="h-3 w-3" /></button>
+                          </Button>
+                        </Dialog>
                         <Button
                           size="sm"
                           variant="outline"
@@ -816,8 +925,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                       </>
                     ) : (
                       <>
-                        <span className="text-xs text-destructive truncate max-w-[200px]">{render.erro_msg}</span>
+                        <span className="text-xs text-destructive truncate max-w-[150px]">{render.erro_msg}</span>
                         <XCircle className="h-4 w-4 text-destructive" />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
+                          onClick={() => handleReRenderizarIndividual(code)}
+                          disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                        >
+                          {rendendoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                          Tentar Novamente
+                        </Button>
                       </>
                     )}
                   </div>

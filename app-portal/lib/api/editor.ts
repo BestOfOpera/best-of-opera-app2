@@ -196,6 +196,44 @@ export interface ReportResumo {
   resolvidos: number
 }
 
+// --- Admin / Marcas Interfaces ---
+export interface Perfil {
+  id: number
+  nome: string
+  sigla: string
+  slug: string
+  ativo: boolean
+  editorial_lang: string
+  identity_prompt: string
+  tom_voz: string
+  hashtags: string
+  categorias_hook: string
+  escopo_conteudo: string
+  idiomas_alvo: string
+  idioma_preview: string
+  overlay_style: Record<string, any>
+  lyrics_style: Record<string, any>
+  traducao_style: Record<string, any>
+  video_width: number
+  video_height: number
+  duracao_min_sec: number
+  duracao_max_sec: number
+  cor_primaria: string
+  cor_secundaria: string
+  r2_prefix: string
+  created_at: string
+}
+
+export interface AuthUser {
+  id: number
+  nome: string
+  email: string
+  role: string
+  ativo: boolean
+  ultimo_login?: string
+}
+
+
 export const editorApi = {
   listarEdicoes: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : ""
@@ -252,6 +290,11 @@ export const editorApi = {
     request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
   exportarRenders: (id: number) =>
     request<{ pasta: string; arquivos_exportados: number }>(`${BASE()}/edicoes/${id}/exportar`, { method: "POST" }),
+  reRenderizar: (id: number, idioma: string) =>
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/re-renderizar/${idioma}`, { method: "POST" }),
+  reTraduzir: (id: number, idioma: string) =>
+    request<{ status: string }>(`${BASE()}/edicoes/${id}/re-traduzir/${idioma}`, { method: "POST" }),
+
 
   audioUrl: (id: number) => `${BASE()}/edicoes/${id}/audio`,
   downloadRenderUrl: (edicaoId: number, renderId: number) =>
@@ -276,10 +319,11 @@ export const editorApi = {
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
   listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
-  importarDoRedator: (projectId: number, idioma?: string, ehInstrumental?: boolean) => {
+  importarDoRedator: (projectId: number, idioma?: string, ehInstrumental?: boolean, perfil_id?: number) => {
     const params = new URLSearchParams()
     if (idioma) params.append("idioma", idioma)
     if (ehInstrumental) params.append("eh_instrumental", "true")
+    if (perfil_id) params.append("perfil_id", perfil_id.toString())
     const qs = params.toString() ? `?${params.toString()}` : ""
     return request<Edicao>(`${BASE()}/redator/importar/${projectId}${qs}`, { method: "POST" })
   },
@@ -307,4 +351,23 @@ export const editorApi = {
   atualizarReport: (id: number, data: Partial<Report>) =>
     request<Report>(`${BASE()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   resumoReports: () => request<ReportResumo>(`${BASE()}/reports/resumo`),
+
+  // Auth API
+  login: (data: Record<string, string>) =>
+    request<{ access_token: string }>(`${BASE()}/auth/login`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams(data).toString() }),
+  getMe: () => request<AuthUser>(`${BASE()}/auth/me`),
+  listarUsuarios: () => request<AuthUser[]>(`${BASE()}/auth/usuarios`),
+  registrarUsuario: (data: Partial<AuthUser> & { senha?: string }) =>
+    request<AuthUser>(`${BASE()}/auth/registrar`, { method: "POST", body: JSON.stringify(data) }),
+  atualizarUsuario: (id: number, data: Partial<AuthUser>) =>
+    request<AuthUser>(`${BASE()}/auth/usuarios/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  // Admin Perfis API
+  listarPerfis: () => request<Perfil[]>(`${BASE()}/admin/perfis`),
+  detalharPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}`),
+  criarPerfil: (data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis`, { method: "POST", body: JSON.stringify(data) }),
+  atualizarPerfil: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  atualizarPerfilParcial: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
+  previewLegenda: (id: number) => request<{ status: string; url?: string }>(`${BASE()}/admin/perfis/${id}/preview-legenda`),
 }
