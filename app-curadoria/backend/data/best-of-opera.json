@@ -1,0 +1,134 @@
+{
+  "name": "Best of Opera",
+  "project_id": "best-of-opera",
+  "categories": {
+    "icones": {
+      "name": "Icones",
+      "emoji": "👑",
+      "desc": "Lendas eternas da opera",
+      "seeds": [
+        "Luciano Pavarotti best live aria opera performance",
+        "Maria Callas iconic soprano opera aria live",
+        "Placido Domingo tenor concert opera live",
+        "Montserrat Caballe soprano legendary opera performance",
+        "Jose Carreras three tenors concert live opera",
+        "Enrico Caruso historical opera tenor recording"
+      ]
+    },
+    "estrelas": {
+      "name": "Estrelas",
+      "emoji": "⭐",
+      "desc": "Estrelas modernas da opera",
+      "seeds": [
+        "Andrea Bocelli live concert opera performance",
+        "Anna Netrebko soprano opera performance live",
+        "Jonas Kaufmann tenor opera aria live concert",
+        "Pretty Yende soprano opera live performance",
+        "Juan Diego Florez tenor opera live performance",
+        "Jakub Jozef Orlinski countertenor baroque opera live"
+      ]
+    },
+    "hits": {
+      "name": "Hits",
+      "emoji": "🎵",
+      "desc": "Arias e musicas mais populares",
+      "seeds": [
+        "Nessun Dorma best live performance opera tenor",
+        "Ave Maria opera live soprano performance beautiful",
+        "Time to Say Goodbye Con te partiro live opera",
+        "O Sole Mio best live tenor performance opera",
+        "The Prayer duet opera live performance beautiful",
+        "Hallelujah best live performance classical choir"
+      ]
+    },
+    "surpreendente": {
+      "name": "Surpreendente",
+      "emoji": "🎭",
+      "desc": "Performances virais e inesperadas",
+      "seeds": [
+        "flash mob opera surprise public performance amazing",
+        "unexpected opera singer street performance viral",
+        "theremin classical music amazing performance instrument",
+        "overtone singing polyphonic incredible vocal technique",
+        "opera singer surprise restaurant wedding performance",
+        "unusual instrument classical performance viral amazing"
+      ]
+    },
+    "talent": {
+      "name": "Talent",
+      "emoji": "🌟",
+      "desc": "Revelacoes em shows de talentos",
+      "seeds": [
+        "opera singer audition got talent amazing judges shocked",
+        "golden buzzer opera performance talent show incredible",
+        "child sings opera audition judges crying talent show",
+        "Susan Boyle I Dreamed a Dream first audition",
+        "Paul Potts Nessun Dorma Britain got talent audition",
+        "unexpected opera voice talent show blind audition amazing"
+      ]
+    },
+    "corais": {
+      "name": "Corais",
+      "emoji": "🎶",
+      "desc": "Corais e grupos vocais",
+      "seeds": [
+        "amazing choir opera performance live concert best",
+        "Pentatonix Hallelujah live concert performance",
+        "African choir incredible performance amazing vocal",
+        "boys choir sacred music cathedral performance beautiful",
+        "a cappella group classical opera performance live",
+        "choir flash mob opera surprise performance public"
+      ]
+    }
+  },
+  "elite_hits": [
+    "Nessun Dorma", "Ave Maria", "O mio babbino caro", "Time to Say Goodbye",
+    "The Prayer", "Hallelujah", "O Sole Mio", "La donna e mobile",
+    "Con te partiro", "Casta Diva", "Queen of the Night", "Flower Duet",
+    "I Dreamed a Dream", "Never Enough", "Vissi d'arte", "Pie Jesu",
+    "O Holy Night", "Amazing Grace", "Sempre Libera", "Habanera",
+    "Granada", "Largo al factotum", "Vesti la giubba", "Baba Yetu",
+    "Danny Boy", "Caruso", "Bohemian Rhapsody"
+  ],
+  "power_names": [
+    "Luciano Pavarotti", "Andrea Bocelli", "Maria Callas",
+    "Placido Domingo", "Montserrat Caballe", "Jonas Kaufmann",
+    "Anna Netrebko", "Amira Willighagen", "Jackie Evancho",
+    "Laura Bretan", "Susan Boyle", "Paul Potts", "Pentatonix",
+    "Sarah Brightman", "Jose Carreras", "Renee Fleming",
+    "Cecilia Bartoli", "Diana Damrau", "Jakub Jozef Orlinski",
+    "Emma Kok", "Malakai Bayoh", "Pretty Yende", "Angela Gheorghiu",
+    "Juan Diego Florez", "Rolando Villazon", "Bryn Terfel"
+  ],
+  "voice_keywords": [
+    "soprano", "tenor", "baritone", "mezzo", "countertenor",
+    "aria", "opera", "classical voice", "live concert"
+  ],
+  "institutional_channels": [
+    "royal opera", "met opera", "metropolitan opera", "la scala",
+    "wiener staatsoper", "bbc", "arte concert", "deutsche oper",
+    "opera de paris", "sydney opera", "andre rieu"
+  ],
+  "category_specialty": {
+    "icones": ["three tenors", "la scala", "royal opera", "pavarotti and friends", "farewell", "legendary"],
+    "estrelas": ["recital", "gala concert", "concert hall", "philharmonic", "arena di verona"],
+    "hits": ["encore", "standing ovation", "duet", "best version", "iconic"],
+    "surpreendente": ["flash mob", "street", "theremin", "overtone", "handpan", "surprise", "viral"],
+    "talent": ["audition", "golden buzzer", "got talent", "x factor", "the voice", "judges"],
+    "corais": ["choir", "ensemble", "a cappella", "choral", "voices", "gospel"]
+  },
+  "scoring_weights": {
+    "elite_hit": 15,
+    "power_name": 15,
+    "specialty": 25,
+    "voice": 15,
+    "institutional": 10,
+    "quality": 10,
+    "views": 10,
+    "views_threshold": 100000,
+    "max_total": 100
+  },
+  "filters": {
+    "duracao_max": 900
+  }
+}

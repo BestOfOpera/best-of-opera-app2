@@ -218,3 +218,30 @@
 
 ### Pendências
 - Nenhuma
+
+## Sessão 2026-03-09 — Refactor Curadoria: God Object → Módulos
+
+### O que foi feito
+- **ERR-067 + ERR-068: app-curadoria/backend/main.py (1275 linhas) refatorado em 11 arquivos**
+
+### Estrutura nova de `app-curadoria/backend/`
+```
+config.py                    # env vars, ffmpeg, ANTI_SPAM, load_brand_config()
+data/best-of-opera.json      # toda a config da marca (categorias, scoring, termos)
+models/perfil_curadoria.py   # Pydantic model para config por marca
+services/scoring.py          # posted_registry + calc_score_v7(v, cat, config) + _process_v7 + _rescore_cached
+services/youtube.py          # yt_search(q, n, api_key) + yt_playlist + helpers
+services/download.py         # TaskManager + download_worker + _get_ydl_opts + _prepare_video_logic
+routes/health.py             # /api/health, /api/debug/ffmpeg
+routes/curadoria.py          # todos os outros 24 endpoints + populate_initial_cache + refresh_playlist
+main.py                      # 52 linhas: app + lifespan + include_router + static
+```
+
+### Pontos-chave para Fase 2 (multi-brand)
+- `PROJECT_ID` env var seleciona qual JSON carregar (default: `best-of-opera`)
+- `calc_score_v7(v, category, config)` recebe config como parâmetro — substituir BRAND_CONFIG por query ao banco
+- `data/{project_id}.json` → criar `data/reels-classics.json` para o próximo projeto
+- Todos os 26 endpoints preservados com comportamento idêntico
+
+### Pendências
+- Nenhuma nesta sessão

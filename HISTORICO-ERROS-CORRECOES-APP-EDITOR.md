@@ -144,3 +144,31 @@
 +  - `Dockerfile`: Adicionado `RUN pip install -U yt-dlp` para garantir a versão mais recente durante o build.
 +- **Status: ✅ CORRIGIDO (Aguardando Deploy Railway)**
 +
+
+### ERR-067 · Curadoria God Object refatorado em módulos
+
+- **Sintoma:** `app-curadoria/backend/main.py` com 1275 linhas acumulando config, scoring, download, YouTube API, endpoints e worker num único arquivo
+- **Causa:** Crescimento orgânico sem separação de responsabilidades
+- **Arquivos criados:** `config.py`, `routes/__init__.py`, `routes/curadoria.py`, `routes/health.py`, `services/__init__.py`, `services/scoring.py`, `services/youtube.py`, `services/download.py`, `models/__init__.py`, `models/perfil_curadoria.py`
+- **Correção aplicada (09/03/2026):**
+  - `main.py` reduzido a 52 linhas: apenas FastAPI app + lifespan + include_router + serve frontend
+  - `config.py`: variáveis de env, ffmpeg discovery, ANTI_SPAM, load_brand_config()
+  - `services/scoring.py`: posted_registry, normalize_str, is_posted, load_posted, calc_score_v7, _process_v7, _rescore_cached
+  - `services/youtube.py`: parse_iso_dur, extract_artist_song, yt_search, yt_playlist
+  - `services/download.py`: TaskManager, download_worker, download_semaphore, sanitize_filename, _get_ydl_opts, _prepare_video_logic, _wrapped_prepare_video
+  - `routes/health.py`: /api/health, /api/debug/ffmpeg
+  - `routes/curadoria.py`: todos os demais endpoints + populate_initial_cache + refresh_playlist
+- **Comportamento:** IDÊNTICO ao anterior — todos os 26 endpoints preservados
+- **Status: ✅ REFATORADO (pronto para commit)**
+
+### ERR-068 · Categorias/scoring/termos hardcoded extraídos para JSON configurável
+
+- **Sintoma:** CATEGORIES_V7, ELITE_HITS, POWER_NAMES, VOICE_KEYWORDS, INSTITUTIONAL_CHANNELS, CATEGORY_SPECIALTY hardcoded em main.py, impossibilitando multi-brand
+- **Causa:** Ausência de arquitetura de configuração por marca
+- **Arquivos criados:** `data/best-of-opera.json`, `models/perfil_curadoria.py`
+- **Correção aplicada (09/03/2026):**
+  - `data/best-of-opera.json`: toda a config da marca extraída — categorias (6 com 6 seeds cada), elite_hits (27), power_names (26), voice_keywords, institutional_channels, category_specialty, scoring_weights (pesos configuráveis), filters
+  - `config.py`: `load_brand_config(project_id)` carrega JSON por PROJECT_ID env var
+  - `services/scoring.py`: `calc_score_v7(v, category, config)` — recebe config como parâmetro em vez de ler globais
+  - **Fase 2:** substituir leitura do JSON por query ao banco via perfil_id
+- **Status: ✅ REFATORADO (pronto para commit)**

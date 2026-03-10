@@ -1,0 +1,645 @@
+import os, asyncio, shutil
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import quote
+import unicodedata as _ud
+
+import httpx
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, UploadFile, File
+from fastapi.responses import StreamingResponse, Response
+
+import database as db
+from config import (
+    YOUTUBE_API_KEY, APP_PASSWORD, PLAYLIST_ID,
+    ANTI_SPAM, BRAND_CONFIG, PROJECTS_DIR,
+)
+from services.youtube import yt_search, yt_playlist, extract_artist_song, parse_iso_dur
+from services.scoring import calc_score_v7, _process_v7, _rescore_cached, is_posted
+from services.download import (
+    manager, download_semaphore, sanitize_filename,
+    _get_ydl_opts, _prepare_video_logic, _wrapped_prepare_video,
+)
+from shared.storage_service import storage, check_conflict, save_youtube_marker
+
+router = APIRouter()
+
+
+# ─── BACKGROUND TASKS ───
+
+async def populate_initial_cache():
+    """Background: populate cache using seed 0 for each V7 category"""
+    print("🚀 Starting V7 initial cache population...")
+    categories = BRAND_CONFIG["categories"]
+    for cat_key, cat_data in categories.items():
+        try:
+            seed_query = cat_data["seeds"][0]
+            full_query = f"{seed_query} {ANTI_SPAM}"
+            raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
+            result = _process_v7(raw, seed_query, False, cat_key, BRAND_CONFIG)
+            db.save_cached_videos(result["videos"], cat_key)
+            db.save_last_seed(cat_key, 0)
+            print(f"✅ Cached {len(result['videos'])} videos for {cat_key}")
+        except Exception as e:
+            print(f"❌ Error caching {cat_key}: {e}")
+    db.set_config("last_category_refresh", datetime.now().isoformat())
+    print("🎉 V7 cache population complete!")
+
+
+async def refresh_playlist():
+    print("🔄 Refreshing full playlist with pagination...")
+    raw = await yt_playlist(PLAYLIST_ID, api_key=YOUTUBE_API_KEY)
+    processed = _process_v7(raw, "Playlist", False, "Playlist", BRAND_CONFIG)
+    db.save_playlist_videos(processed["videos"])
+    db.set_config("last_playlist_refresh", datetime.now().isoformat())
+    print(f"✅ Playlist refreshed: {len(processed['videos'])} videos found in total")
+
+
+# ─── AUTH ───
+
+@router.post("/api/auth")
+async def auth(password: str = Query(...)):
+    if password == APP_PASSWORD:
+        return {"ok": True}
+    raise HTTPException(401, "Senha incorreta")
+
+
+# ─── SEARCH & CATEGORIES ───
+
+@router.get("/api/search")
+async def search(
+    q: str = Query(...),
+    max_results: int = Query(10, ge=1, le=50),
+    hide_posted: bool = Query(True),
+):
+    """Manual search with anti-spam filtering"""
+    full_query = f"{q} opera live {ANTI_SPAM}"
+    raw = await yt_search(full_query, max_results, YOUTUBE_API_KEY)
+    return _process_v7(raw, q, hide_posted, config=BRAND_CONFIG)
+
+
+@router.get("/api/category/{category}")
+async def search_category(
+    category: str,
+    hide_posted: bool = Query(True),
+    force_refresh: bool = Query(False),
+):
+    """Category search with V7 seed rotation"""
+    categories = BRAND_CONFIG["categories"]
+    cat_data = categories.get(category)
+    if not cat_data:
+        raise HTTPException(404, f"Categoria nao encontrada: {category}")
+
+    last_seed = db.get_last_seed(category)
+    total_seeds = len(cat_data["seeds"])
+
+    # Serve from cache unless force_refresh
+    if not force_refresh:
+        cached = db.get_cached_videos(category, hide_posted)
+        if cached:
+            cached = _rescore_cached(cached, category, BRAND_CONFIG)
+            print(f"✅ Serving {len(cached)} cached videos for {category}")
+            return {
+                "query": category, "category": category,
+                "total_found": len(cached), "posted_hidden": 0,
+                "videos": cached, "cached": True,
+                "seed_index": last_seed, "total_seeds": total_seeds,
+                "seed_query": cat_data["seeds"][last_seed % total_seeds],
+            }
+
+    # Rotate to next seed
+    next_seed = (last_seed + 1) % total_seeds
+    seed_query = cat_data["seeds"][next_seed]
+    full_query = f"{seed_query} {ANTI_SPAM}"
+
+    print(f"🔍 V7 category '{category}' seed {next_seed}/{total_seeds}: {seed_query[:50]}...")
+    raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
+    db.save_last_seed(category, next_seed)
+
+    result = _process_v7(raw, seed_query, hide_posted, category, BRAND_CONFIG)
+    db.save_cached_videos(result["videos"], category)
+    result["cached"] = False
+    result["seed_index"] = next_seed
+    result["total_seeds"] = total_seeds
+    result["seed_query"] = seed_query
+    return result
+
+
+@router.get("/api/ranking")
+async def ranking(hide_posted: bool = Query(True)):
+    """Ranking across all V7 categories using first seed each"""
+    categories = BRAND_CONFIG["categories"]
+    all_q = [(key, data["seeds"][0]) for key, data in categories.items()]
+    tasks = [yt_search(f"{q} {ANTI_SPAM}", 10, YOUTUBE_API_KEY) for _, q in all_q]
+    batches = await asyncio.gather(*tasks, return_exceptions=True)
+    seen = set()
+    merged = []
+    for i, batch in enumerate(batches):
+        if isinstance(batch, Exception):
+            continue
+        cat = all_q[i][0]
+        for v in batch:
+            if v["video_id"] not in seen:
+                seen.add(v["video_id"])
+                v["category"] = cat
+                merged.append(v)
+    return _process_v7(merged, "ranking", hide_posted, config=BRAND_CONFIG)
+
+
+@router.get("/api/categories")
+async def list_categories():
+    """List V7 categories with seed info"""
+    categories = BRAND_CONFIG["categories"]
+    cats = []
+    for key, data in categories.items():
+        last_seed = db.get_last_seed(key)
+        cats.append({
+            "key": key, "name": data["name"], "emoji": data["emoji"],
+            "desc": data["desc"], "total_seeds": len(data["seeds"]),
+            "last_seed": last_seed,
+            "seed_query": data["seeds"][last_seed % len(data["seeds"])],
+        })
+    return {"categories": cats}
+
+
+# ─── POSTED ───
+
+@router.get("/api/posted")
+async def get_posted():
+    from services.scoring import posted_registry
+    return {"count": len(posted_registry)}
+
+
+@router.get("/api/posted/check")
+async def check_posted(artist: str = "", song: str = ""):
+    return {"posted": is_posted(artist, song)}
+
+
+# ─── MANUAL VIDEO ───
+
+@router.post("/api/manual-video")
+async def add_manual_video(payload: dict):
+    import re as _re
+    youtube_url = payload.get("youtube_url", "")
+    if not youtube_url:
+        raise HTTPException(400, "URL do YouTube é obrigatória")
+
+    video_id = None
+    patterns = [
+        r"v=([0-9A-Za-z_-]{11})",
+        r"be\/([0-9A-Za-z_-]{11})",
+        r"embed\/([0-9A-Za-z_-]{11})",
+        r"shorts\/([0-9A-Za-z_-]{11})",
+    ]
+    for p in patterns:
+        m = _re.search(p, youtube_url)
+        if m:
+            video_id = m.group(1)
+            break
+
+    if not video_id:
+        raise HTTPException(400, "URL do YouTube inválida")
+
+    if YOUTUBE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "snippet,contentDetails,statistics", "id": video_id, "key": YOUTUBE_API_KEY},
+                )
+                if r.status_code == 200:
+                    items = r.json().get("items", [])
+                    if items:
+                        v = items[0]
+                        sn = v.get("snippet", {})
+                        det = v.get("contentDetails", {})
+                        stat = v.get("statistics", {})
+
+                        title = sn.get("title", "")
+                        artist, song = extract_artist_song(title)
+                        pub = sn.get("publishedAt", "")[:10]
+                        yr = int(pub[:4]) if pub else 0
+                        thumb = sn.get("thumbnails", {}).get("high", {}).get("url", "")
+                        dur = parse_iso_dur(det.get("duration", ""))
+                        defn = det.get("definition", "sd")
+                        views = int(stat.get("viewCount", 0))
+
+                        video_data = {
+                            "video_id": video_id,
+                            "url": f"https://www.youtube.com/watch?v={video_id}",
+                            "title": title, "artist": artist, "song": song or title,
+                            "channel": sn.get("channelTitle", ""), "year": yr, "published": pub,
+                            "duration": dur, "views": views, "hd": defn in ("hd", "4k"),
+                            "thumbnail": thumb, "category": "Manual",
+                        }
+
+                        try:
+                            db.register_quota_usage(search_calls=0, detail_calls=1)
+                        except Exception:
+                            pass
+
+                        sc = calc_score_v7(video_data, "Manual", BRAND_CONFIG)
+                        p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
+                        return {**video_data, "score": sc, "posted": p}
+        except Exception as e:
+            print(f"⚠️ Error fetching from YT API: {e}")
+
+    # Fallback via oEmbed
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                "https://www.youtube.com/oembed",
+                params={"url": youtube_url, "format": "json"},
+            )
+            if r.status_code == 200:
+                data = r.json()
+                title = data.get("title", "YouTube Video")
+                artist, song = extract_artist_song(title)
+                video_data = {
+                    "video_id": video_id,
+                    "url": f"https://www.youtube.com/watch?v={video_id}",
+                    "title": title, "artist": artist, "song": song or title,
+                    "channel": data.get("author_name", "Unknown"), "year": 0, "published": "",
+                    "duration": 0, "views": 0, "hd": False,
+                    "thumbnail": data.get("thumbnail_url", ""), "category": "Manual",
+                }
+                sc = calc_score_v7(video_data, "Manual", BRAND_CONFIG)
+                p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
+                return {**video_data, "score": sc, "posted": p}
+    except Exception as e:
+        print(f"⚠️ Error fetching from oEmbed: {e}")
+
+    raise HTTPException(404, "Vídeo não encontrado ou URL inválida")
+
+
+# ─── CACHE ENDPOINTS ───
+
+@router.get("/api/cache/status")
+async def cache_status():
+    return db.get_cache_status()
+
+
+@router.post("/api/cache/populate-initial")
+async def populate_cache(background_tasks: BackgroundTasks):
+    background_tasks.add_task(populate_initial_cache)
+    return {"status": "started", "message": "V7 cache population started"}
+
+
+@router.post("/api/cache/refresh-categories")
+async def refresh_categories(background_tasks: BackgroundTasks):
+    background_tasks.add_task(populate_initial_cache)
+    return {"status": "started", "message": "V7 category refresh started"}
+
+
+# ─── PLAYLIST ENDPOINTS ───
+
+@router.get("/api/playlist/videos")
+async def get_playlist(hide_posted: bool = Query(True)):
+    videos = db.get_playlist_videos(hide_posted)
+    if not videos:
+        await refresh_playlist()
+        videos = db.get_playlist_videos(hide_posted)
+    return {"total_found": len(videos), "videos": videos, "playlist_id": PLAYLIST_ID, "cached": True}
+
+
+@router.post("/api/playlist/refresh")
+async def refresh_playlist_endpoint(background_tasks: BackgroundTasks):
+    background_tasks.add_task(refresh_playlist)
+    return {"status": "started", "message": "Playlist refresh started"}
+
+
+@router.post("/api/playlist/download-all")
+async def download_all_playlist(background_tasks: BackgroundTasks):
+    videos = db.get_playlist_videos(hide_posted=False)
+    if not videos:
+        return {"status": "error", "message": "Playlist vazia"}
+
+    added = 0
+    for v in videos:
+        vid = v["video_id"]
+        artist = v["artist"]
+        song = v["song"]
+
+        r2_base = check_conflict(artist, song, vid)
+        r2_key = f"{r2_base}/video/original.mp4"
+
+        if storage.exists(r2_key):
+            manager.set_task(vid, {"status": "completed", "progress": 100, "message": "Já no R2"})
+            continue
+
+        if vid in manager.tasks and manager.tasks[vid]["status"] in ("pending", "processing"):
+            continue
+
+        manager.set_task(vid, {"status": "pending", "progress": 0, "message": "Na fila"})
+        await manager.queue.put((vid, artist, song, _wrapped_prepare_video))
+        added += 1
+
+    return {"status": "started", "added": added, "total": len(videos)}
+
+
+@router.get("/api/playlist/download-status")
+async def get_download_status():
+    return manager.get_all_tasks()
+
+
+# ─── QUOTA ENDPOINTS ───
+
+@router.get("/api/quota/status")
+async def quota_status():
+    return db.get_quota_status()
+
+
+@router.post("/api/quota/register")
+async def quota_register(search_calls: int = Query(0), detail_calls: int = Query(0)):
+    db.register_quota_usage(search_calls, detail_calls)
+    return db.get_quota_status()
+
+
+# ─── DOWNLOAD ENDPOINTS ───
+
+@router.get("/api/download/{video_id}")
+async def download_video(
+    video_id: str,
+    artist: str = Query("Unknown"),
+    song: str = Query("Video"),
+):
+    safe_artist = sanitize_filename(artist)
+    safe_song = sanitize_filename(song)
+    project_name = f"{safe_artist} - {safe_song}"
+    filename = f"{project_name}.mp4"
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    project_dir = PROJECTS_DIR / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "video").mkdir(exist_ok=True)
+    dl_path = str(project_dir / "video" / filename)
+
+    async with download_semaphore:
+        try:
+            import yt_dlp
+            ydl_opts = _get_ydl_opts(dl_path)
+
+            def _download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
+
+            await asyncio.to_thread(_download)
+
+            if not os.path.exists(dl_path):
+                import glob as _glob
+                files = _glob.glob(str(project_dir / "video" / '*'))
+                if files:
+                    dl_path_actual = files[0]
+                else:
+                    raise HTTPException(500, "Download failed: output file not found")
+            else:
+                dl_path_actual = dl_path
+
+            try:
+                db.save_download(video_id, filename, artist, song, youtube_url)
+            except Exception as e:
+                print(f"⚠️ Failed to save download record: {e}")
+
+            r2_ok = False
+            r2_key = ""
+            r2_base = ""
+            try:
+                r2_base = check_conflict(artist, song, video_id)
+                r2_key = f"{r2_base}/video/original.mp4"
+                storage.upload_file(dl_path_actual, r2_key)
+                save_youtube_marker(r2_base, video_id)
+                r2_ok = True
+                print(f"✅ R2 upload OK: {r2_key}")
+            except Exception as e:
+                print(f"⚠️ R2 upload failed (streaming anyway): {e}")
+
+            cleanup_path = dl_path_actual
+
+            def iter_file():
+                try:
+                    with open(cleanup_path, 'rb') as f:
+                        while chunk := f.read(1024 * 1024):
+                            yield chunk
+                finally:
+                    if r2_ok:
+                        try:
+                            shutil.rmtree(str(project_dir), ignore_errors=True)
+                            print(f"🧹 Limpeza local: {project_dir}")
+                        except Exception:
+                            pass
+
+            ascii_name = _ud.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
+            resp_headers = {
+                "Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}",
+                "X-R2-Upload": "ok" if r2_ok else "failed",
+            }
+            if r2_ok:
+                resp_headers["X-R2-Key"] = r2_key
+                resp_headers["X-R2-Base"] = r2_base
+            return StreamingResponse(
+                iter_file(), media_type="video/mp4",
+                headers=resp_headers,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Download error for {video_id}: {e}")
+            raise HTTPException(500, f"Erro yt-dlp: {str(e)}")
+
+
+@router.post("/api/prepare-video/{video_id}")
+async def prepare_video(
+    video_id: str,
+    artist: str = Query("Unknown"),
+    song: str = Query("Video"),
+):
+    """Download + upload R2 sem streaming. Retorna JSON com status."""
+    safe_artist = sanitize_filename(artist)
+    safe_song = sanitize_filename(song)
+    project_name = f"{safe_artist} - {safe_song}"
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+    if storage.exists(r2_key):
+        return {
+            "status": "ok",
+            "r2_key": r2_key,
+            "r2_base": r2_base,
+            "cached": True,
+            "message": "Vídeo já está no R2",
+        }
+
+    project_dir = PROJECTS_DIR / project_name
+    project_dir.mkdir(parents=True, exist_ok=True)
+    (project_dir / "video").mkdir(exist_ok=True)
+    dl_path = str(project_dir / "video" / f"{project_name}.mp4")
+
+    async with download_semaphore:
+        try:
+            import yt_dlp
+            ydl_opts = _get_ydl_opts(dl_path)
+
+            def _download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
+
+            await asyncio.to_thread(_download)
+
+            if not os.path.exists(dl_path):
+                import glob as _glob
+                files = _glob.glob(str(project_dir / "video" / '*'))
+                dl_path_actual = files[0] if files else None
+                if not dl_path_actual:
+                    raise HTTPException(500, "Download falhou: arquivo não encontrado")
+            else:
+                dl_path_actual = dl_path
+
+            try:
+                db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
+            except Exception as e:
+                print(f"⚠️ Failed to save download record: {e}")
+
+            storage.upload_file(dl_path_actual, r2_key)
+            save_youtube_marker(r2_base, video_id)
+            file_size = os.path.getsize(dl_path_actual)
+            print(f"✅ R2 upload OK: {r2_key} ({file_size / 1024 / 1024:.1f}MB)")
+
+            shutil.rmtree(str(project_dir), ignore_errors=True)
+            print(f"🧹 Limpeza local: {project_dir}")
+
+            return {
+                "status": "ok",
+                "r2_key": r2_key,
+                "r2_base": r2_base,
+                "cached": False,
+                "file_size_mb": round(file_size / 1024 / 1024, 1),
+                "message": "Vídeo baixado e salvo no R2",
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ prepare-video error for {video_id}: {e}")
+            raise HTTPException(500, f"Erro yt-dlp (prepare): {str(e)}")
+
+
+@router.post("/api/upload-video/{video_id}")
+async def upload_video_manual(
+    video_id: str,
+    file: UploadFile = File(...),
+    artist: str = Query("Unknown"),
+    song: str = Query("Video"),
+):
+    """Upload manual de vídeo para R2."""
+    if not file.filename or not file.filename.lower().endswith((".mp4", ".mkv", ".webm", ".mov")):
+        raise HTTPException(400, "Formato inválido. Envie MP4, MKV, WEBM ou MOV.")
+
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+
+    tmp_dir = PROJECTS_DIR / sanitize_filename(f"{artist} - {song}") / "video"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = str(tmp_dir / "upload.mp4")
+
+    try:
+        with open(tmp_path, "wb") as f:
+            while chunk := await file.read(1024 * 1024):
+                f.write(chunk)
+
+        file_size = os.path.getsize(tmp_path)
+        print(f"📤 Upload manual recebido: {file.filename} ({file_size / 1024 / 1024:.1f}MB)")
+
+        storage.upload_file(tmp_path, r2_key)
+        save_youtube_marker(r2_base, video_id)
+        print(f"✅ R2 upload OK (manual): {r2_key}")
+
+        youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+        try:
+            db.save_download(video_id, f"{artist} - {song}.mp4", artist, song, youtube_url)
+        except Exception as e:
+            print(f"⚠️ Failed to save download record: {e}")
+
+        return {
+            "status": "ok",
+            "r2_key": r2_key,
+            "r2_base": r2_base,
+            "file_size_mb": round(file_size / 1024 / 1024, 1),
+            "message": "Vídeo enviado e salvo no R2",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Upload manual error for {video_id}: {e}")
+        raise HTTPException(500, f"Falha no upload: {str(e)}")
+    finally:
+        shutil.rmtree(str(tmp_dir.parent), ignore_errors=True)
+
+
+# ─── R2 ENDPOINTS ───
+
+@router.get("/api/r2/check")
+async def r2_check(
+    artist: str = Query(...),
+    song: str = Query(...),
+    video_id: str = Query(""),
+):
+    """Verifica se o vídeo já está no R2."""
+    r2_base = check_conflict(artist, song, video_id)
+    r2_key = f"{r2_base}/video/original.mp4"
+    exists = storage.exists(r2_key)
+    return {"exists": exists, "r2_key": r2_key, "r2_base": r2_base}
+
+
+@router.get("/api/r2/info")
+async def r2_info(folder: str = Query(...)):
+    """Retorna youtube_url, thumbnail, título e descrição do vídeo para uma pasta R2."""
+    marker_key = f"{folder}/video/.youtube_id"
+    try:
+        video_id = storage.read_text(marker_key).strip()
+        if not video_id:
+            raise HTTPException(404, "YouTube ID não encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(404, f"Pasta não encontrada: {e}")
+
+    result = {
+        "video_id": video_id,
+        "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
+        "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+        "title": "",
+        "description": "",
+    }
+
+    if YOUTUBE_API_KEY:
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                resp = await client.get(
+                    "https://www.googleapis.com/youtube/v3/videos",
+                    params={"part": "snippet", "id": video_id, "key": YOUTUBE_API_KEY},
+                )
+                data = resp.json()
+                items = data.get("items", [])
+                if items:
+                    snippet = items[0].get("snippet", {})
+                    result["title"] = snippet.get("title", "")
+                    result["description"] = snippet.get("description", "")
+        except Exception:
+            pass
+
+    return result
+
+
+# ─── DOWNLOADS ───
+
+@router.get("/api/downloads")
+async def list_downloads():
+    return {"downloads": db.get_downloads()}
+
+
+@router.get("/api/downloads/export")
+async def export_downloads():
+    csv_content = db.export_downloads_csv()
+    return Response(
+        content=csv_content, media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="downloads.csv"'},
+    )
