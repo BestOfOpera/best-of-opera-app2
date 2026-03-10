@@ -253,6 +253,8 @@ def _run_migrations():
     if "editor_edicoes" not in insp.get_table_names():
         return
     cols = [c["name"] for c in insp.get_columns("editor_edicoes")]
+
+    # ALTER TABLE — transação própria, sem try/except interno (garantia de commit isolado)
     with engine.begin() as conn:
         for col_name, col_type in [
             ("corte_original_inicio", "VARCHAR(20)"),
@@ -270,39 +272,43 @@ def _run_migrations():
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
                 logger.info(f"Migration: added column {col_name}")
 
-        # Vincular edições existentes ao perfil Best of Opera
-        try:
+    # Vincular edições existentes ao perfil Best of Opera — transação própria
+    try:
+        with engine.begin() as conn:
             conn.execute(text("""
                 UPDATE editor_edicoes
                 SET perfil_id = (SELECT id FROM editor_perfis WHERE sigla = 'BO')
                 WHERE perfil_id IS NULL
             """))
-            logger.info("Migration: editor_edicoes.perfil_id preenchido para edicoes sem perfil")
-        except Exception as e:
-            logger.warning(f"Migration perfil_id update: {e}")
+        logger.info("Migration: editor_edicoes.perfil_id preenchido para edicoes sem perfil")
+    except Exception as e:
+        logger.warning(f"Migration perfil_id update: {e}")
 
-        # Migration: UNIQUE index em traducao_letra (edicao_id, idioma)
-        try:
+    # Migration: UNIQUE index em traducao_letra — transação própria
+    try:
+        with engine.begin() as conn:
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_traducao_edicao_idioma "
                 "ON editor_traducoes_letras (edicao_id, idioma)"
             ))
-            logger.info("Migration: created unique index uq_traducao_edicao_idioma")
-        except Exception as e:
-            logger.warning(f"Migration uq_traducao_edicao_idioma: {e}")
+        logger.info("Migration: created unique index uq_traducao_edicao_idioma")
+    except Exception as e:
+        logger.warning(f"Migration uq_traducao_edicao_idioma: {e}")
 
-        # Migration: UNIQUE index em render (edicao_id, idioma)
-        try:
+    # Migration: UNIQUE index em render — transação própria
+    try:
+        with engine.begin() as conn:
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_render_edicao_idioma "
                 "ON editor_renders (edicao_id, idioma)"
             ))
-            logger.info("Migration: created unique index uq_render_edicao_idioma")
-        except Exception as e:
-            logger.warning(f"Migration uq_render_edicao_idioma: {e}")
+        logger.info("Migration: created unique index uq_render_edicao_idioma")
+    except Exception as e:
+        logger.warning(f"Migration uq_render_edicao_idioma: {e}")
 
-        # Migration: UNIQUE index em redator_project_id (anti-duplicata)
-        try:
+    # Migration: UNIQUE index em redator_project_id — transação própria
+    try:
+        with engine.begin() as conn:
             dups = conn.execute(text(
                 "SELECT redator_project_id, COUNT(*) as qtd "
                 "FROM editor_edicoes "
@@ -322,8 +328,8 @@ def _run_migrations():
                     "WHERE redator_project_id IS NOT NULL"
                 ))
                 logger.info("Migration: created unique index uix_redator_project_id")
-        except Exception as e:
-            logger.warning(f"Migration uix_redator_project_id: {e}")
+    except Exception as e:
+        logger.warning(f"Migration uix_redator_project_id: {e}")
 
     # Migration: tabela editor_reports (criada pelo create_all, mas garantir colunas)
     if "editor_reports" in insp.get_table_names():
