@@ -64,6 +64,21 @@ def _run_migrations():
                 cor_primaria VARCHAR(10) DEFAULT '#1a1a2e',
                 cor_secundaria VARCHAR(10) DEFAULT '#e94560',
                 r2_prefix VARCHAR(100) DEFAULT 'editor',
+                curadoria_categories JSON,
+                elite_hits JSON,
+                power_names JSON,
+                voice_keywords JSON,
+                institutional_channels JSON,
+                category_specialty JSON,
+                scoring_weights JSON,
+                curadoria_filters JSON,
+                anti_spam_terms VARCHAR(500) DEFAULT '-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords',
+                playlist_id VARCHAR(100) DEFAULT '',
+                hook_categories_redator JSON,
+                identity_prompt_redator TEXT,
+                tom_de_voz_redator TEXT,
+                logo_url VARCHAR(500),
+                font_name VARCHAR(100),
                 created_at TIMESTAMP DEFAULT NOW(),
                 updated_at TIMESTAMP DEFAULT NOW()
             )
@@ -92,6 +107,21 @@ def _run_migrations():
         idiomas_alvo = _json.dumps(["en", "pt", "es", "de", "fr", "it", "pl"])
         hashtags = _json.dumps(["#BestOfOpera", "#Opera", "#ClassicalMusic"])
         categorias = _json.dumps(["Emotional", "Historical", "Vocal"])
+        curadoria_categories = _json.dumps({
+            "icones": {"name": "Icones", "emoji": "👑", "desc": "Lendas eternas da opera", "seeds": ["Luciano Pavarotti best live aria opera performance", "Maria Callas iconic soprano opera aria live", "Placido Domingo tenor concert opera live", "Montserrat Caballe soprano legendary opera performance", "Jose Carreras three tenors concert live opera", "Enrico Caruso historical opera tenor recording"]},
+            "estrelas": {"name": "Estrelas", "emoji": "⭐", "desc": "Estrelas modernas da opera", "seeds": ["Andrea Bocelli live concert opera performance", "Anna Netrebko soprano opera performance live", "Jonas Kaufmann tenor opera aria live concert", "Pretty Yende soprano opera live performance", "Juan Diego Florez tenor opera live performance", "Jakub Jozef Orlinski countertenor baroque opera live"]},
+            "hits": {"name": "Hits", "emoji": "🎵", "desc": "Arias e musicas mais populares", "seeds": ["Nessun Dorma best live performance opera tenor", "Ave Maria opera live soprano performance beautiful", "Time to Say Goodbye Con te partiro live opera", "O Sole Mio best live tenor performance opera", "The Prayer duet opera live performance beautiful", "Hallelujah best live performance classical choir"]},
+            "surpreendente": {"name": "Surpreendente", "emoji": "🎭", "desc": "Performances virais e inesperadas", "seeds": ["flash mob opera surprise public performance amazing", "unexpected opera singer street performance viral", "theremin classical music amazing performance instrument", "overtone singing polyphonic incredible vocal technique", "opera singer surprise restaurant wedding performance", "unusual instrument classical performance viral amazing"]},
+            "talent": {"name": "Talent", "emoji": "🌟", "desc": "Revelacoes em shows de talentos", "seeds": ["opera singer audition got talent amazing judges shocked", "golden buzzer opera performance talent show incredible", "child sings opera audition judges crying talent show", "Susan Boyle I Dreamed a Dream first audition", "Paul Potts Nessun Dorma Britain got talent audition", "unexpected opera voice talent show blind audition amazing"]},
+            "corais": {"name": "Corais", "emoji": "🎶", "desc": "Corais e grupos vocais", "seeds": ["amazing choir opera performance live concert best", "Pentatonix Hallelujah live concert performance", "African choir incredible performance amazing vocal", "boys choir sacred music cathedral performance beautiful", "a cappella group classical opera performance live", "choir flash mob opera surprise performance public"]},
+        })
+        elite_hits_val = _json.dumps(["Nessun Dorma", "Ave Maria", "O mio babbino caro", "Time to Say Goodbye", "The Prayer", "Hallelujah", "O Sole Mio", "La donna e mobile", "Con te partiro", "Casta Diva", "Queen of the Night", "Flower Duet", "I Dreamed a Dream", "Never Enough", "Vissi d'arte", "Pie Jesu", "O Holy Night", "Amazing Grace", "Sempre Libera", "Habanera", "Granada", "Largo al factotum", "Vesti la giubba", "Baba Yetu", "Danny Boy", "Caruso", "Bohemian Rhapsody"])
+        power_names_val = _json.dumps(["Luciano Pavarotti", "Andrea Bocelli", "Maria Callas", "Placido Domingo", "Montserrat Caballe", "Jonas Kaufmann", "Anna Netrebko", "Amira Willighagen", "Jackie Evancho", "Laura Bretan", "Susan Boyle", "Paul Potts", "Pentatonix", "Sarah Brightman", "Jose Carreras", "Renee Fleming", "Cecilia Bartoli", "Diana Damrau", "Jakub Jozef Orlinski", "Emma Kok", "Malakai Bayoh", "Pretty Yende", "Angela Gheorghiu", "Juan Diego Florez", "Rolando Villazon", "Bryn Terfel"])
+        voice_keywords_val = _json.dumps(["soprano", "tenor", "baritone", "mezzo", "countertenor", "aria", "opera", "classical voice", "live concert"])
+        institutional_channels_val = _json.dumps(["royal opera", "met opera", "metropolitan opera", "la scala", "wiener staatsoper", "bbc", "arte concert", "deutsche oper", "opera de paris", "sydney opera", "andre rieu"])
+        category_specialty_val = _json.dumps({"icones": ["three tenors", "la scala", "royal opera", "pavarotti and friends", "farewell", "legendary"], "estrelas": ["recital", "gala concert", "concert hall", "philharmonic", "arena di verona"], "hits": ["encore", "standing ovation", "duet", "best version", "iconic"], "surpreendente": ["flash mob", "street", "theremin", "overtone", "handpan", "surprise", "viral"], "talent": ["audition", "golden buzzer", "got talent", "x factor", "the voice", "judges"], "corais": ["choir", "ensemble", "a cappella", "choral", "voices", "gospel"]})
+        scoring_weights_val = _json.dumps({"elite_hit": 15, "power_name": 15, "specialty": 25, "voice": 15, "institutional": 10, "quality": 10, "views": 10, "views_threshold": 100000, "max_total": 100})
+        curadoria_filters_val = _json.dumps({"duracao_max": 900})
 
         conn.execute(text("""
             INSERT INTO editor_perfis (
@@ -103,7 +133,9 @@ def _run_migrations():
                 video_width, video_height,
                 r2_prefix, cor_primaria, cor_secundaria,
                 duracao_corte_min, duracao_corte_max,
-                hashtags_fixas, categorias_hook
+                hashtags_fixas, categorias_hook,
+                curadoria_categories, elite_hits, power_names, voice_keywords,
+                institutional_channels, category_specialty, scoring_weights, curadoria_filters
             )
             SELECT
                 'Best of Opera', 'BO', 'best-of-opera', TRUE, 'pt',
@@ -111,7 +143,9 @@ def _run_migrations():
                 :overlay_style, :lyrics_style, :traducao_style,
                 70, 35, 43, 100, 1080, 1920,
                 'editor', '#1a1a2e', '#e94560', 30, 90,
-                :hashtags, :categorias
+                :hashtags, :categorias,
+                :curadoria_categories, :elite_hits, :power_names, :voice_keywords,
+                :institutional_channels, :category_specialty, :scoring_weights, :curadoria_filters
             WHERE NOT EXISTS (
                 SELECT 1 FROM editor_perfis WHERE sigla = 'BO'
             )
@@ -122,8 +156,66 @@ def _run_migrations():
             "traducao_style": traducao_style,
             "hashtags": hashtags,
             "categorias": categorias,
+            "curadoria_categories": curadoria_categories,
+            "elite_hits": elite_hits_val,
+            "power_names": power_names_val,
+            "voice_keywords": voice_keywords_val,
+            "institutional_channels": institutional_channels_val,
+            "category_specialty": category_specialty_val,
+            "scoring_weights": scoring_weights_val,
+            "curadoria_filters": curadoria_filters_val,
         })
         logger.info("Migration: seed editor_perfis Best of Opera OK (idempotente)")
+
+        # Backfill: popular campos de curadoria no BO existente (se ainda NULL)
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                curadoria_categories = :curadoria_categories,
+                elite_hits = :elite_hits,
+                power_names = :power_names,
+                voice_keywords = :voice_keywords,
+                institutional_channels = :institutional_channels,
+                category_specialty = :category_specialty,
+                scoring_weights = :scoring_weights,
+                curadoria_filters = :curadoria_filters
+            WHERE sigla = 'BO' AND curadoria_categories IS NULL
+        """), {
+            "curadoria_categories": curadoria_categories,
+            "elite_hits": elite_hits_val,
+            "power_names": power_names_val,
+            "voice_keywords": voice_keywords_val,
+            "institutional_channels": institutional_channels_val,
+            "category_specialty": category_specialty_val,
+            "scoring_weights": scoring_weights_val,
+            "curadoria_filters": curadoria_filters_val,
+        })
+        logger.info("Migration: backfill curadoria campos no BO OK")
+
+    # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
+    if "editor_perfis" in insp.get_table_names():
+        with engine.begin() as conn:
+            perfil_cols = [c["name"] for c in insp.get_columns("editor_perfis")]
+            for col_name, col_type in [
+                ("curadoria_categories", "JSON"),
+                ("elite_hits", "JSON"),
+                ("power_names", "JSON"),
+                ("voice_keywords", "JSON"),
+                ("institutional_channels", "JSON"),
+                ("category_specialty", "JSON"),
+                ("scoring_weights", "JSON"),
+                ("curadoria_filters", "JSON"),
+                ("anti_spam_terms", "VARCHAR(500) DEFAULT '-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords'"),
+                ("playlist_id", "VARCHAR(100) DEFAULT ''"),
+                ("hook_categories_redator", "JSON"),
+                ("identity_prompt_redator", "TEXT"),
+                ("tom_de_voz_redator", "TEXT"),
+                ("logo_url", "VARCHAR(500)"),
+                ("font_name", "VARCHAR(100)"),
+            ]:
+                if col_name not in perfil_cols:
+                    conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))
+                    logger.info(f"Migration: added column editor_perfis.{col_name}")
+            logger.info("Migration: editor_perfis curadoria columns OK")
 
     # Migration: tabela editor_usuarios (auth)
     with engine.begin() as conn:
@@ -296,3 +388,4 @@ app.include_router(dashboard.router)
 app.include_router(reports.router)
 app.include_router(auth.router)
 app.include_router(admin_perfil.router)
+app.include_router(admin_perfil.router_internal)

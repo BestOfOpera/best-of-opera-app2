@@ -9,7 +9,8 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
-def build_youtube_prompt(project) -> str:
+def build_youtube_prompt(project, brand_config=None) -> str:
+    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
     fields = ""
     fields += _field("Artist", project.artist)
     fields += _field("Work", project.work)
@@ -19,7 +20,7 @@ def build_youtube_prompt(project) -> str:
     fields += _field("Voice type", project.voice_type)
     fields = fields.rstrip("\n")
 
-    return f"""You are a YouTube SEO expert for "Best of Opera", a channel sharing short opera clips.
+    return f"""You are a YouTube SEO expert for "{brand_name}", a channel sharing short opera clips.
 
 Generate a YouTube title and tags for a video featuring:
 {fields}

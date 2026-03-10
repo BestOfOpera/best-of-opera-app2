@@ -40,6 +40,9 @@ class Project(Base):
     cut_start: Mapped[str] = mapped_column(String(20), default="")
     cut_end: Mapped[str] = mapped_column(String(20), default="")
 
+    perfil_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    brand_slug: Mapped[str] = mapped_column(String(50), default="best-of-opera")
+
     # Status machine
     status: Mapped[str] = mapped_column(
         String(50), default="input_complete"

@@ -36,6 +36,8 @@ class ProjectCreate(BaseModel):
     original_duration: str = ""
     cut_start: str = ""
     cut_end: str = ""
+    perfil_id: Optional[int] = None
+    brand_slug: str = "best-of-opera"
 
 
 class ProjectUpdate(BaseModel):
@@ -57,6 +59,8 @@ class ProjectUpdate(BaseModel):
     original_duration: Optional[str] = None
     cut_start: Optional[str] = None
     cut_end: Optional[str] = None
+    perfil_id: Optional[int] = None
+    brand_slug: Optional[str] = None
 
 
 class TranslationOut(BaseModel):
@@ -93,6 +97,8 @@ class ProjectOut(BaseModel):
     original_duration: str
     cut_start: str
     cut_end: str
+    perfil_id: Optional[int] = None
+    brand_slug: str = "best-of-opera"
     status: str
     overlay_json: Optional[list] = None
     post_text: Optional[str] = None

@@ -319,3 +319,110 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 - Token JWT no header `Authorization: Bearer {token}` (não cookie)
 - `SECRET_KEY` de `config.py` (env var em Railway)
 - `require_admin` = Dependency do FastAPI, protege rotas admin
+
+---
+
+## Sessão 10/03/2026 — Prompt 1.5-B CONCLUÍDO
+
+### O que foi implementado
+
+**Unificar Perfil editor+curadoria — sessão B (rotas + endpoint interno + testes):**
+
+1. **`duplicar_perfil`** corrigido: agora copia todos os campos de curadoria (curadoria_categories, elite_hits, power_names, voice_keywords, institutional_channels, category_specialty, scoring_weights, curadoria_filters, anti_spam_terms). playlist_id sempre resetado para `""` na cópia (nova marca começa sem playlist própria).
+
+2. **`GET /{id}/curadoria-config`** (admin, com auth): novo endpoint em `routes/admin_perfil.py` que retorna somente campos de curadoria de um perfil.
+
+3. **`GET /api/internal/perfil/{slug}/curadoria-config`** (sem auth): endpoint interno em `router_internal` para a curadoria consumir. Registrado em `main.py` via `app.include_router(admin_perfil.router_internal)`.
+
+4. **`app/services/perfil_service.py`** criado: função `build_curadoria_config(perfil)` isolada sem dependência de auth. Permite import nos testes sem precisar de python-jose.
+
+5. **`app-curadoria/backend/config.py`** atualizado:
+   - Novas env vars: `EDITOR_API_URL` (default: `http://localhost:8000`), `BRAND_SLUG` (default: `best-of-opera`)
+   - `load_brand_config(slug)` agora tenta `GET {EDITOR_API_URL}/api/internal/perfil/{slug}/curadoria-config` com timeout 3s
+   - Cache in-memory com TTL 5min (`_brand_config_cache`)
+   - Fallback para JSON local se editor offline
+   - `BRAND_CONFIG` global mantido para compatibilidade de startup
+
+6. **`routes/curadoria.py`** atualizado: todos os usos de `BRAND_CONFIG` global substituídos por `load_brand_config()` por request (beneficia do cache). Mudanças no admin refletem na curadoria sem restart.
+
+7. **`models/perfil_curadoria.py`** deletado: modelo Pydantic avulso removido (era placeholder pre-Fase2). Não havia imports externos.
+
+8. **`tests/test_perfil_unificado.py`**: 4 testes, todos passando (12/12 na suite completa).
+
+### Arquitetura do endpoint interno
+- URL: `GET /api/internal/perfil/{slug}/curadoria-config`
+- Sem auth (comunicação interna entre serviços)
+- Retorna: `{name, project_id, categories, elite_hits, power_names, voice_keywords, institutional_channels, category_specialty, scoring_weights, filters, anti_spam, playlist_id}`
+
+### Próximo passo
+- Prompt 3: Frontend Admin + Stepper + Auth UI (Antigravity)
+- Deploy no Railway + testar migrations e endpoint interno em produção
+
+---
+
+## Sessão 10/03/2026 — Prompt 2.5-A: Fundação + Storage Layer (Multi-Brand)
+
+### O que foi implementado
+
+**5 campos redator + storage R2 prefixado por marca:**
+
+1. **`models/perfil.py`** — 5 campos novos: `hook_categories_redator` (JSON), `identity_prompt_redator` (Text), `tom_de_voz_redator` (Text), `logo_url` (VARCHAR 500), `font_name` (VARCHAR 100)
+
+2. **`main.py`** — CREATE TABLE e ALTER TABLE migrations incluem os 5 novos campos
+
+3. **`routes/admin_perfil.py`** — `PerfilDetalheOut` inclui 5 campos; `duplicar_perfil` copia todos; PUT/PATCH já dinâmicos via `hasattr`; novo endpoint `GET /api/internal/perfil/{slug}/redator-config` (sem auth)
+
+4. **`shared/storage_service.py`** — `check_conflict()` e `save_youtube_marker()` aceitam `r2_prefix=""` param. Marker keys agora usam `{r2_prefix}/{base}/video/.youtube_id`. Retorno sempre BARE.
+
+5. **`routes/pipeline.py`** — `_get_perfil_r2_prefix(edicao, db)` helper criado. Call sites atualizados:
+   - `upload_video` (sync): prefixo aplicado a `r2_key`
+   - `_download_task` (PASSO B/C/E/F): prefix carregado na sessão inicial, aplicado em todos os passos
+   - `_exportar_renders`: `lang_prefix` prefixado com `r2_prefix`
+   - `_pacote_task`: textos e ZIP key prefixados
+   - `download_pacote`: fallback key prefixado
+
+6. **`services/perfil_service.py`** — `build_curadoria_config` agora inclui `r2_prefix`; nova função `build_redator_config(perfil)` retorna config completa do redator
+
+### Regras de storage
+- `r2_base` no DB é SEMPRE bare (sem prefixo)
+- Prefixo aplicado em runtime via `_get_perfil_r2_prefix()`
+- `r2_prefix=""` = comportamento antigo (backward compatible)
+- Renders (`_render_task`) JÁ usavam `{r2_prefix}/{r2_base}/...` — sem mudança
+
+### Testes
+- 12/12 passando (sem novos testes neste prompt)
+
+### Próximo passo
+- Prompt 2.5-B (se houver): testes específicos de storage prefixado
+- Prompt 3: Frontend Admin + Stepper + Auth UI (Antigravity)
+
+---
+
+## [2.5-B] Redator Multi-Brand — 2026-03-10
+- Adicionado `perfil_id` (nullable int) e `brand_slug` (varchar 50, default "best-of-opera") ao model Project
+- Migration automática em `_run_migrations()` no main.py
+- Schemas atualizados: ProjectCreate, ProjectUpdate, ProjectOut com os novos campos
+- Criado `load_brand_config(slug)` em config.py: cache 5min, fallback hardcoded, HOOK_CATEGORIES preservado
+- Env vars: `EDITOR_API_URL` (default localhost:8000) e `BRAND_SLUG` (default best-of-opera)
+- Prompts atualizados com `brand_config=None`: overlay_prompt, post_prompt, youtube_prompt, hook_helper
+- `claude_service.py`: generate_overlay/post/youtube aceitam `brand_config=None`
+- `generation.py`: carrega brand_config via `load_brand_config(brand_slug)` e propaga em todos os endpoints
+- Backward compatible: brand_config=None = comportamento antigo (Best of Opera hardcoded)
+
+## [2.5-C] Dashboard & Reports Filtro por Marca — 2026-03-10
+- Adicionado `perfil_id: Optional[int] = None` em todos os endpoints de `dashboard.py` (stats, edicoes-recentes, pipeline, visao-geral, producao, saude)
+- Todas as queries em Edicao filtradas condicionalmente via `base_q` pattern
+- Adicionado `perfil_id` filter via join em `reports.py` (listar_reports e resumo_reports)
+- Import de `Edicao` adicionado em reports.py para o join
+- Backward compatible: sem perfil_id = retorna tudo (comportamento idêntico ao anterior)
+- Lógica de negócio não alterada — apenas filtro condicional adicionado
+
+## [2.5-D] Curadoria R2 Prefix + Script Migração — 2026-03-10
+- Pré-requisito 2.5-A confirmado: `shared/storage_service.py` já tinha `r2_prefix` em check_conflict/save_youtube_marker
+- `curadoria.py`: todos os call sites de check_conflict e save_youtube_marker passam `r2_prefix` via `load_brand_config()`
+- `download.py`: mesma pattern — `load_brand_config()` + `r2_prefix` aplicado em check_conflict e construção de r2_key
+- Criado `scripts/migrate_r2_to_brand_prefix.py` (203 linhas): idempotente, manifesto JSON, dry-run/execute/verify
+- Script classifica objetos: BO/* → skip, reports/* → skip, editor/* → copia para BO/, bare → copia para BO/
+- NÃO deleta originais — cleanup manual posterior
+- `load_brand_config` em app-curadoria importado do próprio `config.py` da curadoria
+

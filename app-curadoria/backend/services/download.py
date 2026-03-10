@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import database as db
-from config import PROJECTS_DIR
+from config import PROJECTS_DIR, load_brand_config
 from shared.storage_service import storage, check_conflict, save_youtube_marker
 
 # ─── DOWNLOAD WORKER (ERR-055) ───
@@ -142,10 +142,13 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
         except Exception:
             pass
 
-        r2_base = check_conflict(artist, song, video_id)
-        r2_key = f"{r2_base}/video/original.mp4"
+        cfg = load_brand_config()
+        r2_prefix = cfg.get("r2_prefix", "")
+        r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
+        full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+        r2_key = f"{full_base}/video/original.mp4"
         storage.upload_file(dl_path_actual, r2_key)
-        save_youtube_marker(r2_base, video_id)
+        save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
 
         shutil.rmtree(str(project_dir), ignore_errors=True)
         manager.set_task(video_id, {"status": "completed", "progress": 100, "message": "Concluído!"})

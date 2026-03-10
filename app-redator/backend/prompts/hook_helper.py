@@ -1,16 +1,21 @@
 from backend.config import HOOK_CATEGORIES
 
 
-def build_hook_text(project) -> str:
+def build_hook_text(project, brand_config=None) -> str:
     """Monta o texto do hook combinando categoria + complemento do usuário."""
     cat_key = getattr(project, "hook_category", "") or ""
     hook = getattr(project, "hook", "") or ""
 
-    if cat_key and cat_key != "prefiro_escrever" and cat_key in HOOK_CATEGORIES:
-        cat = HOOK_CATEGORIES[cat_key]
+    # Usar categorias da marca se disponível, senão fallback global
+    categories = HOOK_CATEGORIES
+    if brand_config and brand_config.get("hook_categories_redator"):
+        categories = brand_config["hook_categories_redator"]
+
+    if cat_key and cat_key != "prefiro_escrever" and cat_key in categories:
+        cat = categories[cat_key]
         text = f"[Categoria: {cat['label']}] {cat['prompt']}"
         if hook.strip():
-            text += f" Complemento do usuário: {hook.strip()}"
+            text += f" Complemento do usuario: {hook.strip()}"
         return text
 
     return hook
@@ -63,7 +68,7 @@ def detect_hook_language(project) -> str:
     return "português"
 
 
-def build_language_reinforcement(project) -> str:
+def build_language_reinforcement(project, brand_config=None) -> str:
     """Build language reinforcement text to append at the end of prompts."""
     lang = detect_hook_language(project)
     if lang == "português":

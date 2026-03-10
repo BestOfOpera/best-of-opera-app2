@@ -127,6 +127,16 @@ def _get_r2_base(edicao) -> str:
     return project_base(edicao.artista, edicao.musica)
 
 
+def _get_perfil_r2_prefix(edicao, db=None):
+    """Busca r2_prefix do Perfil vinculado à edição."""
+    if not edicao.perfil_id:
+        return ""
+    if db:
+        perfil = db.get(Perfil, edicao.perfil_id)
+        return perfil.r2_prefix if perfil else ""
+    return ""
+
+
 class CorteParams(BaseModel):
     janela_inicio: Optional[float] = None
     janela_fim: Optional[float] = None
@@ -180,15 +190,17 @@ async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session
         while chunk := await file.read(1024 * 1024):
             f.write(chunk)
 
-    # Upload para R2: {Artista} - {Musica}/video/original.mp4
-    base = check_conflict(edicao.artista, edicao.musica, edicao.youtube_video_id or "")
-    r2_key = f"{base}/video/original.mp4"
+    # Upload para R2: {r2_prefix}/{Artista} - {Musica}/video/original.mp4
+    prefix = _get_perfil_r2_prefix(edicao, db)
+    base = check_conflict(edicao.artista, edicao.musica, edicao.youtube_video_id or "", r2_prefix=prefix)
+    full_base = f"{prefix}/{base}" if prefix else base
+    r2_key = f"{full_base}/video/original.mp4"
     storage.upload_file(local_path, r2_key)
     if edicao.youtube_video_id:
-        save_youtube_marker(base, edicao.youtube_video_id)
+        save_youtube_marker(base, edicao.youtube_video_id, r2_prefix=prefix)
 
     edicao.arquivo_video_completo = r2_key
-    edicao.r2_base = base
+    edicao.r2_base = base  # BARE no DB
     edicao.status = "letra"
     edicao.passo_atual = 2
     edicao.erro_msg = None
@@ -243,6 +255,7 @@ async def _download_task(edicao_id: int):
             artista = edicao.artista
             musica = edicao.musica
             youtube_video_id = edicao.youtube_video_id or ""
+            _prefix = _get_perfil_r2_prefix(edicao, db)
 
             # Setar heartbeat inicial
             edicao.status = "baixando"
@@ -255,8 +268,9 @@ async def _download_task(edicao_id: int):
 
         # PASSO B — Tentar vídeo local (banco FECHADO durante upload R2)
         if video_local:
-            base = _check_conflict(artista, musica, youtube_video_id)
-            r2_key = f"{base}/video/original.mp4"
+            base = _check_conflict(artista, musica, youtube_video_id, r2_prefix=_prefix)
+            full_base = f"{_prefix}/{base}" if _prefix else base
+            r2_key = f"{full_base}/video/original.mp4"
 
             # Heartbeat antes de upload
             with SessionLocal() as db:
@@ -271,7 +285,7 @@ async def _download_task(edicao_id: int):
 
             storage.upload_file(video_local, r2_key)
             if youtube_video_id:
-                _save_youtube_marker(base, youtube_video_id)
+                _save_youtube_marker(base, youtube_video_id, r2_prefix=_prefix)
 
             # Salvar resultado (sessão curta)
             with SessionLocal() as db:
@@ -290,8 +304,9 @@ async def _download_task(edicao_id: int):
             return
 
         # PASSO C — Verificar se vídeo já existe no R2 (upload prévio da curadoria)
-        base = _check_conflict(artista, musica, youtube_video_id)
-        r2_key = f"{base}/video/original.mp4"
+        base = _check_conflict(artista, musica, youtube_video_id, r2_prefix=_prefix)
+        full_base = f"{_prefix}/{base}" if _prefix else base
+        r2_key = f"{full_base}/video/original.mp4"
 
         with SessionLocal() as db:
             edicao = db.get(Edicao, edicao_id)
@@ -306,7 +321,7 @@ async def _download_task(edicao_id: int):
         if storage.exists(r2_key):
             # Vídeo já está no R2 (provavelmente upload da curadoria)
             if youtube_video_id:
-                _save_youtube_marker(base, youtube_video_id)
+                _save_youtube_marker(base, youtube_video_id, r2_prefix=_prefix)
 
             with SessionLocal() as db:
                 edicao = db.get(Edicao, edicao_id)
@@ -384,11 +399,12 @@ async def _download_task(edicao_id: int):
             cobalt_ok = await _download_via_cobalt(youtube_url_full, cobalt_local)
 
             if cobalt_ok:
-                base2 = _check_conflict(artista, musica, youtube_video_id)
-                r2_key2 = f"{base2}/video/original.mp4"
+                base2 = _check_conflict(artista, musica, youtube_video_id, r2_prefix=_prefix)
+                full_base2 = f"{_prefix}/{base2}" if _prefix else base2
+                r2_key2 = f"{full_base2}/video/original.mp4"
                 storage.upload_file(cobalt_local, r2_key2)
                 if youtube_video_id:
-                    _save_youtube_marker(base2, youtube_video_id)
+                    _save_youtube_marker(base2, youtube_video_id, r2_prefix=_prefix)
                 try:
                     import os as _os
                     _os.unlink(cobalt_local)
@@ -425,11 +441,12 @@ async def _download_task(edicao_id: int):
             ytdlp_ok = await _download_via_ytdlp(youtube_url_full, ytdlp_local)
 
             if ytdlp_ok:
-                base3 = _check_conflict(artista, musica, youtube_video_id)
-                r2_key3 = f"{base3}/video/original.mp4"
+                base3 = _check_conflict(artista, musica, youtube_video_id, r2_prefix=_prefix)
+                full_base3 = f"{_prefix}/{base3}" if _prefix else base3
+                r2_key3 = f"{full_base3}/video/original.mp4"
                 storage.upload_file(ytdlp_local, r2_key3)
                 if youtube_video_id:
-                    _save_youtube_marker(base3, youtube_video_id)
+                    _save_youtube_marker(base3, youtube_video_id, r2_prefix=_prefix)
                 try:
                     import os as _os
                     _os.unlink(ytdlp_local)
@@ -2178,13 +2195,15 @@ def _exportar_renders(edicao, db):
         except Exception as e:
             logger.warning(f"Erro ao exportar {render.idioma}: {e}")
 
-    # Incluir textos do Redator (do R2, na estrutura {base}/{base} - {IDIOMA}/)
+    # Incluir textos do Redator (do R2, na estrutura {r2_prefix}/{base}/{base} - {IDIOMA}/)
     r2_base = _get_r2_base(edicao)
+    _pfx = _get_perfil_r2_prefix(edicao, db)
     if r2_base:
         for idioma_dir in IDIOMAS_ALVO:
-            prefix = lang_prefix(r2_base, idioma_dir)
+            lp = lang_prefix(r2_base, idioma_dir)
+            prefix_path = f"{_pfx}/{lp}" if _pfx else lp
             for filename in ["post.txt", "subtitles.srt", "youtube.txt"]:
-                r2_key = f"{prefix}/{filename}"
+                r2_key = f"{prefix_path}/{filename}"
                 if storage.exists(r2_key):
                     try:
                         local_file = storage.ensure_local(r2_key)
@@ -2282,6 +2301,7 @@ async def _pacote_task(edicao_id: int):
 
             slug = f"{edicao.artista} - {edicao.musica}"
             r2_base = _get_r2_base(edicao)
+            _pfx = _get_perfil_r2_prefix(edicao, db)
             artista = edicao.artista
             musica = edicao.musica
             edicao.task_heartbeat = datetime.now(timezone.utc)
@@ -2317,9 +2337,10 @@ async def _pacote_task(edicao_id: int):
 
                 if r2_base:
                     for idioma_dir in IDIOMAS_ALVO:
-                        prefix = lang_prefix(r2_base, idioma_dir)
+                        lp = lang_prefix(r2_base, idioma_dir)
+                        prefix_path = f"{_pfx}/{lp}" if _pfx else lp
                         for filename in ["post.txt", "subtitles.srt", "youtube.txt"]:
-                            r2_key = f"{prefix}/{filename}"
+                            r2_key = f"{prefix_path}/{filename}"
                             if storage.exists(r2_key):
                                 try:
                                     local_file = storage.ensure_local(r2_key)
@@ -2329,7 +2350,8 @@ async def _pacote_task(edicao_id: int):
                                     logger.warning(f"Pacote: falha ao incluir {r2_key}: {e}")
 
             # Upload ZIP para R2
-            r2_key = f"{r2_base}/export/pacote.zip" if r2_base else f"exports/{edicao_id}/pacote.zip"
+            full_base_zip = f"{_pfx}/{r2_base}" if _pfx and r2_base else r2_base
+            r2_key = f"{full_base_zip}/export/pacote.zip" if full_base_zip else f"exports/{edicao_id}/pacote.zip"
             storage.upload_file(tmp_path, r2_key)
             logger.info(f"[pacote] ZIP uploaded to R2: {r2_key}")
 
@@ -2402,7 +2424,9 @@ def download_pacote(edicao_id: int, db: Session = Depends(get_db)):
     if not r2_key:
         # Fallback: tentar reconstruir key
         r2_base = _get_r2_base(edicao)
-        r2_key = f"{r2_base}/export/pacote.zip" if r2_base else f"exports/{edicao_id}/pacote.zip"
+        _pfx = _get_perfil_r2_prefix(edicao, db)
+        full_base_zip = f"{_pfx}/{r2_base}" if _pfx and r2_base else r2_base
+        r2_key = f"{full_base_zip}/export/pacote.zip" if full_base_zip else f"exports/{edicao_id}/pacote.zip"
 
     try:
         local_path = storage.ensure_local(r2_key)

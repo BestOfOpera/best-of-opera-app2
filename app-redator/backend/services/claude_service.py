@@ -198,13 +198,13 @@ Return the JSON object and nothing else."""
     return json.loads(_strip_json_fences(raw))
 
 
-def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]:
+def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=None) -> list[dict]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_overlay_prompt_with_custom(project, custom_prompt)
     else:
-        prompt = build_overlay_prompt(project)
+        prompt = build_overlay_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
     
@@ -253,25 +253,25 @@ def generate_overlay(project, custom_prompt: Optional[str] = None) -> list[dict]
     return parsed
 
 
-def generate_post(project, custom_prompt: Optional[str] = None) -> str:
+def generate_post(project, custom_prompt: Optional[str] = None, brand_config=None) -> str:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_post_prompt_with_custom(project, custom_prompt)
     else:
-        prompt = build_post_prompt(project)
+        prompt = build_post_prompt(project, brand_config=brand_config)
     result = _call_claude(prompt, system=system)
     _check_language_leak(result, lang)
     return result
 
 
-def generate_youtube(project, custom_prompt: Optional[str] = None) -> tuple[str, str]:
+def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=None) -> tuple[str, str]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
         prompt = build_youtube_prompt_with_custom(project, custom_prompt)
     else:
-        prompt = build_youtube_prompt(project)
+        prompt = build_youtube_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)
     _check_language_leak(raw, lang)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]

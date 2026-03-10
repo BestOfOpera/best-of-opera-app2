@@ -86,11 +86,12 @@ def lang_prefix(base: str, idioma: str) -> str:
     return f"{base}/{base} - {idioma.upper()}"
 
 
-def check_conflict(artista: str, musica: str, youtube_video_id: str) -> str:
-    """Verifica conflito de nomes e retorna base com sufixo se necessário.
+def check_conflict(artista: str, musica: str, youtube_video_id: str, r2_prefix: str = "") -> str:
+    """Verifica conflito de nomes e retorna base BARE com sufixo se necessário.
 
     Se já existir uma pasta com o mesmo {Artista} - {Musica} mas
     contendo um vídeo de outro youtube_video_id, adiciona (video_id) ao nome.
+    Usa r2_prefix para localizar o marker no R2, mas SEMPRE retorna base bare.
     """
     base = project_base(artista, musica)
 
@@ -98,7 +99,8 @@ def check_conflict(artista: str, musica: str, youtube_video_id: str) -> str:
         return base
 
     # Verificar se existe pasta com marcador de outro vídeo
-    marker_key = f"{base}/video/.youtube_id"
+    full_base = f"{r2_prefix}/{base}" if r2_prefix else base
+    marker_key = f"{full_base}/video/.youtube_id"
     if storage.exists(marker_key):
         try:
             local = storage.ensure_local(marker_key)
@@ -109,15 +111,16 @@ def check_conflict(artista: str, musica: str, youtube_video_id: str) -> str:
         except Exception:
             pass
 
-    return base
+    return base  # SEMPRE retorna BARE
 
 
-def save_youtube_marker(base: str, youtube_video_id: str):
-    """Salva marcador com youtube_video_id na pasta do projeto."""
+def save_youtube_marker(base: str, youtube_video_id: str, r2_prefix: str = ""):
+    """Salva marcador com youtube_video_id na pasta do projeto (com prefixo R2)."""
     if not youtube_video_id:
         return
     import tempfile
-    marker_key = f"{base}/video/.youtube_id"
+    full_base = f"{r2_prefix}/{base}" if r2_prefix else base
+    marker_key = f"{full_base}/video/.youtube_id"
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
         tmp.write(youtube_video_id)
         tmp_path = tmp.name

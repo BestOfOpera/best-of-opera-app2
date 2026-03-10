@@ -30,7 +30,12 @@ def _calc_subtitle_count(project) -> str:
         return "Create approximately 4-6 subtitle entries."
 
 
-def build_overlay_prompt(project) -> str:
+def build_overlay_prompt(project, brand_config=None) -> str:
+    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
+    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
+    max_chars_line = (brand_config or {}).get("overlay_max_chars_linha", 35)
+    identity = (brand_config or {}).get("identity_prompt_redator", "")
+
     duration_info = ""
     if project.cut_start and project.cut_end:
         duration_info = f"The video clip runs from {project.cut_start} to {project.cut_end}."
@@ -39,7 +44,17 @@ def build_overlay_prompt(project) -> str:
 
     count_info = _calc_subtitle_count(project)
 
-    return f"""You are a master storyteller and viral content writer for "Best of Opera", a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds.
+    identity_block = ""
+    if identity:
+        identity_block = f"""
+
+═══════════════════════════════
+BRAND IDENTITY
+═══════════════════════════════
+{identity}
+"""
+
+    return f"""You are a master storyteller and viral content writer for "{brand_name}", a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds.
 
 Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
 
@@ -66,13 +81,13 @@ Use the arc: Curiosity → Tension → Revelation → Emotional payoff
 Bad: "This composition dates back to 1842"
 Good: "He wrote this in 1842 — and it still breaks people today"
 
-**USE THE FULL CHARACTER LIMIT** — Subtitles should be rich and complete, ideally 50–70 characters. Short, punchy lines are allowed only for maximum-impact moments (first hook, climax reveal). Never waste a subtitle with a half-sentence when you can say something powerful.
+**USE THE FULL CHARACTER LIMIT** — Subtitles should be rich and complete, ideally 50–{max_chars} characters. Short, punchy lines are allowed only for maximum-impact moments (first hook, climax reveal). Never waste a subtitle with a half-sentence when you can say something powerful.
 
 ═══════════════════════════════
 STRUCTURE RULES
 ═══════════════════════════════
 
-1. Maximum 70 characters per subtitle.
+1. Maximum {max_chars} characters per subtitle.
 2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end.
 3. Subtitles must follow a narrative arc: hook → build → climax → payoff.
 4. FIRST subtitle starts at "00:00" — short, punchy, under 30 characters. Make it impossible to ignore.
@@ -80,9 +95,9 @@ STRUCTURE RULES
 6. FORBIDDEN jargon — never use: "bel canto", "coloratura", "tessitura", "libretto", "aria" (unless explained), "virtuoso". Write for someone who has never watched opera in their life.
 7. Space subtitles evenly. Gap between one subtitle ending and the next starting: ~1 second.
 8. OVERLAY FORMATTING RULE:
-   - Maximum 70 characters in total per subtitle.
-   - If a subtitle has more than 35 characters, split it into 2 lines using \\n.
-   - Each line: maximum 35 characters.
+   - Maximum {max_chars} characters in total per subtitle.
+   - If a subtitle has more than {max_chars_line} characters, split it into 2 lines using \\n.
+   - Each line: maximum {max_chars_line} characters.
    - The 2 lines must be BALANCED in length (maximum 30% difference between them).
    - Use short, impactful phrases.
    - Examples:
@@ -102,7 +117,7 @@ EMOTIONAL TOOLKIT — use these techniques
 - **The countdown**: "The note that's coming will change how you hear music"
 - **The CTA (Engagement)**: The VERY LAST subtitle of the array MUST always be a CTA. Examples: "Follow for more moments like this", "Turn on notifications and don't miss a thing", "Save this video for later". Adapt to the song's context, but always invite engagement.
 
-═══════════════════════════════
+{identity_block}═══════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════
 

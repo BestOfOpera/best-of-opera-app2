@@ -9,7 +9,9 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
-def build_post_prompt(project) -> str:
+def build_post_prompt(project, brand_config=None) -> str:
+    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
+    hashtags = (brand_config or {}).get("hashtags_fixas", ["#BestOfOpera", "#Opera", "#ClassicalMusic"])
     flag = project.nationality_flag or ""
 
     # Build input fields, omitting any that are empty
@@ -29,7 +31,9 @@ def build_post_prompt(project) -> str:
     fields += _field("Album/Opera", project.album_opera)
     fields = fields.rstrip("\n")
 
-    return f"""You are a world-class storyteller who writes viral social media content for "Best of Opera" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
+    hashtags_str = " ".join(hashtags)
+
+    return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
 
 Your posts don't describe performances. They make people FEEL something they didn't expect to feel today.
 
@@ -148,8 +152,8 @@ Example: "Does this give you 🔥 or ❄️? Tell us below!"
 ──────────────────────
 SECTION 5 — HASHTAGS (exactly 1 line)
 ──────────────────────
-Exactly 4 hashtags. Always include #BestOfOpera. Add 3 relevant ones.
-Example: "#BestOfOpera #MariaCallas #Opera #CastaDiva"
+Exactly 4 hashtags. Always include {hashtags[0] if hashtags else "#BestOfOpera"}. Add 3 relevant ones.
+Example: "{hashtags_str}"
 
 ═══════════════════════════════
 CRITICAL RULES

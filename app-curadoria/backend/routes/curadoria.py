@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse, Response
 import database as db
 from config import (
     YOUTUBE_API_KEY, APP_PASSWORD, PLAYLIST_ID,
-    ANTI_SPAM, BRAND_CONFIG, PROJECTS_DIR,
+    ANTI_SPAM, PROJECTS_DIR, load_brand_config,
 )
 from services.youtube import yt_search, yt_playlist, extract_artist_song, parse_iso_dur
 from services.scoring import calc_score_v7, _process_v7, _rescore_cached, is_posted
@@ -29,13 +29,14 @@ router = APIRouter()
 async def populate_initial_cache():
     """Background: populate cache using seed 0 for each V7 category"""
     print("🚀 Starting V7 initial cache population...")
-    categories = BRAND_CONFIG["categories"]
+    config = load_brand_config()
+    categories = config["categories"]
     for cat_key, cat_data in categories.items():
         try:
             seed_query = cat_data["seeds"][0]
             full_query = f"{seed_query} {ANTI_SPAM}"
             raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
-            result = _process_v7(raw, seed_query, False, cat_key, BRAND_CONFIG)
+            result = _process_v7(raw, seed_query, False, cat_key, config)
             db.save_cached_videos(result["videos"], cat_key)
             db.save_last_seed(cat_key, 0)
             print(f"✅ Cached {len(result['videos'])} videos for {cat_key}")
@@ -47,8 +48,9 @@ async def populate_initial_cache():
 
 async def refresh_playlist():
     print("🔄 Refreshing full playlist with pagination...")
+    config = load_brand_config()
     raw = await yt_playlist(PLAYLIST_ID, api_key=YOUTUBE_API_KEY)
-    processed = _process_v7(raw, "Playlist", False, "Playlist", BRAND_CONFIG)
+    processed = _process_v7(raw, "Playlist", False, "Playlist", config)
     db.save_playlist_videos(processed["videos"])
     db.set_config("last_playlist_refresh", datetime.now().isoformat())
     print(f"✅ Playlist refreshed: {len(processed['videos'])} videos found in total")
@@ -74,7 +76,7 @@ async def search(
     """Manual search with anti-spam filtering"""
     full_query = f"{q} opera live {ANTI_SPAM}"
     raw = await yt_search(full_query, max_results, YOUTUBE_API_KEY)
-    return _process_v7(raw, q, hide_posted, config=BRAND_CONFIG)
+    return _process_v7(raw, q, hide_posted, config=load_brand_config())
 
 
 @router.get("/api/category/{category}")
@@ -84,7 +86,8 @@ async def search_category(
     force_refresh: bool = Query(False),
 ):
     """Category search with V7 seed rotation"""
-    categories = BRAND_CONFIG["categories"]
+    config = load_brand_config()
+    categories = config["categories"]
     cat_data = categories.get(category)
     if not cat_data:
         raise HTTPException(404, f"Categoria nao encontrada: {category}")
@@ -96,7 +99,7 @@ async def search_category(
     if not force_refresh:
         cached = db.get_cached_videos(category, hide_posted)
         if cached:
-            cached = _rescore_cached(cached, category, BRAND_CONFIG)
+            cached = _rescore_cached(cached, category, config)
             print(f"✅ Serving {len(cached)} cached videos for {category}")
             return {
                 "query": category, "category": category,
@@ -115,7 +118,7 @@ async def search_category(
     raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
     db.save_last_seed(category, next_seed)
 
-    result = _process_v7(raw, seed_query, hide_posted, category, BRAND_CONFIG)
+    result = _process_v7(raw, seed_query, hide_posted, category, config)
     db.save_cached_videos(result["videos"], category)
     result["cached"] = False
     result["seed_index"] = next_seed
@@ -127,7 +130,8 @@ async def search_category(
 @router.get("/api/ranking")
 async def ranking(hide_posted: bool = Query(True)):
     """Ranking across all V7 categories using first seed each"""
-    categories = BRAND_CONFIG["categories"]
+    config = load_brand_config()
+    categories = config["categories"]
     all_q = [(key, data["seeds"][0]) for key, data in categories.items()]
     tasks = [yt_search(f"{q} {ANTI_SPAM}", 10, YOUTUBE_API_KEY) for _, q in all_q]
     batches = await asyncio.gather(*tasks, return_exceptions=True)
@@ -142,13 +146,13 @@ async def ranking(hide_posted: bool = Query(True)):
                 seen.add(v["video_id"])
                 v["category"] = cat
                 merged.append(v)
-    return _process_v7(merged, "ranking", hide_posted, config=BRAND_CONFIG)
+    return _process_v7(merged, "ranking", hide_posted, config=config)
 
 
 @router.get("/api/categories")
 async def list_categories():
     """List V7 categories with seed info"""
-    categories = BRAND_CONFIG["categories"]
+    categories = load_brand_config()["categories"]
     cats = []
     for key, data in categories.items():
         last_seed = db.get_last_seed(key)
@@ -237,7 +241,8 @@ async def add_manual_video(payload: dict):
                         except Exception:
                             pass
 
-                        sc = calc_score_v7(video_data, "Manual", BRAND_CONFIG)
+                        _cfg = load_brand_config()
+                        sc = calc_score_v7(video_data, "Manual", _cfg)
                         p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                         return {**video_data, "score": sc, "posted": p}
         except Exception as e:
@@ -262,7 +267,7 @@ async def add_manual_video(payload: dict):
                     "duration": 0, "views": 0, "hd": False,
                     "thumbnail": data.get("thumbnail_url", ""), "category": "Manual",
                 }
-                sc = calc_score_v7(video_data, "Manual", BRAND_CONFIG)
+                sc = calc_score_v7(video_data, "Manual", load_brand_config())
                 p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                 return {**video_data, "score": sc, "posted": p}
     except Exception as e:
@@ -319,8 +324,11 @@ async def download_all_playlist(background_tasks: BackgroundTasks):
         artist = v["artist"]
         song = v["song"]
 
-        r2_base = check_conflict(artist, song, vid)
-        r2_key = f"{r2_base}/video/original.mp4"
+        cfg = load_brand_config()
+        r2_prefix = cfg.get("r2_prefix", "")
+        r2_base = check_conflict(artist, song, vid, r2_prefix=r2_prefix)
+        full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+        r2_key = f"{full_base}/video/original.mp4"
 
         if storage.exists(r2_key):
             manager.set_task(vid, {"status": "completed", "progress": 100, "message": "Já no R2"})
@@ -403,10 +411,13 @@ async def download_video(
             r2_key = ""
             r2_base = ""
             try:
-                r2_base = check_conflict(artist, song, video_id)
-                r2_key = f"{r2_base}/video/original.mp4"
+                cfg = load_brand_config()
+                r2_prefix = cfg.get("r2_prefix", "")
+                r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
+                full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+                r2_key = f"{full_base}/video/original.mp4"
                 storage.upload_file(dl_path_actual, r2_key)
-                save_youtube_marker(r2_base, video_id)
+                save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
                 r2_ok = True
                 print(f"✅ R2 upload OK: {r2_key}")
             except Exception as e:
@@ -458,8 +469,11 @@ async def prepare_video(
     project_name = f"{safe_artist} - {safe_song}"
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    r2_base = check_conflict(artist, song, video_id)
-    r2_key = f"{r2_base}/video/original.mp4"
+    cfg = load_brand_config()
+    r2_prefix = cfg.get("r2_prefix", "")
+    r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
+    full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+    r2_key = f"{full_base}/video/original.mp4"
     if storage.exists(r2_key):
         return {
             "status": "ok",
@@ -500,7 +514,7 @@ async def prepare_video(
                 print(f"⚠️ Failed to save download record: {e}")
 
             storage.upload_file(dl_path_actual, r2_key)
-            save_youtube_marker(r2_base, video_id)
+            save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
             file_size = os.path.getsize(dl_path_actual)
             print(f"✅ R2 upload OK: {r2_key} ({file_size / 1024 / 1024:.1f}MB)")
 
@@ -533,8 +547,11 @@ async def upload_video_manual(
     if not file.filename or not file.filename.lower().endswith((".mp4", ".mkv", ".webm", ".mov")):
         raise HTTPException(400, "Formato inválido. Envie MP4, MKV, WEBM ou MOV.")
 
-    r2_base = check_conflict(artist, song, video_id)
-    r2_key = f"{r2_base}/video/original.mp4"
+    cfg = load_brand_config()
+    r2_prefix = cfg.get("r2_prefix", "")
+    r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
+    full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+    r2_key = f"{full_base}/video/original.mp4"
 
     tmp_dir = PROJECTS_DIR / sanitize_filename(f"{artist} - {song}") / "video"
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -549,7 +566,7 @@ async def upload_video_manual(
         print(f"📤 Upload manual recebido: {file.filename} ({file_size / 1024 / 1024:.1f}MB)")
 
         storage.upload_file(tmp_path, r2_key)
-        save_youtube_marker(r2_base, video_id)
+        save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
         print(f"✅ R2 upload OK (manual): {r2_key}")
 
         youtube_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -583,8 +600,11 @@ async def r2_check(
     video_id: str = Query(""),
 ):
     """Verifica se o vídeo já está no R2."""
-    r2_base = check_conflict(artist, song, video_id)
-    r2_key = f"{r2_base}/video/original.mp4"
+    cfg = load_brand_config()
+    r2_prefix = cfg.get("r2_prefix", "")
+    r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
+    full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
+    r2_key = f"{full_base}/video/original.mp4"
     exists = storage.exists(r2_key)
     return {"exists": exists, "r2_key": r2_key, "r2_base": r2_base}
 

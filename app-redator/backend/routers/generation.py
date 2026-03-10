@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Project
 from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse  # noqa: F401
+from backend.config import load_brand_config
 from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata, detect_metadata_from_text
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
@@ -58,10 +59,13 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
     project.status = "generating"
     db.commit()
 
+    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_config = load_brand_config(brand_slug)
+
     try:
-        project.overlay_json = generate_overlay(project)
-        project.post_text = generate_post(project)
-        title, tags = generate_youtube(project)
+        project.overlay_json = generate_overlay(project, brand_config=brand_config)
+        project.post_text = generate_post(project, brand_config=brand_config)
+        title, tags = generate_youtube(project, brand_config=brand_config)
         project.youtube_title = title
         project.youtube_tags = tags
         project.status = "awaiting_approval"
@@ -86,7 +90,9 @@ def regenerate_overlay(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    project.overlay_json = generate_overlay(project, body.custom_prompt)
+    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_config = load_brand_config(brand_slug)
+    project.overlay_json = generate_overlay(project, body.custom_prompt, brand_config=brand_config)
     project.overlay_approved = False
     if project.status == "export_ready":
         project.status = "awaiting_approval"
@@ -103,7 +109,9 @@ def regenerate_post(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    project.post_text = generate_post(project, body.custom_prompt)
+    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_config = load_brand_config(brand_slug)
+    project.post_text = generate_post(project, body.custom_prompt, brand_config=brand_config)
     project.post_approved = False
     if project.status == "export_ready":
         project.status = "awaiting_approval"
@@ -120,7 +128,9 @@ def regenerate_youtube(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    title, tags = generate_youtube(project, body.custom_prompt)
+    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_config = load_brand_config(brand_slug)
+    title, tags = generate_youtube(project, body.custom_prompt, brand_config=brand_config)
     project.youtube_title = title
     project.youtube_tags = tags
     project.youtube_approved = False

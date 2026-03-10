@@ -20,6 +20,10 @@ def _run_migrations():
     with engine.begin() as conn:
         if "hook_category" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN hook_category VARCHAR(50) DEFAULT ''"))
+        if "perfil_id" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN perfil_id INTEGER"))
+        if "brand_slug" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN brand_slug VARCHAR(50) DEFAULT 'best-of-opera'"))
 
 
 _run_migrations()

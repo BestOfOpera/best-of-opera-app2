@@ -1,4 +1,6 @@
 import os
+import json
+import time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,6 +10,51 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
 EXPORT_PATH = os.getenv("EXPORT_PATH", "")
+
+EDITOR_API_URL = os.getenv("EDITOR_API_URL", "http://localhost:8000")
+BRAND_SLUG = os.getenv("BRAND_SLUG", "best-of-opera")
+
+_brand_config_cache: dict = {}
+_CACHE_TTL = 300
+
+
+def load_brand_config(slug: str = None) -> dict:
+    """Carrega config da marca do editor via API interna. Cache 5min. Fallback hardcoded."""
+    target_slug = slug or BRAND_SLUG
+    now = time.monotonic()
+
+    cached = _brand_config_cache.get(target_slug)
+    if cached and (now - cached["ts"]) < _CACHE_TTL:
+        return cached["data"]
+
+    try:
+        import urllib.request
+        url = f"{EDITOR_API_URL}/api/internal/perfil/{target_slug}/redator-config"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            data = json.loads(resp.read().decode())
+        _brand_config_cache[target_slug] = {"data": data, "ts": now}
+        return data
+    except Exception as exc:
+        print(f"⚠️ load_brand_config: editor offline ({exc}), usando defaults")
+
+    data = {
+        "brand_name": "Best of Opera",
+        "brand_slug": "best-of-opera",
+        "identity_prompt": "",
+        "identity_prompt_redator": "",
+        "tom_de_voz": "",
+        "tom_de_voz_redator": "",
+        "editorial_lang": "pt",
+        "hashtags_fixas": ["#BestOfOpera", "#Opera", "#ClassicalMusic"],
+        "categorias_hook": [],
+        "hook_categories_redator": {},
+        "overlay_max_chars": 70,
+        "overlay_max_chars_linha": 35,
+        "r2_prefix": "",
+    }
+    _brand_config_cache[target_slug] = {"data": data, "ts": now}
+    return data
+
 
 HOOK_CATEGORIES = {
     "curiosidade_musica": {

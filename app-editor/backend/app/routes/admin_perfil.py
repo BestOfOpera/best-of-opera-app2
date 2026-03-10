@@ -3,15 +3,16 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, text
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.middleware.auth import require_admin
 from app.models.perfil import Perfil
 from app.models.edicao import Edicao
+from app.services.perfil_service import build_curadoria_config, build_redator_config
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,11 @@ class PerfilDetalheOut(BaseModel):
     cor_primaria: str
     cor_secundaria: str
     r2_prefix: str
+    hook_categories_redator: Optional[Dict[str, Any]] = None
+    identity_prompt_redator: Optional[str] = None
+    tom_de_voz_redator: Optional[str] = None
+    logo_url: Optional[str] = None
+    font_name: Optional[str] = None
     created_at: Optional[Any] = None
     updated_at: Optional[Any] = None
     stats: Optional[PerfilStats] = None
@@ -327,6 +333,23 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         cor_primaria=original.cor_primaria,
         cor_secundaria=original.cor_secundaria,
         r2_prefix=novo_r2,
+        # Curadoria — copiar configurações da marca base
+        curadoria_categories=original.curadoria_categories,
+        elite_hits=original.elite_hits,
+        power_names=original.power_names,
+        voice_keywords=original.voice_keywords,
+        institutional_channels=original.institutional_channels,
+        category_specialty=original.category_specialty,
+        scoring_weights=original.scoring_weights,
+        curadoria_filters=original.curadoria_filters,
+        anti_spam_terms=original.anti_spam_terms,
+        playlist_id="",  # nova marca começa sem playlist própria
+        # Redator
+        hook_categories_redator=original.hook_categories_redator,
+        identity_prompt_redator=original.identity_prompt_redator,
+        tom_de_voz_redator=original.tom_de_voz_redator,
+        logo_url=original.logo_url,
+        font_name=original.font_name,
     )
     db.add(copia)
     db.commit()
@@ -357,3 +380,45 @@ def preview_legenda(perfil_id: int, db: Session = Depends(get_db)):
         video_width=perfil.video_width,
         video_height=perfil.video_height,
     )
+
+
+@router.get("/{perfil_id}/curadoria-config")
+def curadoria_config_admin(perfil_id: int, db: Session = Depends(get_db)):
+    """Retorna somente os campos de curadoria do perfil (uso admin)."""
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+
+    return build_curadoria_config(perfil)
+
+
+# -- Router interno (sem auth) ------------------------------------------------
+
+router_internal = APIRouter(
+    prefix="/api/internal",
+    tags=["internal"],
+)
+
+
+@router_internal.get("/perfil/{slug}/curadoria-config")
+def curadoria_config_interno(slug: str, db: Session = Depends(get_db)):
+    """Endpoint interno: curadoria busca config da marca aqui. Sem autenticação.
+
+    Retorna os campos de curadoria no formato que app-curadoria/backend/config.py espera.
+    """
+    perfil = db.query(Perfil).filter(Perfil.slug == slug).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail=f"Perfil nao encontrado: {slug}")
+
+    logger.info(f"[internal] curadoria-config solicitada: slug={slug}")
+    return build_curadoria_config(perfil)
+
+
+@router_internal.get("/perfil/{slug}/redator-config")
+def redator_config_interno(slug: str, db: Session = Depends(get_db)):
+    """Endpoint interno: redator busca config da marca aqui. Sem autenticação."""
+    perfil = db.query(Perfil).filter(Perfil.slug == slug).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail=f"Perfil não encontrado: {slug}")
+
+    return build_redator_config(perfil)

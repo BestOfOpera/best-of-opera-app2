@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, text
@@ -24,12 +25,16 @@ PASSO_LABELS = {
 
 
 @router.get("/dashboard/stats")
-def dashboard_stats(db: Session = Depends(get_db)) -> dict:
+def dashboard_stats(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Retorna resumo geral do sistema."""
-    total_edicoes = db.query(func.count(Edicao.id)).scalar() or 0
+    base_q = db.query(Edicao)
+    if perfil_id is not None:
+        base_q = base_q.filter(Edicao.perfil_id == perfil_id)
+
+    total_edicoes = base_q.with_entities(func.count(Edicao.id)).scalar() or 0
 
     status_rows = (
-        db.query(Edicao.status, func.count(Edicao.id))
+        base_q.with_entities(Edicao.status, func.count(Edicao.id))
         .group_by(Edicao.status)
         .all()
     )
@@ -56,7 +61,7 @@ def dashboard_stats(db: Session = Depends(get_db)) -> dict:
     )
 
     media_confianca = (
-        db.query(func.avg(Edicao.confianca_alinhamento))
+        base_q.with_entities(func.avg(Edicao.confianca_alinhamento))
         .filter(Edicao.confianca_alinhamento.isnot(None))
         .scalar()
     )
@@ -68,13 +73,13 @@ def dashboard_stats(db: Session = Depends(get_db)) -> dict:
     d7 = agora - timedelta(days=7)
 
     edicoes_24h = (
-        db.query(func.count(Edicao.id))
+        base_q.with_entities(func.count(Edicao.id))
         .filter(Edicao.created_at >= h24)
         .scalar()
         or 0
     )
     edicoes_7d = (
-        db.query(func.count(Edicao.id))
+        base_q.with_entities(func.count(Edicao.id))
         .filter(Edicao.created_at >= d7)
         .scalar()
         or 0
@@ -95,13 +100,18 @@ def dashboard_stats(db: Session = Depends(get_db)) -> dict:
 @router.get("/dashboard/edicoes-recentes")
 def dashboard_edicoes_recentes(
     limit: int = 10,
+    perfil_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ) -> list:
     """Retorna últimas N edições com resumo de renders."""
     limit = min(max(1, limit), 50)
 
+    base_q = db.query(Edicao)
+    if perfil_id is not None:
+        base_q = base_q.filter(Edicao.perfil_id == perfil_id)
+
     edicoes = (
-        db.query(Edicao)
+        base_q
         .order_by(Edicao.created_at.desc())
         .limit(limit)
         .all()
@@ -158,16 +168,20 @@ def dashboard_fila() -> dict:
 
 
 @router.get("/dashboard/pipeline")
-def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
+def dashboard_pipeline(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Retorna breakdown por etapa do pipeline."""
+    base_q = db.query(Edicao)
+    if perfil_id is not None:
+        base_q = base_q.filter(Edicao.perfil_id == perfil_id)
+
     por_passo_total = (
-        db.query(Edicao.passo_atual, func.count(Edicao.id).label("total"))
+        base_q.with_entities(Edicao.passo_atual, func.count(Edicao.id).label("total"))
         .group_by(Edicao.passo_atual)
         .all()
     )
 
     por_passo_erro = (
-        db.query(Edicao.passo_atual, func.count(Edicao.id).label("total"))
+        base_q.with_entities(Edicao.passo_atual, func.count(Edicao.id).label("total"))
         .filter(Edicao.status == "erro")
         .group_by(Edicao.passo_atual)
         .all()
@@ -187,7 +201,7 @@ def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
     limite_stale = datetime.now(timezone.utc) - timedelta(minutes=5)
 
     em_processamento_rows = (
-        db.query(Edicao.id, Edicao.artista, Edicao.musica, Edicao.passo_atual)
+        base_q.with_entities(Edicao.id, Edicao.artista, Edicao.musica, Edicao.passo_atual)
         .filter(Edicao.status == "processando")
         .all()
     )
@@ -197,7 +211,7 @@ def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
     ]
 
     stale_rows = (
-        db.query(Edicao.id, Edicao.artista, Edicao.musica, Edicao.passo_atual, Edicao.task_heartbeat)
+        base_q.with_entities(Edicao.id, Edicao.artista, Edicao.musica, Edicao.passo_atual, Edicao.task_heartbeat)
         .filter(
             Edicao.task_heartbeat.isnot(None),
             Edicao.task_heartbeat < limite_stale,
@@ -223,12 +237,16 @@ def dashboard_pipeline(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/dashboard/visao-geral")
-def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
+def dashboard_visao_geral(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Visão geral consolidada — formato esperado pelo frontend DashboardVisaoGeral."""
-    total = db.query(func.count(Edicao.id)).scalar() or 0
+    base_q = db.query(Edicao)
+    if perfil_id is not None:
+        base_q = base_q.filter(Edicao.perfil_id == perfil_id)
+
+    total = base_q.with_entities(func.count(Edicao.id)).scalar() or 0
 
     status_rows = (
-        db.query(Edicao.status, func.count(Edicao.id))
+        base_q.with_entities(Edicao.status, func.count(Edicao.id))
         .group_by(Edicao.status)
         .all()
     )
@@ -247,7 +265,7 @@ def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
         worker_status = "desconhecido"
 
     # Projetos (todas as edições, mais recentes primeiro)
-    edicoes = db.query(Edicao).order_by(Edicao.updated_at.desc()).all()
+    edicoes = base_q.order_by(Edicao.updated_at.desc()).all()
     projetos = []
     for e in edicoes:
         projetos.append({
@@ -297,9 +315,13 @@ def dashboard_visao_geral(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/dashboard/producao")
-def dashboard_producao(db: Session = Depends(get_db)) -> dict:
+def dashboard_producao(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Métricas de produção — formato esperado pelo frontend DashboardProducao."""
     agora = datetime.now(timezone.utc)
+
+    base_q = db.query(Edicao)
+    if perfil_id is not None:
+        base_q = base_q.filter(Edicao.perfil_id == perfil_id)
 
     # Gráfico: últimos 30 dias — renders concluídos vs erros por dia
     grafico = []
@@ -328,7 +350,7 @@ def dashboard_producao(db: Session = Depends(get_db)) -> dict:
 
     # Tempo médio (baseado em edições concluídas)
     edicoes_concluidas = (
-        db.query(Edicao)
+        base_q
         .filter(Edicao.status == "concluido", Edicao.created_at.isnot(None), Edicao.updated_at.isnot(None))
         .all()
     )
@@ -341,7 +363,7 @@ def dashboard_producao(db: Session = Depends(get_db)) -> dict:
 
     # Gargalo: etapa com mais erros
     erro_por_passo = (
-        db.query(Edicao.passo_atual, func.count(Edicao.id))
+        base_q.with_entities(Edicao.passo_atual, func.count(Edicao.id))
         .filter(Edicao.status == "erro")
         .group_by(Edicao.passo_atual)
         .order_by(func.count(Edicao.id).desc())
@@ -364,7 +386,7 @@ def dashboard_producao(db: Session = Depends(get_db)) -> dict:
 
 
 @router.get("/dashboard/saude")
-def dashboard_saude(db: Session = Depends(get_db)) -> dict:
+def dashboard_saude(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Saúde do sistema — formato esperado pelo frontend DashboardSaude."""
     # Banco de dados
     banco_ok = True
@@ -419,12 +441,10 @@ def dashboard_saude(db: Session = Depends(get_db)) -> dict:
         proxima_task = f"{fila_quantidade} tarefa(s) na fila"
 
     # Último erro
-    ultimo_erro_edicao = (
-        db.query(Edicao)
-        .filter(Edicao.status == "erro", Edicao.erro_msg.isnot(None))
-        .order_by(Edicao.updated_at.desc())
-        .first()
-    )
+    ultimo_erro_q = db.query(Edicao).filter(Edicao.status == "erro", Edicao.erro_msg.isnot(None))
+    if perfil_id is not None:
+        ultimo_erro_q = ultimo_erro_q.filter(Edicao.perfil_id == perfil_id)
+    ultimo_erro_edicao = ultimo_erro_q.order_by(Edicao.updated_at.desc()).first()
     ultimo_erro = None
     if ultimo_erro_edicao:
         ts = ultimo_erro_edicao.updated_at

@@ -35,7 +35,7 @@ arquivo/          — planos concluídos e docs superados
 - Credenciais/tokens NUNCA neste arquivo — ficam em `dados-relevantes/`
 
 ## Armadilhas conhecidas (o que o Claude erra neste projeto)
-Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERROS-CORRECOES-APP-EDITOR.md`:
+Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERROS-CORRECOES.md`:
 
 1. **Imports fora do try em tasks do worker** → status preso pra sempre (ERR-004)
 2. **except Exception em vez de BaseException** → CancelledError escapa, status preso (ERR-006)
@@ -50,7 +50,7 @@ Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERR
 ## Auto-atualização (OBRIGATÓRIO)
 Ao FINAL de toda sessão que altere código ou tome decisões:
 1. Atualizar `MEMORIA-VIVA.md` com: data, o que foi feito, decisões tomadas
-2. Se encontrou/corrigiu bug: atualizar `HISTORICO-ERROS-CORRECOES-APP-EDITOR.md`
+2. Se encontrou/corrigiu bug: atualizar `HISTORICO-ERROS-CORRECOES.md`
 3. Se descobriu armadilha nova: adicionar à lista acima neste arquivo
 4. Se um plano foi concluído: mover de `dados-relevantes/` para `arquivo/`
 
@@ -61,7 +61,7 @@ Ao FINAL de toda sessão que altere código ou tome decisões:
 | Regras de código do editor | `app-editor/CLAUDE.md` |
 | Arquitetura detalhada | `CONTEXTO-CODIGO-FINAL.md` |
 | Histórico de decisões | `MEMORIAL-REVISAO-EDITOR.md` |
-| Bugs conhecidos (57+) | `HISTORICO-ERROS-CORRECOES-APP-EDITOR.md` |
+| Bugs conhecidos (57+) | `HISTORICO-ERROS-CORRECOES.md` |
 | Planos ativos | `dados-relevantes/` |
 | URLs e tokens | `dados-relevantes/` |
 | Decisões técnicas pontuais | `DECISIONS.md` |

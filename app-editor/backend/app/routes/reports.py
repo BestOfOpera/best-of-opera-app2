@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.edicao import Edicao
 from app.models.report import Report
 from app.schemas import ReportCreate, ReportUpdate, ReportOut
 from shared.storage_service import storage
@@ -23,11 +24,14 @@ def listar_reports(
     status: Optional[str] = Query(None),
     tipo: Optional[str] = Query(None),
     edicao_id: Optional[int] = Query(None),
+    perfil_id: Optional[int] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
     """Lista todos os reports com filtros opcionais, ordenados por created_at DESC."""
     q = db.query(Report)
+    if perfil_id is not None:
+        q = q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
     if status:
         q = q.filter(Report.status == status)
     if tipo:
@@ -48,28 +52,32 @@ def criar_report(data: ReportCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/reports/resumo")
-def resumo_reports(db: Session = Depends(get_db)) -> dict:
+def resumo_reports(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
     """Retorna contagens agregadas de reports por status, tipo e prioridade."""
+    base_q = db.query(Report)
+    if perfil_id is not None:
+        base_q = base_q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
+
     por_status = {
         row[0]: row[1]
-        for row in db.query(Report.status, func.count(Report.id))
+        for row in base_q.with_entities(Report.status, func.count(Report.id))
         .group_by(Report.status)
         .all()
     }
     por_tipo = {
         row[0]: row[1]
-        for row in db.query(Report.tipo, func.count(Report.id))
+        for row in base_q.with_entities(Report.tipo, func.count(Report.id))
         .group_by(Report.tipo)
         .all()
     }
     por_prioridade = {
         row[0]: row[1]
-        for row in db.query(Report.prioridade, func.count(Report.id))
+        for row in base_q.with_entities(Report.prioridade, func.count(Report.id))
         .group_by(Report.prioridade)
         .all()
     }
-    total_abertos = db.query(func.count(Report.id)).filter(Report.status == "aberto").scalar() or 0
-    total = db.query(func.count(Report.id)).scalar() or 0
+    total_abertos = base_q.with_entities(func.count(Report.id)).filter(Report.status == "aberto").scalar() or 0
+    total = base_q.with_entities(func.count(Report.id)).scalar() or 0
 
     return {
         "total": total,
