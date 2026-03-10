@@ -5,6 +5,9 @@
 
 ---
 
+## Railway Project Token
+`2f3511ce-9d01-47ca-968f-88ca6b531a37` — Token de projeto (scope: deploy + variáveis do projeto Railway).
+
 ## Variáveis de Ambiente
 
 | Variável | App | Obrigatória | Default | Descrição |
