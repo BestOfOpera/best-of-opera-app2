@@ -1,3 +1,4 @@
+from app.models.perfil import Perfil
 from app.models.edicao import Edicao
 from app.models.letra import Letra
 from app.models.overlay import Overlay
@@ -9,6 +10,6 @@ from app.models.render import Render
 from app.models.report import Report
 
 __all__ = [
-    "Edicao", "Letra", "Overlay", "Post", "Seo",
+    "Perfil", "Edicao", "Letra", "Overlay", "Post", "Seo",
     "Alinhamento", "TraducaoLetra", "Render", "Report",
 ]

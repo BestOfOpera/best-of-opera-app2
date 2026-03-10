@@ -29,8 +29,102 @@ from app.routes import edicoes, letras, pipeline, health, importar, dashboard, r
 
 def _run_migrations():
     """Adiciona colunas novas que create_all não cria em tabelas existentes."""
+    import json as _json
     from sqlalchemy import text, inspect
     insp = inspect(engine)
+
+    # Migration: tabela editor_perfis + seed do Best of Opera
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS editor_perfis (
+                id SERIAL PRIMARY KEY,
+                nome VARCHAR(100) UNIQUE NOT NULL,
+                sigla VARCHAR(5) NOT NULL,
+                slug VARCHAR(50) UNIQUE NOT NULL,
+                ativo BOOLEAN DEFAULT TRUE,
+                identity_prompt TEXT,
+                tom_de_voz TEXT,
+                editorial_lang VARCHAR(5) DEFAULT 'pt',
+                hashtags_fixas JSON,
+                categorias_hook JSON,
+                idiomas_alvo JSON,
+                idioma_preview VARCHAR(5) DEFAULT 'pt',
+                overlay_style JSON,
+                lyrics_style JSON,
+                traducao_style JSON,
+                overlay_max_chars INTEGER DEFAULT 70,
+                overlay_max_chars_linha INTEGER DEFAULT 35,
+                lyrics_max_chars INTEGER DEFAULT 43,
+                traducao_max_chars INTEGER DEFAULT 100,
+                video_width INTEGER DEFAULT 1080,
+                video_height INTEGER DEFAULT 1920,
+                escopo_conteudo TEXT,
+                duracao_corte_min INTEGER DEFAULT 30,
+                duracao_corte_max INTEGER DEFAULT 90,
+                cor_primaria VARCHAR(10) DEFAULT '#1a1a2e',
+                cor_secundaria VARCHAR(10) DEFAULT '#e94560',
+                r2_prefix VARCHAR(100) DEFAULT 'editor',
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        logger.info("Migration: tabela editor_perfis garantida")
+
+        # Seed idempotente do perfil Best of Opera
+        overlay_style = _json.dumps({
+            "fontname": "TeX Gyre Pagella", "fontsize": 63,
+            "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
+            "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
+            "bold": True, "italic": False,
+        })
+        lyrics_style = _json.dumps({
+            "fontname": "TeX Gyre Pagella", "fontsize": 45,
+            "primarycolor": "#FFFF64", "outlinecolor": "#000000",
+            "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
+            "bold": True, "italic": True,
+        })
+        traducao_style = _json.dumps({
+            "fontname": "TeX Gyre Pagella", "fontsize": 43,
+            "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
+            "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
+            "bold": True, "italic": True,
+        })
+        idiomas_alvo = _json.dumps(["en", "pt", "es", "de", "fr", "it", "pl"])
+        hashtags = _json.dumps(["#BestOfOpera", "#Opera", "#ClassicalMusic"])
+        categorias = _json.dumps(["Emotional", "Historical", "Vocal"])
+
+        conn.execute(text("""
+            INSERT INTO editor_perfis (
+                nome, sigla, slug, ativo, editorial_lang,
+                idiomas_alvo, idioma_preview,
+                overlay_style, lyrics_style, traducao_style,
+                overlay_max_chars, overlay_max_chars_linha,
+                lyrics_max_chars, traducao_max_chars,
+                video_width, video_height,
+                r2_prefix, cor_primaria, cor_secundaria,
+                duracao_corte_min, duracao_corte_max,
+                hashtags_fixas, categorias_hook
+            )
+            SELECT
+                'Best of Opera', 'BO', 'best-of-opera', TRUE, 'pt',
+                :idiomas_alvo, 'pt',
+                :overlay_style, :lyrics_style, :traducao_style,
+                70, 35, 43, 100, 1080, 1920,
+                'editor', '#1a1a2e', '#e94560', 30, 90,
+                :hashtags, :categorias
+            WHERE NOT EXISTS (
+                SELECT 1 FROM editor_perfis WHERE sigla = 'BO'
+            )
+        """), {
+            "idiomas_alvo": idiomas_alvo,
+            "overlay_style": overlay_style,
+            "lyrics_style": lyrics_style,
+            "traducao_style": traducao_style,
+            "hashtags": hashtags,
+            "categorias": categorias,
+        })
+        logger.info("Migration: seed editor_perfis Best of Opera OK (idempotente)")
+
     if "editor_edicoes" not in insp.get_table_names():
         return
     cols = [c["name"] for c in insp.get_columns("editor_edicoes")]
@@ -45,10 +139,22 @@ def _run_migrations():
             ("progresso_detalhe", "JSON"),
             ("tentativas_requeue", "INTEGER DEFAULT 0"),
             ("sem_lyrics", "BOOLEAN DEFAULT FALSE"),
+            ("perfil_id", "INTEGER REFERENCES editor_perfis(id)"),
         ]:
             if col_name not in cols:
                 conn.execute(text(f"ALTER TABLE editor_edicoes ADD COLUMN {col_name} {col_type}"))
                 logger.info(f"Migration: added column {col_name}")
+
+        # Vincular edições existentes ao perfil Best of Opera
+        try:
+            conn.execute(text("""
+                UPDATE editor_edicoes
+                SET perfil_id = (SELECT id FROM editor_perfis WHERE sigla = 'BO')
+                WHERE perfil_id IS NULL
+            """))
+            logger.info("Migration: editor_edicoes.perfil_id preenchido para edicoes sem perfil")
+        except Exception as e:
+            logger.warning(f"Migration perfil_id update: {e}")
 
         # Migration: UNIQUE index em traducao_letra (edicao_id, idioma)
         try:

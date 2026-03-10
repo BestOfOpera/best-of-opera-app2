@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import REDATOR_API_URL
 from app.database import get_db
 from app.models import Edicao, Overlay, Post, Seo
+from app.models.perfil import Perfil
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ def _extract_video_id(url: str) -> str:
     return match.group(1) if match else ""
 
 
-def _detect_music_lang(proj: dict) -> str:
+def _detect_music_lang(proj: dict, idiomas_alvo: set = None) -> str:
     """Detecta o idioma da MÚSICA (não do conteúdo editorial).
 
     Prioridade:
@@ -32,8 +33,7 @@ def _detect_music_lang(proj: dict) -> str:
     3. Se a inferência for ambígua (0 ou 2+ faltando), retorna None — forçando
        o operador a informar o idioma manualmente.
 
-    O fallback "it" foi removido para evitar mascarar erros como o de músicas
-    em inglês (onde EN aparece nas traduções do Redator, zerando o conjunto).
+    idiomas_alvo: set de idiomas do perfil (fallback: {"en","pt","es","de","fr","it","pl"})
     """
     # 1. Campo explícito tem prioridade absoluta
     for field in ("language", "music_language", "original_language"):
@@ -42,7 +42,7 @@ def _detect_music_lang(proj: dict) -> str:
             return val.lower()
 
     # 2. Inferência por exclusão
-    all_target = {"en", "pt", "es", "de", "fr", "it", "pl"}
+    all_target = idiomas_alvo or {"en", "pt", "es", "de", "fr", "it", "pl"}
     translation_langs = {t["language"] for t in proj.get("translations", [])}
     # O idioma original da música não é traduzido para si mesmo;
     # PT é o idioma editorial, não conta.
@@ -101,13 +101,13 @@ async def importar_do_redator(
     project_id: int,
     idioma: str = None,
     eh_instrumental: bool = False,
+    perfil_id: int = None,
     db: Session = Depends(get_db),
 ):
     """Importa um projeto do Redator e cria uma edição no Editor.
 
     ?idioma=XX — sobrescreve a detecção automática do idioma da música.
-    Necessário quando o Redator tem tradução para o idioma original da música
-    (ex: música em inglês → passar ?idioma=en).
+    ?perfil_id=X — associa a edição a uma marca específica (padrão: Best of Opera).
     """
     # Verificar se o projeto já foi importado (anti-duplicata)
     existente = db.query(Edicao).filter(
@@ -137,7 +137,19 @@ async def importar_do_redator(
     if not video_id:
         raise HTTPException(400, "Projeto do Redator não tem URL do YouTube válida")
 
-    music_lang = idioma or _detect_music_lang(proj)
+    # Carregar perfil: usa perfil_id informado, ou fallback para "BO"
+    perfil = None
+    if perfil_id:
+        perfil = db.get(Perfil, perfil_id)
+        if not perfil:
+            raise HTTPException(404, f"Perfil #{perfil_id} não encontrado")
+    else:
+        perfil = db.query(Perfil).filter(Perfil.sigla == "BO").first()
+
+    # Idiomas do perfil para detecção
+    _idiomas_set = set(perfil.idiomas_alvo) if perfil and perfil.idiomas_alvo else None
+
+    music_lang = idioma or _detect_music_lang(proj, _idiomas_set)
     if music_lang is None:
         raise HTTPException(
             422,
@@ -147,8 +159,8 @@ async def importar_do_redator(
             },
         )
 
-    # O conteúdo original do Redator (overlay, post, seo) é editorial em PT
-    editorial_lang = "pt"
+    # Idioma editorial: usa perfil.editorial_lang ou fallback "pt"
+    editorial_lang = (perfil.editorial_lang if perfil and perfil.editorial_lang else "pt")
 
     # Montar overlays: {idioma: segmentos}
     overlays = {}
@@ -195,6 +207,7 @@ async def importar_do_redator(
         corte_original_inicio=proj.get("cut_start"),
         corte_original_fim=proj.get("cut_end"),
         redator_project_id=project_id,
+        perfil_id=perfil.id if perfil else None,
     )
     db.add(edicao)
     db.flush()

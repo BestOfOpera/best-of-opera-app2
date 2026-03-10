@@ -14,6 +14,7 @@ from app.database import get_db
 
 logger = logging.getLogger(__name__)
 from app.models import Edicao, Overlay, Alinhamento, TraducaoLetra, Render
+from app.models.perfil import Perfil
 from app.schemas import AlinhamentoOut, AlinhamentoValidar, LetraAprovar
 from app.services.ffmpeg_service import extrair_audio_completo, cortar_na_janela_overlay
 from app.services.gemini import buscar_letra as gemini_buscar_letra
@@ -1196,11 +1197,16 @@ async def _traducao_task(edicao_id: int):
                 ).all()
             }
             idioma_origem = edicao.idioma
+
+            # Carregar idiomas do perfil (fallback: IDIOMAS_ALVO)
+            _perfil_trad = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+            _idiomas_trad = (_perfil_trad.idiomas_alvo or IDIOMAS_ALVO) if _perfil_trad else IDIOMAS_ALVO
+
             faltantes = [
-                idioma for idioma in IDIOMAS_ALVO
+                idioma for idioma in _idiomas_trad
                 if idioma != idioma_origem and idioma not in ja_traduzidos
             ]
-            total = len([i for i in IDIOMAS_ALVO if i != idioma_origem])
+            total = len([i for i in _idiomas_trad if i != idioma_origem])
             concluidos = total - len(faltantes)
 
             # Copiar dados necessários para fora da sessão
@@ -1455,7 +1461,9 @@ async def renderizar(edicao_id: int, sem_legendas: bool = False):
 async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_preview: bool = False, sem_legendas: bool = False):
     try:
         from app.database import SessionLocal
-        from app.services.legendas import gerar_ass
+        from app.services.legendas import (
+            gerar_ass, OVERLAY_MAX_CHARS_LINHA, LYRICS_MAX_CHARS, TRADUCAO_MAX_CHARS
+        )
         from pathlib import Path as _Path
 
         # PASSO A — Ler estado (sessão curta)
@@ -1471,7 +1479,10 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 db.commit()
                 return
 
-            idiomas = idiomas_renderizar if idiomas_renderizar else IDIOMAS_ALVO
+            # Carregar perfil da edição (fallback: IDIOMAS_ALVO se sem perfil)
+            perfil = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+            idiomas_do_perfil = (perfil.idiomas_alvo or IDIOMAS_ALVO) if perfil else IDIOMAS_ALVO
+            idiomas = idiomas_renderizar if idiomas_renderizar else idiomas_do_perfil
 
             # Idempotência: calcular idiomas faltantes
             ja_concluidos = {
@@ -1505,6 +1516,28 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             musica_val = edicao.musica
             sem_lyrics_val = bool(edicao.sem_lyrics)
             r2_base_val = _get_r2_base(edicao)
+
+            # Extrair campos do perfil antes de fechar a sessão
+            if perfil:
+                from types import SimpleNamespace as _SN
+                perfil_data = _SN(
+                    overlay_style=perfil.overlay_style,
+                    lyrics_style=perfil.lyrics_style,
+                    traducao_style=perfil.traducao_style,
+                    overlay_max_chars_linha=perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA,
+                    lyrics_max_chars=perfil.lyrics_max_chars or LYRICS_MAX_CHARS,
+                    traducao_max_chars=perfil.traducao_max_chars or TRADUCAO_MAX_CHARS,
+                    video_width=perfil.video_width or 1080,
+                    video_height=perfil.video_height or 1920,
+                )
+                r2_prefix_val = perfil.r2_prefix or "editor"
+                video_width_val = perfil.video_width or 1080
+                video_height_val = perfil.video_height or 1920
+            else:
+                perfil_data = None
+                r2_prefix_val = "editor"
+                video_width_val = 1080
+                video_height_val = 1920
             # Persistir r2_base se não estava setado
             if not edicao.r2_base and r2_base_val:
                 edicao.r2_base = r2_base_val
@@ -1652,12 +1685,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 output_dir.mkdir(parents=True, exist_ok=True)
                 output_video = str(output_dir / nome_render)
 
+                vw = video_width_val
+                vh = video_height_val
+
                 if sem_legendas:
                     # Sem legendas: só escalar/pad, sem ASS
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
-                        f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black" '
+                        f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
+                        f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black" '
                         f'-c:v libx264 -preset medium -crf 23 '
                         f'-c:a aac -b:a 128k "{output_video}"'
                     )
@@ -1670,6 +1706,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         idioma_versao=idioma,
                         idioma_musica=idioma_musica,
                         sem_lyrics=sem_lyrics_val,
+                        perfil=perfil_data,
                     )
 
                     ass_path = str(output_dir / f"legendas_{idioma}.ass")
@@ -1679,8 +1716,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
-                        f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
+                        f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
+                        f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black,'
                         f"ass='{ass_escaped}'\" "
                         f'-c:v libx264 -preset medium -crf 23 '
                         f'-c:a aac -b:a 128k "{output_video}"'
@@ -1705,7 +1742,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 # 4. Upload render para R2
                 arquivo_render = output_video  # fallback: path local (sem R2)
                 if r2_base_val:
-                    r2_key = f"editor/{r2_base_val}/{idioma}/{nome_render}"
+                    r2_key = f"{r2_prefix_val}/{r2_base_val}/{idioma}/{nome_render}"
                     try:
                         storage.upload_file(output_video, r2_key)
                         arquivo_render = r2_key
@@ -1861,11 +1898,12 @@ async def renderizar_preview(edicao_id: int, sem_legendas: bool = False):
         if not edicao:
             raise HTTPException(404, "Edição não encontrada")
 
-        # Preview sempre em PT para mostrar overlay + lyrics originais + tradução PT.
-        # Se a música já for em PT, renderizar em PT é o correto (sem tradução, pois
-        # idioma_versao == idioma_musica). Para todos os outros idiomas, PT garante
-        # que precisa_traducao=True e a tradução aparece na linha inferior.
-        idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
+        # Idioma do preview: usa perfil.idioma_preview se disponível, senão "pt"
+        _perfil_prev = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+        if _perfil_prev and _perfil_prev.idioma_preview:
+            idioma_preview = _perfil_prev.idioma_preview if edicao.idioma != _perfil_prev.idioma_preview else edicao.idioma
+        else:
+            idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
 
         result = db.execute(
             update(Edicao)
@@ -1893,9 +1931,14 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams, sem_legend
             raise HTTPException(404, "Edição não encontrada")
 
         if body.aprovado:
-            # Determinar idioma do preview (mesma lógica de renderizar-preview)
-            idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
-            idiomas_renderizar = [i for i in IDIOMAS_ALVO if i != idioma_preview]
+            # Determinar idioma do preview e idiomas restantes (mesma lógica de renderizar-preview)
+            _perfil_apr = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+            _idiomas_apr = (_perfil_apr.idiomas_alvo or IDIOMAS_ALVO) if _perfil_apr else IDIOMAS_ALVO
+            if _perfil_apr and _perfil_apr.idioma_preview:
+                idioma_preview = _perfil_apr.idioma_preview if edicao.idioma != _perfil_apr.idioma_preview else edicao.idioma
+            else:
+                idioma_preview = "pt" if edicao.idioma != "pt" else edicao.idioma
+            idiomas_renderizar = [i for i in _idiomas_apr if i != idioma_preview]
 
             # Check-and-set atômico: só aceitar se preview_pronto
             result = db.execute(
@@ -1924,6 +1967,187 @@ async def aprovar_preview(edicao_id: int, body: AprovarPreviewParams, sem_legend
 
         task_queue.put_nowait((_render_remaining, edicao_id))
         return {"status": "renderização dos demais idiomas iniciada", "idiomas": idiomas_renderizar}
+
+
+# --- Re-render individual por idioma ---
+_STATUS_PERMITIDOS_RERENDER = {"concluido", "preview_pronto", "erro"}
+
+
+@router.post("/edicoes/{edicao_id}/re-renderizar/{idioma}")
+async def re_renderizar_idioma(edicao_id: int, idioma: str):
+    """Re-renderiza um único idioma sem refazer todos os demais.
+
+    Deleta o render anterior e enfileira render só desse idioma.
+    Status da edição deve ser 'concluido', 'preview_pronto' ou 'erro'.
+    """
+    from app.database import SessionLocal
+    from app.worker import task_queue
+
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        # Validar idioma contra perfil ou IDIOMAS_ALVO
+        perfil_re = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+        idiomas_validos = (perfil_re.idiomas_alvo or IDIOMAS_ALVO) if perfil_re else IDIOMAS_ALVO
+        if idioma not in idiomas_validos:
+            raise HTTPException(400, f"Idioma '{idioma}' não está nos idiomas válidos: {idiomas_validos}")
+
+        # Check-and-set atômico
+        result = db.execute(
+            update(Edicao)
+            .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_RERENDER))
+            .values(
+                status="renderizando",
+                task_heartbeat=None,
+                progresso_detalhe={"re_render": {"idioma": idioma, "status": "em_andamento"}},
+            )
+        )
+        db.commit()
+
+        if result.rowcount == 0:
+            db.refresh(edicao)
+            raise HTTPException(409, f"Status atual '{edicao.status}' não permite re-renderizar")
+
+        status_anterior = edicao.status
+
+        # Deletar render anterior
+        render_existente = db.query(Render).filter(
+            Render.edicao_id == edicao_id, Render.idioma == idioma
+        ).first()
+        if render_existente:
+            db.delete(render_existente)
+            db.commit()
+
+    async def _re_render_wrapper(_eid: int):
+        await _render_task(_eid, idiomas_renderizar=[idioma])
+        # Restaurar status anterior se render concluir com sucesso
+        from app.database import SessionLocal as _SL
+        with _SL() as _db:
+            _edicao = _db.get(Edicao, _eid)
+            if _edicao and _edicao.status == "concluido" and status_anterior == "preview_pronto":
+                _edicao.status = "preview_pronto"
+                _db.commit()
+
+    task_queue.put_nowait((_re_render_wrapper, edicao_id))
+    return {"status": "re-render enfileirado", "idioma": idioma}
+
+
+# --- Re-tradução individual por idioma ---
+_STATUS_PERMITIDOS_RETRAD = {"montagem", "preview_pronto", "concluido", "erro"}
+
+
+@router.post("/edicoes/{edicao_id}/re-traduzir/{idioma}")
+async def re_traduzir_idioma(edicao_id: int, idioma: str):
+    """Re-traduz um único idioma sem refazer os demais.
+
+    Deleta a tradução anterior e enfileira tradução só desse idioma.
+    """
+    from app.database import SessionLocal
+    from app.worker import task_queue
+
+    with SessionLocal() as db:
+        edicao = db.get(Edicao, edicao_id)
+        if not edicao:
+            raise HTTPException(404, "Edição não encontrada")
+
+        # Validar idioma
+        perfil_ret = db.get(Perfil, edicao.perfil_id) if edicao.perfil_id else None
+        idiomas_validos = (perfil_ret.idiomas_alvo or IDIOMAS_ALVO) if perfil_ret else IDIOMAS_ALVO
+        if idioma not in idiomas_validos:
+            raise HTTPException(400, f"Idioma '{idioma}' não está nos idiomas válidos: {idiomas_validos}")
+
+        # Check-and-set atômico
+        result = db.execute(
+            update(Edicao)
+            .where(Edicao.id == edicao_id, Edicao.status.in_(_STATUS_PERMITIDOS_RETRAD))
+            .values(
+                status="traducao",
+                task_heartbeat=None,
+                progresso_detalhe={"re_traducao": {"idioma": idioma, "status": "em_andamento"}},
+            )
+        )
+        db.commit()
+
+        if result.rowcount == 0:
+            db.refresh(edicao)
+            raise HTTPException(409, f"Status atual '{edicao.status}' não permite re-traduzir")
+
+        status_anterior = edicao.status
+
+        # Deletar tradução anterior
+        trad_existente = db.query(TraducaoLetra).filter(
+            TraducaoLetra.edicao_id == edicao_id, TraducaoLetra.idioma == idioma
+        ).first()
+        if trad_existente:
+            db.delete(trad_existente)
+            db.commit()
+
+    async def _re_trad_wrapper(_eid: int):
+        """Traduz apenas o idioma alvo e restaura o status anterior."""
+        try:
+            from app.database import SessionLocal as _SL
+            from app.services.translate_service import traduzir_letra_cloud as _traduzir
+
+            with _SL() as _db:
+                _edicao = _db.get(Edicao, _eid)
+                if not _edicao:
+                    return
+                _alin = _db.query(Alinhamento).filter(
+                    Alinhamento.edicao_id == _eid
+                ).order_by(Alinhamento.id.desc()).first()
+                if not _alin or not _alin.segmentos_cortado:
+                    _edicao.status = "erro"
+                    _edicao.erro_msg = "Alinhamento não encontrado para re-tradução"
+                    _db.commit()
+                    return
+                segmentos = _alin.segmentos_cortado
+                idioma_origem = _edicao.idioma
+                metadados = {"musica": _edicao.musica, "compositor": _edicao.compositor}
+                _edicao.task_heartbeat = datetime.now(timezone.utc)
+                _db.commit()
+
+            resultado = await asyncio.wait_for(
+                _traduzir(segmentos, idioma_origem, idioma, metadados),
+                timeout=180,
+            )
+
+            with _SL() as _db:
+                existing = _db.query(TraducaoLetra).filter(
+                    TraducaoLetra.edicao_id == _eid, TraducaoLetra.idioma == idioma
+                ).first()
+                if existing:
+                    existing.segmentos = resultado
+                else:
+                    _db.add(TraducaoLetra(edicao_id=_eid, idioma=idioma, segmentos=resultado))
+                _edicao = _db.get(Edicao, _eid)
+                if _edicao:
+                    _edicao.status = status_anterior
+                    _edicao.erro_msg = None
+                    _edicao.task_heartbeat = datetime.now(timezone.utc)
+                    _edicao.progresso_detalhe = {"re_traducao": {"idioma": idioma, "status": "concluido"}}
+                _db.commit()
+
+            logger.info(f"[{_eid}] Re-tradução {idioma} OK → status={status_anterior}")
+
+        except BaseException as exc:
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            logger.error(f"[{_eid}] Re-tradução {idioma} falhou: {exc}", exc_info=True)
+            try:
+                from app.database import SessionLocal as _SL2
+                with _SL2() as _db2:
+                    _e = _db2.get(Edicao, _eid)
+                    if _e:
+                        _e.status = "erro"
+                        _e.erro_msg = f"Re-tradução {idioma} falhou: {str(exc)[:300]}"
+                        _db2.commit()
+            except Exception:
+                pass
+
+    task_queue.put_nowait((_re_trad_wrapper, edicao_id))
+    return {"status": "re-tradução enfileirada", "idioma": idioma}
 
 
 def _exportar_renders(edicao, db):

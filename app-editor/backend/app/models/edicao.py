@@ -1,5 +1,5 @@
 """Modelo principal: editor_edicoes."""
-from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, DateTime, func, ForeignKey
 from sqlalchemy import JSON
 
 from app.database import Base
@@ -52,6 +52,9 @@ class Edicao(Base):
     task_heartbeat = Column(DateTime, nullable=True)
     progresso_detalhe = Column(JSON, default=dict)
     tentativas_requeue = Column(Integer, default=0)
+
+    # Multi-brand: perfil da marca desta edição (nullable para retrocompatibilidade)
+    perfil_id = Column(Integer, ForeignKey("editor_perfis.id"), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

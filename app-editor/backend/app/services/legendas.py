@@ -51,6 +51,16 @@ LYRICS_MAX_CHARS = 43
 TRADUCAO_MAX_CHARS = 100
 
 
+def _estilos_do_perfil(perfil) -> dict:
+    """Converte campos JSON do Perfil para dict de estilos ASS.
+    Retorna estrutura idêntica a ESTILOS_PADRAO."""
+    return {
+        "overlay": perfil.overlay_style or ESTILOS_PADRAO["overlay"],
+        "lyrics": perfil.lyrics_style or ESTILOS_PADRAO["lyrics"],
+        "traducao": perfil.traducao_style or ESTILOS_PADRAO["traducao"],
+    }
+
+
 def hex_to_ssa_color(hex_color: str) -> pysubs2.Color:
     """Converte hex (#RRGGBB) para pysubs2.Color."""
     hex_color = hex_color.lstrip("#")
@@ -239,16 +249,34 @@ def gerar_ass(
     idioma_musica: str,
     estilos: dict = None,
     sem_lyrics: bool = False,
+    perfil=None,
 ) -> pysubs2.SSAFile:
     """Gera arquivo ASS com até 3 tracks.
 
     Quando sem_lyrics=True, gera apenas a track de overlay (topo),
     omitindo completamente as tracks de lyrics e tradução.
+
+    Se perfil fornecido, usa estilos e limites do perfil.
+    Caso contrário, usa ESTILOS_PADRAO e constantes globais (retrocompatibilidade).
     """
-    estilos = estilos or ESTILOS_PADRAO
+    if perfil is not None:
+        estilos = _estilos_do_perfil(perfil)
+        overlay_max_linha = perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA
+        lyrics_max = perfil.lyrics_max_chars or LYRICS_MAX_CHARS
+        traducao_max = perfil.traducao_max_chars or TRADUCAO_MAX_CHARS
+        play_res_x = str(perfil.video_width or 1080)
+        play_res_y = str(perfil.video_height or 1920)
+    else:
+        estilos = estilos or ESTILOS_PADRAO
+        overlay_max_linha = OVERLAY_MAX_CHARS_LINHA
+        lyrics_max = LYRICS_MAX_CHARS
+        traducao_max = TRADUCAO_MAX_CHARS
+        play_res_x = "1080"
+        play_res_y = "1920"
+
     subs = pysubs2.SSAFile()
-    subs.info["PlayResX"] = "1080"
-    subs.info["PlayResY"] = "1920"
+    subs.info["PlayResX"] = play_res_x
+    subs.info["PlayResY"] = play_res_y
 
     # Criar estilos
     for nome, config in estilos.items():
@@ -328,7 +356,7 @@ def gerar_ass(
 
         texto = seg["text"]
         texto_original = texto
-        texto = _formatar_overlay(texto, OVERLAY_MAX_CHARS_LINHA)
+        texto = _formatar_overlay(texto, overlay_max_linha)
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
         event.text = "{\\q2}" + texto
@@ -378,7 +406,7 @@ def gerar_ass(
         event.end = end_ms
         texto = text
         texto_original = texto
-        texto = _truncar_texto(texto, LYRICS_MAX_CHARS)
+        texto = _truncar_texto(texto, lyrics_max)
         if texto != texto_original:
             logger.warning(f"[legendas] Lyrics truncado: '{texto_original[:50]}' ({len(texto_original)}→{len(texto)})")
         event.text = "{\\q2}" + texto
@@ -393,7 +421,7 @@ def gerar_ass(
             event_trad.end = event.end
             texto_trad = trad_seg["traducao"]
             texto_trad_original = texto_trad
-            texto_trad = _truncar_texto(texto_trad, TRADUCAO_MAX_CHARS)
+            texto_trad = _truncar_texto(texto_trad, traducao_max)
             if texto_trad != texto_trad_original:
                 logger.warning(f"[legendas] Tradução truncado: '{texto_trad_original[:50]}' ({len(texto_trad_original)}→{len(texto_trad)})")
             event_trad.text = texto_trad

@@ -1,7 +1,101 @@
 """Pydantic schemas para a API."""
 from pydantic import BaseModel
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime
+
+
+# --- Perfil ---
+class PerfilCreate(BaseModel):
+    nome: str
+    sigla: str
+    slug: Optional[str] = None
+    ativo: bool = True
+    identity_prompt: Optional[str] = None
+    tom_de_voz: Optional[str] = None
+    editorial_lang: str = "pt"
+    hashtags_fixas: Optional[List[str]] = None
+    categorias_hook: Optional[List[str]] = None
+    idiomas_alvo: Optional[List[str]] = None
+    idioma_preview: str = "pt"
+    overlay_style: Optional[Dict[str, Any]] = None
+    lyrics_style: Optional[Dict[str, Any]] = None
+    traducao_style: Optional[Dict[str, Any]] = None
+    overlay_max_chars: int = 70
+    overlay_max_chars_linha: int = 35
+    lyrics_max_chars: int = 43
+    traducao_max_chars: int = 100
+    video_width: int = 1080
+    video_height: int = 1920
+    escopo_conteudo: Optional[str] = None
+    duracao_corte_min: int = 30
+    duracao_corte_max: int = 90
+    cor_primaria: str = "#1a1a2e"
+    cor_secundaria: str = "#e94560"
+    r2_prefix: str = "editor"
+
+
+class PerfilUpdate(BaseModel):
+    nome: Optional[str] = None
+    sigla: Optional[str] = None
+    slug: Optional[str] = None
+    ativo: Optional[bool] = None
+    identity_prompt: Optional[str] = None
+    tom_de_voz: Optional[str] = None
+    editorial_lang: Optional[str] = None
+    hashtags_fixas: Optional[List[str]] = None
+    categorias_hook: Optional[List[str]] = None
+    idiomas_alvo: Optional[List[str]] = None
+    idioma_preview: Optional[str] = None
+    overlay_style: Optional[Dict[str, Any]] = None
+    lyrics_style: Optional[Dict[str, Any]] = None
+    traducao_style: Optional[Dict[str, Any]] = None
+    overlay_max_chars: Optional[int] = None
+    overlay_max_chars_linha: Optional[int] = None
+    lyrics_max_chars: Optional[int] = None
+    traducao_max_chars: Optional[int] = None
+    video_width: Optional[int] = None
+    video_height: Optional[int] = None
+    escopo_conteudo: Optional[str] = None
+    duracao_corte_min: Optional[int] = None
+    duracao_corte_max: Optional[int] = None
+    cor_primaria: Optional[str] = None
+    cor_secundaria: Optional[str] = None
+    r2_prefix: Optional[str] = None
+
+
+class PerfilOut(BaseModel):
+    id: int
+    nome: str
+    sigla: str
+    slug: str
+    ativo: bool
+    identity_prompt: Optional[str] = None
+    tom_de_voz: Optional[str] = None
+    editorial_lang: str
+    hashtags_fixas: Optional[List[str]] = None
+    categorias_hook: Optional[List[str]] = None
+    idiomas_alvo: Optional[List[str]] = None
+    idioma_preview: str
+    overlay_style: Optional[Dict[str, Any]] = None
+    lyrics_style: Optional[Dict[str, Any]] = None
+    traducao_style: Optional[Dict[str, Any]] = None
+    overlay_max_chars: int
+    overlay_max_chars_linha: int
+    lyrics_max_chars: int
+    traducao_max_chars: int
+    video_width: int
+    video_height: int
+    escopo_conteudo: Optional[str] = None
+    duracao_corte_min: int
+    duracao_corte_max: int
+    cor_primaria: str
+    cor_secundaria: str
+    r2_prefix: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 # --- Edição ---
@@ -67,6 +161,8 @@ class EdicaoOut(BaseModel):
     task_heartbeat: Optional[datetime] = None
     progresso_detalhe: Optional[Any] = None
     tentativas_requeue: int = 0
+    perfil_id: Optional[int] = None
+    perfil_nome: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

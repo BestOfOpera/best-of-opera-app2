@@ -172,3 +172,48 @@
   - `services/scoring.py`: `calc_score_v7(v, category, config)` — recebe config como parâmetro em vez de ler globais
   - **Fase 2:** substituir leitura do JSON por query ao banco via perfil_id
 - **Status: ✅ REFATORADO (pronto para commit)**
+
+### ERR-069 · Sistema hardcoded para 1 marca → modelo Perfil multi-brand
+
+- **Sintoma:** Fontes, cores, margens, idiomas-alvo e editorial_lang fixos no código para Best of Opera, impossibilitando criação de novas marcas sem mexer no código
+- **Causa:** ESTILOS_PADRAO, IDIOMAS_ALVO e editorial_lang="pt" hardcoded em legendas.py, pipeline.py e importar.py
+- **Correção aplicada (10/03/2026):**
+  - Criado `models/perfil.py` — modelo `Perfil` com toda config de marca: estilos JSON, idiomas, r2_prefix, editorial_lang, slug, video_width/height
+  - Migration automática em `_run_migrations()` do main.py + seed idempotente do perfil "Best of Opera" com valores EXATOS do ESTILOS_PADRAO
+  - `models/edicao.py`: campo `perfil_id FK` (nullable, retrocompatível)
+  - `services/legendas.py`: `_estilos_do_perfil()` + `gerar_ass(perfil=...)` — usa estilos/limites/resolução do perfil quando fornecido
+  - `routes/pipeline.py`: `_render_task` e `_traducao_task` carregam perfil e usam `idiomas_alvo`, `idioma_preview`, `r2_prefix`, `video_width/height`
+  - `routes/importar.py`: aceita `?perfil_id=X`, usa `editorial_lang` e `idiomas_alvo` do perfil, `_detect_music_lang` aceita `idiomas_alvo` como parâmetro
+- **Status: ✅ IMPLEMENTADO**
+
+### ERR-070 · Impossível re-renderizar 1 idioma sem refazer todos → endpoint individual
+
+- **Sintoma:** Corrigir uma legenda ou overlay em 1 idioma exigia re-renderizar todos os 7, desperdiçando horas de processamento
+- **Causa:** Ausência de endpoint granular
+- **Correção aplicada (10/03/2026):** `POST /edicoes/{id}/re-renderizar/{idioma}` — deleta render anterior, enfileira render só desse idioma, restaura status anterior após conclusão
+- **Status: ✅ IMPLEMENTADO**
+
+### ERR-071 · Impossível re-traduzir 1 idioma sem refazer todos → endpoint individual
+
+- **Sintoma:** Corrigir tradução de 1 idioma exigia refazer todos os 7
+- **Causa:** Ausência de endpoint granular
+- **Correção aplicada (10/03/2026):** `POST /edicoes/{id}/re-traduzir/{idioma}` — deleta tradução anterior, traduz só esse idioma, restaura status anterior
+- **Status: ✅ IMPLEMENTADO**
+
+### ERR-072 · Idiomas-alvo e idioma_preview hardcoded → configurável por perfil
+
+- **Causa:** `IDIOMAS_ALVO` constante em config.py + `idioma_preview = "pt"` hardcoded em renderizar-preview e aprovar-preview
+- **Correção aplicada (10/03/2026):** renderizar-preview e aprovar-preview leem `perfil.idioma_preview` e `perfil.idiomas_alvo`; fallback para valores atuais se perfil is None
+- **Status: ✅ IMPLEMENTADO**
+
+### ERR-073 · editorial_lang hardcoded "pt" → configurável por perfil
+
+- **Causa:** `editorial_lang = "pt"` hardcoded em importar.py
+- **Correção aplicada (10/03/2026):** importar.py usa `perfil.editorial_lang` quando disponível
+- **Status: ✅ IMPLEMENTADO**
+
+### ERR-074 · R2 keys sem isolamento entre marcas → prefixo por perfil
+
+- **Causa:** `"editor/"` hardcoded como prefixo do R2 key em _render_task
+- **Correção aplicada (10/03/2026):** `perfil.r2_prefix` usado como prefixo; perfil BO mantém `r2_prefix="editor"` para compatibilidade com arquivos existentes
+- **Status: ✅ IMPLEMENTADO**

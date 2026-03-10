@@ -245,3 +245,28 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 
 ### Pendências
 - Nenhuma nesta sessão
+
+---
+
+## Sessão 10/03/2026 — BLAST v4 Fase 2: Prompt 1 executado
+
+### O que foi implementado
+
+**Multi-brand backend** completo — Prompt 1 da Fase 2:
+
+1. **`models/perfil.py`** — modelo `Perfil` (`editor_perfis`): estilos JSON (overlay/lyrics/traducao), idiomas, r2_prefix, editorial_lang, slug, video_width/height
+2. **`models/edicao.py`** — campo `perfil_id FK` (nullable, retrocompatível)
+3. **`main.py`** — migration cria `editor_perfis` + seed idempotente do perfil "Best of Opera" com valores exatos do ESTILOS_PADRAO + migration de `perfil_id` nas edições existentes
+4. **`services/legendas.py`** — `_estilos_do_perfil()` + `gerar_ass(perfil=...)` usa estilos/limites/resolução do perfil
+5. **`routes/pipeline.py`** — `_render_task` e `_traducao_task` brand-aware (idiomas, preview, r2_prefix, video_width/height); endpoints `re-renderizar/{idioma}` e `re-traduzir/{idioma}`
+6. **`routes/importar.py`** — aceita `?perfil_id=X`, usa `editorial_lang` e `_detect_music_lang` com idiomas do perfil
+7. **`schemas.py`** — `PerfilCreate`, `PerfilUpdate`, `PerfilOut`; `EdicaoOut` com `perfil_id` e `perfil_nome`
+8. **`tests/test_multi_brand.py`** — 8 testes, todos passando
+
+### Retrocompatibilidade garantida
+- perfil_id=None → comportamento IDÊNTICO ao anterior (IDIOMAS_ALVO, "pt" hardcoded, "editor/" R2 prefix)
+- Edições existentes migradas para perfil_id = id do perfil "BO"
+
+### Próximo passo
+- Prompt 2: Auth backend + Admin CRUD (DEPENDE deste Prompt 1)
+- Fazer deploy no Railway + testar migration em produção
