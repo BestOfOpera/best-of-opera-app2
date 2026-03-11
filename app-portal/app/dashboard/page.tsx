@@ -222,7 +222,7 @@ function ProjectCard({ projeto }: { projeto: Edicao & { link_direto: string } })
                         )}
 
                         <div className="flex gap-3 w-full sm:w-auto">
-                            <Link href={projeto.link_direto || `/editor/${projeto.id}`} className="flex-1 sm:flex-none">
+                            <Link href={`/editor/edicao/${projeto.id}/overview`} className="flex-1 sm:flex-none">
                                 <Button variant="outline" size="lg" className="h-12 w-full px-6 rounded-xl border-muted hover:bg-muted hover:text-primary transition-all font-bold gap-2 text-xs">
                                     <ExternalLink className="w-4 h-4" />
                                     Editor

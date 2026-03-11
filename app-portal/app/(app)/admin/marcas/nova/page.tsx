@@ -152,6 +152,7 @@ export default function NovaMarcaPage() {
                                     value={formData.cor_primaria || ""} 
                                     onChange={e => handleChange("cor_primaria", e.target.value)} 
                                     placeholder="#1a1a2e" 
+                                    maxLength={7}
                                     className="flex-1 border-0 h-full uppercase font-mono focus-visible:ring-0 shadow-none px-2" 
                                 />
                             </div>
@@ -169,6 +170,7 @@ export default function NovaMarcaPage() {
                                     value={formData.cor_secundaria || ""} 
                                     onChange={e => handleChange("cor_secundaria", e.target.value)} 
                                     placeholder="#e94560" 
+                                    maxLength={7}
                                     className="flex-1 border-0 h-full uppercase font-mono focus-visible:ring-0 shadow-none px-2" 
                                 />
                             </div>
@@ -258,7 +260,7 @@ export default function NovaMarcaPage() {
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">JSON - Overlay (Header)</Label>
                             <Textarea
-                                defaultValue={JSON.stringify(formData.overlay_style || {}, null, 2)}
+                                value={JSON.stringify(formData.overlay_style || {}, null, 2)}
                                 onChange={e => handleJSONChange("overlay_style", e.target.value)}
                                 className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
                                 spellCheck={false}
@@ -267,7 +269,7 @@ export default function NovaMarcaPage() {
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">JSON - Letra Principal (Lyrics)</Label>
                             <Textarea
-                                defaultValue={JSON.stringify(formData.lyrics_style || {}, null, 2)}
+                                value={JSON.stringify(formData.lyrics_style || {}, null, 2)}
                                 onChange={e => handleJSONChange("lyrics_style", e.target.value)}
                                 className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
                                 spellCheck={false}
@@ -276,7 +278,7 @@ export default function NovaMarcaPage() {
                         <div className="space-y-2 md:col-span-2">
                             <Label className="font-semibold text-muted-foreground">JSON - Tradução (Translation)</Label>
                             <Textarea
-                                defaultValue={JSON.stringify(formData.traducao_style || {}, null, 2)}
+                                value={JSON.stringify(formData.traducao_style || {}, null, 2)}
                                 onChange={e => handleJSONChange("traducao_style", e.target.value)}
                                 className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
                                 spellCheck={false}

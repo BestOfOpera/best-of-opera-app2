@@ -116,7 +116,7 @@ export default function ProjetoDetalhePage() {
                         </p>
                     </div>
                 </div>
-                <Link href={`/editor/${projeto.id}`}>
+                <Link href={`/editor/edicao/${projeto.id}/overview`}>
                     <Button className="gap-2 px-6 rounded-full shadow-lg hover:shadow-primary/20 transition-all font-bold">
                         <ExternalLink className="w-4 h-4" />
                         Abrir no Editor

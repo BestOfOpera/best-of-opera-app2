@@ -12,6 +12,12 @@ const breadcrumbMap: Record<string, string[]> = {
   "/redator": ["Redator", "Projetos"],
   "/redator/novo": ["Redator", "Novo Projeto"],
   "/editor": ["Editor", "Fila de Edicao"],
+  "/dashboard": ["Dashboard", "Visão Geral"],
+  "/dashboard/reports": ["Dashboard", "Reports"],
+  "/dashboard/saude": ["Dashboard", "Saúde"],
+  "/dashboard/producao": ["Dashboard", "Produção"],
+  "/admin/marcas": ["Admin", "Marcas / Perfis"],
+  "/admin/usuarios": ["Admin", "Usuários"],
 }
 
 function deriveBreadcrumb(pathname: string): string[] {

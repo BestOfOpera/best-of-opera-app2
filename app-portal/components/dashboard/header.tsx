@@ -20,7 +20,7 @@ export function DashboardHeader() {
             href: "/dashboard/reports",
             icon: FileText,
             active: pathname.includes("/dashboard/reports"),
-            badge: 3, // Simulate the numeric badge requested
+            badge: 3,
         },
     ]
 

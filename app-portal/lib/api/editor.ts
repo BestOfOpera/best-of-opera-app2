@@ -362,9 +362,9 @@ export const editorApi = {
     request<AuthUser>(`${BASE()}/auth/usuarios/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
 
   // Admin Perfis API
-  listarPerfis: () => request<Perfil[]>(`${BASE()}/admin/perfis/`),
+  listarPerfis: () => request<Perfil[]>(`${BASE()}/admin/perfis`),
   detalharPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}`),
-  criarPerfil: (data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/`, { method: "POST", body: JSON.stringify(data) }),
+  criarPerfil: (data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis`, { method: "POST", body: JSON.stringify(data) }),
   atualizarPerfil: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   atualizarPerfilParcial: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
