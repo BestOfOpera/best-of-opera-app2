@@ -72,10 +72,16 @@ export function AppSidebar() {
       <div className="mx-4 mb-4 h-px bg-border" />
       <nav className="flex-1 overflow-y-auto px-3">
         <div className="flex flex-col gap-0.5">
-          {tools.filter(t => !t.adminOnly || isAdmin).map((tool) => {
+          {tools.filter(t => !t.adminOnly || isAdmin).map((tool, index, array) => {
             const isExpanded = expandedTools.includes(tool.id)
+            const isFirstAdmin = tool.adminOnly && (index === 0 || !array[index - 1].adminOnly);
             return (
               <div key={tool.id}>
+                {isFirstAdmin && (
+                  <div className="my-2.5 px-3">
+                    <div className="h-px bg-border/80" />
+                  </div>
+                )}
                 <button onClick={() => toggleTool(tool.id)} className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-muted/60">
                   <tool.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{tool.label}</span>

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog"
 import {
   ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle,
   ExternalLink, Pencil, RotateCcw, Eye, MessageSquare, Package,
@@ -830,6 +830,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         {/* Se tem tradução mas não renderizou ainda, p/ instrumental ou recem-limpa */}
                         {!edicao.eh_instrumental && ["concluido", "preview_pronto", "renderizando", "erro"].includes(edicao.status) && (
                           <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground ml-2 hover:bg-muted/80 transition-colors">
+                                <span title="Forçar re-tradução/reaquisição"><RefreshCw className="h-3.5 w-3.5" /></span>
+                              </Button>
+                            </DialogTrigger>
                             <DialogContent className="sm:max-w-[425px]">
                               <DialogHeader>
                                 <DialogTitle>Tem certeza?</DialogTitle>
@@ -850,11 +855,6 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                                 </Button>
                               </div>
                             </DialogContent>
-                            <div className="flex gap-1.5 ml-auto">
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-muted" asChild>
-                                <button title="Forçar re-tradução / re-geração"><RefreshCw className="h-3.5 w-3.5" /></button>
-                              </Button>
-                            </div>
                           </Dialog>
                         )}
                       </>
@@ -870,6 +870,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         <CheckCircle className="h-4 w-4 text-green-500" />
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
                         <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-green-700/60 hover:text-green-800 hover:bg-green-100/60 transition-colors">
+                              <span title="Ações Avançadas de Recriação"><RefreshCw className="h-3.5 w-3.5" /></span>
+                            </Button>
+                          </DialogTrigger>
                           <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
                               <DialogTitle>Re-processar idioma</DialogTitle>
@@ -893,7 +898,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                               {!edicao.eh_instrumental && (
                                 <Button
                                   variant="outline"
-                                  className="justify-start gap-3 w-full border-red-200 hover:bg-red-50"
+                                  className="justify-start gap-3 w-full border-red-200 hover:bg-red-50 transition-colors"
                                   onClick={() => handleReTraduzirIndividual(code)}
                                   disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
                                 >
@@ -906,14 +911,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                               )}
                             </div>
                           </DialogContent>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto text-green-700/60 hover:text-green-800 hover:bg-green-100/50" asChild>
-                            <button title="Ações Avançadas de Recriação"><RefreshCw className="h-3 w-3" /></button>
-                          </Button>
                         </Dialog>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100"
+                          className="gap-2 border-green-400 text-green-700 hover:bg-green-100 hover:border-green-500 transition-all font-medium"
                           onClick={() => handleBaixarRender(render.id)}
                           disabled={baixandoRenders.has(render.id)}
                         >

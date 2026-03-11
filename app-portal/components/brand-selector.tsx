@@ -45,18 +45,32 @@ export function BrandSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 transition-colors hover:bg-muted/50">
-          <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[9px] font-bold text-primary">{selected.sigla}</span>
+        <button className="flex items-center gap-2.5 rounded-full border border-border/60 bg-card py-1.5 pl-1.5 pr-3 transition-all hover:bg-muted/80 hover:shadow-sm">
+          <div 
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-inner"
+            style={{ backgroundColor: selected.cor_primaria || "#3b82f6" }}
+          >
+            {selected.sigla}
+          </div>
           <span className="text-sm font-medium text-foreground">{selected.nome}</span>
-          <ChevronDown className="ml-1 h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="ml-1 h-3.5 w-3.5 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl">
         {brands.map((brand) => (
-          <DropdownMenuItem key={brand.id} onClick={() => setSelected(brand)} className={cn("flex items-center gap-2.5 cursor-pointer", selected.id === brand.id && "bg-muted")}>
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-primary/10 text-[9px] font-bold text-primary">{brand.sigla}</span>
+          <DropdownMenuItem 
+            key={brand.id} 
+            onClick={() => setSelected(brand)} 
+            className={cn("flex items-center gap-3 cursor-pointer rounded-lg px-2.5 py-2 transition-colors", selected.id === brand.id && "bg-muted font-medium")}
+          >
+            <div 
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white shadow-inner"
+              style={{ backgroundColor: brand.cor_primaria || "#3b82f6" }}
+            >
+              {brand.sigla}
+            </div>
             <span className="flex-1 text-sm">{brand.nome}</span>
-            {selected.id === brand.id && <Check className="h-3.5 w-3.5 text-primary" />}
+            {selected.id === brand.id && <Check className="h-4 w-4 text-foreground opacity-60" />}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

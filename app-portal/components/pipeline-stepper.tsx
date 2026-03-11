@@ -99,15 +99,15 @@ export function PipelineStepper({
 
   const getContainerStyles = (status: StepStatus) => {
     switch (status) {
-      case "completed": return "bg-green-100 border-green-200"
-      case "error": return "bg-red-100 border-red-200 ring-2 ring-red-500/20"
-      case "in-progress": return "bg-blue-50 border-blue-200 ring-2 ring-blue-500/30 shadow-sm"
-      case "action-required": return "bg-amber-50 border-amber-200 ring-2 ring-amber-500/20"
-      default: return "bg-muted border-border"
+      case "completed": return "bg-green-100 border-green-400 text-green-700"
+      case "error": return "bg-red-50 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.6)] text-red-600"
+      case "in-progress": return "bg-blue-50 border-blue-400 ring-4 ring-blue-500/20 shadow-sm text-blue-700"
+      case "action-required": return "bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 text-amber-600"
+      default: return "bg-muted border-border text-muted-foreground"
     }
   }
 
-  // Adjusted the line styles properly returning full component
+  // Connection line that is green if the *current node* has completed (so the line leading to next node is green)
   const getLineStyles = (status: StepStatus) => {
     if (status === "completed") return "bg-green-500"
     if (status === "in-progress" || status === "error") return "bg-border" // Has not finished this node
@@ -122,13 +122,13 @@ export function PipelineStepper({
         return (
           <div key={phase.id} className={cn("relative flex", isVerticalMobile ? "flex-col sm:flex-row sm:flex-1 items-start sm:items-center" : "flex-1 items-center")}>
 
-            {/* The Item */}
             <div className={cn("relative z-10 flex items-center gap-3", isVerticalMobile ? "mb-6 sm:mb-0" : "")}>
               <div
                 className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 z-10",
                   getContainerStyles(phase.status),
-                  phase.status === "in-progress" && "scale-110"
+                  phase.status === "in-progress" && "animate-pulse shadow-md ring-4 ring-blue-500/30",
+                  phase.status === "error" && "shadow-[0_0_15px_rgba(239,68,68,0.6)]"
                 )}
               >
                 {renderIcon(phase)}

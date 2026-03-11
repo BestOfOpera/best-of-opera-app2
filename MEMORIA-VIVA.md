@@ -22,6 +22,21 @@
 - R2 key para renders: `{r2_prefix}/{r2_base}/{idioma}/video_{idioma}.mp4`
 - `_get_r2_base(edicao)` em pipeline.py retorna a base R2 do projeto
 
+## Sessão 2026-03-10 — Fix login editor-backend
+
+### Bugs corrigidos
+- **ERR-063** `passlib[bcrypt]==1.7.4` incompatível com `bcrypt>=4.0`. Startup crashava ao fazer hash da senha do admin (detect_wrap_bug passa senha >72 bytes, bcrypt 4.x lança ValueError). Fix: `bcrypt<4.0.0` em requirements.txt.
+- **ERR-064** Migration `editor_edicoes.perfil_id` nunca comitava: ALTER TABLE e CREATE UNIQUE INDEX estavam na mesma transação. Se o INDEX falhava (dados duplicados), PostgreSQL abortava a transação inteira silenciosamente, revertendo o ALTER TABLE também. Fix: cada operação em seu próprio `with engine.begin()`.
+- **ERR-065** Frontend enviava login com `username/password` form-urlencoded; backend espera `email/senha` JSON. Fix em `editorApi.login` e `login/page.tsx`.
+
+### Estado resultante
+- Editor backend rodando (SUCCESS no Railway, deploy `5413b785`)
+- Login funcionando: `admin@bestofopera.com / BestOfOpera2026!`
+- `editor_edicoes.perfil_id` adicionado ao banco de produção
+
+### Armadilha nova (adicionar ao CLAUDE.md)
+- **Transactions parciais**: nunca misturar ALTER TABLE + CREATE UNIQUE INDEX na mesma transação. Se o INDEX falha (silenciosamente capturado com try/except), PostgreSQL aborta a transação e reverte o ALTER TABLE. Cada operação falível = transação própria.
+
 ## TODO pendentes
 - Remover endpoint `admin/reset-total` de `app-editor/backend/app/routes/` por segurança (criado no commit `96d45ea`, nunca usado — substituído por cleanup psql direto)
 
@@ -426,3 +441,15 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 - NÃO deleta originais — cleanup manual posterior
 - `load_brand_config` em app-curadoria importado do próprio `config.py` da curadoria
 
+
+## [2.6] Editor UI Refinement & Prod E2E Tests — 2026-03-10
+- Refinado o visual das páginas de Admin de Marcas e Admin de Usuários no portal Frontend:
+  - Adicionado Skeleton Loaders e States Vazios compatíveis com o Design System.
+  - Implementação de Collapsible Sections e Pickers de Cores refinados nos forms das marcas.
+  - Sidebar refatorada com Separador do Admin e Avatar no User Card.
+  - Preview visual 9:16 (Wireframe de texto/legendas) nas configurações das Marcas.
+  - Indicadores semânticos de Status com estilos modernos e faixas laterais coloridas nos cards de marca e no Brand Selector do Header.
+- Stepper do Workflow com glowing vermelho e pulsing para in-progress.
+- Realizado Teste E2E via Browser Autônomo na URL (curadoria-production-cf4a.up.railway.app):
+  - Fluxo paralisado logo no login devido a erro silencioso CORS/net::ERR_FAILED na chamada ao backend de auth (`/api/v1/editor/auth/login`).
+  - Interface visual em prod não contava com o refinamento efetuado nesta sessão localmente (deploy pendente).

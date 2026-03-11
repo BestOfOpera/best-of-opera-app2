@@ -149,11 +149,41 @@ export default function AdminUsuariosPage() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-muted-foreground">Carregando usuários...</td>
+                                        <td colSpan={5} className="p-6">
+                                            <div className="flex flex-col gap-4">
+                                                {[1,2,3].map(i => (
+                                                    <div key={i} className="flex items-center gap-4 animate-pulse px-4 py-2">
+                                                        <div className="h-9 w-9 rounded-full bg-muted shrink-0" />
+                                                        <div className="space-y-2 flex-1">
+                                                            <div className="h-4 bg-muted rounded w-1/4" />
+                                                            <div className="h-3 bg-muted rounded w-1/3" />
+                                                        </div>
+                                                        <div className="h-6 w-16 bg-muted rounded hidden sm:block" />
+                                                        <div className="h-6 w-16 bg-muted rounded" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ) : filteredUsers.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="p-8 text-center text-muted-foreground">Nenhum usuário encontrado.</td>
+                                        <td colSpan={5} className="py-16">
+                                            <div className="flex flex-col items-center justify-center text-center">
+                                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-3">
+                                                    <Search className="h-8 w-8 text-muted-foreground/50" />
+                                                </div>
+                                                <h3 className="text-lg font-semibold text-foreground">Nenhum usuário</h3>
+                                                <p className="text-muted-foreground text-sm max-w-sm mt-1 mb-4">
+                                                    Não foi possível encontrar nenhum usuário com o termo especificado.
+                                                </p>
+                                                {!users.length && (
+                                                    <Button onClick={handleOpenCreate} size="sm">
+                                                        <UserPlus className="mr-2 h-4 w-4" />
+                                                        Convidar Colaborador
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
                                     </tr>
                                 ) : (
                                     filteredUsers.map((user) => (
