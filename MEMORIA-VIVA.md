@@ -13,6 +13,29 @@
 - Railway token válido (2025-02): `5d70b3e4-85cf-43d9-893c-38578a90b8e9` (Code Token 2502)
 - psql não disponível no Mac — usar python3 com psycopg2
 
+## Sessão 2026-03-11 — Sentry cobertura total (4 serviços)
+
+### O que foi feito
+- **editor-backend**: `_capture_sentry()` helper em pipeline.py + 5 chamadas nos handlers (download, transcricao, traducao, render, pacote); `SENTRY_ORG_URL` em config.py e dashboard.py; `attach_stacktrace=True` + `server_name="editor-backend"` em main.py
+- **curadoria-backend**: `sentry-sdk[fastapi]>=2.0.0` em requirements.txt; `sentry_sdk.init(server_name="curadoria-backend")` em main.py; `capture_exception` no download_worker em services/download.py
+- **redator**: `sentry-sdk[fastapi]>=2.0.0` em requirements.txt; `sentry_sdk.init(server_name="redator-backend")` em backend/main.py
+- **app-portal**: `@sentry/nextjs ^8.0.0` em package.json; `sentry.client.config.ts` e `sentry.server.config.ts` criados; `next.config.ts` atualizado com `withSentryConfig`
+- **Railway vars**: SENTRY_DSN + SENTRY_ORG_URL adicionados aos 4 serviços via GraphQL API (todos retornaram `variableUpsert: true`)
+- **MCP Sentry**: configurado em `~/.claude/settings.json` com `@sentry/mcp-server@latest`
+- **sentry-access.md**: criado em `dados-relevantes/` com token e DSN
+
+### IDs de serviço Railway (completos)
+- portal (73b20b58-eac5-44e8-a4f6-b9af94e74932) — serviço extra identificado, não tocado
+- curadoria (b8fe934d-e3d7-4d30-a68a-4914e03cdb0a) — Next.js portal: NEXT_PUBLIC_SENTRY_DSN adicionada
+- curadoria-backend (e3eb935a-7b11-44fd-889f-fbd45edb0602) — SENTRY_DSN adicionada
+- editor-backend (7e42a778-aa1e-4648-9ce1-07f5d6896fd5) — SENTRY_DSN + SENTRY_ORG_URL adicionadas
+- app/redator (fade4ac2-8774-4287-b87d-7f2559898dcc) — SENTRY_DSN adicionada
+
+### Pendências
+- Reiniciar sessão do Claude Code para ativar MCP Sentry
+- Fazer push + deploy para que Railway aplique as variáveis
+- Verificação pós-deploy: forçar erro em editor-backend → confirmar issue no Sentry com tag `server_name: editor-backend`
+
 ## Padrões técnicos do projeto
 - Timestamps internos: `MM:SS,mmm` (função `seconds_to_timestamp`)
 - ASS gerado por `app/services/legendas.py:gerar_ass()`
@@ -453,3 +476,40 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 - Realizado Teste E2E via Browser Autônomo na URL (curadoria-production-cf4a.up.railway.app):
   - Fluxo paralisado logo no login devido a erro silencioso CORS/net::ERR_FAILED na chamada ao backend de auth (`/api/v1/editor/auth/login`).
   - Interface visual em prod não contava com o refinamento efetuado nesta sessão localmente (deploy pendente).
+
+---
+
+## Sessão 11/03/2026 — Antigravity: Hotfixes Cirúrgicos Pós-E2E
+
+### O que foi corrigido
+
+1. **Visibilidade de Toasts** — `<Toaster />` adicionado ao layout global. Testado com falha de login intencional — toast "Email ou senha incorretos" aparece corretamente.
+
+2. **Navegação Dashboard → Projeto** — Links corrigidos de `/editor/{id}` para `/editor/edicao/{id}/overview`. Resolve erro 404 ao abrir projetos.
+
+3. **Color Picker em Marcas** — Bug de concatenação hexadecimal corrigido (ex: `#ff0000#ff0000`). Input visual e input de texto sincronizam um único valor. JSONs de estilo (`overlay_style`, etc.) migraram de `defaultValue` para `value` controlado — agora exibem corretamente os dados do banco.
+
+4. **Trailing slashes nas chamadas de API** — Barras finais removidas de todos os endpoints críticos (ex: `/admin/perfis/` → `/admin/perfis`) para alinhar com o roteador FastAPI em produção. Possível causa do "Application Error" na página `/admin/marcas`.
+
+### Arquivos alterados (pelo Antigravity)
+- `app/routes/editor.ts` — trailing slashes removidas
+- `app-portal/app/(app)/editor/edicao/[id]/page.tsx` — links corrigidos
+- `app-portal/app/(app)/admin/marcas/page.tsx` — color picker + JSON inputs corrigidos
+- Layout global — `<Toaster />` adicionado
+
+### Status dos testes (reteste pós-fix)
+| Cenário | Status |
+|---|---|
+| Abertura de Projeto (Dashboard → `/overview`) | ✅ PASSOU |
+| Criar Marca (color picker + inputs) | ✅ PASSOU |
+| Configurar Marca (JSONs carregam do banco) | ✅ PASSOU |
+| Toasts / Feedback Visual | ✅ PASSOU |
+| Stepper do Editor | ✅ PASSOU |
+| Re-Render | ⚠️ Acessível via ícone 🔄 em Dialogs na tela de Conclusão |
+
+### Pendência de deploy
+- Correções de trailing slashes e color picker precisam de deploy processado pela Railway para que `/admin/marcas` volte a funcionar 100% sem exception client-side.
+
+### Próximos passos
+1. Verificar no portal Railway se `/admin/marcas` está acessível após o deploy das correções.
+2. Testar criação de marca real com os novos inputs de cor para confirmar integridade dos dados no banco.

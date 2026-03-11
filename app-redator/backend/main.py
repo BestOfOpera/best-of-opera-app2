@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -6,6 +7,17 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from backend.database import engine, Base
+
+_SENTRY_DSN = os.getenv("SENTRY_DSN")
+if _SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        traces_sample_rate=0.1,
+        environment="production",
+        attach_stacktrace=True,
+        server_name="redator-backend",
+    )
 from backend.routers import projects, generation, approval, translation, export
 
 Base.metadata.create_all(bind=engine)

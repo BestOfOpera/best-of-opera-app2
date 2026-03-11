@@ -20,6 +20,8 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         traces_sample_rate=0.1,
         environment="production",
+        attach_stacktrace=True,
+        server_name="editor-backend",
     )
     logger.info("[sentry] Sentry inicializado")
 

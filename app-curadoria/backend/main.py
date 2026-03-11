@@ -4,6 +4,7 @@
 # ══════════════════════════════════════════════════════════════
 
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,6 +15,17 @@ from fastapi.responses import FileResponse
 
 import database as db
 from config import YOUTUBE_API_KEY, STATIC_PATH
+
+_SENTRY_DSN = os.getenv("SENTRY_DSN")
+if _SENTRY_DSN:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        traces_sample_rate=0.1,
+        environment="production",
+        attach_stacktrace=True,
+        server_name="curadoria-backend",
+    )
 from services.scoring import load_posted
 from services.download import download_worker
 from routes import curadoria, health

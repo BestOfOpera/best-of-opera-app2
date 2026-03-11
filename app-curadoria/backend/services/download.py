@@ -51,6 +51,12 @@ async def download_worker():
             except Exception as e:
                 print(f"❌ Worker error for {video_id}: {e}")
                 manager.set_task(video_id, {"status": "error", "message": str(e)})
+                try:
+                    import sentry_sdk
+                    sentry_sdk.set_context("download", {"video_id": video_id})
+                    sentry_sdk.capture_exception(e)
+                except Exception:
+                    pass
             finally:
                 manager.current_task = None
                 manager.queue.task_done()

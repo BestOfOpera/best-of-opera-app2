@@ -28,6 +28,17 @@ from shared.storage_service import storage, lang_prefix, check_conflict, save_yo
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
 
 
+def _capture_sentry(e: BaseException, edicao_id: int, etapa: str, extra: dict = None):
+    if isinstance(e, asyncio.CancelledError):
+        return
+    try:
+        import sentry_sdk
+        sentry_sdk.set_context("edicao", {"id": edicao_id, "etapa": etapa, **(extra or {})})
+        sentry_sdk.capture_exception(e)
+    except Exception:
+        pass
+
+
 async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
     """Baixa vídeo usando cobalt.tools API. Retorna True se ok, False se falhar."""
     try:
@@ -487,6 +498,7 @@ async def _download_task(edicao_id: int):
         if isinstance(e, asyncio.CancelledError):
             erro_msg = "Interrompido por reinício do servidor"
         else:
+            _capture_sentry(e, edicao_id, "download")
             erro_msg = f"Erro inesperado: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _download_task erro inesperado: {e}", exc_info=True)
         try:
@@ -944,6 +956,7 @@ async def _transcricao_task(edicao_id: int):
                 "Música pode conter conteúdo sensível."
             )
         else:
+            _capture_sentry(e, edicao_id, "transcricao")
             erro_msg = f"Transcrição falhou: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _transcricao_task erro: {e}", exc_info=True)
         try:
@@ -1370,6 +1383,7 @@ async def _traducao_task(edicao_id: int):
         if isinstance(e, asyncio.CancelledError):
             erro_msg = "Interrompido por reinício do servidor"
         else:
+            _capture_sentry(e, edicao_id, "traducao")
             erro_msg = f"Erro inesperado: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _traducao_task erro inesperado: {e}", exc_info=True)
         try:
@@ -1883,6 +1897,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
         if isinstance(e, asyncio.CancelledError):
             erro_msg = "Interrompido por reinício do servidor"
         else:
+            _capture_sentry(e, edicao_id, "render")
             erro_msg = f"Erro inesperado: {str(e)[:500]}"
         logger.error(f"[{edicao_id}] _render_task erro inesperado: {e}", exc_info=True)
         try:
@@ -2373,6 +2388,7 @@ async def _pacote_task(edicao_id: int):
         if isinstance(e, asyncio.CancelledError):
             _set_pacote_status(edicao_id, "erro", erro="Interrompido por reinício do servidor")
             raise
+        _capture_sentry(e, edicao_id, "pacote")
         logger.error(f"[pacote_task] Erro edicao_id={edicao_id}: {e}", exc_info=True)
         _set_pacote_status(edicao_id, "erro", erro=str(e)[:500])
 

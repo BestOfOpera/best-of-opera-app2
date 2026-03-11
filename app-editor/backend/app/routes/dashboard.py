@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
+from app.config import SENTRY_ORG_URL
 from app.database import get_db
 from app.models import Edicao, Render
 from app.worker import is_worker_busy, task_queue
@@ -477,5 +478,5 @@ def dashboard_saude(perfil_id: Optional[int] = None, db: Session = Depends(get_d
             "proxima_task": proxima_task,
         },
         "ultimo_erro": ultimo_erro,
-        "sentry_url": "https://sentry.io",
+        "sentry_url": SENTRY_ORG_URL,
     }
