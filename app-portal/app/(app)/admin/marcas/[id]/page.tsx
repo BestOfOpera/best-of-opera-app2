@@ -165,16 +165,36 @@ export default function MarcaConfigPage() {
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Cor Primária (Hex)</Label>
-                            <div className="flex gap-2 p-1.5 bg-background border border-input rounded-md focus-within:ring-1 focus-within:ring-ring">
-                                <Input type="color" className="w-10 h-8 p-0 border-0 rounded cursor-pointer" value={formData.cor_primaria || "#3b82f6"} onChange={e => handleChange("cor_primaria", e.target.value)} />
-                                <input value={formData.cor_primaria || ""} onChange={e => handleChange("cor_primaria", e.target.value)} placeholder="#3b82f6" className="flex-1 bg-transparent px-2 text-sm font-mono uppercase outline-none" />
+                            <div className="flex gap-2 p-1 bg-background border border-input rounded-md focus-within:ring-1 focus-within:ring-ring h-10 overflow-hidden">
+                                <input 
+                                    type="color" 
+                                    className="w-10 h-full p-0 border-0 cursor-pointer bg-transparent" 
+                                    value={formData.cor_primaria || "#3b82f6"} 
+                                    onChange={e => handleChange("cor_primaria", e.target.value)} 
+                                />
+                                <Input 
+                                    value={formData.cor_primaria || ""} 
+                                    onChange={e => handleChange("cor_primaria", e.target.value)} 
+                                    placeholder="#3b82f6" 
+                                    className="flex-1 border-0 h-full uppercase font-mono focus-visible:ring-0 shadow-none px-2" 
+                                />
                             </div>
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Cor Secundária (Hex)</Label>
-                            <div className="flex gap-2 p-1.5 bg-background border border-input rounded-md focus-within:ring-1 focus-within:ring-ring">
-                                <Input type="color" className="w-10 h-8 p-0 border-0 rounded cursor-pointer" value={formData.cor_secundaria || "#1e40af"} onChange={e => handleChange("cor_secundaria", e.target.value)} />
-                                <input value={formData.cor_secundaria || ""} onChange={e => handleChange("cor_secundaria", e.target.value)} placeholder="#1e40af" className="flex-1 bg-transparent px-2 text-sm font-mono uppercase outline-none" />
+                            <div className="flex gap-2 p-1 bg-background border border-input rounded-md focus-within:ring-1 focus-within:ring-ring h-10 overflow-hidden">
+                                <input 
+                                    type="color" 
+                                    className="w-10 h-full p-0 border-0 cursor-pointer bg-transparent" 
+                                    value={formData.cor_secundaria || "#1e40af"} 
+                                    onChange={e => handleChange("cor_secundaria", e.target.value)} 
+                                />
+                                <Input 
+                                    value={formData.cor_secundaria || ""} 
+                                    onChange={e => handleChange("cor_secundaria", e.target.value)} 
+                                    placeholder="#1e40af" 
+                                    className="flex-1 border-0 h-full uppercase font-mono focus-visible:ring-0 shadow-none px-2" 
+                                />
                             </div>
                         </div>
                     </div>

@@ -3,6 +3,23 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { editorApi, Edicao, DashboardR2Inventario, Render } from "@/lib/api/editor"
+
+function deriveInventario(renders: Render[]): DashboardR2Inventario {
+    const arquivos = renders.map(r => ({
+        nome: `video_${r.idioma}.mp4`,
+        status: (r.status === "concluido" ? "ok" : r.status === "erro" ? "erro" : "falta") as "ok" | "falta" | "erro",
+        tamanho: r.tamanho_bytes ? `${(r.tamanho_bytes / 1024 / 1024).toFixed(1)} MB` : undefined,
+    }))
+    return {
+        categorias: arquivos.length > 0 ? [{
+            nome: "Vídeos Renderizados",
+            arquivos,
+            concluido: renders.length > 0 && renders.every(r => r.status === "concluido"),
+        }] : [],
+        total_arquivos: renders.filter(r => r.status === "concluido").length,
+        total_tamanho: `${(renders.reduce((acc, r) => acc + (r.tamanho_bytes || 0), 0) / 1024 / 1024).toFixed(1)} MB`,
+    }
+}
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,14 +38,15 @@ export default function ProjetoDetalhePage() {
     const fetchData = async () => {
         try {
             const projId = parseInt(id as string)
-            const [p, inv, rend] = await Promise.all([
+            const [projetoResult, rendersResult] = await Promise.allSettled([
                 editorApi.dashboardProjeto(projId),
-                editorApi.dashboardR2Inventario(projId),
-                editorApi.listarRenders(projId)
+                editorApi.listarRenders(projId),
             ])
+            const p = projetoResult.status === "fulfilled" ? projetoResult.value : null
+            const rend = rendersResult.status === "fulfilled" ? rendersResult.value : []
             setProjeto(p)
-            setInventario(inv)
             setRenders(rend)
+            setInventario(deriveInventario(rend))
         } catch (error) {
             console.error("Erro ao carregar projeto:", error)
         } finally {
