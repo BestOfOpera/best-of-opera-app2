@@ -257,3 +257,10 @@
 - **Causa:** `"editor/"` hardcoded como prefixo do R2 key em _render_task
 - **Correção aplicada (10/03/2026):** `perfil.r2_prefix` usado como prefixo; perfil BO mantém `r2_prefix="editor"` para compatibilidade com arquivos existentes
 - **Status: ✅ IMPLEMENTADO**
+
+### ERR-075 · Admin 403 ao salvar perfil BO — proteção bloqueava edição legítima
+
+- **Causa:** `_protegido()` em `admin_perfil.py` bloqueava incondicionalmente PUT/PATCH no perfil com sigla "BO"
+- **Correção aplicada (12/03/2026):** `_protegido()` aceita `force=True` via query param `?force=true`; frontend mostra modal de confirmação antes de enviar com force
+- **Arquivos:** `app-editor/backend/app/routes/admin_perfil.py`, `app-portal/app/(app)/admin/marcas/[id]/page.tsx`, `app-portal/lib/api/editor.ts`
+- **Status: ✅ CORRIGIDO**

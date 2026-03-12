@@ -9,6 +9,22 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
+def _brand_block(brand_config: dict) -> str:
+    parts = []
+    identity = brand_config.get("identity_prompt_redator", "")
+    tom = brand_config.get("tom_de_voz_redator", "")
+    escopo = brand_config.get("escopo_conteudo", "")
+    if identity:
+        parts.append(f"**Brand Identity:** {identity}")
+    if tom:
+        parts.append(f"**Tone of Voice:** {tom}")
+    if escopo:
+        parts.append(f"**Content Scope:** {escopo}")
+    if not parts:
+        return ""
+    return "\n\n═══════════════════════════════\nBRAND CUSTOMIZATION\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
+
+
 def build_youtube_prompt(project, brand_config=None) -> str:
     brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
     fields = ""
@@ -47,7 +63,8 @@ Line 2: The tags (comma-separated)
 Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
 Only use information that was provided above. If a field (composer, voice type, etc.) was not listed, do not include it in the title or tags.
 
-Nothing else.{build_language_reinforcement(project)}"""
+Nothing else.
+{_brand_block(brand_config or {})}{build_language_reinforcement(project)}"""
 
 
 def build_youtube_prompt_with_custom(project, custom_prompt: str) -> str:

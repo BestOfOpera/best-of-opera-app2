@@ -1,5 +1,22 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (6) — Fix 403 admin perfil BO (ERR-075)
+
+### Problema
+E2E em prod revelou 403 Forbidden ao salvar perfil "Best of Opera" no admin. Causa: `_protegido()` bloqueava incondicionalmente edições ao perfil com sigla "BO".
+
+### Correção
+- Backend: `_protegido()` aceita `force=True` via query param `?force=true` em PUT, PATCH e upload-font
+- Frontend: modal de confirmação ao salvar perfil BO — botão amber "Confirmar e Salvar" envia `?force=true`
+- `handleToggleAtivo` também passa `force` quando é BO
+
+### Estado
+- Commit `e5ab17b` pushed, deploy automático no Railway
+- Mixed Content: 100% resolvido (sessão anterior)
+- Admin marcas: funcional com proteção confirmada para BO
+
+---
+
 ## Sessão 2026-03-12 (5) — Fix Mixed Content: NEXT_PUBLIC_API_* no Railway
 
 ### Problema

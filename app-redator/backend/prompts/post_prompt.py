@@ -9,6 +9,22 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
+def _brand_block(brand_config: dict) -> str:
+    parts = []
+    identity = brand_config.get("identity_prompt_redator", "")
+    tom = brand_config.get("tom_de_voz_redator", "")
+    escopo = brand_config.get("escopo_conteudo", "")
+    if identity:
+        parts.append(f"**Brand Identity:** {identity}")
+    if tom:
+        parts.append(f"**Tone of Voice:** {tom}")
+    if escopo:
+        parts.append(f"**Content Scope:** {escopo}")
+    if not parts:
+        return ""
+    return "\n\n═══════════════════════════════\nBRAND CUSTOMIZATION\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
+
+
 def build_post_prompt(project, brand_config=None) -> str:
     brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
     hashtags = (brand_config or {}).get("hashtags_fixas", ["#BestOfOpera", "#Opera", "#ClassicalMusic"])
@@ -164,7 +180,8 @@ CRITICAL RULES
 - Section 3 credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language). Portuguese post → Portuguese labels (Tipo de voz, Data de nascimento, Compositor, Data de composição). English post → English labels (Voice type, Date of Birth, Composer, Composition date).
 - MISSING DATA: If any field was NOT provided in the input, do NOT include it anywhere in the post. Do not invent data, use placeholders, or leave labels empty. In Section 2 storytelling, do not write sentences that reference missing information. In Section 3 credits, omit the entire line. The post must read naturally with only the available information.
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
-- Return ONLY the post text. No explanations, no commentary, no preamble.{build_language_reinforcement(project)}"""
+- Return ONLY the post text. No explanations, no commentary, no preamble.
+{_brand_block(brand_config or {})}{build_language_reinforcement(project)}"""
 
 
 def build_post_prompt_with_custom(project, custom_prompt: str) -> str:

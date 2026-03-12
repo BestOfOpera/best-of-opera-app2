@@ -37,6 +37,7 @@ def build_redator_config(perfil: Perfil) -> dict:
         "hashtags_fixas": perfil.hashtags_fixas or [],
         "categorias_hook": perfil.categorias_hook or [],
         "hook_categories_redator": perfil.hook_categories_redator or {},
+        "escopo_conteudo": perfil.escopo_conteudo or "",
         "overlay_max_chars": perfil.overlay_max_chars or 70,
         "overlay_max_chars_linha": perfil.overlay_max_chars_linha or 35,
         "r2_prefix": perfil.r2_prefix or "",

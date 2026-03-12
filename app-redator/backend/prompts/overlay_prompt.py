@@ -35,6 +35,8 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     max_chars_line = (brand_config or {}).get("overlay_max_chars_linha", 35)
     identity = (brand_config or {}).get("identity_prompt_redator", "")
+    tom_de_voz = (brand_config or {}).get("tom_de_voz_redator", "")
+    escopo = (brand_config or {}).get("escopo_conteudo", "")
 
     duration_info = ""
     if project.cut_start and project.cut_end:
@@ -44,14 +46,22 @@ def build_overlay_prompt(project, brand_config=None) -> str:
 
     count_info = _calc_subtitle_count(project)
 
-    identity_block = ""
+    brand_block_parts = []
     if identity:
+        brand_block_parts.append(f"**Brand Identity:** {identity}")
+    if tom_de_voz:
+        brand_block_parts.append(f"**Tone of Voice:** {tom_de_voz}")
+    if escopo:
+        brand_block_parts.append(f"**Content Scope:** {escopo}")
+
+    identity_block = ""
+    if brand_block_parts:
         identity_block = f"""
 
 ═══════════════════════════════
-BRAND IDENTITY
+BRAND CUSTOMIZATION
 ═══════════════════════════════
-{identity}
+{chr(10).join(brand_block_parts)}
 """
 
     return f"""You are a master storyteller and viral content writer for "{brand_name}", a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds.

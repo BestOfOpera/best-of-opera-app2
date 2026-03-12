@@ -48,6 +48,7 @@ def load_brand_config(slug: str = None) -> dict:
         "hashtags_fixas": ["#BestOfOpera", "#Opera", "#ClassicalMusic"],
         "categorias_hook": [],
         "hook_categories_redator": {},
+        "escopo_conteudo": "",
         "overlay_max_chars": 70,
         "overlay_max_chars_linha": 35,
         "r2_prefix": "",
