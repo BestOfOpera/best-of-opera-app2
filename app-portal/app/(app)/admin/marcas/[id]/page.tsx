@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Loader2, ArrowLeft, Save, Globe, Eye, MonitorPlay, Type, Settings2, Palette, ChevronDown, Video, Check, Cpu, Copy } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Globe, Eye, MonitorPlay, Type, Settings2, Palette, ChevronDown, Video, Check, Cpu, Copy, ShieldAlert } from "lucide-react"
+import { DialogFooter } from "@/components/ui/dialog"
 import { StyleTrackConfig } from "@/components/admin/style-track-config"
 import { BrandPreview } from "@/components/admin/brand-preview"
 
@@ -75,6 +76,7 @@ export default function MarcaConfigPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
+    const [confirmBO, setConfirmBO] = useState(false)
 
     const [formData, setFormData] = useState<Partial<Perfil>>({})
 
@@ -111,23 +113,34 @@ export default function MarcaConfigPage() {
         }
     }
 
+    const isBO = formData.sigla === "BO"
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (isBO) {
+            setConfirmBO(true)
+            return
+        }
+        await doSave(false)
+    }
+
+    const doSave = async (force: boolean) => {
         setSaving(true)
         try {
-            await editorApi.atualizarPerfil(Number(id), formData)
+            await editorApi.atualizarPerfil(Number(id), formData, force)
             toast.success("Configurações da marca salvas!")
             loadPerfil()
         } catch (err: any) {
             toast.error("Erro ao salvar marca: " + err.message)
         } finally {
             setSaving(false)
+            setConfirmBO(false)
         }
     }
 
     const handleToggleAtivo = async () => {
         try {
-            await editorApi.atualizarPerfilParcial(Number(id), { ativo: !formData.ativo })
+            await editorApi.atualizarPerfilParcial(Number(id), { ativo: !formData.ativo }, isBO)
             toast.success(`Marca ${!formData.ativo ? "ativada" : "desativada"}!`)
             loadPerfil()
         } catch (err: any) {
@@ -609,6 +622,30 @@ export default function MarcaConfigPage() {
                             Continuar Editando
                         </Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmBO} onOpenChange={setConfirmBO}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <ShieldAlert className="h-5 w-5 text-amber-500" />
+                            Perfil protegido
+                        </DialogTitle>
+                        <DialogDescription>
+                            O perfil <strong>Best of Opera</strong> é o perfil principal do canal.
+                            Alterações afetam diretamente os renders em produção. Deseja salvar mesmo assim?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setConfirmBO(false)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={() => doSave(true)} disabled={saving} className="bg-amber-600 hover:bg-amber-700 text-white">
+                            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            {saving ? "Salvando..." : "Confirmar e Salvar"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

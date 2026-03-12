@@ -384,8 +384,8 @@ export const editorApi = {
   listarPerfis: () => request<Perfil[]>(`${BASE()}/admin/perfis`),
   detalharPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}`),
   criarPerfil: (data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis`, { method: "POST", body: JSON.stringify(data) }),
-  atualizarPerfil: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  atualizarPerfilParcial: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  atualizarPerfil: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PUT", body: JSON.stringify(data) }),
+  atualizarPerfilParcial: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PATCH", body: JSON.stringify(data) }),
   duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
   previewLegenda: (id: number) => request<{ status: string; url?: string }>(`${BASE()}/admin/perfis/${id}/preview-legenda`),
   uploadFonte: (id: number, file: File) => {

@@ -186,9 +186,12 @@ def _validar_campos(data: dict) -> None:
         raise HTTPException(status_code=422, detail="idiomas_alvo deve conter codigos de 2 letras")
 
 
-def _protegido(perfil: Perfil) -> None:
-    if perfil.sigla == "BO":
-        raise HTTPException(status_code=403, detail="Perfil 'Best of Opera' (BO) e protegido e nao pode ser alterado")
+def _protegido(perfil: Perfil, force: bool = False) -> None:
+    if perfil.sigla == "BO" and not force:
+        raise HTTPException(
+            status_code=403,
+            detail="Perfil 'Best of Opera' (BO) e protegido. Use ?force=true para confirmar a alteracao.",
+        )
 
 
 # -- Rotas ---------------------------------------------------------------------
@@ -224,7 +227,7 @@ def template_bo(db: Session = Depends(get_db)):
 
 
 @router.post("/{perfil_id}/upload-font", response_model=PerfilDetalheOut)
-def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), force: bool = False):
     """Faz upload de fonte .ttf/.otf para o R2 e atualiza font_name e font_file_r2_key do perfil."""
     from app.services.font_service import extract_font_family, upload_font_to_r2
 
@@ -232,7 +235,7 @@ def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depe
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil nao encontrado")
 
-    _protegido(perfil)
+    _protegido(perfil, force=force)
 
     # Validar extensão
     filename = file.filename or ""
@@ -319,13 +322,13 @@ def criar_perfil(body: dict, db: Session = Depends(get_db)):
 
 
 @router.put("/{perfil_id}", response_model=PerfilDetalheOut)
-def atualizar_perfil(perfil_id: int, body: dict, db: Session = Depends(get_db)):
+def atualizar_perfil(perfil_id: int, body: dict, db: Session = Depends(get_db), force: bool = False):
     """Atualizacao completa do perfil."""
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil nao encontrado")
 
-    _protegido(perfil)
+    _protegido(perfil, force=force)
     _validar_campos(body)
 
     for campo, valor in body.items():
@@ -342,13 +345,13 @@ def atualizar_perfil(perfil_id: int, body: dict, db: Session = Depends(get_db)):
 
 
 @router.patch("/{perfil_id}", response_model=PerfilDetalheOut)
-def atualizar_perfil_parcial(perfil_id: int, body: dict, db: Session = Depends(get_db)):
+def atualizar_perfil_parcial(perfil_id: int, body: dict, db: Session = Depends(get_db), force: bool = False):
     """Atualizacao parcial do perfil."""
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil nao encontrado")
 
-    _protegido(perfil)
+    _protegido(perfil, force=force)
     _validar_campos(body)
 
     for campo, valor in body.items():
