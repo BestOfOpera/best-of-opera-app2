@@ -5,6 +5,18 @@
 
 ---
 
+## Fase 14 — Sentry coverage + bugfix (11/03/2026)
+
+### ERR-066 · NameError 'falhas' em _traducao_task
+
+- **Sintoma:** `NameError: name 'falhas' is not defined` — task de tradução falhava no log final após retry
+- **Causa raiz:** Linha 1379 de `pipeline.py` referenciava `falhas` (nome da variável em `_render_task`), mas em `_traducao_task` a variável se chama `falhas_finais`
+- **Arquivos corrigidos:** `app-editor/backend/app/routes/pipeline.py:1379`
+- **Correção (11/03/2026):** `len(falhas)` → `len(falhas_finais)` no log de conclusão da task de tradução
+- **Detectado via:** Sentry PYTHON-FASTAPI-7 (4 ocorrências, 11/03/2026)
+
+---
+
 ## Fase 13 — BLAST v3: Expansão do Pipeline (09/03/2026)
 
 ### ERR-056 · cobalt.tools ausente como fonte de download primária

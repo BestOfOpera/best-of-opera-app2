@@ -1376,7 +1376,7 @@ async def _traducao_task(edicao_id: int):
                     edicao.erro_msg = None
                 db.commit()
 
-        logger.info(f"[{edicao_id}] Tradução concluída: {concluidos} OK, {len(falhas)} falhas")
+        logger.info(f"[{edicao_id}] Tradução concluída: {concluidos} OK, {len(falhas_finais)} falhas")
         logger.info(f"[{edicao_id}] _traducao_task FINALIZOU COMPLETAMENTE")
 
     except BaseException as e:

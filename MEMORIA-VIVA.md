@@ -13,6 +13,15 @@
 - Railway token válido (2025-02): `5d70b3e4-85cf-43d9-893c-38578a90b8e9` (Code Token 2502)
 - psql não disponível no Mac — usar python3 com psycopg2
 
+## Sessão 2026-03-11 (2) — Bugfix ERR-066 via Sentry
+
+### O que foi feito
+- **ERR-066 corrigido**: `NameError: name 'falhas'` em `_traducao_task` (pipeline.py:1379) → `len(falhas)` → `len(falhas_finais)`
+- **Sentry limpo**: FASTAPI-1 a FASTAPI-6 marcados como resolved (eram bugs já corrigidos na sessão 10/03)
+
+### Pendências
+- Fazer git push + deploy para que a correção chegue ao Railway
+
 ## Sessão 2026-03-11 — Sentry cobertura total (4 serviços)
 
 ### O que foi feito
