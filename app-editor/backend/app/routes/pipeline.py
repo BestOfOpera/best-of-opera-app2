@@ -770,7 +770,13 @@ async def _transcricao_task(edicao_id: int):
         logger.info(f"[{edicao_id}] Passo 1: Mapeamento estrutural do áudio...")
         genai = _get_gemini_client()
         mime_type = _detect_mime(audio_local)
-        audio_file_ref = genai.upload_file(audio_local, mime_type=mime_type)
+        loop = asyncio.get_running_loop()
+        audio_file_ref = await asyncio.wait_for(
+            loop.run_in_executor(
+                None, lambda: genai.upload_file(audio_local, mime_type=mime_type)
+            ),
+            timeout=120,
+        )
 
         melhor_cega = None
         melhor_n_cega = 0
@@ -949,6 +955,8 @@ async def _transcricao_task(edicao_id: int):
                 "Gemini bloqueou a transcrição por safety filter após 3 tentativas. "
                 "Música pode conter conteúdo sensível."
             )
+        elif isinstance(e, asyncio.TimeoutError):
+            erro_msg = "Timeout na comunicação com Gemini (upload ou transcrição). Tente novamente."
         else:
             _capture_sentry(e, edicao_id, "transcricao")
             erro_msg = f"Transcrição falhou: {repr(e)[:500]}"

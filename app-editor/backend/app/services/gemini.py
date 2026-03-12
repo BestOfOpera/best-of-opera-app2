@@ -177,8 +177,15 @@ async def transcrever_guiado_completo(
     if audio_file_ref is not None:
         audio_file = audio_file_ref
     else:
+        import asyncio as _aio
+        _loop = _aio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
+        audio_file = await _aio.wait_for(
+            _loop.run_in_executor(
+                None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+            ),
+            timeout=120,
+        )
 
     # Contar versos na letra para dar referência ao Gemini
     versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
@@ -275,8 +282,15 @@ async def completar_transcricao(
     if audio_file_ref is not None:
         audio_file = audio_file_ref
     else:
+        import asyncio as _aio
+        _loop = _aio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        audio_file = genai.upload_file(audio_completo_path, mime_type=mime_type)
+        audio_file = await _aio.wait_for(
+            _loop.run_in_executor(
+                None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+            ),
+            timeout=120,
+        )
 
     # Formatar resultado parcial para mostrar ao Gemini
     parcial_json = json.dumps(resultado_parcial, ensure_ascii=False, indent=2)
