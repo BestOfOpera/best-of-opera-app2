@@ -13,7 +13,27 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { Loader2, ArrowLeft, Save, Globe, MonitorPlay, Type, Settings2, Palette, ChevronDown } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Globe, MonitorPlay, Type, Settings2, Palette, ChevronDown, Check } from "lucide-react"
+
+const HOOK_CATEGORIES = [
+    { key: "curiosidade_musica",        label: "Curiosidade Sobre a Música",    emoji: "🎵" },
+    { key: "curiosidade_interprete",    label: "Curiosidade Sobre o Intérprete", emoji: "🎤" },
+    { key: "curiosidade_compositor",    label: "Curiosidade Sobre o Compositor", emoji: "✍️" },
+    { key: "valor_historico",           label: "Valor Histórico",               emoji: "📜" },
+    { key: "climax_vocal",              label: "Clímax Vocal",                  emoji: "🔥" },
+    { key: "peso_emocional",            label: "Peso Emocional",                emoji: "💔" },
+    { key: "transformacao_progressiva", label: "Transformação Progressiva",     emoji: "🌅" },
+    { key: "dueto_encontro",            label: "Dueto / Encontro",              emoji: "🤝" },
+    { key: "reacao_impacto_visual",     label: "Reação / Impacto Visual",       emoji: "😱" },
+    { key: "conexao_cultural",          label: "Conexão Cultural",              emoji: "🌍" },
+    { key: "prefiro_escrever",          label: "Prefiro Escrever",              emoji: "✏️" },
+]
+
+function toHookArray(v: unknown): string[] {
+    if (Array.isArray(v)) return v
+    if (typeof v === "string" && v) return v.split(",").map(s => s.trim()).filter(Boolean)
+    return []
+}
 
 function CollapsibleSection({ title, description, icon: Icon, defaultOpen = false, children }: any) {
     const [open, setOpen] = useState(defaultOpen)
@@ -68,7 +88,7 @@ export default function NovaMarcaPage() {
         editorial_lang: "pt-br",
         identity_prompt: "",
         tom_voz: "",
-        categorias_hook: "",
+        categorias_hook: [],
         escopo_conteudo: "",
         overlay_style: {},
         lyrics_style: {},
@@ -218,9 +238,44 @@ export default function NovaMarcaPage() {
                                 className="min-h-[80px] bg-background resize-y"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Categorias/Ganchos Frequentes</Label>
-                            <Input value={formData.categorias_hook || ""} onChange={e => handleChange("categorias_hook", e.target.value)} className="bg-background font-mono text-sm" placeholder="historia,curiosidade,nota_alta" />
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold text-muted-foreground">Categorias/Ganchos</Label>
+                                <span className="text-xs text-muted-foreground">
+                                    {toHookArray(formData.categorias_hook).length === 0
+                                        ? "Nenhuma selecionada — todas ativas"
+                                        : `${toHookArray(formData.categorias_hook).length} selecionada(s)`}
+                                </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground -mt-1">Marque as categorias que esta marca usa. Se nenhuma for marcada, todas ficam disponíveis.</p>
+                            <div className="flex flex-wrap gap-2">
+                                {HOOK_CATEGORIES.map(cat => {
+                                    const selected = toHookArray(formData.categorias_hook).includes(cat.key)
+                                    return (
+                                        <button
+                                            key={cat.key}
+                                            type="button"
+                                            onClick={() => {
+                                                const current = toHookArray(formData.categorias_hook)
+                                                handleChange("categorias_hook", selected
+                                                    ? current.filter(k => k !== cat.key)
+                                                    : [...current, cat.key]
+                                                )
+                                            }}
+                                            className={cn(
+                                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border transition-all",
+                                                selected
+                                                    ? "bg-primary/10 border-primary/40 text-primary font-medium"
+                                                    : "bg-background border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                                            )}
+                                        >
+                                            <span>{cat.emoji}</span>
+                                            <span>{cat.label}</span>
+                                            {selected && <Check className="h-3 w-3 ml-0.5" />}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
                     </div>
                 </CollapsibleSection>

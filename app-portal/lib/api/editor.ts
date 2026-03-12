@@ -207,7 +207,7 @@ export interface Perfil {
   identity_prompt: string
   tom_voz: string
   hashtags: string
-  categorias_hook: string
+  categorias_hook: string[]
   escopo_conteudo: string
   idiomas_alvo: string
   idioma_preview: string
