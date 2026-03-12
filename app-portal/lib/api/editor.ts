@@ -205,22 +205,38 @@ export interface Perfil {
   ativo: boolean
   editorial_lang: string
   identity_prompt: string
-  tom_voz: string
-  hashtags: string
+  tom_de_voz: string
+  hashtags_fixas: string[]
   categorias_hook: string[]
   escopo_conteudo: string
-  idiomas_alvo: string
+  idiomas_alvo: string[]
   idioma_preview: string
   overlay_style: Record<string, any>
   lyrics_style: Record<string, any>
   traducao_style: Record<string, any>
+  overlay_max_chars: number
+  overlay_max_chars_linha: number
+  lyrics_max_chars: number
+  traducao_max_chars: number
   video_width: number
   video_height: number
-  duracao_min_sec: number
-  duracao_max_sec: number
   cor_primaria: string
   cor_secundaria: string
   r2_prefix: string
+  logo_url: string
+  font_name: string
+  font_file_r2_key: string | null
+  // Curadoria
+  curadoria_categories?: Record<string, any>
+  elite_hits?: any[]
+  power_names?: any[]
+  voice_keywords?: any[]
+  institutional_channels?: any[]
+  category_specialty?: Record<string, any>
+  scoring_weights?: Record<string, any>
+  curadoria_filters?: Record<string, any>
+  anti_spam_terms?: string
+  playlist_id?: string
   created_at: string
 }
 
@@ -372,4 +388,9 @@ export const editorApi = {
   atualizarPerfilParcial: (id: number, data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
   previewLegenda: (id: number) => request<{ status: string; url?: string }>(`${BASE()}/admin/perfis/${id}/preview-legenda`),
+  uploadFonte: (id: number, file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return requestFormData<Perfil>(`${BASE()}/admin/perfis/${id}/upload-font`, form)
+  },
 }

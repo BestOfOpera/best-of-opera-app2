@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { editorApi } from "@/lib/api/editor"
 import { toast } from "sonner"
@@ -14,7 +13,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
   const { login } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -23,8 +21,7 @@ export default function LoginPage() {
     
     try {
       const { access_token } = await editorApi.login({ email, senha: password })
-      login(access_token)
-      router.push("/dashboard")
+      await login(access_token)
     } catch (err: any) {
       toast.error(err.status === 401 ? "Email ou senha incorretos" : "Erro ao fazer login")
     } finally {

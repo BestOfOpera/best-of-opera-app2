@@ -1,11 +1,7 @@
-function isProduction() {
-  return typeof window !== "undefined" && window.location.hostname.includes("railway.app")
-}
-
 export const API_URLS = {
-  get curadoria() { return isProduction() ? "https://curadoria-backend-production.up.railway.app" : "http://localhost:8002" },
-  get redator() { return isProduction() ? "https://app-production-870c.up.railway.app" : "http://localhost:8000" },
-  get editor() { return isProduction() ? "https://editor-backend-production.up.railway.app" : "http://localhost:8001" },
+  curadoria: process.env.NEXT_PUBLIC_API_CURADORIA ?? "http://localhost:8002",
+  redator:   process.env.NEXT_PUBLIC_API_REDATOR   ?? "http://localhost:8000",
+  editor:    process.env.NEXT_PUBLIC_API_EDITOR     ?? "http://localhost:8001",
 }
 
 export class ApiError extends Error {
@@ -19,20 +15,43 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, options?: RequestInit): Promise<T> {
+interface RequestOptions extends RequestInit {
+  timeout?: number
+}
+
+export async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  
+
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("bo_auth_token")
     if (token) headers["Authorization"] = `Bearer ${token}`
   }
 
-  const res = await fetch(path, {
-    headers: { ...headers, ...(options?.headers as any) },
-    ...options,
-  })
-  
+  const { timeout = 15000, ...fetchOptions } = options ?? {}
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+
+  let res: Response
+  try {
+    res = await fetch(path, {
+      headers: { ...headers, ...(fetchOptions.headers as any) },
+      ...fetchOptions,
+      signal: controller.signal,
+    })
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new ApiError(408, "Request timeout")
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+
   if (!res.ok) {
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("bo_auth_token")
+      window.dispatchEvent(new CustomEvent("bo:unauthorized"))
+    }
     const body = await res.json().catch(() => ({ detail: res.statusText }))
     throw new ApiError(res.status, body.detail ?? body)
   }
@@ -40,18 +59,36 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   return res.json()
 }
 
-export async function requestFormData<T>(path: string, body: FormData): Promise<T> {
+export async function requestFormData<T>(path: string, body: FormData, timeout = 15000): Promise<T> {
   const headers: Record<string, string> = {}
-  
+
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("bo_auth_token")
     if (token) headers["Authorization"] = `Bearer ${token}`
   }
 
-  const res = await fetch(path, { method: "POST", headers, body })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+
+  let res: Response
+  try {
+    res = await fetch(path, { method: "POST", headers, body, signal: controller.signal })
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Request timeout")
+    }
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || "Request failed")
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("bo_auth_token")
+      window.dispatchEvent(new CustomEvent("bo:unauthorized"))
+    }
+    const errBody = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(errBody.detail || "Request failed")
   }
   return res.json()
 }

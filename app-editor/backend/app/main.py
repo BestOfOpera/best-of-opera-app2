@@ -61,8 +61,6 @@ def _run_migrations():
                 video_width INTEGER DEFAULT 1080,
                 video_height INTEGER DEFAULT 1920,
                 escopo_conteudo TEXT,
-                duracao_corte_min INTEGER DEFAULT 30,
-                duracao_corte_max INTEGER DEFAULT 90,
                 cor_primaria VARCHAR(10) DEFAULT '#1a1a2e',
                 cor_secundaria VARCHAR(10) DEFAULT '#e94560',
                 r2_prefix VARCHAR(100) DEFAULT 'editor',
@@ -134,7 +132,6 @@ def _run_migrations():
                 lyrics_max_chars, traducao_max_chars,
                 video_width, video_height,
                 r2_prefix, cor_primaria, cor_secundaria,
-                duracao_corte_min, duracao_corte_max,
                 hashtags_fixas, categorias_hook,
                 curadoria_categories, elite_hits, power_names, voice_keywords,
                 institutional_channels, category_specialty, scoring_weights, curadoria_filters
@@ -144,7 +141,7 @@ def _run_migrations():
                 :idiomas_alvo, 'pt',
                 :overlay_style, :lyrics_style, :traducao_style,
                 70, 35, 43, 100, 1080, 1920,
-                'editor', '#1a1a2e', '#e94560', 30, 90,
+                'editor', '#1a1a2e', '#e94560',
                 :hashtags, :categorias,
                 :curadoria_categories, :elite_hits, :power_names, :voice_keywords,
                 :institutional_channels, :category_specialty, :scoring_weights, :curadoria_filters
@@ -213,11 +210,21 @@ def _run_migrations():
                 ("tom_de_voz_redator", "TEXT"),
                 ("logo_url", "VARCHAR(500)"),
                 ("font_name", "VARCHAR(100)"),
+                ("font_file_r2_key", "VARCHAR(200)"),
             ]:
                 if col_name not in perfil_cols:
                     conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))
                     logger.info(f"Migration: added column editor_perfis.{col_name}")
             logger.info("Migration: editor_perfis curadoria columns OK")
+
+    # Migration: remover colunas obsoletas de editor_perfis
+    if "editor_perfis" in insp.get_table_names():
+        with engine.begin() as conn:
+            perfil_cols = [c["name"] for c in insp.get_columns("editor_perfis")]
+            for col_name in ("duracao_corte_min", "duracao_corte_max"):
+                if col_name in perfil_cols:
+                    conn.execute(text(f"ALTER TABLE editor_perfis DROP COLUMN {col_name}"))
+                    logger.info(f"Migration: dropped column editor_perfis.{col_name}")
 
     # Migration: tabela editor_usuarios (auth)
     with engine.begin() as conn:

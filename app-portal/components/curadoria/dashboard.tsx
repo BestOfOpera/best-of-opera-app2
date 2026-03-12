@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Search, RefreshCw, Trophy, ListMusic, Loader2 } from "lucide-react"
+import { Search, RefreshCw, Trophy, ListMusic, Loader2, Sparkles } from "lucide-react"
+import { useBrand } from "@/lib/brand-context"
 
 interface SeedInfo {
   index: number
@@ -20,6 +21,7 @@ interface SeedInfo {
 }
 
 export function CuradoriaDashboard() {
+  const { selectedBrand } = useBrand()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<Video[]>([])
   const [loading, setLoading] = useState(false)
@@ -217,7 +219,15 @@ export function CuradoriaDashboard() {
       {/* Header with quota */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Curadoria</h2>
+          <h2 className="text-2xl font-bold flex items-center gap-3">
+            Curadoria
+            {selectedBrand && (
+              <Badge variant="outline" className="h-6 gap-1.5 border-primary/30 bg-primary/5 text-primary animate-in fade-in zoom-in duration-500">
+                <Sparkles className="h-3 w-3" />
+                Destino: {selectedBrand.nome}
+              </Badge>
+            )}
+          </h2>
           <p className="text-sm text-muted-foreground">Motor V7 — Seed rotation · Scoring V7 · Anti-spam</p>
         </div>
         <div className="flex items-center gap-4">

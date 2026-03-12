@@ -1558,11 +1558,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 r2_prefix_val = perfil.r2_prefix or "editor"
                 video_width_val = perfil.video_width or 1080
                 video_height_val = perfil.video_height or 1920
+                font_file_r2_key_val = perfil.font_file_r2_key or None
             else:
                 perfil_data = None
                 r2_prefix_val = "editor"
                 video_width_val = 1080
                 video_height_val = 1920
+                font_file_r2_key_val = None
             # Persistir r2_base se não estava setado
             if not edicao.r2_base and r2_base_val:
                 edicao.r2_base = r2_base_val
@@ -1666,6 +1668,16 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
         # Garantir que o vídeo cortado está disponível localmente (baixa do R2 se necessário)
         local_video = storage.ensure_local(arquivo_video)
 
+        # Garantir fonte customizada disponível para o FFmpeg (se a marca tiver uma)
+        if font_file_r2_key_val:
+            try:
+                from app.services.font_service import ensure_font_local as _ensure_font
+                _ensure_font(font_file_r2_key_val)
+                logger.info(f"[{edicao_id}] Fonte customizada carregada: {font_file_r2_key_val}")
+            except BaseException as font_err:
+                logger.warning(f"[{edicao_id}] Falha ao carregar fonte customizada ({font_file_r2_key_val}): {font_err} — usando fonte padrão")
+                font_file_r2_key_val = None
+
         for idioma in faltantes:
             # Heartbeat antes de cada render (sessão curta)
             with SessionLocal() as db:
@@ -1739,11 +1751,17 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                     # FFmpeg com timeout — banco FECHADO
                     ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
+                    _fontsdir = "/usr/local/share/fonts/custom" if font_file_r2_key_val else None
+                    _ass_filter = (
+                        f"ass='{ass_escaped}':fontsdir={_fontsdir}"
+                        if _fontsdir else
+                        f"ass='{ass_escaped}'"
+                    )
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
                         f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
                         f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black,'
-                        f"ass='{ass_escaped}'\" "
+                        f'{_ass_filter}" '
                         f'-c:v libx264 -preset medium -crf 23 '
                         f'-c:a aac -b:a 128k "{output_video}"'
                     )

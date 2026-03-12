@@ -1,5 +1,35 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 11/03/2026 — Revisão Completa do Workspace + Push
+
+### O que foi feito
+1. **Limpeza de arquivos (FASE 1):**
+   - Deletados: `app-design/` (vazio), `arquivo/~$LATORIO...docx` (temp Word), `.DS_Store`, `app-editor/backend/app/services/genius.py` (não usado)
+   - Movidos para `arquivo/`: RELATORIO-COMPARATIVO-REPOS.md
+   - Movido `~/BLAST-FASE2-MULTI-BRAND-v2.md` → `dados-relevantes/`
+   - `.gitignore` atualizado com `.DS_Store`
+
+2. **CLAUDE.md do projeto (FASE 2):**
+   - Removidas refs quebradas (CONTEXTO-CODIGO-FINAL, MEMORIAL-REVISAO)
+   - Corrigida linha cobalt (cascata completa)
+   - Adicionado Glossário de nomenclatura
+   - Adicionada nota de equivalência docs (PRD/ARCH/ROADMAP)
+   - Adicionada nota BLAST vs PLANO-DE-ACAO
+
+3. **CLAUDE.md global (FASE 3):**
+   - Mapa BLAST atualizado — **BLAST Fase 2 COMPLETA** (todos os prompts 0-5 + 1.5 + 2.5)
+   - Path do BLAST corrigido para `dados-relevantes/`
+   - Exceção PLANO-DE-ACAO para best-of-opera-app2
+
+4. **Push realizado** — commit `1dff557` em main, deploy automático no Railway
+
+### Estado atual
+- BLAST Fase 2 **100% concluída** em código
+- Pendência em prod: verificar se Mixed Content foi resolvido após este deploy (URLs em `base.ts` já estão HTTPS)
+- Workspace limpo: 13 itens visíveis na raiz
+
+---
+
 ## Referências de Infra (Railway + Postgres)
 - Git remote: `https://github.com/BestOfOpera/best-of-opera-app2.git`
 - Railway project ID: `c4d0468d-f3da-4765-b582-42cf6ef5ff66`
@@ -12,6 +42,75 @@
 - Conectar: `python3 -c "import psycopg2; conn = psycopg2.connect(host='caboose.proxy.rlwy.net', port=49324, user='postgres', password='bestofopera2024', dbname='railway'); ..."`
 - Railway token válido (2025-02): `5d70b3e4-85cf-43d9-893c-38578a90b8e9` (Code Token 2502)
 - psql não disponível no Mac — usar python3 com psycopg2
+
+## Sessão 2026-03-12 (4) — Tarefa 06: Suporte a Fonte Customizada no Render
+
+### O que foi feito
+- **`pipeline.py` — `_render_task`**:
+  - Extrai `font_file_r2_key_val` do perfil antes de fechar a sessão de banco
+  - Antes do loop de render, se a marca tem fonte customizada: chama `ensure_font_local()` para garantir a fonte em `/usr/local/share/fonts/custom/`
+  - Falha ao carregar fonte é não-fatal: loga warning e continua com fonte padrão
+  - Filtro ASS no FFmpeg agora usa `ass='...':fontsdir=/usr/local/share/fonts/custom` quando há fonte customizada
+- **`ffmpeg_service.py` — `renderizar_video`**: adicionado parâmetro `fontsdir=None` e suporte ao mesmo padrão de filtro ASS (para uso futuro)
+
+### Estado
+- Plano 120326: todas as tarefas CLAUDE CODE (01–06) concluídas [x]
+- Tarefa 14 (ANTIGRAVITY) também [x] — plano completo
+
+---
+
+## Sessão 2026-03-12 (3) — Tarefa 05: Upload de Fonte Customizada
+
+### O que foi feito
+- **Criado** `app-editor/backend/app/services/font_service.py` com 3 funções:
+  - `extract_font_family(path)` — usa fonttools para extrair o nome da família; fallback para nome do arquivo
+  - `upload_font_to_r2(local_path, slug, filename)` — faz upload para `fonts/{slug}/{filename}` no R2
+  - `ensure_font_local(r2_key)` — baixa R2 → `/tmp/custom-fonts/`, instala em `/usr/local/share/fonts/custom/`, roda fc-cache
+- **Adicionado endpoint** `POST /api/v1/editor/admin/perfis/{perfil_id}/upload-font` em `admin_perfil.py`:
+  - Valida extensão (.ttf/.otf) e tamanho máximo (10MB)
+  - Salva em tmp → extrai family name → upload R2 → atualiza `font_name` + `font_file_r2_key`
+  - Retorna `PerfilDetalheOut` atualizado
+- **Adicionado** `fonttools>=4.50.0` ao `requirements.txt`
+- Plano 05 marcado [x]
+
+### Estado
+- Tarefa 06 é a próxima (suporte FFmpeg à fonte customizada) — depende de 05 ✓
+
+---
+
+## Sessão 2026-03-12 — Validação E2E Completa (Ambiente de Produção)
+
+### Resultado Geral: **ALERTA (Bloqueio Crítico)**
+- **Total de testes:** 68
+- **Passaram:** 54
+- **Falharam:** 14
+- **Severidade Máxima:** **CRÍTICA** (Mixed Content em Produção)
+
+### Tabela de Status E2E
+
+| Bloco | Testes | Status | Observação |
+|---|---|---|---|
+| **Bloco 1: Auth** | 1-7 | ✅/⚠️ | Login OK. Falha no relogin sequencial (necessitava limpeza de localStorage). |
+| **Bloco 2: Navegação** | 8-18 | ✅ | Todos os itens do sidebar abriram sem erros de rota. |
+| **Bloco 3: Admin Marcas** | 19-28 | ❌ | **BLOQUEADO.** Nenhuma marca carregada por Mixed Content no backend admin. |
+| **Bloco 4: Admin Usuários**| 29-35 | ✅ | Tabela e modais de edição/convite funcionando. |
+| **Bloco 5: Curadoria** | 36-43 | ⚠️ | Tabs carregam; Busca lenta/instável. |
+| **Bloco 6: Redator** | 44-48 | ⚠️ | Novo projeto OK. Etapas com carregamento infinito em alguns IDs. |
+| **Bloco 7: Editor** | 49-53 | ⚠️ | Fila OK. Stepper visível. Detalhes com erro de API. |
+| **Bloco 8: Dashboard** | 54-60 | ✅ | Métricas e Reports funcionando bem. Modal de reporte testado. |
+| **Bloco 9: Global** | 61-65 | ⚠️ | Brand Selector vazio por reflexo de falha no Admin. Responsividade OK. |
+| **Bloco 10: Console** | 66-68 | ❌ | Erros de **Mixed Content** (HTTPS chamando HTTP) bloqueiam módulos sensíveis. |
+
+### Bugs e Vulnerabilidades
+
+1.  **🚨 Crítico: Mixed Content** — Requisições do frontend para `http://editor-backend-production...` bloqueadas pelo Chrome. **Resolução imediata requer atualização para HTTPS na variável de ambiente do backend em produção.**
+2.  **🚨 Alto: Instabilidade de Sessão** — Relogin falha com 401 a menos que o browser limpe manualmente os dados. 
+3.  **⚠️ Médio: Performance/Timeouts** — Páginas de Edição e Projeto demoram a responder ou travam o estado de carregamento.
+
+### Estado Resultante
+O sistema está funcional no "esqueleto", mas o core de CRUD de marcas e navegação de estágios (Editor/Redator) está bloqueado pelo bug de HTTPS/Mixed Content em produção.
+
+---
 
 ## Sessão 2026-03-12 (2) — Auditoria e Limpeza de Workspace
 

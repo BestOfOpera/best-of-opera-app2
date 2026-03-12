@@ -21,7 +21,7 @@ class Perfil(Base):
     categorias_hook = Column(JSON, default=list)
 
     # Idiomas
-    idiomas_alvo = Column(JSON, default=list)
+    idiomas_alvo = Column(JSON, default=lambda: ["en", "pt", "es", "de", "fr", "it", "pl"])
     idioma_preview = Column(String(5), default="pt")
 
     # Estilos de legenda — JSON (mesma estrutura do ESTILOS_PADRAO)
@@ -41,8 +41,6 @@ class Perfil(Base):
 
     # Curadoria — metadados básicos
     escopo_conteudo = Column(Text)
-    duracao_corte_min = Column(Integer, default=30)
-    duracao_corte_max = Column(Integer, default=90)
 
     # Curadoria — dados migrados do JSON avulso (best-of-opera.json)
     curadoria_categories = Column(JSON, default=dict)    # categorias + seeds de busca
@@ -62,6 +60,7 @@ class Perfil(Base):
     tom_de_voz_redator = Column(Text)
     logo_url = Column(String(500))
     font_name = Column(String(100))
+    font_file_r2_key = Column(String(200))
 
     # Visual
     cor_primaria = Column(String(10), default="#1a1a2e")

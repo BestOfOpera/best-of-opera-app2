@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react"
+import { useBrand } from "@/lib/brand-context"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   aguardando: { label: "Aguardando", variant: "secondary" },
@@ -61,6 +62,7 @@ function nextStepPath(e: Edicao) {
 
 export function EditorEditingQueue() {
   const router = useRouter()
+  const { selectedBrand } = useBrand()
   const [edicoes, setEdicoes] = useState<Edicao[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -124,7 +126,10 @@ export function EditorEditingQueue() {
     if (!form.youtube_url || !form.artista || !form.musica || !form.idioma) return
     setSaving(true)
     try {
-      await editorApi.criarEdicao(form as unknown as Partial<Edicao>)
+      await editorApi.criarEdicao({ 
+        ...form, 
+        perfil_id: selectedBrand?.id 
+      } as unknown as Partial<Edicao>)
       setShowForm(false)
       setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false })
       loadEdicoes()
@@ -158,7 +163,7 @@ export function EditorEditingQueue() {
     setImportando(projectId)
     try {
       const finalIdioma = (idioma === "auto" || idioma === "other") ? undefined : idioma
-      const result = await editorApi.importarDoRedator(projectId, finalIdioma, !temLetraImport)
+      const result = await editorApi.importarDoRedator(projectId, finalIdioma, !temLetraImport, selectedBrand?.id)
       setShowImportar(false)
       setModalIdioma(null)
       loadEdicoes()

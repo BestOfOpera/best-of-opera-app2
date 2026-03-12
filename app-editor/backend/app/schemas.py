@@ -27,8 +27,6 @@ class PerfilCreate(BaseModel):
     video_width: int = 1080
     video_height: int = 1920
     escopo_conteudo: Optional[str] = None
-    duracao_corte_min: int = 30
-    duracao_corte_max: int = 90
     cor_primaria: str = "#1a1a2e"
     cor_secundaria: str = "#e94560"
     r2_prefix: str = "editor"
@@ -56,8 +54,6 @@ class PerfilUpdate(BaseModel):
     video_width: Optional[int] = None
     video_height: Optional[int] = None
     escopo_conteudo: Optional[str] = None
-    duracao_corte_min: Optional[int] = None
-    duracao_corte_max: Optional[int] = None
     cor_primaria: Optional[str] = None
     cor_secundaria: Optional[str] = None
     r2_prefix: Optional[str] = None
@@ -86,8 +82,6 @@ class PerfilOut(BaseModel):
     video_width: int
     video_height: int
     escopo_conteudo: Optional[str] = None
-    duracao_corte_min: int
-    duracao_corte_max: int
     cor_primaria: str
     cor_secundaria: str
     r2_prefix: str

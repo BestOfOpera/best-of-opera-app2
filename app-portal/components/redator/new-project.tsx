@@ -12,6 +12,7 @@ import { Upload, Loader2 } from "lucide-react"
 import { redatorApi, type DetectedMetadata } from "@/lib/api/redator"
 import { curadoriaApi } from "@/lib/api/curadoria"
 import { BrandSelector } from "@/components/brand-selector"
+import { useBrand } from "@/lib/brand-context"
 
 const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Overture", "Recitative", "Ensemble", "Ballet", "Intermezzo", "Other"]
 
@@ -55,7 +56,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const [category, setCategory] = useState("")
   const [cutStart, setCutStart] = useState("")
   const [cutEnd, setCutEnd] = useState("")
-  const [selectedBrandId, setSelectedBrandId] = useState<number | undefined>(undefined)
+  const { selectedBrand } = useBrand()
 
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
@@ -214,6 +215,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         nationality_flag: joinField("nationality_flag"), voice_type: joinField("voice_type"),
         birth_date: joinField("birth_date"), death_date: joinField("death_date"),
         album_opera: shared.album_opera,
+        perfil_id: selectedBrand?.id?.toString() || "",
       })
       await redatorApi.generate(project.id)
       router.push(`/redator/projeto/${project.id}/overlay`)
@@ -233,10 +235,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         </div>
         <div className="shrink-0 flex items-center gap-3 bg-muted/40 p-2 rounded-lg border border-border">
           <span className="text-xs font-medium text-muted-foreground hidden sm:inline-block">Marca Destino:</span>
-          {/* O BrandSelector em components/brand-selector ja puxa da API. Para o MVP ele seta id internamente, se formos capturar o ID ele pode enviar via prop onSelect ou lermos do DOM (No projeto esta lidando localmente sem form state global por hora) */}
-          <div data-selected-brand={selectedBrandId}>
-            <BrandSelector />
-          </div>
+          <BrandSelector />
         </div>
       </div>
 

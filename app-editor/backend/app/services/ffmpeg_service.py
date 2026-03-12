@@ -90,7 +90,8 @@ async def cortar_na_janela_overlay(
 
 
 async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: str,
-                            r2_base: str = "", idioma: str = "") -> dict:
+                            r2_base: str = "", idioma: str = "",
+                            fontsdir: str = None) -> dict:
     """Renderiza vídeo com legendas ASS em formato 9:16.
 
     Args:
@@ -99,16 +100,22 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
         output_path: path local de saída
         r2_base: chave-base no R2
         idioma: código do idioma (para key R2)
+        fontsdir: diretório local com fontes customizadas (ex: /usr/local/share/fonts/custom)
     """
     local_video = storage.ensure_local(video_cortado_key)
 
     ass_escaped = ass_file.replace("\\", "/").replace(":", "\\:")
+    ass_filter = (
+        f"ass='{ass_escaped}':fontsdir={fontsdir}"
+        if fontsdir else
+        f"ass='{ass_escaped}'"
+    )
 
     await run_ffmpeg(
         f'ffmpeg -y -i "{local_video}" '
-        f"-vf \"scale=1080:1920:force_original_aspect_ratio=decrease,"
-        f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,"
-        f"ass='{ass_escaped}'\" "
+        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
+        f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
+        f'{ass_filter}" '
         f"-c:v libx264 -preset medium -crf 23 "
         f'-c:a aac -b:a 128k "{output_path}"'
     )

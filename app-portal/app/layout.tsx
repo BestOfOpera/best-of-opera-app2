@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
+import { BrandProvider } from '@/lib/brand-context'
 import { Toaster } from 'sonner'
 
 const inter = Inter({
@@ -28,8 +29,10 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          {children}
-          <Toaster position="top-right" richColors closeButton />
+          <BrandProvider>
+            {children}
+            <Toaster position="top-right" richColors closeButton />
+          </BrandProvider>
         </AuthProvider>
       </body>
     </html>

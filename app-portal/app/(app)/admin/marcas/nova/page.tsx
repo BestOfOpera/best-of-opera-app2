@@ -13,7 +13,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
-import { Loader2, ArrowLeft, Save, Globe, MonitorPlay, Type, Settings2, Palette, ChevronDown, Check } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Globe, MonitorPlay, Type, Settings2, Palette, ChevronDown, Check, Plus, Cpu } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { StyleTrackConfig } from "@/components/admin/style-track-config"
 
 const HOOK_CATEGORIES = [
     { key: "curiosidade_musica",        label: "Curiosidade Sobre a Música",    emoji: "🎵" },
@@ -80,19 +82,22 @@ export default function NovaMarcaPage() {
         cor_secundaria: "#e94560",
         video_width: 1080,
         video_height: 1920,
-        duracao_min_sec: 45,
-        duracao_max_sec: 90,
         r2_prefix: "",
-        idiomas_alvo: "pt,en,es",
+        idiomas_alvo: ["en", "pt", "es", "de", "fr", "it", "pl"],
         idioma_preview: "pt",
-        editorial_lang: "pt-br",
+        editorial_lang: "pt",
         identity_prompt: "",
-        tom_voz: "",
+        tom_de_voz: "",
+        hashtags_fixas: ["opera", "classicalmusic"],
         categorias_hook: [],
         escopo_conteudo: "",
         overlay_style: {},
         lyrics_style: {},
-        traducao_style: {}
+        traducao_style: {},
+        // Curadoria Defaults
+        playlist_id: "",
+        anti_spam_terms: "-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords",
+        curadoria_categories: {}
     })
 
     const handleChange = (field: keyof Perfil, value: any) => {
@@ -145,18 +150,22 @@ export default function NovaMarcaPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Nome da Marca *</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Nome de exibição público. Ex: Best of Opera.</p>
                             <Input required value={formData.nome || ""} onChange={e => handleChange("nome", e.target.value)} className="bg-background" placeholder="Ex: Aria de Bolso" />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Slug (Nome p/ URLs/Folders) *</Label>
+                            <Label className="font-semibold text-muted-foreground">Slug (URL) *</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Identificador único para pastas e URLs. Ex: best-of-opera.</p>
                             <Input required value={formData.slug || ""} onChange={e => handleChange("slug", e.target.value)} className="bg-background font-mono text-sm" placeholder="aria-de-bolso" />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Sigla *</Label>
+                            <Label className="font-semibold text-muted-foreground">Sigla (ID Curadoria) *</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Abreviação única de 2 a 4 letras. Ex: BO.</p>
                             <Input required value={formData.sigla || ""} onChange={e => handleChange("sigla", e.target.value)} maxLength={4} className="bg-background uppercase font-bold" placeholder="AB" />
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Prefixo Cloudflare R2 *</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Pasta no storage para separar arquivos. Ex: editor/brand-x/</p>
                             <Input required value={formData.r2_prefix || ""} onChange={e => handleChange("r2_prefix", e.target.value)} className="bg-background font-mono text-sm" placeholder="AriaDeBolso/projetos_" />
                         </div>
                         <div className="space-y-2">
@@ -178,15 +187,17 @@ export default function NovaMarcaPage() {
                             </div>
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Cor Secundária (Hex)</Label>
+                            <Label htmlFor="perfil-cor-secundaria" className="font-semibold text-muted-foreground">Cor Secundária (Hex)</Label>
                             <div className="flex gap-2 p-1 bg-background border border-input rounded-md focus-within:ring-1 focus-within:ring-ring h-10 overflow-hidden">
                                 <input 
+                                    id="perfil-cor-secundaria-picker"
                                     type="color" 
                                     className="w-10 h-full p-0 border-0 cursor-pointer bg-transparent" 
                                     value={formData.cor_secundaria || "#e94560"} 
                                     onChange={e => handleChange("cor_secundaria", e.target.value)} 
                                 />
                                 <Input 
+                                    id="perfil-cor-secundaria"
                                     value={formData.cor_secundaria || ""} 
                                     onChange={e => handleChange("cor_secundaria", e.target.value)} 
                                     placeholder="#e94560" 
@@ -198,15 +209,77 @@ export default function NovaMarcaPage() {
                     </div>
                 </CollapsibleSection>
 
+                <CollapsibleSection title="Motor da Marca (Curadoria)" description="Configurações avançadas para o robô de busca de vídeos." icon={Cpu}>
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground">ID da Playlist YouTube</Label>
+                                <p className="text-[11px] text-muted-foreground -mt-1">Playlist oficial para coleta de vídeos. Ex: PL...</p>
+                                <Input value={formData.playlist_id || ""} onChange={e => handleChange("playlist_id", e.target.value)} className="bg-background font-mono text-sm" placeholder="PL..." />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground">Termos Anti-Spam</Label>
+                                <p className="text-[11px] text-muted-foreground -mt-1">Palavras que o robô deve ignorar na busca.</p>
+                                <Input value={formData.anti_spam_terms || ""} onChange={e => handleChange("anti_spam_terms", e.target.value)} className="bg-background text-sm" />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 border-t border-border/50 pt-4">
+                            <Label className="font-semibold text-muted-foreground">Categorias e Seeds (JSON)</Label>
+                            <p className="text-xs text-muted-foreground -mt-1 mb-2">Estrutura de busca: "categoria": ["seed1", "seed2"].</p>
+                            <Textarea
+                                value={JSON.stringify(formData.curadoria_categories || {}, null, 2)}
+                                onChange={e => {
+                                    try {
+                                        const parsed = JSON.parse(e.target.value)
+                                        handleChange("curadoria_categories", parsed)
+                                    } catch (err) {}
+                                }}
+                                className="font-mono text-[12px] min-h-[150px] bg-zinc-950 text-blue-400 border-zinc-800"
+                                spellCheck={false}
+                            />
+                        </div>
+                    </div>
+                </CollapsibleSection>
+
                 <CollapsibleSection title="Idiomas e Internacionalização" description="Quais idiomas essa marca suporta por padrão." icon={Globe}>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Idiomas Alvo</Label>
-                            <Input value={formData.idiomas_alvo || ""} onChange={e => handleChange("idiomas_alvo", e.target.value)} className="bg-background font-mono text-sm" placeholder="pt,en,es" />
+                        <div className="space-y-4 sm:col-span-3 pb-2">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold text-muted-foreground">Idiomas Alvo</Label>
+                                <Badge variant="outline" className="text-[10px] uppercase font-bold">{formData.idiomas_alvo?.length || 0} SELECIONADOS</Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-2 p-4 bg-muted/30 rounded-xl border border-border/50">
+                                {["en", "pt", "es", "de", "fr", "it", "pl", "ru", "ja", "zh"].map(lang => {
+                                    const isSelected = formData.idiomas_alvo?.includes(lang)
+                                    return (
+                                        <button
+                                            key={lang}
+                                            type="button"
+                                            onClick={() => {
+                                                const current = formData.idiomas_alvo || []
+                                                handleChange("idiomas_alvo", isSelected 
+                                                    ? current.filter(l => l !== lang)
+                                                    : [...current, lang]
+                                                )
+                                            }}
+                                            className={cn(
+                                                "px-3 py-1.5 rounded-lg text-sm font-medium transition-all border",
+                                                isSelected
+                                                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                                    : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+                                            )}
+                                        >
+                                            {lang.toUpperCase()}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                            <p className="text-xs text-muted-foreground -mt-1">Languages current in production list: EN, PT, ES, DE, FR, IT, PL.</p>
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Idioma Base</Label>
-                            <Input value={formData.editorial_lang || ""} onChange={e => handleChange("editorial_lang", e.target.value)} className="bg-background font-mono text-sm" placeholder="pt-br" />
+                            <Input value={formData.editorial_lang || ""} onChange={e => handleChange("editorial_lang", e.target.value)} className="bg-background font-mono text-sm" placeholder="pt" />
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Idioma de Preview</Label>
@@ -218,24 +291,41 @@ export default function NovaMarcaPage() {
                 <CollapsibleSection title="Prompts & Editorial" description="Personalidade da marca para a inteligência artificial." icon={Type}>
                     <div className="space-y-5">
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Identity Prompt (LLM Redator)</Label>
+                            <Label className="font-semibold text-muted-foreground">Prompt de Identidade (LLM Redator)</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1 line-clamp-1">Prompt base que define a persona do redator para esta marca.</p>
                             <Textarea
                                 value={formData.identity_prompt || ""}
                                 onChange={e => handleChange("identity_prompt", e.target.value)}
-                                className="min-h-[100px] bg-background resize-y"
+                                className="min-h-[120px] bg-background resize-y text-sm"
                                 placeholder="Você atua como um editor especializado em ópera..."
                             />
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Tom de Voz</Label>
-                            <Input value={formData.tom_voz || ""} onChange={e => handleChange("tom_voz", e.target.value)} className="bg-background" />
+                            <p className="text-[11px] text-muted-foreground -mt-1">Presets recomendados: Informativo, Entusiasta, Acadêmico, Provocador.</p>
+                            <Input value={formData.tom_de_voz || ""} onChange={e => handleChange("tom_de_voz", e.target.value)} className="bg-background" placeholder="Ex: Informativo e elegante" />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Escopo de Conteúdo</Label>
+                            <Label className="font-semibold text-muted-foreground">Nota de Escopo de Conteúdo</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar.</p>
                             <Textarea
                                 value={formData.escopo_conteudo || ""}
                                 onChange={e => handleChange("escopo_conteudo", e.target.value)}
-                                className="min-h-[80px] bg-background resize-y"
+                                className="min-h-[80px] bg-background resize-y text-sm"
+                                placeholder="Focar em curiosidades históricas e técnica vocal..."
+                            />
+                        </div>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <Label className="font-semibold text-muted-foreground">Hashtags Fixas</Label>
+                                <Badge variant="secondary" className="text-[10px] uppercase font-bold">{formData.hashtags_fixas?.length || 0} ATIVAS</Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground -mt-3">Hashtags que serão incluídas em todos os posts (separe por vírgula).</p>
+                            <Input 
+                                value={Array.isArray(formData.hashtags_fixas) ? formData.hashtags_fixas.join(", ") : ""} 
+                                onChange={e => handleChange("hashtags_fixas", e.target.value.split(",").map(s => s.trim()).filter(Boolean))} 
+                                className="bg-background font-mono text-sm" 
+                                placeholder="opera, classicalmusic, bestofopera"
                             />
                         </div>
                         <div className="space-y-3">
@@ -293,6 +383,25 @@ export default function NovaMarcaPage() {
                         </Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 md:col-span-2 p-5 bg-muted/20 rounded-xl border border-border/30">
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Overlay Max</Label>
+                                <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Overlay/Linha</Label>
+                                <Input type="number" value={formData.overlay_max_chars_linha || 25} onChange={e => handleChange("overlay_max_chars_linha", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Lyrics Max</Label>
+                                <Input type="number" value={formData.lyrics_max_chars || 40} onChange={e => handleChange("lyrics_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Trad Max</Label>
+                                <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-5 md:col-span-2 p-5 bg-muted/40 rounded-xl border border-border/50">
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Largura (px)</Label>
@@ -302,42 +411,29 @@ export default function NovaMarcaPage() {
                                 <Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Altura (px)</Label>
                                 <Input type="number" required value={formData.video_height || 1920} onChange={e => handleChange("video_height", parseInt(e.target.value))} className="bg-background font-mono" />
                             </div>
-                            <div className="space-y-2">
-                                <Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Duração Min (s)</Label>
-                                <Input type="number" required value={formData.duracao_min_sec || 45} onChange={e => handleChange("duracao_min_sec", parseInt(e.target.value))} className="bg-background font-mono" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">Duração Máx (s)</Label>
-                                <Input type="number" required value={formData.duracao_max_sec || 90} onChange={e => handleChange("duracao_max_sec", parseInt(e.target.value))} className="bg-background font-mono" />
-                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">JSON - Overlay (Header)</Label>
-                            <Textarea
-                                value={JSON.stringify(formData.overlay_style || {}, null, 2)}
-                                onChange={e => handleJSONChange("overlay_style", e.target.value)}
-                                className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
-                                spellCheck={false}
+                        <div className="md:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6 pt-2">
+                            <StyleTrackConfig 
+                                title="Overlay (Header)" 
+                                description="Legendas de contexto exibidas no topo do vídeo"
+                                value={formData.overlay_style || {}} 
+                                onChange={v => handleChange("overlay_style", v)} 
                             />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">JSON - Letra Principal (Lyrics)</Label>
-                            <Textarea
-                                value={JSON.stringify(formData.lyrics_style || {}, null, 2)}
-                                onChange={e => handleJSONChange("lyrics_style", e.target.value)}
-                                className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
-                                spellCheck={false}
+                            <StyleTrackConfig 
+                                title="Letra Principal (Lyrics)" 
+                                description="Letras cantadas em destaque no meio/inferior"
+                                value={formData.lyrics_style || {}} 
+                                onChange={v => handleChange("lyrics_style", v)} 
                             />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label className="font-semibold text-muted-foreground">JSON - Tradução (Translation)</Label>
-                            <Textarea
-                                value={JSON.stringify(formData.traducao_style || {}, null, 2)}
-                                onChange={e => handleJSONChange("traducao_style", e.target.value)}
-                                className="font-mono text-[13px] min-h-[180px] bg-zinc-950 text-emerald-400 border-zinc-800 shadow-inner focus-visible:ring-emerald-500/50"
-                                spellCheck={false}
-                            />
+                            <div className="xl:col-span-2">
+                                <StyleTrackConfig 
+                                    title="Tradução (Translation)" 
+                                    description="Tradução de acompanhamento"
+                                    value={formData.traducao_style || {}} 
+                                    onChange={v => handleChange("traducao_style", v)} 
+                                />
+                            </div>
                         </div>
                     </div>
                 </CollapsibleSection>

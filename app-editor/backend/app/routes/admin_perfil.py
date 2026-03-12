@@ -1,9 +1,11 @@
 """Admin CRUD de Perfis de Marca — Best of Opera Editor."""
 import logging
+import os
 import re
+import tempfile
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -23,6 +25,8 @@ router = APIRouter(
 )
 
 # -- Defaults ------------------------------------------------------------------
+
+IDIOMAS_PADRAO = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
 ESTILOS_PADRAO = {
     "overlay": {
@@ -116,8 +120,6 @@ class PerfilDetalheOut(BaseModel):
     video_width: int
     video_height: int
     escopo_conteudo: Optional[str] = None
-    duracao_corte_min: int
-    duracao_corte_max: int
     cor_primaria: str
     cor_secundaria: str
     r2_prefix: str
@@ -126,6 +128,18 @@ class PerfilDetalheOut(BaseModel):
     tom_de_voz_redator: Optional[str] = None
     logo_url: Optional[str] = None
     font_name: Optional[str] = None
+    font_file_r2_key: Optional[str] = None
+    # Curadoria
+    curadoria_categories: Optional[Dict[str, Any]] = None
+    elite_hits: Optional[List[Any]] = None
+    power_names: Optional[List[Any]] = None
+    voice_keywords: Optional[List[Any]] = None
+    institutional_channels: Optional[List[Any]] = None
+    category_specialty: Optional[Dict[str, Any]] = None
+    scoring_weights: Optional[Dict[str, Any]] = None
+    curadoria_filters: Optional[Dict[str, Any]] = None
+    anti_spam_terms: Optional[str] = None
+    playlist_id: Optional[str] = None
     created_at: Optional[Any] = None
     updated_at: Optional[Any] = None
     stats: Optional[PerfilStats] = None
@@ -196,6 +210,64 @@ def listar_perfis(db: Session = Depends(get_db)):
     return resultado
 
 
+@router.get("/template-bo", response_model=PerfilDetalheOut)
+def template_bo(db: Session = Depends(get_db)):
+    """Retorna todos os valores do perfil BO como template para pré-preencher nova marca."""
+    perfil = db.query(Perfil).filter(Perfil.sigla == "BO").first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil BO nao encontrado")
+
+    stats = _get_stats(perfil.id, db)
+    dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
+    dados["stats"] = stats
+    return PerfilDetalheOut(**dados)
+
+
+@router.post("/{perfil_id}/upload-font", response_model=PerfilDetalheOut)
+def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Faz upload de fonte .ttf/.otf para o R2 e atualiza font_name e font_file_r2_key do perfil."""
+    from app.services.font_service import extract_font_family, upload_font_to_r2
+
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+
+    _protegido(perfil)
+
+    # Validar extensão
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".ttf", ".otf"):
+        raise HTTPException(status_code=422, detail="Apenas arquivos .ttf e .otf sao aceitos")
+
+    # Ler e verificar tamanho (max 10MB)
+    content = file.file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Arquivo de fonte excede o limite de 10MB")
+
+    # Salvar em tmp, extrair family name, fazer upload
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        family_name = extract_font_family(tmp_path)
+        r2_key = upload_font_to_r2(tmp_path, perfil.slug, filename)
+    finally:
+        os.unlink(tmp_path)
+
+    perfil.font_name = family_name
+    perfil.font_file_r2_key = r2_key
+    db.commit()
+    db.refresh(perfil)
+
+    logger.info(f"[admin-perfis] Fonte carregada: perfil={perfil.slug} family={family_name} key={r2_key}")
+    stats = _get_stats(perfil_id, db)
+    dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
+    dados["stats"] = stats
+    return PerfilDetalheOut(**dados)
+
+
 @router.get("/{perfil_id}", response_model=PerfilDetalheOut)
 def detalhar_perfil(perfil_id: int, db: Session = Depends(get_db)):
     """Detalhe completo de um perfil + stats."""
@@ -215,6 +287,10 @@ def criar_perfil(body: dict, db: Session = Depends(get_db)):
     # Slug auto
     if not body.get("slug") and body.get("nome"):
         body["slug"] = _slugify(body["nome"])
+
+    # Default idiomas_alvo
+    if not body.get("idiomas_alvo"):
+        body["idiomas_alvo"] = IDIOMAS_PADRAO[:]
 
     _validar_campos(body)
 
@@ -328,8 +404,6 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         video_width=original.video_width,
         video_height=original.video_height,
         escopo_conteudo=original.escopo_conteudo,
-        duracao_corte_min=original.duracao_corte_min,
-        duracao_corte_max=original.duracao_corte_max,
         cor_primaria=original.cor_primaria,
         cor_secundaria=original.cor_secundaria,
         r2_prefix=novo_r2,
@@ -350,6 +424,7 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         tom_de_voz_redator=original.tom_de_voz_redator,
         logo_url=original.logo_url,
         font_name=original.font_name,
+        font_file_r2_key=None,  # nova marca começa sem fonte carregada
     )
     db.add(copia)
     db.commit()

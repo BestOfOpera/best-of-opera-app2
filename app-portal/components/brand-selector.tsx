@@ -1,35 +1,79 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { cn } from "@/lib/utils"
-import { ChevronDown, Check, Loader2, Globe } from "lucide-react"
+import { ChevronDown, Check, Loader2, Globe, RefreshCw } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { editorApi, type Perfil } from "@/lib/api/editor"
+import { useBrand } from "@/lib/brand-context"
 
 export function BrandSelector() {
   const [brands, setBrands] = useState<Perfil[]>([])
-  const [selected, setSelected] = useState<Perfil | null>(null)
+  const { selectedBrand: selected, setSelectedBrand: setSelected } = useBrand()
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryAttempted, setRetryAttempted] = useState(false)
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
+    setLoading(true)
+    setError(null)
+    
     editorApi.listarPerfis().then(data => {
       const activeBrands = data.filter(b => b.ativo)
       setBrands(activeBrands)
-      if (activeBrands.length > 0) {
+      if (activeBrands.length > 0 && !selected) {
         setSelected(activeBrands[0])
       }
+      setError(null)
     }).catch(err => {
       console.error("Erro ao puxar Marcas/Perfis", err)
+      setError("Falha ao carregar marcas")
     }).finally(() => {
       setLoading(false)
     })
-  }, [])
+  }, [selected, setSelected])
 
-  if (loading) {
+  // Busca inicial e ao mudar seleção (mantendo lógica original)
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Retry automático silencioso após 5s na primeira falha
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (error && !retryAttempted) {
+      timer = setTimeout(() => {
+        setRetryAttempted(true)
+        fetchData()
+      }, 5000)
+    }
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [error, retryAttempted, fetchData])
+
+  const handleManualRetry = () => {
+    setRetryAttempted(true)
+    fetchData()
+  }
+
+  if (loading && !error) {
     return (
       <div className="flex h-8 w-32 items-center justify-center rounded-md border border-border bg-card">
         <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <button 
+        onClick={handleManualRetry}
+        className="flex h-8 w-32 items-center justify-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-2 transition-all hover:bg-destructive/10"
+      >
+        <RefreshCw className="h-3 w-3 text-destructive" />
+        <span className="text-xs font-medium text-destructive">Tentar novamente</span>
+      </button>
     )
   }
 
