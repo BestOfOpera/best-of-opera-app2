@@ -771,12 +771,20 @@ async def _transcricao_task(edicao_id: int):
         genai = _get_gemini_client()
         mime_type = _detect_mime(audio_local)
         loop = asyncio.get_running_loop()
-        audio_file_ref = await asyncio.wait_for(
-            loop.run_in_executor(
-                None, lambda: genai.upload_file(audio_local, mime_type=mime_type)
-            ),
-            timeout=120,
-        )
+        for _upload_attempt in range(3):
+            try:
+                audio_file_ref = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None, lambda: genai.upload_file(audio_local, mime_type=mime_type)
+                    ),
+                    timeout=120,
+                )
+                break
+            except (ConnectionError, OSError, asyncio.TimeoutError) as e:
+                logger.warning(f"[{edicao_id}] upload_file tentativa {_upload_attempt+1}/3: {type(e).__name__}: {e}")
+                if _upload_attempt == 2:
+                    raise
+                await asyncio.sleep(5)
 
         melhor_cega = None
         melhor_n_cega = 0
@@ -957,6 +965,11 @@ async def _transcricao_task(edicao_id: int):
             )
         elif isinstance(e, asyncio.TimeoutError):
             erro_msg = "Timeout na comunicação com Gemini (upload ou transcrição). Tente novamente."
+        elif isinstance(e, (ConnectionError, OSError)) and not isinstance(e, (FileNotFoundError, PermissionError)):
+            erro_msg = (
+                "Erro de conexão com Gemini (rede instável). "
+                "Tente novamente em alguns segundos."
+            )
         else:
             _capture_sentry(e, edicao_id, "transcricao")
             erro_msg = f"Transcrição falhou: {repr(e)[:500]}"

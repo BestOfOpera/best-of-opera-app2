@@ -148,11 +148,11 @@ FORMATO JSON (retorne APENAS isto):
             return parse_json_response(_extract_response_text(response))
         except SafetyFilterError:
             raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError) as e:
-            _logger.warning(f"mapear_estrutura_audio tentativa {tentativa+1}/2: {e}")
+        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
+            _logger.warning(f"mapear_estrutura_audio tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
             if tentativa == 1:
                 raise
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
     return []  # unreachable
 
 
@@ -180,12 +180,20 @@ async def transcrever_guiado_completo(
         import asyncio as _aio
         _loop = _aio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        audio_file = await _aio.wait_for(
-            _loop.run_in_executor(
-                None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
-            ),
-            timeout=120,
-        )
+        for _upload_attempt in range(3):
+            try:
+                audio_file = await _aio.wait_for(
+                    _loop.run_in_executor(
+                        None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+                    ),
+                    timeout=120,
+                )
+                break
+            except (ConnectionError, OSError, _aio.TimeoutError) as e:
+                _logger.warning(f"upload_file (guiado) tentativa {_upload_attempt+1}/3: {type(e).__name__}: {e}")
+                if _upload_attempt == 2:
+                    raise
+                await _aio.sleep(5)
 
     # Contar versos na letra para dar referência ao Gemini
     versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
@@ -252,11 +260,11 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
             return parse_json_response(_extract_response_text(response))
         except SafetyFilterError:
             raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError) as e:
-            _logger.warning(f"transcrever_guiado_completo tentativa {tentativa+1}/2: {e}")
+        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
+            _logger.warning(f"transcrever_guiado_completo tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
             if tentativa == 1:
                 raise
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
     return []  # unreachable
 
 
@@ -285,12 +293,20 @@ async def completar_transcricao(
         import asyncio as _aio
         _loop = _aio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        audio_file = await _aio.wait_for(
-            _loop.run_in_executor(
-                None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
-            ),
-            timeout=120,
-        )
+        for _upload_attempt in range(3):
+            try:
+                audio_file = await _aio.wait_for(
+                    _loop.run_in_executor(
+                        None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+                    ),
+                    timeout=120,
+                )
+                break
+            except (ConnectionError, OSError, _aio.TimeoutError) as e:
+                _logger.warning(f"upload_file (completar) tentativa {_upload_attempt+1}/3: {type(e).__name__}: {e}")
+                if _upload_attempt == 2:
+                    raise
+                await _aio.sleep(5)
 
     # Formatar resultado parcial para mostrar ao Gemini
     parcial_json = json.dumps(resultado_parcial, ensure_ascii=False, indent=2)
@@ -356,11 +372,11 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
             return parse_json_response(_extract_response_text(response))
         except SafetyFilterError:
             raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError) as e:
-            _logger.warning(f"completar_transcricao tentativa {tentativa+1}/2: {e}")
+        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
+            _logger.warning(f"completar_transcricao tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
             if tentativa == 1:
                 raise
-            await asyncio.sleep(3)
+            await asyncio.sleep(5)
     return []  # unreachable
 
 
