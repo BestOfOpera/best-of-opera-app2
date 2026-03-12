@@ -477,11 +477,23 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
               Faça upload do screenshot do YouTube para continuar
             </p>
           )}
-          {detected && !canSubmit && !loading && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Preencha todos os campos obrigatórios (*) para continuar
-            </p>
-          )}
+          {detected && !canSubmit && !loading && (() => {
+            const missing: string[] = []
+            if (!hookValid) missing.push("Categoria do Gancho")
+            if (!category) missing.push("Categoria")
+            if (!isValidMMSS(cutStart)) missing.push("Inicio do Corte (MM:SS)")
+            if (!isValidMMSS(cutEnd)) missing.push("Fim do Corte (MM:SS)")
+            if (!interpreters[0]?.artist) missing.push("Artista")
+            if (!shared.work) missing.push("Obra")
+            if (!shared.composer) missing.push("Compositor")
+            return (
+              <p className="mt-2 text-center text-xs text-muted-foreground">
+                {missing.length > 0
+                  ? `Falta preencher: ${missing.join(", ")}`
+                  : "Preencha todos os campos obrigatórios (*) para continuar"}
+              </p>
+            )
+          })()}
         </div>
       </form>
     </div>

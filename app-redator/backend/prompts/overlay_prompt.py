@@ -131,8 +131,10 @@ EMOTIONAL TOOLKIT — use these techniques
 - **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
 - **The countdown**: "The note that's coming will change how you hear music"
 - **The CTA (Engagement)**: The VERY LAST subtitle MUST be an emotional CTA that feels like a natural continuation of the story — NOT a generic "follow/subscribe" command. Tie the CTA to what the viewer just experienced.
-   GOOD: "If this gave you chills, wait for what comes next" / "There are 47 more moments like this one" / "This is just the beginning — the duet gets even better"
-   BAD: "Follow for more moments like this" / "Turn on notifications" / "Subscribe for more" — these are GENERIC and BORING. Never use them.
+   GOOD (EN): "If this gave you chills, wait for what comes next" / "There are 47 more moments like this one"
+   GOOD (PT): "Se isso arrepiou, espere pelo que vem a seguir" / "Existem mais 47 momentos como este"
+   BAD (EN): "Follow for more moments like this" / "Subscribe for more"
+   BAD (PT): "Segue para mais momentos assim" / "Siga para mais conteúdo" / "Se inscreva" — these are GENERIC and BORING in ANY language. Never use them.
    The CTA should make the viewer FEEL something, not just obey a command.
 
 {identity_block}═══════════════════════════════
@@ -145,8 +147,8 @@ Example: [{{"timestamp": "00:00", "text": "Nobody believed she could do this"}},
 Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.{build_language_reinforcement(project)}"""
 
 
-def build_overlay_prompt_with_custom(project, custom_prompt: str) -> str:
-    base = build_overlay_prompt(project)
+def build_overlay_prompt_with_custom(project, custom_prompt: str, brand_config=None) -> str:
+    base = build_overlay_prompt(project, brand_config=brand_config)
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):

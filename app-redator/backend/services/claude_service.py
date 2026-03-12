@@ -37,6 +37,8 @@ def _limpar_texto_overlay(texto: str) -> str:
     texto = re.sub(r'([,;:!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
     # Espaço após ponto colado a letra maiúscula (ex: "fim.Começo")
     texto = re.sub(r'([.])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    # Espaço após aspas/apóstrofo fechando colado a palavra (ex: Marquis'para → Marquis' para)
+    texto = re.sub(r"(['\"\u2019\u201D\)\]])([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ])", r"\1 \2", texto)
     # Espaço antes de maiúscula colada após minúscula (palavras unidas ex: "elaFez")
     texto = re.sub(r'([a-záàãâéêíóõôúç])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
     # Espaço entre número e letra / letra e número (ex: "3vezes", "anos1842")
@@ -213,7 +215,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
-        prompt = build_overlay_prompt_with_custom(project, custom_prompt)
+        prompt = build_overlay_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_overlay_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)
@@ -268,7 +270,7 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
-        prompt = build_post_prompt_with_custom(project, custom_prompt)
+        prompt = build_post_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_post_prompt(project, brand_config=brand_config)
     result = _call_claude(prompt, system=system)
@@ -280,7 +282,7 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
-        prompt = build_youtube_prompt_with_custom(project, custom_prompt)
+        prompt = build_youtube_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_youtube_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)

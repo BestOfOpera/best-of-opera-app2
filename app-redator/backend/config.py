@@ -11,7 +11,18 @@ GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
 EXPORT_PATH = os.getenv("EXPORT_PATH", "")
 
-EDITOR_API_URL = os.getenv("EDITOR_API_URL", "http://localhost:8000")
+def _resolve_editor_url() -> str:
+    """Resolve EDITOR_API_URL: env var > Railway auto-detect > localhost."""
+    url = os.getenv("EDITOR_API_URL")
+    if url:
+        return url.rstrip("/")
+    # Railway: se rodando em container Railway, usar URL pública do editor
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
+        return "https://editor-backend-production.up.railway.app"
+    return "http://localhost:8000"
+
+
+EDITOR_API_URL = _resolve_editor_url()
 BRAND_SLUG = os.getenv("BRAND_SLUG", "best-of-opera")
 
 _brand_config_cache: dict = {}

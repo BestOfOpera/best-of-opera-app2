@@ -8,7 +8,17 @@ STATIC_PATH = Path(os.getenv("STATIC_PATH", "./static"))
 PLAYLIST_ID = "PLGjiuPqoIDSnphyXIetV6iwm4-3K-fvKk"
 APP_PASSWORD = os.getenv("APP_PASSWORD", "opera2026")
 PROJECT_ID = os.getenv("PROJECT_ID", "best-of-opera")
-EDITOR_API_URL = os.getenv("EDITOR_API_URL", "http://localhost:8000")
+def _resolve_editor_url() -> str:
+    """Resolve EDITOR_API_URL: env var > Railway auto-detect > localhost."""
+    url = os.getenv("EDITOR_API_URL")
+    if url:
+        return url.rstrip("/")
+    if os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"):
+        return "https://editor-backend-production.up.railway.app"
+    return "http://localhost:8000"
+
+
+EDITOR_API_URL = _resolve_editor_url()
 BRAND_SLUG = os.getenv("BRAND_SLUG", "best-of-opera")
 
 # ─── SHARED DIR ───

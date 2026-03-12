@@ -67,8 +67,8 @@ Nothing else.
 {_brand_block(brand_config or {})}{build_language_reinforcement(project)}"""
 
 
-def build_youtube_prompt_with_custom(project, custom_prompt: str) -> str:
-    base = build_youtube_prompt(project)
+def build_youtube_prompt_with_custom(project, custom_prompt: str, brand_config=None) -> str:
+    base = build_youtube_prompt(project, brand_config=brand_config)
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):
