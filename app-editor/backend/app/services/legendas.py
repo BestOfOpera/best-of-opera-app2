@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "TeX Gyre Pagella",
-        "fontsize": 63,
+        "fontname": "Playfair Display",
+        "fontsize": 40,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 3,
@@ -20,8 +20,8 @@ ESTILOS_PADRAO = {
         "italic": False,
     },
     "lyrics": {
-        "fontname": "TeX Gyre Pagella",
-        "fontsize": 45,
+        "fontname": "Playfair Display",
+        "fontsize": 30,
         "primarycolor": "#FFFF64",
         "outlinecolor": "#000000",
         "outline": 2,
@@ -32,8 +32,8 @@ ESTILOS_PADRAO = {
         "italic": True,
     },
     "traducao": {
-        "fontname": "TeX Gyre Pagella",
-        "fontsize": 43,
+        "fontname": "Playfair Display",
+        "fontsize": 30,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
         "outline": 2,
@@ -46,7 +46,7 @@ ESTILOS_PADRAO = {
 }
 
 OVERLAY_MAX_CHARS = 70
-OVERLAY_MAX_CHARS_LINHA = 35
+OVERLAY_MAX_CHARS_LINHA = 30
 LYRICS_MAX_CHARS = 43
 TRADUCAO_MAX_CHARS = 100
 
