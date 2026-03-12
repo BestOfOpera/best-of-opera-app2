@@ -144,8 +144,8 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
     texto = texto.strip()
     if len(texto) <= max_por_linha:
         return texto
-    # Se já tem quebra manual (\n ou \\N), verificar cada linha
-    for sep in ["\\N", "\n"]:
+    # Se já tem quebra manual (\N, newline ou \n literal dois chars), verificar cada linha
+    for sep in ["\\N", "\n", "\\n"]:
         if sep in texto:
             linhas = texto.split(sep)
             formatadas = []

@@ -27,10 +27,17 @@ def _limpar_texto_overlay(texto: str) -> str:
     """Fix common orthographic issues: stuck words and missing spaces after punctuation."""
     if not texto:
         return texto
+    # Normalizar \n literal (dois chars: barra+n) para espaço — evita palavras grudadas por quebra de linha mal codificada
+    texto = texto.replace("\\n", " ").replace("\\N", " ")
     # Espaço após pontuação colada a palavra
     texto = re.sub(r'([,;:!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
-    # Espaço antes de maiúscula colada após minúscula (palavras unidas)
+    # Espaço após ponto colado a letra maiúscula (ex: "fim.Começo")
+    texto = re.sub(r'([.])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    # Espaço antes de maiúscula colada após minúscula (palavras unidas ex: "elaFez")
     texto = re.sub(r'([a-záàãâéêíóõôúç])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    # Espaço entre número e letra / letra e número (ex: "3vezes", "anos1842")
+    texto = re.sub(r'(\d)([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    texto = re.sub(r'([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ])(\d)', r'\1 \2', texto)
     # Múltiplos espaços → um espaço
     texto = re.sub(r' {2,}', ' ', texto)
     return texto.strip()

@@ -115,6 +115,10 @@ STRUCTURE RULES
      "A legendary performance!" ✅ (24 chars, 1 line)
      "Die\\nanspruchsvollste Arie der Oper!" ❌ (3+31 chars, UNBALANCED)
 
+9. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space. NEVER concatenate two words without a space. This is non-negotiable and will break the subtitle display.
+   WRONG: "Elecantou" / "amúsicafaz" / "trêstenores"
+   CORRECT: "Ele cantou" / "a música faz" / "três tenores"
+
 ═══════════════════════════════
 EMOTIONAL TOOLKIT — use these techniques
 ═══════════════════════════════
