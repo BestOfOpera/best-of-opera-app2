@@ -89,13 +89,15 @@ def criar_report(data: ReportCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/reports/resumo")
-def resumo_reports(db: Session = Depends(get_db)) -> dict:
+def resumo_reports(
+    perfil_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+) -> dict:
     """Retorna contagens por status compatíveis com o frontend."""
-    counts = (
-        db.query(Report.status, func.count(Report.id))
-        .group_by(Report.status)
-        .all()
-    )
+    q = db.query(Report.status, func.count(Report.id))
+    if perfil_id is not None:
+        q = q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
+    counts = q.group_by(Report.status).all()
     by_status: dict[str, int] = {row[0]: row[1] for row in counts}
     return {
         "novos": by_status.get("novo", 0),
@@ -177,9 +179,15 @@ async def upload_screenshot(
 
 
 @router.delete("/reports/resolvidos")
-def deletar_reports_resolvidos(db: Session = Depends(get_db)):
-    """Deleta todos os reports com status 'resolvido' + screenshots R2."""
-    reports = db.query(Report).filter(Report.status == "resolvido").all()
+def deletar_reports_resolvidos(
+    perfil_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Deleta reports com status 'resolvido' + screenshots R2. Filtra por perfil_id se fornecido."""
+    q = db.query(Report).filter(Report.status == "resolvido")
+    if perfil_id is not None:
+        q = q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
+    reports = q.all()
     if not reports:
         return {"deleted": 0}
 

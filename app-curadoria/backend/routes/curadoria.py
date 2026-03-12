@@ -28,10 +28,10 @@ logger = logging.getLogger(__name__)
 
 # ─── BACKGROUND TASKS ───
 
-async def populate_initial_cache():
+async def populate_initial_cache(brand_slug: str | None = None):
     """Background: populate cache using seed 0 for each V7 category"""
     logger.info("Starting V7 initial cache population...")
-    config = load_brand_config()
+    config = load_brand_config(brand_slug)
     categories = config["categories"]
     for cat_key, cat_data in categories.items():
         try:
@@ -48,9 +48,9 @@ async def populate_initial_cache():
     logger.info("V7 cache population complete!")
 
 
-async def refresh_playlist():
+async def refresh_playlist(brand_slug: str | None = None):
     logger.info("Refreshing full playlist with pagination...")
-    config = load_brand_config()
+    config = load_brand_config(brand_slug)
     raw = await yt_playlist(PLAYLIST_ID, api_key=YOUTUBE_API_KEY)
     processed = _process_v7(raw, "Playlist", False, "Playlist", config)
     db.save_playlist_videos(processed["videos"])
@@ -74,11 +74,12 @@ async def search(
     q: str = Query(...),
     max_results: int = Query(10, ge=1, le=50),
     hide_posted: bool = Query(True),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Manual search with anti-spam filtering"""
     full_query = f"{q} opera live {ANTI_SPAM}"
     raw = await yt_search(full_query, max_results, YOUTUBE_API_KEY)
-    return _process_v7(raw, q, hide_posted, config=load_brand_config())
+    return _process_v7(raw, q, hide_posted, config=load_brand_config(brand_slug))
 
 
 @router.get("/api/category/{category}")
@@ -86,9 +87,10 @@ async def search_category(
     category: str,
     hide_posted: bool = Query(True),
     force_refresh: bool = Query(False),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Category search with V7 seed rotation"""
-    config = load_brand_config()
+    config = load_brand_config(brand_slug)
     categories = config["categories"]
     cat_data = categories.get(category)
     if not cat_data:
@@ -130,9 +132,12 @@ async def search_category(
 
 
 @router.get("/api/ranking")
-async def ranking(hide_posted: bool = Query(True)):
+async def ranking(
+    hide_posted: bool = Query(True),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
     """Ranking across all V7 categories using first seed each"""
-    config = load_brand_config()
+    config = load_brand_config(brand_slug)
     categories = config["categories"]
     all_q = [(key, data["seeds"][0]) for key, data in categories.items()]
     tasks = [yt_search(f"{q} {ANTI_SPAM}", 10, YOUTUBE_API_KEY) for _, q in all_q]
@@ -152,9 +157,11 @@ async def ranking(hide_posted: bool = Query(True)):
 
 
 @router.get("/api/categories")
-async def list_categories():
+async def list_categories(
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
     """List V7 categories with seed info"""
-    categories = load_brand_config()["categories"]
+    categories = load_brand_config(brand_slug)["categories"]
     cats = []
     for key, data in categories.items():
         last_seed = db.get_last_seed(key)
@@ -183,7 +190,10 @@ async def check_posted(artist: str = "", song: str = ""):
 # ─── MANUAL VIDEO ───
 
 @router.post("/api/manual-video")
-async def add_manual_video(payload: dict):
+async def add_manual_video(
+    payload: dict,
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
     import re as _re
     youtube_url = payload.get("youtube_url", "")
     if not youtube_url:
@@ -243,7 +253,7 @@ async def add_manual_video(payload: dict):
                         except Exception:
                             pass
 
-                        _cfg = load_brand_config()
+                        _cfg = load_brand_config(brand_slug)
                         sc = calc_score_v7(video_data, "Manual", _cfg)
                         p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                         return {**video_data, "score": sc, "posted": p}
@@ -269,7 +279,7 @@ async def add_manual_video(payload: dict):
                     "duration": 0, "views": 0, "hd": False,
                     "thumbnail": data.get("thumbnail_url", ""), "category": "Manual",
                 }
-                sc = calc_score_v7(video_data, "Manual", load_brand_config())
+                sc = calc_score_v7(video_data, "Manual", load_brand_config(brand_slug))
                 p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                 return {**video_data, "score": sc, "posted": p}
     except Exception as e:
@@ -286,47 +296,57 @@ async def cache_status():
 
 
 @router.post("/api/cache/populate-initial")
-async def populate_cache():
-    await task_queue.put(populate_initial_cache())
+async def populate_cache(
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
+    await task_queue.put(populate_initial_cache(brand_slug))
     return {"status": "started", "message": "V7 cache population started"}
 
 
 @router.post("/api/cache/refresh-categories")
-async def refresh_categories():
-    await task_queue.put(populate_initial_cache())
+async def refresh_categories(
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
+    await task_queue.put(populate_initial_cache(brand_slug))
     return {"status": "started", "message": "V7 category refresh started"}
 
 
 # ─── PLAYLIST ENDPOINTS ───
 
 @router.get("/api/playlist/videos")
-async def get_playlist(hide_posted: bool = Query(True)):
+async def get_playlist(
+    hide_posted: bool = Query(True),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
     videos = db.get_playlist_videos(hide_posted)
     if not videos:
-        await refresh_playlist()
+        await refresh_playlist(brand_slug)
         videos = db.get_playlist_videos(hide_posted)
     return {"total_found": len(videos), "videos": videos, "playlist_id": PLAYLIST_ID, "cached": True}
 
 
 @router.post("/api/playlist/refresh")
-async def refresh_playlist_endpoint():
-    await task_queue.put(refresh_playlist())
+async def refresh_playlist_endpoint(
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
+    await task_queue.put(refresh_playlist(brand_slug))
     return {"status": "started", "message": "Playlist refresh started"}
 
 
 @router.post("/api/playlist/download-all")
-async def download_all_playlist():
+async def download_all_playlist(
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
+):
     videos = db.get_playlist_videos(hide_posted=False)
     if not videos:
         return {"status": "error", "message": "Playlist vazia"}
 
     added = 0
+    cfg = load_brand_config(brand_slug)
     for v in videos:
         vid = v["video_id"]
         artist = v["artist"]
         song = v["song"]
-
-        cfg = load_brand_config()
         r2_prefix = cfg.get("r2_prefix", "")
         r2_base = check_conflict(artist, song, vid, r2_prefix=r2_prefix)
         full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
@@ -371,6 +391,7 @@ async def download_video(
     video_id: str,
     artist: str = Query("Unknown"),
     song: str = Query("Video"),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     safe_artist = sanitize_filename(artist)
     safe_song = sanitize_filename(song)
@@ -413,7 +434,7 @@ async def download_video(
             r2_key = ""
             r2_base = ""
             try:
-                cfg = load_brand_config()
+                cfg = load_brand_config(brand_slug)
                 r2_prefix = cfg.get("r2_prefix", "")
                 r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
                 full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
@@ -464,6 +485,7 @@ async def prepare_video(
     video_id: str,
     artist: str = Query("Unknown"),
     song: str = Query("Video"),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Download + upload R2 sem streaming. Retorna JSON com status."""
     safe_artist = sanitize_filename(artist)
@@ -471,7 +493,7 @@ async def prepare_video(
     project_name = f"{safe_artist} - {safe_song}"
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    cfg = load_brand_config()
+    cfg = load_brand_config(brand_slug)
     r2_prefix = cfg.get("r2_prefix", "")
     r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
     full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
@@ -544,12 +566,13 @@ async def upload_video_manual(
     file: UploadFile = File(...),
     artist: str = Query("Unknown"),
     song: str = Query("Video"),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Upload manual de vídeo para R2."""
     if not file.filename or not file.filename.lower().endswith((".mp4", ".mkv", ".webm", ".mov")):
         raise HTTPException(400, "Formato inválido. Envie MP4, MKV, WEBM ou MOV.")
 
-    cfg = load_brand_config()
+    cfg = load_brand_config(brand_slug)
     r2_prefix = cfg.get("r2_prefix", "")
     r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
     full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base
@@ -600,9 +623,10 @@ async def r2_check(
     artist: str = Query(...),
     song: str = Query(...),
     video_id: str = Query(""),
+    brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Verifica se o vídeo já está no R2."""
-    cfg = load_brand_config()
+    cfg = load_brand_config(brand_slug)
     r2_prefix = cfg.get("r2_prefix", "")
     r2_base = check_conflict(artist, song, video_id, r2_prefix=r2_prefix)
     full_base = f"{r2_prefix}/{r2_base}" if r2_prefix else r2_base

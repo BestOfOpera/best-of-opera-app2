@@ -62,6 +62,14 @@ export interface SearchResult {
   seed_query?: string
 }
 
+export interface R2Info {
+  video_id: string
+  youtube_url: string
+  thumbnail_url: string
+  title: string
+  description: string
+}
+
 export const curadoriaApi = {
   auth: (password: string) =>
     fetch(`${BASE()}/auth?password=${encodeURIComponent(password)}`, { method: "POST" })
@@ -71,34 +79,55 @@ export const curadoriaApi = {
 
   quota: () => request<Quota>(`${BASE()}/quota/status`),
 
-  categories: () => request<{ categories: Category[] }>(`${BASE()}/categories`),
+  categories: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<{ categories: Category[] }>(`${BASE()}/categories${qs}`)
+  },
 
-  searchCategory: (key: string, hidePosted = true, forceRefresh = false) =>
-    request<SearchResult>(`${BASE()}/category/${key}?hide_posted=${hidePosted}&force_refresh=${forceRefresh}`),
+  searchCategory: (key: string, hidePosted = true, forceRefresh = false, brand_slug?: string) => {
+    const params = new URLSearchParams({ hide_posted: hidePosted.toString(), force_refresh: forceRefresh.toString() })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<SearchResult>(`${BASE()}/category/${key}?${params.toString()}`)
+  },
 
-  search: (query: string, hidePosted = true) =>
-    request<SearchResult>(`${BASE()}/search?q=${encodeURIComponent(query)}&max_results=50&hide_posted=${hidePosted}`),
+  search: (query: string, hidePosted = true, brand_slug?: string) => {
+    const params = new URLSearchParams({ q: query, max_results: "50", hide_posted: hidePosted.toString() })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<SearchResult>(`${BASE()}/search?${params.toString()}`)
+  },
 
-  ranking: (hidePosted = true) =>
-    request<SearchResult>(`${BASE()}/ranking?hide_posted=${hidePosted}`),
+  ranking: (hidePosted = true, brand_slug?: string) => {
+    const params = new URLSearchParams({ hide_posted: hidePosted.toString() })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<SearchResult>(`${BASE()}/ranking?${params.toString()}`)
+  },
 
-  manualVideo: (youtubeUrl: string) =>
-    request<Video>(`${BASE()}/manual-video`, {
+  manualVideo: (youtubeUrl: string, brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<Video>(`${BASE()}/manual-video${qs}`, {
       method: "POST",
       body: JSON.stringify({ youtube_url: youtubeUrl }),
       headers: { "Content-Type": "application/json" }
-    }),
+    })
+  },
 
-  playlistVideos: (hidePosted = true) =>
-    request<{ videos: Video[] }>(`${BASE()}/playlist/videos?hide_posted=${hidePosted}`),
+  playlistVideos: (hidePosted = true, brand_slug?: string) => {
+    const params = new URLSearchParams({ hide_posted: hidePosted.toString() })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<{ videos: Video[] }>(`${BASE()}/playlist/videos?${params.toString()}`)
+  },
 
-  refreshPlaylist: () =>
-    request<{ status: string; message: string }>(`${BASE()}/playlist/refresh`, { method: "POST" }),
+  refreshPlaylist: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<{ status: string; message: string }>(`${BASE()}/playlist/refresh${qs}`, { method: "POST" })
+  },
 
   cacheStatus: () => request<{ playlist?: { count: number } }>(`${BASE()}/cache/status`),
 
-  downloadVideo: async (videoId: string, artist: string, song: string) => {
-    const url = `${BASE()}/download/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`
+  downloadVideo: async (videoId: string, artist: string, song: string, brand_slug?: string) => {
+    const params = new URLSearchParams({ artist, song })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    const url = `${BASE()}/download/${videoId}?${params.toString()}`
     const resp = await fetch(url)
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ detail: "Download failed" }))
@@ -121,27 +150,35 @@ export const curadoriaApi = {
   },
 
   /** Download + upload R2 sem streaming pro browser. Retorna JSON. */
-  prepareVideo: (videoId: string, artist: string, song: string) =>
-    request<{
+  prepareVideo: (videoId: string, artist: string, song: string, brand_slug?: string) => {
+    const params = new URLSearchParams({ artist, song })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<{
       status: string
       r2_key: string
       r2_base: string
       cached: boolean
       file_size_mb?: number
       message: string
-    }>(`${BASE()}/prepare-video/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`, {
+    }>(`${BASE()}/prepare-video/${videoId}?${params.toString()}`, {
       method: "POST",
-    }),
+    })
+  },
 
   /** Verifica se vídeo já está no R2. */
-  checkR2: (artist: string, song: string, videoId = "") =>
-    request<{ exists: boolean; r2_key: string; r2_base: string }>(
-      `${BASE()}/r2/check?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}&video_id=${encodeURIComponent(videoId)}`
-    ),
+  checkR2: (artist: string, song: string, videoId = "", brand_slug?: string) => {
+    const params = new URLSearchParams({ artist, song, video_id: videoId })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    return request<{ exists: boolean; r2_key: string; r2_base: string }>(
+      `${BASE()}/r2/check?${params.toString()}`
+    )
+  },
 
   /** Upload manual de vídeo para R2 (fallback quando yt-dlp demora). */
-  uploadVideo: async (videoId: string, artist: string, song: string, file: File) => {
-    const url = `${BASE()}/upload-video/${videoId}?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(song)}`
+  uploadVideo: async (videoId: string, artist: string, song: string, file: File, brand_slug?: string) => {
+    const params = new URLSearchParams({ artist, song })
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    const url = `${BASE()}/upload-video/${videoId}?${params.toString()}`
     const formData = new FormData()
     formData.append("file", file)
     const resp = await fetch(url, { method: "POST", body: formData })
@@ -158,12 +195,18 @@ export const curadoriaApi = {
     }>
   },
 
-  downloads: () => request<{ downloads: Download[] }>(`${BASE()}/downloads`),
+  downloads: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<{ downloads: Download[] }>(`${BASE()}/downloads${qs}`)
+  },
 
-  downloadsExportUrl: () => `${BASE()}/downloads/export`,
+  downloadsExportUrl: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return `${BASE()}/downloads/export${qs}`
+  },
 
-  r2Info: (folder: string) =>
-    request<{ video_id: string; youtube_url: string; thumbnail_url: string; title: string; description: string }>(
-      `${BASE()}/r2/info?folder=${encodeURIComponent(folder)}`
-    ),
+  r2Info: (folder: string, brand_slug?: string) => {
+    const qs = brand_slug ? `&brand_slug=${brand_slug}` : ""
+    return request<R2Info>(`${BASE()}/r2/info?folder=${encodeURIComponent(folder)}${qs}`)
+  },
 }

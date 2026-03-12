@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Download, ExternalLink, Loader2, CheckCircle2, ArrowRight, Cloud, CloudOff, Upload, Clock, AlertTriangle } from "lucide-react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { useBrand } from "@/lib/brand-context"
 
 function formatViews(n: number) {
   if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"
@@ -44,6 +45,7 @@ export function VideoDetailModal({
   onClose: () => void
   onDownloaded?: () => void
 }) {
+  const { selectedBrand } = useBrand()
   const router = useRouter()
   const [downloading, setDownloading] = useState(false)
   const [preparing, setPreparing] = useState(false)
@@ -120,7 +122,7 @@ export function VideoDetailModal({
     setPreparing(true)
     startTimer()
     try {
-      const result = await curadoriaApi.prepareVideo(video.video_id, artist, song)
+      const result = await curadoriaApi.prepareVideo(video.video_id, artist, song, selectedBrand?.slug)
       setR2Status("ok")
       setR2Key(result.r2_key)
       setR2Cached(result.cached)
@@ -145,7 +147,7 @@ export function VideoDetailModal({
     setDownloading(true)
     startTimer()
     try {
-      const result = await curadoriaApi.downloadVideo(video.video_id, artist, song)
+      const result = await curadoriaApi.downloadVideo(video.video_id, artist, song, selectedBrand?.slug)
       setR2Status(result.r2Status as "ok" | "failed" | "unknown")
       setR2Key(result.r2Key)
       setDownloadDone(true)
@@ -168,7 +170,7 @@ export function VideoDetailModal({
     const song = editSong.trim() || "Video"
     setUploading(true)
     try {
-      const result = await curadoriaApi.uploadVideo(video.video_id, artist, song, file)
+      const result = await curadoriaApi.uploadVideo(video.video_id, artist, song, file, selectedBrand?.slug)
       setR2Status("ok")
       setR2Key(result.r2_key)
       setR2Cached(false)

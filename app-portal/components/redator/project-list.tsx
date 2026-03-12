@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/status-badge"
 import { Plus, Music, ArrowRight, Download } from "lucide-react"
 import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
+import { useBrand } from "@/lib/brand-context"
 
 function nextStepLink(p: Project): string {
   if (p.status === "input_complete" || p.status === "generating") return `/redator/projeto/${p.id}/overlay`
@@ -17,19 +18,21 @@ function nextStepLink(p: Project): string {
 }
 
 export function RedatorProjectList() {
+  const { selectedBrand } = useBrand()
   const [projects, setProjects] = useState<Project[]>([])
   const [r2Items, setR2Items] = useState<R2AvailableItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    setLoading(true)
     Promise.all([
-      redatorApi.listProjects(),
-      redatorApi.listR2Available().catch(() => [] as R2AvailableItem[]),
+      redatorApi.listProjects(selectedBrand?.slug),
+      redatorApi.listR2Available(selectedBrand?.slug).catch(() => [] as R2AvailableItem[]),
     ]).then(([projs, r2]) => {
       setProjects(projs)
       setR2Items(r2)
     }).finally(() => setLoading(false))
-  }, [])
+  }, [selectedBrand?.slug])
 
   if (loading) {
     return <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Carregando projetos...</div>

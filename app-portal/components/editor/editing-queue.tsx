@@ -97,7 +97,7 @@ export function EditorEditingQueue() {
   const [erroLimpar, setErroLimpar] = useState("")
 
   const loadEdicoes = () => {
-    editorApi.listarEdicoes()
+    editorApi.listarEdicoes(undefined, selectedBrand?.id)
       .then(setEdicoes)
       .catch(err => {
         const msg = extractErrorMessage(err)
@@ -107,18 +107,19 @@ export function EditorEditingQueue() {
   }
 
   useEffect(() => {
-    editorApi.listarEdicoes().then(data => {
+    setLoading(true)
+    editorApi.listarEdicoes(undefined, selectedBrand?.id).then(data => {
       setEdicoes(data)
       if (data.length === 0) {
         setShowImportar(true)
         setLoadingRedator(true)
-        editorApi.listarProjetosRedator()
+        editorApi.listarProjetosRedator(selectedBrand?.id)
           .then(setProjetosRedator)
           .catch((err: unknown) => setErroRedator("Erro ao conectar com o Redator: " + (err instanceof Error ? err.message : "Erro desconhecido")))
           .finally(() => setLoadingRedator(false))
       }
     }).finally(() => setLoading(false))
-  }, [])
+  }, [selectedBrand?.id])
 
   const extractVideoId = (url: string) => {
     const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
@@ -160,7 +161,7 @@ export function EditorEditingQueue() {
     setLoadingRedator(true)
     setErroRedator("")
     try {
-      const data = await editorApi.listarProjetosRedator()
+      const data = await editorApi.listarProjetosRedator(selectedBrand?.id)
       setProjetosRedator(data)
     } catch (err: unknown) {
       setErroRedator("Erro ao conectar com o Redator: " + (err instanceof Error ? err.message : "Erro desconhecido"))

@@ -36,6 +36,8 @@ export interface Edicao {
   seo_count?: number
   created_at: string
   updated_at: string
+  perfil_id?: number
+  perfil_nome?: string
 }
 
 export interface Segmento {
@@ -188,6 +190,8 @@ export interface Report {
   resolvido_por?: string
   codigo_err?: string
   created_at: string
+  perfil_id?: number
+  perfil_nome?: string
 }
 
 export interface ReportResumo {
@@ -256,12 +260,17 @@ export interface AuthUser {
 
 
 export const editorApi = {
-  listarEdicoes: (params?: Record<string, string>) => {
-    const qs = params ? "?" + new URLSearchParams(params).toString() : ""
+  listarEdicoes: (params?: Record<string, string>, perfil_id?: number) => {
+    const p = { ...params }
+    if (perfil_id) p.perfil_id = perfil_id.toString()
+    const qs = p ? "?" + new URLSearchParams(p).toString() : ""
     return request<Edicao[]>(`${BASE()}/edicoes${qs}`)
   },
-  criarEdicao: (data: Partial<Edicao>) =>
-    request<Edicao>(`${BASE()}/edicoes`, { method: "POST", body: JSON.stringify(data) }),
+  criarEdicao: (data: Partial<Edicao>, perfil_id?: number) => {
+    const body = { ...data }
+    if (perfil_id) body.perfil_id = perfil_id
+    return request<Edicao>(`${BASE()}/edicoes`, { method: "POST", body: JSON.stringify(body) })
+  },
   obterEdicao: (id: number) => request<Edicao>(`${BASE()}/edicoes/${id}`),
   atualizarEdicao: (id: number, data: Partial<Edicao>) =>
     request<Edicao>(`${BASE()}/edicoes/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -343,7 +352,10 @@ export const editorApi = {
 
   filaStatus: () => request<FilaStatus>(`${BASE()}/fila/status`),
 
-  listarProjetosRedator: () => request<RedatorProject[]>(`${BASE()}/redator/projetos`),
+  listarProjetosRedator: (perfil_id?: number) => {
+    const qs = perfil_id ? `?perfil_id=${perfil_id}` : ""
+    return request<RedatorProject[]>(`${BASE()}/redator/projetos${qs}`)
+  },
   importarDoRedator: (projectId: number, idioma?: string, ehInstrumental?: boolean, perfil_id?: number) => {
     const params = new URLSearchParams()
     if (idioma) params.append("idioma", idioma)
@@ -354,31 +366,44 @@ export const editorApi = {
   },
 
   // Dashboard API
-  dashboardVisaoGeral: () => request<DashboardVisaoGeral>(`${BASE()}/dashboard/visao-geral`),
+  dashboardVisaoGeral: (perfil_id?: number) => {
+    const qs = perfil_id ? `?perfil_id=${perfil_id}` : ""
+    return request<DashboardVisaoGeral>(`${BASE()}/dashboard/visao-geral${qs}`)
+  },
   dashboardProjeto: (id: number) => request<Edicao>(`${BASE()}/edicoes/${id}`),
   dashboardSaude: () => request<DashboardSaude>(`${BASE()}/dashboard/saude`),
   dashboardProducao: () => request<DashboardProducao>(`${BASE()}/dashboard/producao`),
 
   // Reports API
-  criarReport: (data: Partial<Report>) =>
-    request<Report>(`${BASE()}/reports`, { method: "POST", body: JSON.stringify(data) }),
+  criarReport: (data: Partial<Report>, perfil_id?: number) => {
+    const body = { ...data }
+    if (perfil_id) body.perfil_id = perfil_id
+    return request<Report>(`${BASE()}/reports`, { method: "POST", body: JSON.stringify(body) })
+  },
   uploadScreenshot: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
     return requestFormData<{ url: string }>(`${BASE()}/reports/${id}/screenshot`, form)
   },
-  listarReports: (params?: Record<string, string>) => {
-    const qs = params ? "?" + new URLSearchParams(params).toString() : ""
+  listarReports: (params?: Record<string, string>, perfil_id?: number) => {
+    const p = { ...params }
+    if (perfil_id) p.perfil_id = perfil_id.toString()
+    const qs = p ? "?" + new URLSearchParams(p).toString() : ""
     return request<Report[]>(`${BASE()}/reports${qs}`)
   },
   detalheReport: (id: number) => request<Report>(`${BASE()}/reports/${id}`),
   atualizarReport: (id: number, data: Partial<Report>) =>
     request<Report>(`${BASE()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  resumoReports: () => request<ReportResumo>(`${BASE()}/reports/resumo`),
+  resumoReports: (perfil_id?: number) => {
+    const qs = perfil_id ? `?perfil_id=${perfil_id}` : ""
+    return request<ReportResumo>(`${BASE()}/reports/resumo${qs}`)
+  },
   deletarReport: (id: number) =>
     request<void>(`${BASE()}/reports/${id}`, { method: "DELETE" }),
-  deletarReportsResolvidos: () =>
-    request<{ deleted: number }>(`${BASE()}/reports/resolvidos`, { method: "DELETE" }),
+  deletarReportsResolvidos: (perfil_id?: number) => {
+    const qs = perfil_id ? `?perfil_id=${perfil_id}` : ""
+    return request<{ deleted: number }>(`${BASE()}/reports/resolvidos${qs}`, { method: "DELETE" })
+  },
 
   // Auth API
   login: (data: { email: string; senha: string }) =>

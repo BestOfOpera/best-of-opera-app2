@@ -103,6 +103,7 @@ class EdicaoCreate(BaseModel):
     categoria: Optional[str] = None
     idioma: str
     eh_instrumental: bool = False
+    perfil_id: Optional[int] = None
     # Overlay em JSON (lista de segmentos por idioma)
     overlays: Optional[dict] = None
     # Post/SEO colados do Redator
@@ -122,6 +123,7 @@ class EdicaoUpdate(BaseModel):
     status: Optional[str] = None
     passo_atual: Optional[int] = None
     erro_msg: Optional[str] = None
+    perfil_id: Optional[int] = None
 
 
 class EdicaoOut(BaseModel):

@@ -13,8 +13,10 @@ import { Plus, X, Upload, CheckCircle2, AlertCircle, Camera, Trash2, Loader2 } f
 import { cn, extractErrorMessage } from "@/lib/utils"
 import { toast } from "sonner"
 import * as Sentry from "@sentry/nextjs"
+import { useBrand } from "@/lib/brand-context"
 
 export default function ReportsPage() {
+    const { selectedBrand } = useBrand()
     const [reports, setReports] = useState<Report[]>([])
     const [resumo, setResumo] = useState<ReportResumo | null>(null)
     const [loading, setLoading] = useState(true)
@@ -26,8 +28,8 @@ export default function ReportsPage() {
     const fetchReports = async () => {
         try {
             const [list, res] = await Promise.all([
-                editorApi.listarReports(),
-                editorApi.resumoReports()
+                editorApi.listarReports(undefined, selectedBrand?.id),
+                editorApi.resumoReports(selectedBrand?.id)
             ])
             setReports(list)
             setResumo(res)
@@ -39,13 +41,14 @@ export default function ReportsPage() {
     }
 
     useEffect(() => {
+        setLoading(true)
         fetchReports()
-    }, [])
+    }, [selectedBrand?.id])
 
     const handleLimparResolvidos = async () => {
         setLimpando(true)
         try {
-            const res = await editorApi.deletarReportsResolvidos()
+            const res = await editorApi.deletarReportsResolvidos(selectedBrand?.id)
             toast.success(`${res.deleted} report(s) resolvido(s) removido(s).`)
             setConfirmLimpar(false)
             fetchReports()
@@ -200,6 +203,7 @@ function ResumoCard({ label, value, color, active }: any) {
 }
 
 function CreateReportModal({ onClose }: { onClose: () => void }) {
+    const { selectedBrand } = useBrand()
     const [formData, setFormData] = useState({
         colaborador: "",
         titulo: "",
@@ -239,7 +243,7 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
 
         setSubmitting(true)
         try {
-            const report = await editorApi.criarReport(formData)
+            const report = await editorApi.criarReport(formData, selectedBrand?.id)
 
             // Upload screenshots
             if (screenshots.length > 0) {

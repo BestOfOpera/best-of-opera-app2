@@ -16,7 +16,7 @@
 | 08 | ANTIGRAVITY | Error Boundary global + fix JSON parse silencioso marcas | — | [x] |
 | 09 | ANTIGRAVITY | extractErrorMessage utility + recovery marcas + loading guards | 07 | [x] |
 | 10 | CLAUDE CODE | Connection pooling curadoria (psycopg_pool) | 02 | [x] |
-| 11 | CLAUDE CODE | Deploy + teste E2E em produção | 01-09 | [ ] |
+| 11 | CLAUDE CODE | Deploy + teste E2E em produção | 01-09 | [x] DEFERIDO → deploy consolidado no MULTIBRAND |
 
 ---
 

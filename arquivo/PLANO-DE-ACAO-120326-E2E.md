@@ -39,8 +39,8 @@
 | 03 | CLAUDE CODE | Adicionar timeout global + AbortController em `base.ts` | — | [x] |
 | 04 | CLAUDE CODE | Adicionar interceptor de 401 em `base.ts` (auto-logout) | — | [x] |
 | 05 | CLAUDE CODE | Corrigir race conditions no `auth-context.tsx` | 04 | [x] |
-| 06 | ANTIGRAVITY | Adicionar retry + estado de erro no `BrandSelector` | 03 | [ ] |
-| 07 | CLAUDE CODE | Push + deploy + revalidar E2E em produção | 01-05 | [ ] |
+| 06 | ANTIGRAVITY | Adicionar retry + estado de erro no `BrandSelector` | 03 | [x] |
+| 07 | CLAUDE CODE | Push + deploy + revalidar E2E em produção | 01-05 | [x] DEFERIDO → deploy consolidado no MULTIBRAND |
 
 ---
 

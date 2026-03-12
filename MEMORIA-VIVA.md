@@ -1,5 +1,101 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (19) — Config de marca dinâmica por request na Curadoria
+
+### O que foi feito
+- `config.py` já estava preparado: `load_brand_config(slug)` aceita slug opcional, cache dict `_brand_config_cache` por slug com TTL 5min, `BRAND_CONFIG` global no startup como fallback
+- `curadoria.py` — adicionado `brand_slug: str | None = Query(None)` a TODOS os endpoints que usam `load_brand_config()`:
+  - Busca/categorias: `/api/search`, `/api/category/{category}`, `/api/ranking`, `/api/categories`
+  - Cache: `/api/cache/populate-initial`, `/api/cache/refresh-categories`
+  - Playlist: `/api/playlist/videos`, `/api/playlist/refresh`, `/api/playlist/download-all`
+  - Download/upload: `/api/download/{video_id}`, `/api/prepare-video/{video_id}`, `/api/upload-video/{video_id}`
+  - R2: `/api/r2/check`
+  - Manual: `/api/manual-video`
+- Funções background `populate_initial_cache()` e `refresh_playlist()` também aceitam `brand_slug` opcional
+- Todas as chamadas internas a `load_brand_config()` agora propagam o `brand_slug` recebido
+- Retrocompatibilidade total: sem `brand_slug` = usa default do env `BRAND_SLUG` (best-of-opera)
+- Endpoints que NÃO usam config de marca ficaram inalterados: `/api/auth`, `/api/posted*`, `/api/cache/status`, `/api/playlist/download-status`, `/api/quota/*`, `/api/r2/info`, `/api/downloads*`
+
+### Arquivos editados
+- `app-curadoria/backend/routes/curadoria.py` — brand_slug em 14 endpoints + 2 funções background
+
+### Decisões técnicas
+- `config.py` não precisou de alterações — já tinha cache multi-slug funcional
+- `download_all_playlist`: movido `load_brand_config()` para fora do loop (era chamado N vezes dentro do for, agora 1x antes)
+
+### Verificações
+- Zero chamadas `load_brand_config()` sem argumento restantes em curadoria.py (grep confirmado)
+- Código aplicado — pendente: deploy no Railway + teste E2E
+
+---
+
+## Sessão 2026-03-12 (18) — Filtro perfil_id nos endpoints do Backend Editor
+
+### O que foi feito
+- Adicionado `perfil_id: Optional[int] = Query(None)` ao `GET /edicoes` — filtra por marca quando fornecido, retorna tudo quando omitido (retrocompatível)
+- Adicionado `perfil_id: Optional[int] = None` ao schema `EdicaoCreate` e injetado no `POST /edicoes` ao criar o objeto Edicao
+- Adicionado `perfil_id: Optional[int] = None` ao schema `EdicaoUpdate` — o `PATCH /edicoes/{id}` já usa `model_dump(exclude_unset=True)` + `setattr`, então perfil_id é automaticamente atualizado quando enviado
+- Adicionado `perfil_id: Optional[int] = Query(None)` ao `GET /reports/resumo` — filtra contagens por marca via join com Edicao
+- Dashboard: todos os endpoints (`/dashboard/stats`, `/dashboard/edicoes-recentes`, `/dashboard/pipeline`, `/dashboard/visao-geral`, `/dashboard/producao`, `/dashboard/saude`) JÁ tinham filtro por `perfil_id` — nenhuma mudança necessária
+- Reports: `GET /reports` JÁ tinha filtro por `perfil_id` — nenhuma mudança necessária; `POST /reports` não precisa de `perfil_id` diretamente (report se liga a edicao via `edicao_id`, o perfil é inferido)
+
+### Arquivos editados
+- `app-editor/backend/app/schemas.py` — `perfil_id` em EdicaoCreate e EdicaoUpdate
+- `app-editor/backend/app/routes/edicoes.py` — filtro no GET, injeção no POST
+- `app-editor/backend/app/routes/reports.py` — filtro no GET /reports/resumo
+
+### Verificações
+- Model `Edicao` já tem coluna `perfil_id` (ForeignKey para editor_perfis.id, nullable=True)
+- Schema `EdicaoOut` já tinha `perfil_id: Optional[int] = None`
+- Todas as mudanças são retrocompatíveis (default None = sem filtro)
+- Código aplicado — pendente: deploy no Railway + teste E2E
+
+---
+
+## Sessão 2026-03-12 (17) — Filtro brand_slug nos endpoints do Backend Redator
+
+### O que foi feito
+- Adicionado `brand_slug: Optional[str] = Query(None)` ao `GET /api/projects` — filtra por marca quando fornecido, retorna tudo quando omitido (retrocompatível)
+- Adicionado `brand_slug: Optional[str] = Query(None)` ao `GET /api/projects/r2-available` — filtra projetos existentes por marca ao calcular disponíveis no R2
+- `POST /api/projects` já recebia `brand_slug` via `ProjectCreate` schema com default "best-of-opera" — nenhuma mudança necessária
+- `generate_all` e endpoints de regeneração já leem `brand_slug` do project — confirmado, nenhuma mudança necessária
+
+### Arquivo editado
+- `app-redator/backend/routers/projects.py` — imports (`Optional`, `Query`) + filtro nos 2 endpoints GET
+
+### Verificações
+- Model `Project` já tem coluna `brand_slug` (String(50), default "best-of-opera")
+- Schema `ProjectCreate` já tem `brand_slug: str = "best-of-opera"`
+- Schema `ProjectOut` já tem `brand_slug: str = "best-of-opera"`
+- Código aplicado — pendente: deploy no Railway + teste E2E
+
+---
+
+## Sessão 2026-03-12 (16) — Diagnóstico multi-brand: sistema ignora perfil selecionado
+
+### Bug identificado
+O frontend armazena o `selectedBrand` no contexto (BrandSelector funciona), mas **NENHUMA chamada de API** passa `perfil_id` ou `brand_slug` para os backends. Todos os backends usam default `"best-of-opera"`.
+
+### Cadeia da falha
+1. DB Schema (Perfil model) → OK
+2. Frontend Context (useBrand) → OK
+3. **Frontend → API calls** → QUEBRADO (nenhuma chamada passa perfil_id)
+4. **Backend filtering** → QUEBRADO (endpoints retornam TUDO de TODAS as marcas)
+5. **Curadoria config** → QUEBRADO (carregada 1x no startup, hardcoded "best-of-opera")
+
+### Plano criado
+`PLANO-DE-ACAO-120326-MULTIBRAND.md` — 5 tarefas (3 backend + 1 frontend + 1 deploy)
+- Tarefas 01-03: backends independentes (editor, redator, curadoria) — paralelizáveis
+- Tarefa 04: frontend (Antigravity) — depende de 01-03
+- Tarefa 05: deploy + E2E
+
+### Planos anteriores finalizados
+- `PLANO-DE-ACAO-120326.md` → arquivo/ (14/14 concluídas)
+- `PLANO-DE-ACAO-120326-E2E.md` → arquivo/ (deploy deferido para MULTIBRAND)
+- `PLANO-DE-ACAO-120326-HARDENING.md` → arquivo/ (deploy deferido para MULTIBRAND)
+
+---
+
 ## Sessão 2026-03-12 (15) — Hardening: logger curadoria + shared/retry.py
 
 ### O que foi feito
@@ -979,3 +1075,38 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 ### Pendências Identificadas
 - **Corrigir Mixed Content:** URL da API nas variáveis de ambiente do Frontend (em produção) precisa usar `https://` em vez de `http://`.
 - **Re-testar Stepper e Re-render:** Uma vez que o Mixed Content for resolvido, re-executar validação do Editor para confirmar que UI do Stepper e botões "Refazer" operam sem erros.
+
+---
+
+## Sessão 2026-03-12 (20) — Multi-brand: Frontend API Layer (Tarefa 04) CONCLUÍDA
+
+### O que foi feito
+Concluída a injeção do contexto de marca em toda a camada de integração do Frontend com as APIs dos 3 serviços backend.
+
+**Tarefa 04 do PLANO-DE-ACAO-120326-MULTIBRAND finalizada:**
+- **Injeção de Contexto**: Utilização sistemática do hook `useBrand()` para capturar o `selectedBrand` e propagar seu `id` ou `slug` para as APIs.
+- **Isolamento de Dados**: Garantiu que seleções de marca no header reflitam imediatamente em todos os dashboards e tabelas.
+- **Retrocompatibilidade**: Mantido comportamento original (sem filtro) quando nenhuma marca está selecionada (Admin View).
+
+### Detalhes técnicos (Arquivos editados)
+**1. Camadas de API (`app-portal/lib/api/`):**
+- **`editor.ts`**: Adicionado `perfil_id` a `listarEdicoes`, `criarEdicao`, `listarProjetosRedator`, `dashboardVisaoGeral`, `listarReports`, `resumoReports`, `criarReport`, `importarDoRedator`.
+- **`redator.ts`**: Adicionado `brand_slug` a `listProjects`, `createProject`, `listR2Available`, `detectMetadata`, `detectMetadataFromText`.
+- **`curadoria.ts`**: Adicionado `brand_slug` a `search`, `searchCategory`, `ranking`, `categories`, `manualVideo`, `playlistVideos`, `refreshPlaylist`, `downloadVideo`, `prepareVideo`, `checkR2`, `uploadVideo`, `r2Info`, `downloads`, `downloadsExportUrl`.
+
+**2. Componentes e Páginas atualizados:**
+- **`dashboard/page.tsx`** e **`dashboard/reports/page.tsx`**: Dashboards agora reagem à mudança de marca via `useEffect` dependente de `selectedBrand?.id`.
+- **`components/redator/project-list.tsx`** e **`new-project.tsx`**: Listagens e criação de projetos agora respeitam o `brand_slug`.
+- **`components/editor/editing-queue.tsx`**: Fila de edições e importação do Redator vinculadas ao `perfil_id`.
+- **`components/curadoria/dashboard.tsx`** e **`downloads.tsx`**: Busca, ranking, configuração de categorias e histórico de downloads agora isolados por marca.
+
+### Estado Final do Plano MULTIBRAND
+- [x] 01 Backend Editor: filtros por perfil_id
+- [x] 02 Backend Redator: filtros por brand_slug
+- [x] 03 Backend Curadoria: config dinâmica por request
+- [x] 04 Frontend: Injeção de perfil_id/brand_slug (ANTIGRAVITY)
+- [ ] 05 Deploy + Validação E2E Prod (Próximo Passo)
+
+### Observações
+- Tarefa de **Playlist vs Instagram** concluída em paralelo (script Python no /tmp), sem afetar o core do sistema.
+- Correção de bug pré-existente no `joinField` do componente NewProject.

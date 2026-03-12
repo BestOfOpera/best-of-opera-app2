@@ -6,6 +6,8 @@ export interface Project {
   id: number
   created_at: string
   updated_at: string
+  perfil_id?: number
+  perfil_nome?: string
   youtube_url: string
   artist: string
   work: string
@@ -74,24 +76,36 @@ export interface ExportData {
   srt: string
 }
 
+
+
 export const redatorApi = {
-  detectMetadata: async (screenshot: File, youtubeUrl: string): Promise<DetectedMetadata> => {
+  detectMetadata: (screenshot: File, youtubeUrl?: string, brand_slug?: string) => {
     const formData = new FormData()
-    formData.append("screenshot", screenshot)
-    formData.append("youtube_url", youtubeUrl)
+    formData.append("file", screenshot)
+    if (youtubeUrl) formData.append("youtube_url", youtubeUrl)
+    if (brand_slug) formData.append("brand_slug", brand_slug)
     return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData, 60000)
   },
-  detectMetadataFromText: (youtubeUrl: string, title: string, description: string): Promise<DetectedMetadata> =>
+  detectMetadataFromText: (youtubeUrl: string, title: string, description: string, brand_slug?: string) =>
     request<DetectedMetadata>(`${BASE()}/projects/detect-metadata-text`, {
       method: "POST",
       timeout: 60000,
-      body: JSON.stringify({ youtube_url: youtubeUrl, title, description }),
+      body: JSON.stringify({ youtube_url: youtubeUrl, title, description, brand_slug }),
     }),
-  listProjects: () => request<Project[]>(`${BASE()}/projects`),
-  listR2Available: () => request<R2AvailableItem[]>(`${BASE()}/projects/r2-available`),
+  listProjects: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<Project[]>(`${BASE()}/projects${qs}`)
+  },
+  listR2Available: (brand_slug?: string) => {
+    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+    return request<R2AvailableItem[]>(`${BASE()}/projects/r2-available${qs}`)
+  },
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
-  createProject: (data: Record<string, string>) =>
-    request<Project>(`${BASE()}/projects`, { method: "POST", body: JSON.stringify(data) }),
+  createProject: (data: Record<string, string>, brand_slug?: string) => {
+    const body = { ...data }
+    if (brand_slug) body.brand_slug = brand_slug
+    return request<Project>(`${BASE()}/projects`, { method: "POST", body: JSON.stringify(body) })
+  },
   updateProject: (id: number, data: Record<string, string>) =>
     request<Project>(`${BASE()}/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 

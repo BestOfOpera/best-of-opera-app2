@@ -84,7 +84,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     setConfidence("r2")
     setR2Loading(true)
     setR2Error("")
-    curadoriaApi.r2Info(r2Folder).then(async info => {
+    curadoriaApi.r2Info(r2Folder, selectedBrand?.slug).then(async info => {
       setYoutubeUrl(info.youtube_url)
       setThumbnailUrl(info.thumbnail_url)
       setYtTitle(info.title || "")
@@ -93,7 +93,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
       if (info.title) {
         setDetecting(true)
         try {
-          const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "")
+          const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "", selectedBrand?.slug)
           const artistStr = meta.artist || artist
           const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
           const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
@@ -158,7 +158,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     setDetecting(true)
     setError("")
     try {
-      const result: DetectedMetadata = await redatorApi.detectMetadata(screenshotFile, youtubeUrl)
+      const result: DetectedMetadata = await redatorApi.detectMetadata(screenshotFile, youtubeUrl, selectedBrand?.slug)
       setShared({
         work: result.work || "",
         composer: result.composer || "",
@@ -215,8 +215,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         nationality_flag: joinField("nationality_flag"), voice_type: joinField("voice_type"),
         birth_date: joinField("birth_date"), death_date: joinField("death_date"),
         album_opera: shared.album_opera,
-        perfil_id: selectedBrand?.id?.toString() || "",
-      })
+      }, selectedBrand?.slug)
       await redatorApi.generate(project.id)
       router.push(`/redator/projeto/${project.id}/overlay`)
     } catch (err: any) {

@@ -49,10 +49,10 @@ export function CuradoriaDashboard() {
 
   const loadCategories = useCallback(async () => {
     try {
-      const data = await curadoriaApi.categories()
+      const data = await curadoriaApi.categories(selectedBrand?.slug)
       setCategories(data.categories || [])
     } catch { }
-  }, [])
+  }, [selectedBrand?.slug])
 
   const checkHealth = useCallback(async () => {
     try {
@@ -95,16 +95,16 @@ export function CuradoriaDashboard() {
     try {
       let data: SearchResult
       if (catKey) {
-        data = await curadoriaApi.searchCategory(catKey, hidePosted, forceRefresh)
+        data = await curadoriaApi.searchCategory(catKey, hidePosted, forceRefresh, selectedBrand?.slug)
         if (data.seed_index !== undefined) {
           setSeedInfo(prev => ({ ...prev, [catKey]: { index: data.seed_index!, total: data.total_seeds!, query: data.seed_query } }))
         }
         setQuery(catKey)
       } else if (q) {
-        data = await curadoriaApi.search(q, hidePosted)
+        data = await curadoriaApi.search(q, hidePosted, selectedBrand?.slug)
         setActiveCat(null)
       } else {
-        data = await curadoriaApi.ranking(hidePosted)
+        data = await curadoriaApi.ranking(hidePosted, selectedBrand?.slug)
         setQuery("Ranking")
         setActiveCat(null)
       }
@@ -135,7 +135,7 @@ export function CuradoriaDashboard() {
     setMsg("Carregando playlist do banco...")
     setMsgType("loading")
     try {
-      const data = await curadoriaApi.playlistVideos(hidePosted)
+      const data = await curadoriaApi.playlistVideos(hidePosted, selectedBrand?.slug)
       setResults(data.videos || [])
       setMsg(`${data.videos?.length || 0} vídeos da playlist (em cache)`)
       setMsgType("ok")
@@ -156,7 +156,7 @@ export function CuradoriaDashboard() {
     setMsgType("loading")
 
     try {
-      const res = await curadoriaApi.refreshPlaylist()
+      const res = await curadoriaApi.refreshPlaylist(selectedBrand?.slug)
       setMsg("Busca completa iniciada em background. Aguarde alguns segundos...")
 
       // Polling sutil para ver quando terminar (opcional, aqui apenas avisamos)
@@ -189,7 +189,7 @@ export function CuradoriaDashboard() {
     setMsgType("loading")
 
     try {
-      const video = await curadoriaApi.manualVideo(manualUrl.trim())
+      const video = await curadoriaApi.manualVideo(manualUrl.trim(), selectedBrand?.slug)
       // Adiciona ao topo dos vídeos da sessão
       setSessionVideos(prev => [video, ...prev])
       setManualUrl("")

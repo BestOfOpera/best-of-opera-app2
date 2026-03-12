@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { editorApi, DashboardVisaoGeral, Edicao } from "@/lib/api/editor"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
+import { useBrand } from "@/lib/brand-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,13 +13,14 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 export default function DashboardPage() {
+    const { selectedBrand } = useBrand()
     const [data, setData] = useState<DashboardVisaoGeral | null>(null)
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState("Todos")
 
     const fetchDashboard = async () => {
         try {
-            const res = await editorApi.dashboardVisaoGeral()
+            const res = await editorApi.dashboardVisaoGeral(selectedBrand?.id)
             setData(res)
         } catch (error) {
             console.error("Erro ao carregar dashboard:", error)
@@ -30,8 +32,9 @@ export default function DashboardPage() {
     useAdaptivePolling(fetchDashboard, true)
 
     useEffect(() => {
+        setLoading(true)
         fetchDashboard()
-    }, [])
+    }, [selectedBrand?.id])
 
     if (loading && !data) {
         return (

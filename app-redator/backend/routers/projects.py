@@ -1,5 +1,5 @@
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -19,12 +19,21 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=List[ProjectOut])
-def list_projects(db: Session = Depends(get_db)):
-    return db.query(Project).order_by(Project.created_at.desc()).all()
+def list_projects(
+    brand_slug: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Project)
+    if brand_slug is not None:
+        q = q.filter(Project.brand_slug == brand_slug)
+    return q.order_by(Project.created_at.desc()).all()
 
 
 @router.get("/r2-available", response_model=List[R2AvailableItem])
-def list_r2_available(db: Session = Depends(get_db)):
+def list_r2_available(
+    brand_slug: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
     """Lista projetos no R2 (video/original.mp4) sem projeto correspondente no Redator."""
     try:
         from shared.storage_service import storage
@@ -34,7 +43,10 @@ def list_r2_available(db: Session = Depends(get_db)):
 
     originals = [k for k in keys if k.endswith("/video/original.mp4")]
 
-    existing = db.query(Project.artist, Project.work).all()
+    existing_q = db.query(Project.artist, Project.work)
+    if brand_slug is not None:
+        existing_q = existing_q.filter(Project.brand_slug == brand_slug)
+    existing = existing_q.all()
     existing_set = {(p.artist.lower().strip(), p.work.lower().strip()) for p in existing}
 
     result = []

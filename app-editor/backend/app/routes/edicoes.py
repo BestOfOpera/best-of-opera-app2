@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/v1/editor", tags=["edicoes"])
 def listar_edicoes(
     status: Optional[str] = None,
     categoria: Optional[str] = None,
+    perfil_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     q = db.query(Edicao).order_by(Edicao.id.desc())
@@ -26,6 +27,8 @@ def listar_edicoes(
         q = q.filter(Edicao.status == status)
     if categoria:
         q = q.filter(Edicao.categoria == categoria)
+    if perfil_id is not None:
+        q = q.filter(Edicao.perfil_id == perfil_id)
     return q.all()
 
 
@@ -42,6 +45,7 @@ def criar_edicao(data: EdicaoCreate, db: Session = Depends(get_db)):
         idioma=data.idioma,
         eh_instrumental=data.eh_instrumental,
         sem_lyrics=data.eh_instrumental,
+        perfil_id=data.perfil_id,
     )
     db.add(edicao)
     db.flush()

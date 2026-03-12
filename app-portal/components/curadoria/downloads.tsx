@@ -6,17 +6,20 @@ import { curadoriaApi, type Download } from "@/lib/api/curadoria"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download as DownloadIcon, ExternalLink, FileSpreadsheet } from "lucide-react"
+import { useBrand } from "@/lib/brand-context"
 
 export function CuradoriaDownloads() {
+  const { selectedBrand } = useBrand()
   const [downloads, setDownloads] = useState<Download[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    curadoriaApi.downloads()
+    setLoading(true)
+    curadoriaApi.downloads(selectedBrand?.slug)
       .then(data => setDownloads(data.downloads || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [selectedBrand?.slug])
 
   if (loading) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
@@ -31,7 +34,7 @@ export function CuradoriaDownloads() {
         </div>
         {downloads.length > 0 && (
           <Button variant="outline" size="sm" asChild className="gap-2">
-            <a href={curadoriaApi.downloadsExportUrl()} download>
+            <a href={curadoriaApi.downloadsExportUrl(selectedBrand?.slug)} download>
               <FileSpreadsheet className="h-4 w-4" /> Export CSV
             </a>
           </Button>
