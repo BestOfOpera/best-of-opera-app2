@@ -106,7 +106,7 @@ export async function requestFormData<T>(path: string, body: FormData, timeout =
     res = await fetch(path, { method: "POST", headers, body, signal: controller.signal })
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("Request timeout")
+      throw new ApiError(408, "Request timeout")
     }
     throw err
   } finally {
@@ -119,7 +119,7 @@ export async function requestFormData<T>(path: string, body: FormData, timeout =
       window.dispatchEvent(new CustomEvent("bo:unauthorized"))
     }
     const errBody = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(errBody.detail || "Request failed")
+    throw new ApiError(res.status, errBody.detail || errBody)
   }
   return res.json()
 }

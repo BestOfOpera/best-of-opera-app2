@@ -30,6 +30,10 @@ import shutil
 import logging
 from pathlib import Path
 from typing import Optional
+from shared.retry import sync_retry
+
+# Exceções transientes de rede do boto3 (ConnectTimeoutError/ReadTimeoutError subclassam ConnectionError)
+_R2_TRANSIENT = (ConnectionError, OSError)
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +180,12 @@ class StorageService:
             logger.debug(f"[storage:local] {local_path} → {dest}")
             return key
 
-        client = _get_s3_client()
-        client.upload_file(local_path, R2_BUCKET, key)
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _upload():
+            client = _get_s3_client()
+            client.upload_file(local_path, R2_BUCKET, key)
+
+        _upload()
         logger.info(f"[storage:r2] upload {key} ({Path(local_path).stat().st_size / 1024 / 1024:.1f}MB)")
         return key
 
@@ -193,8 +201,13 @@ class StorageService:
             return dest
 
         Path(dest).parent.mkdir(parents=True, exist_ok=True)
-        client = _get_s3_client()
-        client.download_file(R2_BUCKET, key, dest)
+
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _download():
+            client = _get_s3_client()
+            client.download_file(R2_BUCKET, key, dest)
+
+        _download()
         logger.info(f"[storage:r2] download {key} → {dest}")
         return dest
 
@@ -232,16 +245,23 @@ class StorageService:
         return url
 
     def exists(self, key: str) -> bool:
-        """Verifica se o arquivo existe no R2."""
+        """Verifica se o arquivo existe no R2.
+
+        Retorna False APENAS quando o arquivo não existe (404/NoSuchKey).
+        Para erros de rede ou permissão, propaga a exceção (evita mascarar falhas transientes).
+        """
         if not _r2_configured():
             return os.path.exists(_fallback_path(key))
 
+        from botocore.exceptions import ClientError
         try:
             client = _get_s3_client()
             client.head_object(Bucket=R2_BUCKET, Key=key)
             return True
-        except Exception:
-            return False
+        except ClientError as e:
+            if e.response["Error"]["Code"] in ("404", "NoSuchKey"):
+                return False
+            raise
 
     def delete(self, key: str) -> bool:
         """Remove arquivo do R2."""

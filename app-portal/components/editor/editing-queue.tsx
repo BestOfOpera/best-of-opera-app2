@@ -15,6 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react"
 import { useBrand } from "@/lib/brand-context"
+import { toast } from "sonner"
+import { extractErrorMessage } from "@/lib/utils"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   aguardando: { label: "Aguardando", variant: "secondary" },
@@ -95,7 +97,13 @@ export function EditorEditingQueue() {
   const [erroLimpar, setErroLimpar] = useState("")
 
   const loadEdicoes = () => {
-    editorApi.listarEdicoes().then(setEdicoes).finally(() => setLoading(false))
+    editorApi.listarEdicoes()
+      .then(setEdicoes)
+      .catch(err => {
+        const msg = extractErrorMessage(err)
+        toast.error(`Erro ao carregar edições: ${msg}`)
+      })
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => {
@@ -132,9 +140,11 @@ export function EditorEditingQueue() {
       } as unknown as Partial<Edicao>)
       setShowForm(false)
       setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false })
+      toast.success("Edição criada com sucesso!")
       loadEdicoes()
     } catch (err: unknown) {
-      alert("Erro ao criar: " + (err instanceof Error ? err.message : "Erro desconhecido"))
+      const msg = extractErrorMessage(err)
+      toast.error(`Erro ao criar edição: ${msg}`)
     } finally {
       setSaving(false)
     }
@@ -165,15 +175,13 @@ export function EditorEditingQueue() {
       const finalIdioma = (idioma === "auto" || idioma === "other") ? undefined : idioma
       const result = await editorApi.importarDoRedator(projectId, finalIdioma, !temLetraImport, selectedBrand?.id)
       setShowImportar(false)
-      setModalIdioma(null)
+      setTemLetraImport(null)
       loadEdicoes()
-      alert(`Edição criada: ${result.artista} — ${result.musica}\nOverlays: ${result.overlays_count} idiomas | Posts: ${result.posts_count} | SEO: ${result.seo_count}`)
+      toast.success(`Edição importada: ${result.artista} — ${result.musica}`)
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 422 && (err.detail as Record<string, unknown>)?.idioma_necessario === true) {
-        // Se falhou detecção automática, apenas garante que o modal está aberto (já deveria estar)
-        // e limpa o idioma escolhido para forçar seleção
         setIdiomaEscolhido("")
-        alert("Não foi possível detectar o idioma. Por favor, selecione um manualmente.")
+        toast.error("Não foi possível detectar o idioma. Por favor, selecione um manualmente.")
       } else if (err instanceof ApiError && err.status === 409 && (err.detail as Record<string, unknown>)?.duplicata === true) {
         const detail = err.detail as Record<string, unknown>
         setModalDuplicata({
@@ -182,7 +190,8 @@ export function EditorEditingQueue() {
           mensagem: detail.mensagem as string,
         })
       } else {
-        alert("Erro ao importar: " + (err instanceof Error ? err.message : "Erro desconhecido"))
+        const msg = extractErrorMessage(err)
+        toast.error(`Erro ao importar: ${msg}`)
       }
     } finally {
       setImportando(null)

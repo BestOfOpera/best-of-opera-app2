@@ -8,8 +8,15 @@ export function usePolling(callback: () => Promise<void>, intervalMs: number, en
 
   useEffect(() => {
     if (!enabled) return
-    savedCallback.current()
-    const id = setInterval(() => savedCallback.current(), intervalMs)
+    const tick = async () => {
+      try {
+        await savedCallback.current()
+      } catch (err) {
+        console.error("usePolling error:", err)
+      }
+    }
+    tick()
+    const id = setInterval(tick, intervalMs)
     return () => clearInterval(id)
   }, [intervalMs, enabled])
 }
@@ -36,7 +43,11 @@ export function useAdaptivePolling(
     let timeoutId: ReturnType<typeof setTimeout>
 
     const tick = async () => {
-      await savedCallback.current()
+      try {
+        await savedCallback.current()
+      } catch (err) {
+        console.error("useAdaptivePolling error:", err)
+      }
       const slow = Date.now() - startedAt >= SLOW_AFTER_MS
       setIsSlowPolling(slow)
       timeoutId = setTimeout(tick, slow ? SLOW_INTERVAL_MS : FAST_INTERVAL_MS)

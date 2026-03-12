@@ -1,11 +1,11 @@
-import os, asyncio, shutil
+import os, asyncio, shutil, logging
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 import unicodedata as _ud
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse, Response
 
 import database as db
@@ -20,15 +20,17 @@ from services.download import (
     _get_ydl_opts, _prepare_video_logic, _wrapped_prepare_video,
 )
 from shared.storage_service import storage, check_conflict, save_youtube_marker
+from worker import task_queue
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 # ─── BACKGROUND TASKS ───
 
 async def populate_initial_cache():
     """Background: populate cache using seed 0 for each V7 category"""
-    print("🚀 Starting V7 initial cache population...")
+    logger.info("Starting V7 initial cache population...")
     config = load_brand_config()
     categories = config["categories"]
     for cat_key, cat_data in categories.items():
@@ -39,21 +41,21 @@ async def populate_initial_cache():
             result = _process_v7(raw, seed_query, False, cat_key, config)
             db.save_cached_videos(result["videos"], cat_key)
             db.save_last_seed(cat_key, 0)
-            print(f"✅ Cached {len(result['videos'])} videos for {cat_key}")
+            logger.info(f"Cached {len(result['videos'])} videos for {cat_key}")
         except Exception as e:
-            print(f"❌ Error caching {cat_key}: {e}")
+            logger.error(f"Error caching {cat_key}: {e}")
     db.set_config("last_category_refresh", datetime.now().isoformat())
-    print("🎉 V7 cache population complete!")
+    logger.info("V7 cache population complete!")
 
 
 async def refresh_playlist():
-    print("🔄 Refreshing full playlist with pagination...")
+    logger.info("Refreshing full playlist with pagination...")
     config = load_brand_config()
     raw = await yt_playlist(PLAYLIST_ID, api_key=YOUTUBE_API_KEY)
     processed = _process_v7(raw, "Playlist", False, "Playlist", config)
     db.save_playlist_videos(processed["videos"])
     db.set_config("last_playlist_refresh", datetime.now().isoformat())
-    print(f"✅ Playlist refreshed: {len(processed['videos'])} videos found in total")
+    logger.info(f"Playlist refreshed: {len(processed['videos'])} videos found in total")
 
 
 # ─── AUTH ───
@@ -100,7 +102,7 @@ async def search_category(
         cached = db.get_cached_videos(category, hide_posted)
         if cached:
             cached = _rescore_cached(cached, category, config)
-            print(f"✅ Serving {len(cached)} cached videos for {category}")
+            logger.info(f"Serving {len(cached)} cached videos for {category}")
             return {
                 "query": category, "category": category,
                 "total_found": len(cached), "posted_hidden": 0,
@@ -114,7 +116,7 @@ async def search_category(
     seed_query = cat_data["seeds"][next_seed]
     full_query = f"{seed_query} {ANTI_SPAM}"
 
-    print(f"🔍 V7 category '{category}' seed {next_seed}/{total_seeds}: {seed_query[:50]}...")
+    logger.info(f"V7 category '{category}' seed {next_seed}/{total_seeds}: {seed_query[:50]}...")
     raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
     db.save_last_seed(category, next_seed)
 
@@ -246,7 +248,7 @@ async def add_manual_video(payload: dict):
                         p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                         return {**video_data, "score": sc, "posted": p}
         except Exception as e:
-            print(f"⚠️ Error fetching from YT API: {e}")
+            logger.warning(f"Error fetching from YT API: {e}")
 
     # Fallback via oEmbed
     try:
@@ -271,7 +273,7 @@ async def add_manual_video(payload: dict):
                 p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                 return {**video_data, "score": sc, "posted": p}
     except Exception as e:
-        print(f"⚠️ Error fetching from oEmbed: {e}")
+        logger.warning(f"Error fetching from oEmbed: {e}")
 
     raise HTTPException(404, "Vídeo não encontrado ou URL inválida")
 
@@ -284,14 +286,14 @@ async def cache_status():
 
 
 @router.post("/api/cache/populate-initial")
-async def populate_cache(background_tasks: BackgroundTasks):
-    background_tasks.add_task(populate_initial_cache)
+async def populate_cache():
+    await task_queue.put(populate_initial_cache())
     return {"status": "started", "message": "V7 cache population started"}
 
 
 @router.post("/api/cache/refresh-categories")
-async def refresh_categories(background_tasks: BackgroundTasks):
-    background_tasks.add_task(populate_initial_cache)
+async def refresh_categories():
+    await task_queue.put(populate_initial_cache())
     return {"status": "started", "message": "V7 category refresh started"}
 
 
@@ -307,13 +309,13 @@ async def get_playlist(hide_posted: bool = Query(True)):
 
 
 @router.post("/api/playlist/refresh")
-async def refresh_playlist_endpoint(background_tasks: BackgroundTasks):
-    background_tasks.add_task(refresh_playlist)
+async def refresh_playlist_endpoint():
+    await task_queue.put(refresh_playlist())
     return {"status": "started", "message": "Playlist refresh started"}
 
 
 @router.post("/api/playlist/download-all")
-async def download_all_playlist(background_tasks: BackgroundTasks):
+async def download_all_playlist():
     videos = db.get_playlist_videos(hide_posted=False)
     if not videos:
         return {"status": "error", "message": "Playlist vazia"}
@@ -405,7 +407,7 @@ async def download_video(
             try:
                 db.save_download(video_id, filename, artist, song, youtube_url)
             except Exception as e:
-                print(f"⚠️ Failed to save download record: {e}")
+                logger.warning(f"Failed to save download record: {e}")
 
             r2_ok = False
             r2_key = ""
@@ -419,9 +421,9 @@ async def download_video(
                 storage.upload_file(dl_path_actual, r2_key)
                 save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
                 r2_ok = True
-                print(f"✅ R2 upload OK: {r2_key}")
+                logger.info(f"R2 upload OK: {r2_key}")
             except Exception as e:
-                print(f"⚠️ R2 upload failed (streaming anyway): {e}")
+                logger.warning(f"R2 upload failed (streaming anyway): {e}")
 
             cleanup_path = dl_path_actual
 
@@ -434,7 +436,7 @@ async def download_video(
                     if r2_ok:
                         try:
                             shutil.rmtree(str(project_dir), ignore_errors=True)
-                            print(f"🧹 Limpeza local: {project_dir}")
+                            logger.info(f"Limpeza local: {project_dir}")
                         except Exception:
                             pass
 
@@ -453,7 +455,7 @@ async def download_video(
         except HTTPException:
             raise
         except Exception as e:
-            print(f"❌ Download error for {video_id}: {e}")
+            logger.error(f"Download error for {video_id}: {e}")
             raise HTTPException(500, f"Erro yt-dlp: {str(e)}")
 
 
@@ -511,15 +513,15 @@ async def prepare_video(
             try:
                 db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
             except Exception as e:
-                print(f"⚠️ Failed to save download record: {e}")
+                logger.warning(f"Failed to save download record: {e}")
 
             storage.upload_file(dl_path_actual, r2_key)
             save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
             file_size = os.path.getsize(dl_path_actual)
-            print(f"✅ R2 upload OK: {r2_key} ({file_size / 1024 / 1024:.1f}MB)")
+            logger.info(f"R2 upload OK: {r2_key} ({file_size / 1024 / 1024:.1f}MB)")
 
             shutil.rmtree(str(project_dir), ignore_errors=True)
-            print(f"🧹 Limpeza local: {project_dir}")
+            logger.info(f"Limpeza local: {project_dir}")
 
             return {
                 "status": "ok",
@@ -532,7 +534,7 @@ async def prepare_video(
         except HTTPException:
             raise
         except Exception as e:
-            print(f"❌ prepare-video error for {video_id}: {e}")
+            logger.error(f"prepare-video error for {video_id}: {e}")
             raise HTTPException(500, f"Erro yt-dlp (prepare): {str(e)}")
 
 
@@ -563,17 +565,17 @@ async def upload_video_manual(
                 f.write(chunk)
 
         file_size = os.path.getsize(tmp_path)
-        print(f"📤 Upload manual recebido: {file.filename} ({file_size / 1024 / 1024:.1f}MB)")
+        logger.info(f"Upload manual recebido: {file.filename} ({file_size / 1024 / 1024:.1f}MB)")
 
         storage.upload_file(tmp_path, r2_key)
         save_youtube_marker(r2_base, video_id, r2_prefix=r2_prefix)
-        print(f"✅ R2 upload OK (manual): {r2_key}")
+        logger.info(f"R2 upload OK (manual): {r2_key}")
 
         youtube_url = f"https://www.youtube.com/watch?v={video_id}"
         try:
             db.save_download(video_id, f"{artist} - {song}.mp4", artist, song, youtube_url)
         except Exception as e:
-            print(f"⚠️ Failed to save download record: {e}")
+            logger.warning(f"Failed to save download record: {e}")
 
         return {
             "status": "ok",
@@ -585,7 +587,7 @@ async def upload_video_manual(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Upload manual error for {video_id}: {e}")
+        logger.error(f"Upload manual error for {video_id}: {e}")
         raise HTTPException(500, f"Falha no upload: {str(e)}")
     finally:
         shutil.rmtree(str(tmp_dir.parent), ignore_errors=True)

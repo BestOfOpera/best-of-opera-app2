@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import { cn, extractErrorMessage } from "@/lib/utils"
 import { Loader2, ArrowLeft, Save, Globe, MonitorPlay, Type, Settings2, Palette, ChevronDown, Check, Plus, Cpu } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { StyleTrackConfig } from "@/components/admin/style-track-config"
@@ -121,13 +121,22 @@ export default function NovaMarcaPage() {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
+        
+        // Validação básica local antes de enviar
+        if (!formData.nome || !formData.sigla || !formData.slug || !formData.r2_prefix) {
+            toast.error("Por favor, preencha todos os campos obrigatórios (*)")
+            return
+        }
+
         setLoading(true)
         try {
             const response = await editorApi.criarPerfil(formData)
             toast.success("Marca criada com sucesso!")
             router.push(`/admin/marcas/${response.id}`)
         } catch (err: any) {
-            toast.error("Erro ao salvar marca: " + err.message)
+            const msg = extractErrorMessage(err)
+            toast.error(`Erro ao criar marca: ${msg}`)
+            console.error("[NovaMarca] Erro ao salvar:", err)
         } finally {
             setLoading(false)
         }

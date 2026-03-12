@@ -21,3 +21,14 @@ export function getYoutubeUrl(youtubeUrl?: string | null, videoId?: string | nul
   // Valor sem protocolo — provavelmente é só o video_id
   return `https://www.youtube.com/watch?v=${val}`
 }
+
+export function extractErrorMessage(err: unknown): string {
+  if (!err) return "Erro desconhecido"
+  if (typeof err === "string") return err
+  const anyErr = err as any
+  const detail = anyErr.detail || anyErr.mensagem || anyErr.message
+  if (typeof detail === "object" && detail !== null) {
+    return JSON.stringify(detail)
+  }
+  return detail || "Falha na requisição"
+}

@@ -6,6 +6,10 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/railway")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+import logging as _logging
+_cfg_logger = _logging.getLogger("app.config")
+if not GEMINI_API_KEY:
+    _cfg_logger.warning("GEMINI_API_KEY not configured — Gemini calls will fail")
 GOOGLE_TRANSLATE_API_KEY = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
 STORAGE_PATH = os.getenv("STORAGE_PATH", "/tmp/editor_storage")
 MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", "500"))

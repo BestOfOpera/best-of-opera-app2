@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ReportCard, ReportSkeleton } from "@/components/dashboard/reports/report-card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Plus, X, Upload, CheckCircle2, AlertCircle, Camera, Trash2, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, extractErrorMessage } from "@/lib/utils"
 import { toast } from "sonner"
 import * as Sentry from "@sentry/nextjs"
 
@@ -50,7 +50,7 @@ export default function ReportsPage() {
             setConfirmLimpar(false)
             fetchReports()
         } catch (err: any) {
-            toast.error("Erro ao limpar resolvidos: " + (err?.message || "desconhecido"))
+            toast.error("Erro ao limpar resolvidos: " + extractErrorMessage(err))
         } finally {
             setLimpando(false)
         }
@@ -110,6 +110,7 @@ export default function ReportsPage() {
                         <Button
                             variant="outline"
                             size="sm"
+                            disabled={limpando}
                             className="rounded-full text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 font-black text-[10px] uppercase tracking-widest gap-1.5"
                             onClick={() => setConfirmLimpar(true)}
                         >
@@ -260,7 +261,7 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
             toast.success("Report enviado com sucesso!")
             onClose()
         } catch (err) {
-            toast.error("Erro ao enviar report.")
+            toast.error("Erro ao enviar report: " + extractErrorMessage(err))
             console.error(err)
         } finally {
             setSubmitting(false)

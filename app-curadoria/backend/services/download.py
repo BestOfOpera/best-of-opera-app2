@@ -1,6 +1,8 @@
-import os, re, asyncio, shutil
+import os, re, asyncio, shutil, logging
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import database as db
 from config import PROJECTS_DIR, load_brand_config
@@ -36,20 +38,20 @@ def sanitize_filename(s: str) -> str:
 
 async def download_worker():
     """Worker loop following app-editor pattern (asyncio.Queue)"""
-    print("🚀 Download worker started")
+    logger.info("Download worker started")
     while True:
         try:
             video_id, artist, song, callback = await manager.queue.get()
             manager.current_task = video_id
-            print(f"📥 Worker processing: {video_id} ({artist} - {song})")
+            logger.info(f"Worker processing: {video_id} ({artist} - {song})")
 
             try:
                 manager.set_task(video_id, {"status": "processing", "progress": 0, "message": "Iniciando download..."})
                 await callback(video_id, artist, song)
                 manager.set_task(video_id, {"status": "completed", "progress": 100, "message": "Concluído!"})
-                print(f"✅ Worker completed: {video_id}")
+                logger.info(f"Worker completed: {video_id}")
             except Exception as e:
-                print(f"❌ Worker error for {video_id}: {e}")
+                logger.error(f"Worker error for {video_id}: {e}")
                 manager.set_task(video_id, {"status": "error", "message": str(e)})
                 try:
                     import sentry_sdk
@@ -61,7 +63,7 @@ async def download_worker():
                 manager.current_task = None
                 manager.queue.task_done()
         except Exception as e:
-            print(f"⚠️ Worker loop error: {e}")
+            logger.warning(f"Worker loop error: {e}")
             await asyncio.sleep(1)
 
 
@@ -96,15 +98,15 @@ def _get_ydl_opts(dl_path: str):
             with open(cookies_path, "w") as f:
                 f.write(cookies_content)
             opts['cookiefile'] = cookies_path
-            print(f"🍪 Using YOUTUBE_COOKIES (saved to {cookies_path})")
+            logger.info(f"Using YOUTUBE_COOKIES (saved to {cookies_path})")
         except Exception as e:
-            print(f"⚠️ Error saving YOUTUBE_COOKIES: {e}")
+            logger.warning(f"Error saving YOUTUBE_COOKIES: {e}")
     else:
         # Fallback to legacy path
         legacy_cookies = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
         if os.path.exists(legacy_cookies):
             opts['cookiefile'] = legacy_cookies
-            print(f"🍪 Using legacy cookies from {legacy_cookies}")
+            logger.info(f"Using legacy cookies from {legacy_cookies}")
 
     return opts
 

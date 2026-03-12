@@ -1,6 +1,9 @@
 import re
+import logging
 import httpx
 import database as db
+
+logger = logging.getLogger(__name__)
 
 
 def parse_iso_dur(iso: str) -> int:
@@ -41,7 +44,7 @@ async def yt_search(query: str, max_results: int = 25, api_key: str = "") -> lis
             },
         )
         if r1.status_code != 200:
-            print(f"⚠️ YT search error {r1.status_code}: {r1.text[:200]}")
+            logger.warning(f"YT search error {r1.status_code}: {r1.text[:200]}")
             return []
         items = r1.json().get("items", [])
         if not items:
@@ -64,7 +67,7 @@ async def yt_search(query: str, max_results: int = 25, api_key: str = "") -> lis
         try:
             db.register_quota_usage(search_calls=1, detail_calls=1)
         except Exception as e:
-            print(f"⚠️ Quota tracking error: {e}")
+            logger.warning(f"Quota tracking error: {e}")
 
         results = []
         for it in items:
@@ -114,7 +117,7 @@ async def yt_playlist(playlist_id: str, max_results: int = 50, api_key: str = ""
                 "https://www.googleapis.com/youtube/v3/playlistItems", params=params
             )
             if r1.status_code != 200:
-                print(f"⚠️ YT playlist error {r1.status_code}: {r1.text[:200]}")
+                logger.warning(f"YT playlist error {r1.status_code}: {r1.text[:200]}")
                 break
 
             data = r1.json()

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+import { cn, extractErrorMessage } from "@/lib/utils"
 import { Loader2, ArrowLeft, Save, Globe, Eye, MonitorPlay, Type, Settings2, Palette, ChevronDown, Video, Check, Cpu, Copy, ShieldAlert, Trash2, AlertTriangle } from "lucide-react"
 import { DialogFooter } from "@/components/ui/dialog"
 import { StyleTrackConfig } from "@/components/admin/style-track-config"
@@ -75,6 +75,7 @@ export default function MarcaConfigPage() {
     const router = useRouter()
     const { isAdmin } = useAuth()
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [confirmBO, setConfirmBO] = useState(false)
@@ -88,12 +89,15 @@ export default function MarcaConfigPage() {
     }, [id])
 
     const loadPerfil = async () => {
+        setLoading(true)
+        setError(null)
         try {
             const data = await editorApi.detalharPerfil(Number(id))
             setFormData(data)
         } catch (err: any) {
-            toast.error("Erro ao carregar marca: " + err.message)
-            router.push("/admin/marcas")
+            const msg = extractErrorMessage(err)
+            setError(msg)
+            toast.error("Erro ao carregar marca: " + msg)
         } finally {
             setLoading(false)
         }
@@ -112,7 +116,7 @@ export default function MarcaConfigPage() {
             const parsed = JSON.parse(text)
             handleChange(field, parsed)
         } catch (err) {
-            // Ignore err on fly
+            toast.warning("Formato JSON inválido para o estilo")
         }
     }
 
@@ -134,7 +138,7 @@ export default function MarcaConfigPage() {
             toast.success("Configurações da marca salvas!")
             loadPerfil()
         } catch (err: any) {
-            toast.error("Erro ao salvar marca: " + err.message)
+            toast.error("Erro ao salvar marca: " + extractErrorMessage(err))
         } finally {
             setSaving(false)
             setConfirmBO(false)
@@ -142,12 +146,15 @@ export default function MarcaConfigPage() {
     }
 
     const handleToggleAtivo = async () => {
+        setSaving(true)
         try {
             await editorApi.atualizarPerfilParcial(Number(id), { ativo: !formData.ativo }, isBO)
             toast.success(`Marca ${!formData.ativo ? "ativada" : "desativada"}!`)
             loadPerfil()
         } catch (err: any) {
-            toast.error("Erro ao alterar status: " + err.message)
+            toast.error("Erro ao alterar status: " + extractErrorMessage(err))
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -182,13 +189,31 @@ export default function MarcaConfigPage() {
             toast.success("Marca duplicada com sucesso!")
             router.push(`/admin/marcas/${data.id}`)
         } catch (err: any) {
-            toast.error("Erro ao duplicar: " + err.message)
+            toast.error("Erro ao duplicar: " + extractErrorMessage(err))
             setLoading(false)
         }
     }
 
     if (loading) {
         return <div className="flex h-[50vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+    }
+
+    if (error) {
+        return (
+            <div className="flex flex-col h-[50vh] items-center justify-center gap-4 text-center">
+                <div className="h-16 w-16 rounded-full bg-rose-50 flex items-center justify-center">
+                    <AlertTriangle className="h-8 w-8 text-rose-500" />
+                </div>
+                <div>
+                    <h2 className="text-xl font-bold">Falha ao carregar marca</h2>
+                    <p className="text-muted-foreground text-sm max-w-xs mx-auto mt-1">{error}</p>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="outline" asChild><Link href="/admin/marcas">Voltar</Link></Button>
+                    <Button onClick={loadPerfil}>Tentar Novamente</Button>
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -212,10 +237,10 @@ export default function MarcaConfigPage() {
                     </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                    <Button variant="outline" size="sm" onClick={handleDuplicate} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={handleDuplicate} disabled={saving || loading} className="gap-2">
                         <Copy className="h-4 w-4" /> Duplicar
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleToggleAtivo} className={!formData.ativo ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : ""}>
+                    <Button variant="outline" size="sm" onClick={handleToggleAtivo} disabled={saving || loading} className={!formData.ativo ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50" : ""}>
                         {formData.ativo ? "Desativar Marca" : "Reativar Marca"}
                     </Button>
                 </div>
@@ -342,7 +367,9 @@ export default function MarcaConfigPage() {
                                         try {
                                             const parsed = JSON.parse(e.target.value)
                                             handleChange("institutional_channels", parsed)
-                                        } catch (err) {}
+                                        } catch (err) {
+                                            toast.warning("Formato JSON inválido para Canais Institucionais")
+                                        }
                                     }}
                                     className="font-mono text-[12px] min-h-[80px] bg-zinc-950 text-blue-400 border-zinc-800"
                                     spellCheck={false}
@@ -357,7 +384,9 @@ export default function MarcaConfigPage() {
                                         try {
                                             const parsed = JSON.parse(e.target.value)
                                             handleChange("elite_hits", parsed)
-                                        } catch (err) {}
+                                        } catch (err) {
+                                            toast.warning("Formato JSON inválido para Elite Hits")
+                                        }
                                     }}
                                     className="font-mono text-[12px] min-h-[80px] bg-zinc-950 text-blue-400 border-zinc-800"
                                     spellCheck={false}
@@ -374,7 +403,9 @@ export default function MarcaConfigPage() {
                                     try {
                                         const parsed = JSON.parse(e.target.value)
                                         handleChange("curadoria_categories", parsed)
-                                    } catch (err) {}
+                                    } catch (err) {
+                                        toast.warning("Formato JSON inválido para Categorias de Curadoria")
+                                    }
                                 }}
                                 className="font-mono text-[12px] min-h-[150px] bg-zinc-950 text-blue-400 border-zinc-800"
                                 spellCheck={false}
@@ -621,6 +652,7 @@ export default function MarcaConfigPage() {
                                 type="button"
                                 variant="destructive"
                                 size="sm"
+                                disabled={resetting || saving}
                                 className="shrink-0 gap-2"
                                 onClick={() => setConfirmReset(true)}
                             >

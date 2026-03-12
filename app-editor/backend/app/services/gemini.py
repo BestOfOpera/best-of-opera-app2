@@ -1,13 +1,15 @@
 """Serviço de integração com Gemini 2.5 Pro."""
+import asyncio
 import json
 import logging
 import re
 from app.config import GEMINI_API_KEY
+from shared.retry import async_retry
 
 _logger = logging.getLogger(__name__)
 
 
-class SafetyFilterError(RuntimeError):
+class SafetyFilterError(Exception):
     """Gemini blocked the response due to safety filter."""
     pass
 
@@ -19,6 +21,10 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
+        if not GEMINI_API_KEY:
+            raise RuntimeError(
+                "GEMINI_API_KEY not configured. Set it in .env or environment variables."
+            )
         import google.generativeai as genai
         genai.configure(api_key=GEMINI_API_KEY)
         _client = genai
@@ -63,6 +69,10 @@ def _detect_mime_type(path: str) -> str:
     elif path.endswith(".flac"):
         return "audio/flac"
     return "audio/mpeg"
+
+
+# Exceções transientes da API Gemini que justificam retry
+_GEMINI_TRANSIENT = (RuntimeError, ConnectionError, OSError)
 
 
 async def mapear_estrutura_audio(
@@ -137,23 +147,17 @@ FORMATO JSON (retorne APENAS isto):
   {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "queste sacre antiche piante"}}
 ]
 """
-    import asyncio
     loop = asyncio.get_running_loop()
-    for tentativa in range(2):
-        try:
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, model.generate_content, [audio_file_ref, prompt]),
-                timeout=300,
-            )
-            return parse_json_response(_extract_response_text(response))
-        except SafetyFilterError:
-            raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
-            _logger.warning(f"mapear_estrutura_audio tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
-            if tentativa == 1:
-                raise
-            await asyncio.sleep(5)
-    return []  # unreachable
+
+    @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(*_GEMINI_TRANSIENT, asyncio.TimeoutError))
+    async def _call():
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, model.generate_content, [audio_file_ref, prompt]),
+            timeout=300,
+        )
+        return parse_json_response(_extract_response_text(response))
+
+    return await _call()
 
 
 async def transcrever_cego(
@@ -177,23 +181,19 @@ async def transcrever_guiado_completo(
     if audio_file_ref is not None:
         audio_file = audio_file_ref
     else:
-        import asyncio as _aio
-        _loop = _aio.get_running_loop()
+        loop = asyncio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        for _upload_attempt in range(3):
-            try:
-                audio_file = await _aio.wait_for(
-                    _loop.run_in_executor(
-                        None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
-                    ),
-                    timeout=120,
-                )
-                break
-            except (ConnectionError, OSError, _aio.TimeoutError) as e:
-                _logger.warning(f"upload_file (guiado) tentativa {_upload_attempt+1}/3: {type(e).__name__}: {e}")
-                if _upload_attempt == 2:
-                    raise
-                await _aio.sleep(5)
+
+        @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(ConnectionError, OSError, asyncio.TimeoutError))
+        async def _upload():
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+                ),
+                timeout=120,
+            )
+
+        audio_file = await _upload()
 
     # Contar versos na letra para dar referência ao Gemini
     versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
@@ -249,23 +249,17 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
   {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
 ]
 """
-    import asyncio
     loop = asyncio.get_running_loop()
-    for tentativa in range(2):
-        try:
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
-                timeout=300,
-            )
-            return parse_json_response(_extract_response_text(response))
-        except SafetyFilterError:
-            raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
-            _logger.warning(f"transcrever_guiado_completo tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
-            if tentativa == 1:
-                raise
-            await asyncio.sleep(5)
-    return []  # unreachable
+
+    @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(*_GEMINI_TRANSIENT, asyncio.TimeoutError))
+    async def _call():
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
+            timeout=300,
+        )
+        return parse_json_response(_extract_response_text(response))
+
+    return await _call()
 
 
 async def completar_transcricao(
@@ -290,23 +284,19 @@ async def completar_transcricao(
     if audio_file_ref is not None:
         audio_file = audio_file_ref
     else:
-        import asyncio as _aio
-        _loop = _aio.get_running_loop()
+        loop = asyncio.get_running_loop()
         mime_type = _detect_mime_type(audio_completo_path)
-        for _upload_attempt in range(3):
-            try:
-                audio_file = await _aio.wait_for(
-                    _loop.run_in_executor(
-                        None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
-                    ),
-                    timeout=120,
-                )
-                break
-            except (ConnectionError, OSError, _aio.TimeoutError) as e:
-                _logger.warning(f"upload_file (completar) tentativa {_upload_attempt+1}/3: {type(e).__name__}: {e}")
-                if _upload_attempt == 2:
-                    raise
-                await _aio.sleep(5)
+
+        @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(ConnectionError, OSError, asyncio.TimeoutError))
+        async def _upload():
+            return await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: genai.upload_file(audio_completo_path, mime_type=mime_type)
+                ),
+                timeout=120,
+            )
+
+        audio_file = await _upload()
 
     # Formatar resultado parcial para mostrar ao Gemini
     parcial_json = json.dumps(resultado_parcial, ensure_ascii=False, indent=2)
@@ -361,23 +351,17 @@ FORMATO JSON (retorne APENAS isto, sem markdown):
   ...todos os {len(versos)} versos...
 ]
 """
-    import asyncio
     loop = asyncio.get_running_loop()
-    for tentativa in range(2):
-        try:
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
-                timeout=300,
-            )
-            return parse_json_response(_extract_response_text(response))
-        except SafetyFilterError:
-            raise  # propagate for pipeline-level retry
-        except (RuntimeError, asyncio.TimeoutError, ConnectionError, OSError) as e:
-            _logger.warning(f"completar_transcricao tentativa {tentativa+1}/2: {type(e).__name__}: {e}")
-            if tentativa == 1:
-                raise
-            await asyncio.sleep(5)
-    return []  # unreachable
+
+    @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(*_GEMINI_TRANSIENT, asyncio.TimeoutError))
+    async def _call():
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, model.generate_content, [audio_file, prompt]),
+            timeout=300,
+        )
+        return parse_json_response(_extract_response_text(response))
+
+    return await _call()
 
 
 async def traduzir_letra(
@@ -392,7 +376,6 @@ async def traduzir_letra(
 
     Inclui timeout e retry para evitar travamento em chamadas longas.
     """
-    import asyncio
     genai = _get_client()
     model = genai.GenerativeModel("gemini-2.5-pro")
 
@@ -432,32 +415,19 @@ Retorne APENAS JSON:
 """
     loop = asyncio.get_running_loop()
 
-    for tentativa in range(max_retries + 1):
-        try:
-            response = await asyncio.wait_for(
-                loop.run_in_executor(None, model.generate_content, prompt),
-                timeout=timeout_seconds,
-            )
-            return parse_json_response(_extract_response_text(response))
-        except asyncio.TimeoutError:
-            _logger.warning(
-                f"Tradução {idioma_alvo} timeout ({timeout_seconds}s), "
-                f"tentativa {tentativa + 1}/{max_retries + 1}"
-            )
-            if tentativa == max_retries:
-                raise TimeoutError(
-                    f"Tradução para {nomes_idiomas.get(idioma_alvo, idioma_alvo)} "
-                    f"excedeu {timeout_seconds}s após {max_retries + 1} tentativas"
-                )
-            await asyncio.sleep(5)  # Esperar antes de retry
-        except json.JSONDecodeError as e:
-            _logger.warning(
-                f"Tradução {idioma_alvo} JSON inválido, "
-                f"tentativa {tentativa + 1}/{max_retries + 1}: {e}"
-            )
-            if tentativa == max_retries:
-                raise
-            await asyncio.sleep(2)
+    @async_retry(
+        max_attempts=max_retries + 1,
+        backoff_base=2.0,
+        exceptions=(*_GEMINI_TRANSIENT, asyncio.TimeoutError, json.JSONDecodeError),
+    )
+    async def _call():
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, model.generate_content, prompt),
+            timeout=timeout_seconds,
+        )
+        return parse_json_response(_extract_response_text(response))
+
+    return await _call()
 
 
 async def buscar_letra(metadados: dict) -> str:
@@ -482,5 +452,14 @@ Regras:
 
 Retorne APENAS a letra, sem explicação ou markdown.
 """
-    response = model.generate_content(prompt)
-    return _extract_response_text(response).strip()
+    loop = asyncio.get_running_loop()
+
+    @async_retry(max_attempts=3, backoff_base=2.0, exceptions=(*_GEMINI_TRANSIENT, asyncio.TimeoutError))
+    async def _call():
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, model.generate_content, prompt),
+            timeout=120,
+        )
+        return _extract_response_text(response).strip()
+
+    return await _call()

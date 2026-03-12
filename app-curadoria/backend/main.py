@@ -4,9 +4,13 @@
 # ══════════════════════════════════════════════════════════════
 
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,21 +33,28 @@ if _SENTRY_DSN:
     )
 from services.scoring import load_posted
 from services.download import download_worker
+from worker import worker_loop, task_queue
 from routes import curadoria, health
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db.init_pool()
     db.init_db()
     load_posted()
-    print(f"{'✅' if YOUTUBE_API_KEY else '⚠️'} YouTube API {'configured' if YOUTUBE_API_KEY else 'NOT SET'}")
+    if YOUTUBE_API_KEY:
+        logger.info("YouTube API configured")
+    else:
+        logger.warning("YouTube API NOT SET")
 
     asyncio.create_task(download_worker())
+    asyncio.create_task(worker_loop())
 
     if db.is_cache_empty():
-        print("🔄 Cache empty — auto-populating with V7 seeds...")
-        asyncio.create_task(curadoria.populate_initial_cache())
+        logger.info("Cache empty — auto-populating with V7 seeds...")
+        await task_queue.put(curadoria.populate_initial_cache())
     yield
+    db.close_pool()
 
 
 app = FastAPI(title="Best of Opera — Motor V7", version="7.0.0", lifespan=lifespan)

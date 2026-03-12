@@ -1,5 +1,7 @@
-import os, json, shutil, time
+import os, json, shutil, time, logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # ─── ENV VARS ───
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "")
@@ -36,8 +38,8 @@ _ffmpeg_dir = os.path.dirname(FFMPEG_BIN)
 _ffprobe_candidate = os.path.join(_ffmpeg_dir, "ffprobe")
 FFPROBE_BIN = _ffprobe_candidate if os.path.isfile(_ffprobe_candidate) else (shutil.which("ffprobe") or "ffprobe")
 
-print(f"🎬 FFmpeg: {FFMPEG_BIN}")
-print(f"🎬 FFprobe: {FFPROBE_BIN}")
+logger.info(f"FFmpeg: {FFMPEG_BIN}")
+logger.info(f"FFprobe: {FFPROBE_BIN}")
 
 # ─── ANTI-SPAM ───
 ANTI_SPAM = "-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords"
@@ -82,7 +84,7 @@ def load_brand_config(slug: str = None) -> dict:
         _brand_config_cache[target_slug] = {"data": data, "ts": now}
         return data
     except Exception as exc:
-        print(f"⚠️  load_brand_config: editor offline ({exc}), usando JSON local")
+        logger.warning(f"load_brand_config: editor offline ({exc}), usando JSON local")
 
     # Fallback JSON local
     data = _load_from_json(target_slug)

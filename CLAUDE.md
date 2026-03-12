@@ -45,7 +45,7 @@ A coordenação entre agentes segue a skill `workflow-completo-projetos`:
 - Commits em português
 - Variáveis novas DEVEM ter defaults seguros — nunca travar se não configurada
 - Credenciais/tokens NUNCA neste arquivo — ficam em `dados-relevantes/`
-- Este projeto usa sistema BLAST (prompts numerados) em vez de PLANO-DE-ACAO
+- Este projeto usa **PLANO-DE-ACAO** (sistema padrão) — BLAST Fase 2 concluído e arquivado em `arquivo/`
 
 ## Armadilhas conhecidas (o que o Claude erra neste projeto)
 Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERROS-CORRECOES.md`:
@@ -98,6 +98,6 @@ Ao FINAL de toda sessão que altere código ou tome decisões:
 
 ## Equivalência de documentação obrigatória
 Este projeto usa estrutura própria em vez de PRD/ARCHITECTURE/ROADMAP:
-- PRD → `CLAUDE.md` (seção "O que é") + `BLAST-FASE2-MULTI-BRAND-v2.md`
+- PRD → `CLAUDE.md` (seção "O que é")
 - ARCHITECTURE → `app-editor/CLAUDE.md` + código fonte (referenciado, não copiado)
-- ROADMAP → `BLAST-FASE2-MULTI-BRAND-v2.md` em `dados-relevantes/`
+- ROADMAP → `PLANO-DE-ACAO-[data].md` na raiz (plano ativo mais recente)

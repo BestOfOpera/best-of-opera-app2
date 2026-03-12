@@ -19,7 +19,7 @@ if _SENTRY_DSN:
         attach_stacktrace=True,
         server_name="redator-backend",
     )
-from backend.routers import projects, generation, approval, translation, export
+from backend.routers import projects, generation, approval, translation, export, health
 
 Base.metadata.create_all(bind=engine)
 
@@ -57,6 +57,7 @@ app.include_router(generation.router)
 app.include_router(approval.router)
 app.include_router(translation.router)
 app.include_router(export.router)
+app.include_router(health.router)
 
 # Serve frontend in production
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"

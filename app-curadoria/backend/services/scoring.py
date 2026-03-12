@@ -1,6 +1,8 @@
-import re, csv, unicodedata
+import re, csv, unicodedata, logging
 from pathlib import Path
 from config import DATASET_PATH
+
+logger = logging.getLogger(__name__)
 
 # ─── POSTED REGISTRY ───
 posted_registry = set()
@@ -43,7 +45,7 @@ def load_posted():
                 s = row.get("Nome da Musica", "").strip()
                 if a:
                     posted_registry.add((normalize_str(a), normalize_str(s)))
-        print(f"✅ Posted registry: {len(posted_registry)} entries")
+        logger.info(f"Posted registry: {len(posted_registry)} entries")
 
 
 # ─── SCORING V7 ───

@@ -1,5 +1,77 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (15) — Hardening: logger curadoria + shared/retry.py
+
+### O que foi feito
+Tarefas 03 e 04 do PLANO-DE-ACAO-120326-HARDENING concluídas:
+
+**Tarefa 03 — 48 print() → logger na curadoria (7 arquivos)**
+- `app-curadoria/backend/database.py` — 8 prints → logger (warning/info/error)
+- `app-curadoria/backend/config.py` — 3 prints → logger
+- `app-curadoria/backend/main.py` — 2 prints + basicConfig adicionado
+- `app-curadoria/backend/routes/curadoria.py` — 23 prints → logger
+- `app-curadoria/backend/services/download.py` — 8 prints → logger
+- `app-curadoria/backend/services/scoring.py` — 1 print → logger
+- `app-curadoria/backend/services/youtube.py` — 3 prints → logger
+- Critério: ⚠️ → warning, ❌ → error, resto → info
+
+**Tarefa 04 — shared/retry.py criado**
+- `shared/retry.py` — decorator `@async_retry(max_attempts, backoff_base, backoff_max, jitter, exceptions)`
+- Backoff exponencial: `backoff_base ** (attempt-1)`, limitado a `backoff_max=30s`
+- Jitter ±25% (ativado por default)
+- Sem dependências externas (zero tenacity)
+- Tarefa 05 (gemini.py) e Tarefa 06 (R2 retry) dependem deste arquivo
+
+### Estado do plano HARDENING
+- [x] 01 Startup validation + redator health
+- [x] 02 BackgroundTasks → worker queue curadoria
+- [x] 03 print() → logger curadoria
+- [x] 04 shared/retry.py
+- [ ] 05 Refatorar retry gemini.py
+- [ ] 06 Retry R2 storage
+- [x] 07-09 Antigravity (frontend) — Concluído: Error Boundary, loading guards, Sentry integration e correções de polling.
+- [ ] 10 Connection pooling curadoria
+- [ ] 11 Deploy + E2E
+
+---
+
+## Sessão 2026-03-12 (14) — Features permanentes de reset/delete (bulk + individual)
+
+### O que foi feito
+Implementadas 4 features permanentes para gerenciamento de dados (reset marca, delete reports):
+
+1. **DELETE /admin/perfis/{id}/edicoes** — Bulk delete de TODAS as edições de um perfil + limpeza completa de arquivos R2. Admin-only, protegido (BO requer `?force=true`). Também limpa screenshots de reports vinculados.
+2. **DELETE /reports/resolvidos** — Bulk delete de todos os reports com status "resolvido" + screenshots R2.
+3. **DELETE /projects/by-brand/{slug}** (redator) — Bulk delete projetos do redator por brand_slug. CASCADE limpa translations.
+4. **R2 cleanup no delete individual** — Corrigido gap: `DELETE /edicoes/{id}` agora também limpa arquivos R2 (antes só deletava do banco).
+
+**Frontend:**
+- Botão deletar em cada ReportCard (com Dialog de confirmação)
+- Botão "Limpar Resolvidos" na página de reports (visível quando há resolvidos)
+- Seção "Zona de Perigo" na página admin/marcas/[id] — botão "Resetar Edições" que chama AMBOS editor (bulk delete edições + R2) e redator (delete projects by brand_slug)
+
+### Arquivos alterados (10)
+- `app-editor/backend/app/routes/admin_perfil.py` — +endpoint DELETE edicoes
+- `app-editor/backend/app/routes/edicoes.py` — +R2 cleanup no delete individual
+- `app-editor/backend/app/routes/reports.py` — +endpoint DELETE resolvidos
+- `app-redator/backend/routers/projects.py` — +endpoint DELETE by-brand
+- `app-redator/backend/prompts/overlay_prompt.py` — ajuste pre-existente
+- `app-portal/lib/api/editor.ts` — +3 métodos API
+- `app-portal/lib/api/redator.ts` — +1 método API
+- `app-portal/components/dashboard/reports/report-card.tsx` — +botão delete + dialog
+- `app-portal/app/dashboard/reports/page.tsx` — +botão limpar resolvidos
+- `app-portal/app/(app)/admin/marcas/[id]/page.tsx` — +zona de perigo
+
+### Deploy
+Push `ed9fa6f` para main — Railway auto-deploy dos 3 serviços.
+
+### Próxima sessão
+1. Após deploy: usar "Resetar Edições" no Admin > Marcas > Best of Opera para limpar dados de teste
+2. Verificar que letras (editor_letras) permaneceram intactas
+3. Verificar que curadoria cache não foi afetado
+
+---
+
 ## Sessão 2026-03-12 (13) — T1 + T2: overlay_interval_secs e custom_post_structure implementados
 
 ### O que foi feito
