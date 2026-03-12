@@ -951,7 +951,7 @@ async def _transcricao_task(edicao_id: int):
             )
         else:
             _capture_sentry(e, edicao_id, "transcricao")
-            erro_msg = f"Transcrição falhou: {str(e)[:500]}"
+            erro_msg = f"Transcrição falhou: {repr(e)[:500]}"
         logger.error(f"[{edicao_id}] _transcricao_task erro: {e}", exc_info=True)
         try:
             from app.database import SessionLocal
