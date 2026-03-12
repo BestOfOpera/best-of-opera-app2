@@ -30,19 +30,19 @@ IDIOMAS_PADRAO = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "TeX Gyre Pagella", "fontsize": 63,
+        "fontname": "Playfair Display", "fontsize": 63,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
         "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
         "bold": True, "italic": False,
     },
     "lyrics": {
-        "fontname": "TeX Gyre Pagella", "fontsize": 45,
+        "fontname": "Playfair Display", "fontsize": 45,
         "primarycolor": "#FFFF64", "outlinecolor": "#000000",
         "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
         "bold": True, "italic": True,
     },
     "traducao": {
-        "fontname": "TeX Gyre Pagella", "fontsize": 43,
+        "fontname": "Playfair Display", "fontsize": 43,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
         "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
         "bold": True, "italic": True,
@@ -261,6 +261,14 @@ def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depe
 
     perfil.font_name = family_name
     perfil.font_file_r2_key = r2_key
+
+    # Propagar fontname para os 3 estilos de legenda (overlay, lyrics, tradução)
+    for attr in ("overlay_style", "lyrics_style", "traducao_style"):
+        style_dict = getattr(perfil, attr, None)
+        if style_dict and isinstance(style_dict, dict):
+            style_dict["fontname"] = family_name
+            setattr(perfil, attr, style_dict)
+
     db.commit()
     db.refresh(perfil)
 

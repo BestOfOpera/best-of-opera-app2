@@ -54,19 +54,19 @@ def test_estilos_do_perfil_retorna_custom():
 def test_seed_best_of_opera_valores_corretos():
     # Validar os valores do seed diretamente contra ESTILOS_PADRAO
     seed_overlay = {
-        "fontname": "TeX Gyre Pagella", "fontsize": 63,
+        "fontname": "Playfair Display", "fontsize": 63,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
         "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
         "bold": True, "italic": False,
     }
     seed_lyrics = {
-        "fontname": "TeX Gyre Pagella", "fontsize": 45,
+        "fontname": "Playfair Display", "fontsize": 45,
         "primarycolor": "#FFFF64", "outlinecolor": "#000000",
         "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
         "bold": True, "italic": True,
     }
     seed_traducao = {
-        "fontname": "TeX Gyre Pagella", "fontsize": 43,
+        "fontname": "Playfair Display", "fontsize": 43,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
         "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
         "bold": True, "italic": True,

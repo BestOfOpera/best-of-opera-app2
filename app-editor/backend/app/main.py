@@ -88,19 +88,19 @@ def _run_migrations():
 
         # Seed idempotente do perfil Best of Opera
         overlay_style = _json.dumps({
-            "fontname": "TeX Gyre Pagella", "fontsize": 63,
+            "fontname": "Playfair Display", "fontsize": 63,
             "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
             "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
             "bold": True, "italic": False,
         })
         lyrics_style = _json.dumps({
-            "fontname": "TeX Gyre Pagella", "fontsize": 45,
+            "fontname": "Playfair Display", "fontsize": 45,
             "primarycolor": "#FFFF64", "outlinecolor": "#000000",
             "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
             "bold": True, "italic": True,
         })
         traducao_style = _json.dumps({
-            "fontname": "TeX Gyre Pagella", "fontsize": 43,
+            "fontname": "Playfair Display", "fontsize": 43,
             "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
             "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
             "bold": True, "italic": True,
@@ -190,6 +190,18 @@ def _run_migrations():
             "curadoria_filters": curadoria_filters_val,
         })
         logger.info("Migration: backfill curadoria campos no BO OK")
+
+        # Backfill: corrigir font_name e fontname nos estilos (TeX Gyre Pagella → Playfair Display)
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                font_name = 'Playfair Display',
+                overlay_style = REPLACE(overlay_style::text, 'TeX Gyre Pagella', 'Playfair Display')::jsonb,
+                lyrics_style = REPLACE(lyrics_style::text, 'TeX Gyre Pagella', 'Playfair Display')::jsonb,
+                traducao_style = REPLACE(traducao_style::text, 'TeX Gyre Pagella', 'Playfair Display')::jsonb
+            WHERE font_name IS NULL
+              AND overlay_style::text LIKE '%TeX Gyre Pagella%'
+        """))
+        logger.info("Migration: backfill font_name e fontname nos estilos (Playfair Display) OK")
 
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():

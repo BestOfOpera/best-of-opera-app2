@@ -1575,6 +1575,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     traducao_max_chars=perfil.traducao_max_chars or TRADUCAO_MAX_CHARS,
                     video_width=perfil.video_width or 1080,
                     video_height=perfil.video_height or 1920,
+                    font_name=perfil.font_name or None,
                 )
                 r2_prefix_val = perfil.r2_prefix or "editor"
                 video_width_val = perfil.video_width or 1080

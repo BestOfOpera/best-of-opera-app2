@@ -53,12 +53,23 @@ TRADUCAO_MAX_CHARS = 100
 
 def _estilos_do_perfil(perfil) -> dict:
     """Converte campos JSON do Perfil para dict de estilos ASS.
-    Retorna estrutura idêntica a ESTILOS_PADRAO."""
-    return {
+    Retorna estrutura idêntica a ESTILOS_PADRAO.
+
+    Se perfil.font_name estiver definido, sobrescreve o fontname em todos
+    os estilos — isso garante que a fonte customizada do perfil seja usada
+    mesmo que os JSONs de estilo no banco ainda tenham o nome antigo.
+    """
+    estilos = {
         "overlay": perfil.overlay_style or ESTILOS_PADRAO["overlay"],
         "lyrics": perfil.lyrics_style or ESTILOS_PADRAO["lyrics"],
         "traducao": perfil.traducao_style or ESTILOS_PADRAO["traducao"],
     }
+    # font_name do perfil é a fonte-verdade — override nos estilos
+    font_override = getattr(perfil, "font_name", None)
+    if font_override:
+        for track in estilos.values():
+            track["fontname"] = font_override
+    return estilos
 
 
 def hex_to_ssa_color(hex_color: str) -> pysubs2.Color:
