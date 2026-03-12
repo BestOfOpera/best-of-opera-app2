@@ -1,5 +1,24 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (5) — Fix Mixed Content: NEXT_PUBLIC_API_* no Railway
+
+### Problema
+E2E em prod revelou que o portal chamava `http://localhost:8001` — as vars `NEXT_PUBLIC_API_*` não estavam configuradas no Railway, caindo no fallback hardcoded.
+
+### Correção
+Vars setadas via Railway GraphQL API no serviço `portal` (ID `73b20b58`), ambiente production (`4ec5a08f`):
+- `NEXT_PUBLIC_API_EDITOR=https://editor-backend-production.up.railway.app`
+- `NEXT_PUBLIC_API_REDATOR=https://app-production-870c.up.railway.app`
+- `NEXT_PUBLIC_API_CURADORIA=https://curadoria-backend-production.up.railway.app`
+
+Redeploy disparado via `serviceInstanceRedeploy`. Next.js bake as vars no build, fix Mixed Content.
+
+### Estado
+- Portal em redeploy — aguardar ~3min para testar `/login` em prod
+- Não foi necessário alterar código — só configuração de env
+
+---
+
 ## Sessão 11/03/2026 — Revisão Completa do Workspace + Push
 
 ### O que foi feito

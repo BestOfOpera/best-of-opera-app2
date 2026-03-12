@@ -17,9 +17,16 @@ function resolveUrl(service: keyof typeof PROD_URLS, localPort: number): string 
     redator:   process.env.NEXT_PUBLIC_API_REDATOR,
     editor:    process.env.NEXT_PUBLIC_API_EDITOR,
   }
-  if (envKeys[service]) return envKeys[service]!
-  if (isProduction()) return PROD_URLS[service]
-  return `http://localhost:${localPort}`
+  
+  let url = envKeys[service] || (isProduction() ? PROD_URLS[service] : `http://localhost:${localPort}`)
+  
+  // Force HTTPS for production railway URLs to avoid Mixed Content
+  if (isProduction() && url.includes(".up.railway.app") && url.startsWith("http://")) {
+    console.warn(`Mixed Content Preventive Fix: Forcing HTTPS for ${service} URL`)
+    url = url.replace("http://", "https://")
+  }
+
+  return url
 }
 
 export const API_URLS = {
