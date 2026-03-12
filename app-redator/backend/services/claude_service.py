@@ -209,16 +209,6 @@ Return the JSON object and nothing else."""
     return json.loads(_strip_json_fences(raw))
 
 
-def _truncar_no_limite(texto: str, max_chars: int) -> str:
-    """Truncate text at word boundary to fit within max_chars."""
-    if len(texto) <= max_chars:
-        return texto
-    pos = texto.rfind(" ", 0, max_chars)
-    if pos == -1:
-        return texto[:max_chars - 1] + "…"
-    return texto[:pos]
-
-
 def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=None) -> list[dict]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
@@ -229,14 +219,10 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
 
-    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
-
-    # Apply orthographic cleaning + enforce character limit (ERR-056)
+    # Apply orthographic cleaning (ERR-056) — char limit enforced by prompt + human review
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
-            if len(leg["text"]) > max_chars:
-                leg["text"] = _truncar_no_limite(leg["text"], max_chars)
             
     # Validation: Last subtitle timing (ERR-054)
     if parsed:
