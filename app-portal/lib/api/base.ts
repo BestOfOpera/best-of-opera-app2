@@ -1,7 +1,31 @@
+const PROD_URLS = {
+  curadoria: "https://curadoria-backend-production.up.railway.app",
+  redator:   "https://app-production-870c.up.railway.app",
+  editor:    "https://editor-backend-production.up.railway.app",
+}
+
+function isProduction(): boolean {
+  if (typeof window !== "undefined") {
+    return !["localhost", "127.0.0.1"].includes(window.location.hostname)
+  }
+  return process.env.NODE_ENV === "production"
+}
+
+function resolveUrl(service: keyof typeof PROD_URLS, localPort: number): string {
+  const envKeys = {
+    curadoria: process.env.NEXT_PUBLIC_API_CURADORIA,
+    redator:   process.env.NEXT_PUBLIC_API_REDATOR,
+    editor:    process.env.NEXT_PUBLIC_API_EDITOR,
+  }
+  if (envKeys[service]) return envKeys[service]!
+  if (isProduction()) return PROD_URLS[service]
+  return `http://localhost:${localPort}`
+}
+
 export const API_URLS = {
-  curadoria: process.env.NEXT_PUBLIC_API_CURADORIA ?? "http://localhost:8002",
-  redator:   process.env.NEXT_PUBLIC_API_REDATOR   ?? "http://localhost:8000",
-  editor:    process.env.NEXT_PUBLIC_API_EDITOR     ?? "http://localhost:8001",
+  get curadoria() { return resolveUrl("curadoria", 8002) },
+  get redator()   { return resolveUrl("redator", 8000) },
+  get editor()    { return resolveUrl("editor", 8001) },
 }
 
 export class ApiError extends Error {
