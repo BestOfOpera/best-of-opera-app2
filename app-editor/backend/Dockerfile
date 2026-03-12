@@ -10,8 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app-editor/backend/app/ ./app/
 COPY shared/ ./shared/
+COPY app-editor/backend/fonts/ /usr/local/share/fonts/custom/
 
-RUN mkdir -p /storage/videos /storage/renders
+RUN fc-cache -f /usr/local/share/fonts/custom && mkdir -p /storage/videos /storage/renders
 
 EXPOSE 8000
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}

@@ -105,11 +105,11 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
     local_video = storage.ensure_local(video_cortado_key)
 
     ass_escaped = ass_file.replace("\\", "/").replace(":", "\\:")
-    ass_filter = (
-        f"ass='{ass_escaped}':fontsdir={fontsdir}"
-        if fontsdir else
-        f"ass='{ass_escaped}'"
-    )
+    # Sempre incluir fontsdir — Playfair Display (padrão) mora lá
+    if not fontsdir:
+        from app.services.font_service import get_fontsdir
+        fontsdir = get_fontsdir()
+    ass_filter = f"ass='{ass_escaped}':fontsdir={fontsdir}"
 
     await run_ffmpeg(
         f'ffmpeg -y -i "{local_video}" '

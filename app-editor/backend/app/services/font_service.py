@@ -17,6 +17,30 @@ logger = logging.getLogger(__name__)
 FONTS_LOCAL_DIR = Path("/tmp/custom-fonts")
 FONTS_SYSTEM_DIR = Path("/usr/local/share/fonts/custom")
 
+# Fontes padrão embarcadas no backend (Playfair Display etc.)
+_BUNDLED_FONTS_DIR = Path(__file__).resolve().parent.parent.parent / "fonts"
+
+
+def get_fontsdir() -> str:
+    """Retorna o diretório de fontes que o FFmpeg/libass deve usar.
+
+    Prioridade: FONTS_SYSTEM_DIR (Railway) > FONTS_LOCAL_DIR (/tmp, dev).
+    Garante que as fontes bundled são copiadas para lá se necessário.
+    """
+    # Em prod (Railway), o Dockerfile já copia tudo para FONTS_SYSTEM_DIR
+    if FONTS_SYSTEM_DIR.exists() and any(FONTS_SYSTEM_DIR.glob("*.ttf")):
+        return str(FONTS_SYSTEM_DIR)
+
+    # Em dev, copiar fontes bundled para /tmp/custom-fonts
+    FONTS_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    if _BUNDLED_FONTS_DIR.exists():
+        for f in _BUNDLED_FONTS_DIR.glob("*.ttf"):
+            dest = FONTS_LOCAL_DIR / f.name
+            if not dest.exists():
+                shutil.copy2(str(f), str(dest))
+                logger.info(f"[font_service] Fonte bundled copiada: {f.name} → {dest}")
+    return str(FONTS_LOCAL_DIR)
+
 
 def extract_font_family(path: str) -> str:
     """Extrai o nome da família da fonte usando fonttools.

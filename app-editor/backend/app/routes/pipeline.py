@@ -1751,12 +1751,10 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                     # FFmpeg com timeout — banco FECHADO
                     ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
-                    _fontsdir = "/usr/local/share/fonts/custom" if font_file_r2_key_val else None
-                    _ass_filter = (
-                        f"ass='{ass_escaped}':fontsdir={_fontsdir}"
-                        if _fontsdir else
-                        f"ass='{ass_escaped}'"
-                    )
+                    # Sempre passar fontsdir — Playfair Display (fonte padrão) está lá
+                    from app.services.font_service import get_fontsdir as _get_fontsdir
+                    _fontsdir = _get_fontsdir()
+                    _ass_filter = f"ass='{ass_escaped}':fontsdir={_fontsdir}"
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
                         f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
