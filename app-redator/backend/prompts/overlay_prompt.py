@@ -9,8 +9,8 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
-def _calc_subtitle_count(project) -> str:
-    """Calculate approximate number of subtitles based on cut duration (~1 every 15s)."""
+def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
+    """Calculate approximate number of subtitles based on cut duration."""
     try:
         if project.cut_start and project.cut_end:
             start_parts = project.cut_start.split(":")
@@ -24,8 +24,8 @@ def _calc_subtitle_count(project) -> str:
         else:
             return "Create approximately 4-6 subtitle entries."
 
-        count = max(3, round(duration_secs / 15))
-        return f"The video is {duration_secs} seconds long. Create approximately {count} subtitle entries (averaging ~1 every 15 seconds)."
+        count = max(3, round(duration_secs / interval_secs))
+        return f"The video is {duration_secs} seconds long. Create approximately {count} subtitle entries (averaging ~1 every {interval_secs} seconds)."
     except (ValueError, IndexError):
         return "Create approximately 4-6 subtitle entries."
 
@@ -34,6 +34,7 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     max_chars_line = (brand_config or {}).get("overlay_max_chars_linha", 35)
+    interval_secs = (brand_config or {}).get("overlay_interval_secs", 15)
     identity = (brand_config or {}).get("identity_prompt_redator", "")
     tom_de_voz = (brand_config or {}).get("tom_de_voz_redator", "")
     escopo = (brand_config or {}).get("escopo_conteudo", "")
@@ -44,7 +45,7 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     elif project.original_duration:
         duration_info = f"The video duration is {project.original_duration}."
 
-    count_info = _calc_subtitle_count(project)
+    count_info = _calc_subtitle_count(project, interval_secs=interval_secs)
 
     brand_block_parts = []
     if identity:

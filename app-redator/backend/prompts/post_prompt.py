@@ -25,40 +25,9 @@ def _brand_block(brand_config: dict) -> str:
     return "\n\n═══════════════════════════════\nBRAND CUSTOMIZATION\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
 
 
-def build_post_prompt(project, brand_config=None) -> str:
-    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
-    hashtags = (brand_config or {}).get("hashtags_fixas", ["#BestOfOpera", "#Opera", "#ClassicalMusic"])
-    flag = project.nationality_flag or ""
-
-    # Build input fields, omitting any that are empty
-    fields = ""
-    fields += _field("Artist", project.artist)
-    fields += _field("Work", project.work)
-    fields += _field("Composer", project.composer)
-    fields += _field("Category", project.category)
-    fields += _field("Hook/angle", build_hook_text(project))
-    fields += _field("Highlights", project.highlights)
-    fields += _field("Composition year", project.composition_year)
-    fields += _field("Nationality", project.nationality)
-    fields += _field("Nationality flag emoji", flag)
-    fields += _field("Voice type", project.voice_type)
-    fields += _field("Birth date", project.birth_date)
-    fields += _field("Death date", project.death_date)
-    fields += _field("Album/Opera", project.album_opera)
-    fields = fields.rstrip("\n")
-
-    hashtags_str = " ".join(hashtags)
-
-    return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
-
-Your posts don't describe performances. They make people FEEL something they didn't expect to feel today.
-
-The reader is scrolling fast. You have 3 lines to stop them. Then you have one job: make them read every single word until the end.
-
-Write an Instagram/Facebook post for a video clip featuring:
-{fields}
-
-═══════════════════════════════
+def _default_structure(hashtags, hashtags_str) -> str:
+    """Estrutura padrão de 5 seções (Best of Opera)."""
+    return f"""═══════════════════════════════
 POST STRUCTURE (5 sections, separated by blank lines)
 ═══════════════════════════════
 
@@ -170,8 +139,59 @@ SECTION 5 — HASHTAGS (exactly 1 line)
 ──────────────────────
 Exactly 4 hashtags. Always include {hashtags[0] if hashtags else "#BestOfOpera"}. Add 3 relevant ones.
 Example: "{hashtags_str}"
+"""
 
+
+def _custom_structure(custom_post_structure: str) -> str:
+    """Estrutura customizada definida pelo perfil da marca."""
+    return f"""═══════════════════════════════
+POST STRUCTURE (brand-specific)
 ═══════════════════════════════
+
+{custom_post_structure}
+"""
+
+
+def build_post_prompt(project, brand_config=None) -> str:
+    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
+    hashtags = (brand_config or {}).get("hashtags_fixas", ["#BestOfOpera", "#Opera", "#ClassicalMusic"])
+    custom_post = (brand_config or {}).get("custom_post_structure", "")
+    flag = project.nationality_flag or ""
+
+    # Build input fields, omitting any that are empty
+    fields = ""
+    fields += _field("Artist", project.artist)
+    fields += _field("Work", project.work)
+    fields += _field("Composer", project.composer)
+    fields += _field("Category", project.category)
+    fields += _field("Hook/angle", build_hook_text(project))
+    fields += _field("Highlights", project.highlights)
+    fields += _field("Composition year", project.composition_year)
+    fields += _field("Nationality", project.nationality)
+    fields += _field("Nationality flag emoji", flag)
+    fields += _field("Voice type", project.voice_type)
+    fields += _field("Birth date", project.birth_date)
+    fields += _field("Death date", project.death_date)
+    fields += _field("Album/Opera", project.album_opera)
+    fields = fields.rstrip("\n")
+
+    hashtags_str = " ".join(hashtags)
+
+    if custom_post:
+        structure = _custom_structure(custom_post)
+    else:
+        structure = _default_structure(hashtags, hashtags_str)
+
+    return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
+
+Your posts don't describe performances. They make people FEEL something they didn't expect to feel today.
+
+The reader is scrolling fast. You have 3 lines to stop them. Then you have one job: make them read every single word until the end.
+
+Write an Instagram/Facebook post for a video clip featuring:
+{fields}
+
+{structure}═══════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════
 

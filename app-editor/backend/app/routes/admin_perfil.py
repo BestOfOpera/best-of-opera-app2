@@ -117,6 +117,7 @@ class PerfilDetalheOut(BaseModel):
     overlay_max_chars_linha: int
     lyrics_max_chars: int
     traducao_max_chars: int
+    overlay_interval_secs: Optional[int] = 15
     video_width: int
     video_height: int
     escopo_conteudo: Optional[str] = None
@@ -126,6 +127,7 @@ class PerfilDetalheOut(BaseModel):
     hook_categories_redator: Optional[Dict[str, Any]] = None
     identity_prompt_redator: Optional[str] = None
     tom_de_voz_redator: Optional[str] = None
+    custom_post_structure: Optional[str] = None
     logo_url: Optional[str] = None
     font_name: Optional[str] = None
     font_file_r2_key: Optional[str] = None
@@ -412,6 +414,7 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         overlay_max_chars_linha=original.overlay_max_chars_linha,
         lyrics_max_chars=original.lyrics_max_chars,
         traducao_max_chars=original.traducao_max_chars,
+        overlay_interval_secs=original.overlay_interval_secs,
         video_width=original.video_width,
         video_height=original.video_height,
         escopo_conteudo=original.escopo_conteudo,
@@ -433,6 +436,7 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         hook_categories_redator=original.hook_categories_redator,
         identity_prompt_redator=original.identity_prompt_redator,
         tom_de_voz_redator=original.tom_de_voz_redator,
+        custom_post_structure=original.custom_post_structure,
         logo_url=original.logo_url,
         font_name=original.font_name,
         font_file_r2_key=None,  # nova marca começa sem fonte carregada

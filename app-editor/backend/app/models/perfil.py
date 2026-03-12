@@ -34,6 +34,7 @@ class Perfil(Base):
     overlay_max_chars_linha = Column(Integer, default=30)
     lyrics_max_chars = Column(Integer, default=43)
     traducao_max_chars = Column(Integer, default=100)
+    overlay_interval_secs = Column(Integer, default=15)  # intervalo entre legendas overlay
 
     # Video — prever dimensões futuras, só implementar 9:16 agora
     video_width = Column(Integer, default=1080)
@@ -58,6 +59,7 @@ class Perfil(Base):
     hook_categories_redator = Column(JSON, default=dict)
     identity_prompt_redator = Column(Text)
     tom_de_voz_redator = Column(Text)
+    custom_post_structure = Column(Text)  # estrutura de post customizável por marca
     logo_url = Column(String(500))
     font_name = Column(String(100))
     font_file_r2_key = Column(String(200))

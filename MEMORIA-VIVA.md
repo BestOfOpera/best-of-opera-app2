@@ -1,5 +1,67 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (13) — T1 + T2: overlay_interval_secs e custom_post_structure implementados
+
+### O que foi feito
+Implementadas as 2 decisões técnicas da análise RC que não dependiam do sócio:
+
+**T1 — `overlay_interval_secs`**: Campo Integer no Perfil (default: 15). Controla a densidade de legendas overlay por marca. O `_calc_subtitle_count()` no overlay_prompt.py agora usa esse valor dinâmico em vez do hardcoded 15. RC poderá usar 5s (1 legenda a cada 5 segundos) enquanto BO mantém 15s.
+
+**T2 — `custom_post_structure`**: Campo Text no Perfil (nullable). Quando preenchido, substitui inteiramente o bloco de 5 seções do post_prompt.py por estrutura custom da marca. CRITICAL RULES (char limit, forbidden phrases, language) continuam aplicando a todas as marcas. BO sem valor = mantém 5 seções (zero impacto).
+
+### Arquivos alterados
+- `app-editor/backend/app/models/perfil.py` — +2 colunas
+- `app-editor/backend/app/services/perfil_service.py` — +2 campos no build_redator_config
+- `app-editor/backend/app/routes/admin_perfil.py` — schema + duplicar
+- `app-editor/backend/app/main.py` — migrations inline
+- `app-redator/backend/prompts/overlay_prompt.py` — interval_secs dinâmico
+- `app-redator/backend/prompts/post_prompt.py` — refatorado com estrutura condicional
+
+### Testes
+11/12 passando. Falha pré-existente: `test_seed_best_of_opera_valores_corretos` (fontsize 63 vs 40 entre admin_perfil e legendas — desalinhamento anterior, não afeta produção).
+
+### Próxima sessão
+1. Aguardar respostas A/B/C do sócio nos 7 pontos editoriais
+2. Deploy para testar T1/T2 com perfil RC real
+3. Após respostas do sócio: preencher `custom_post_structure` do RC com a estrutura de 3 parágrafos
+4. Bug pré-existente: alinhar fontsize entre ESTILOS_PADRAO de admin_perfil.py e legendas.py
+
+---
+
+## Sessão 2026-03-12 (12) — Análise blocos RC: conflitos identificados, pendente decisão do sócio
+
+### Contexto
+Analisados os 3 blocos propostos (identity, tom_de_voz, escopo) para a marca Reels Classics. Cruzados com overlay_prompt.py, post_prompt.py, config.py (11 hooks) e regras existentes do BO.
+
+### Documentos de referência
+- `dados-relevantes/CONTEXTO-ANALISE-BLOCOS-RC.md` — metodologia completa de análise
+- 3 blocos propostos: recebidos como arquivos txt (RC_Bloco1_Persona.txt, RC_Bloco2_TomDeVoz.txt, RC_Bloco3_Escopo.txt)
+
+### 7 decisões editoriais pendentes (sócio decide)
+1. **Conhecimento externo** — prompt base proíbe, Bloco 1 RC libera. A/B/C pendente.
+2. **CTA overlay** — base proíbe genérico, RC quer fixo "Siga, o melhor da música clássica...". A/B/C pendente.
+3. **Abertura "never watched opera"** — RC não é ópera. Trocar por classical music? A/B/C pendente.
+4. **Hooks com referência a ópera** — 3 hooks mencionam ópera. RC usa mesmos, adaptados ou novos? A/B/C pendente.
+5. **Estrutura do post/description** — base tem 5 seções, RC define 3 parágrafos com •. Incompatíveis. A/B/C pendente.
+6. **Hashtags** — base exige 4, RC exige 5. A/B/C pendente.
+7. **Anti-repetição overlay↔description** — RC exige que description receba overlay como input. Hoje são independentes. A/B/C pendente.
+
+### 5 decisões técnicas (Bolivar + Claude Code)
+| # | Ponto | Decisão tomada |
+|---|-------|---------------|
+| T1 | Densidade legendas (1/15s vs 1/5s) | Criar campo `subtitle_interval_secs` no perfil |
+| T2 | Estrutura de post customizável | Criar mecanismo `custom_post_structure` no post_prompt.py |
+| T3 | Tamanhos px (52/48/44) no Bloco 3 | Remover do bloco, configurar no overlay_style do perfil |
+| T4 | Volume dos blocos: ~2730 palavras (4.5x o base) | Precisa cortar após decisões do sócio |
+| T5 | Blocos em inglês, canal PT-BR | OK — instruções, não conteúdo |
+
+### Próxima sessão
+1. Aguardar respostas A/B/C do sócio nos 7 pontos
+2. Implementar T1 (subtitle_interval_secs) e T2 (custom_post_structure) — podem ser feitos antes
+3. Após respostas: rodar análise completa (tabela hooks × blocos, conflitos, versão editada)
+
+---
+
 ## Sessão 2026-03-12 (11) — Revisão de bugs recorrentes e regras de qualidade
 
 ### Contexto
