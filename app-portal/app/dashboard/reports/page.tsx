@@ -11,6 +11,7 @@ import { ReportCard, ReportSkeleton } from "@/components/dashboard/reports/repor
 import { Plus, X, Upload, CheckCircle2, AlertCircle, Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import * as Sentry from "@sentry/nextjs"
 
 export default function ReportsPage() {
     const [reports, setReports] = useState<Report[]>([])
@@ -192,6 +193,18 @@ function CreateReportModal({ onClose }: { onClose: () => void }) {
             if (screenshots.length > 0) {
                 await Promise.all(screenshots.map(file => editorApi.uploadScreenshot(report.id, file)))
             }
+
+            Sentry.captureMessage(`[Report] ${formData.titulo}`, {
+                level: formData.prioridade === "alta" ? "error" : "warning",
+                extra: {
+                    report_id: report.id,
+                    descricao: formData.descricao,
+                    tipo: formData.tipo,
+                    prioridade: formData.prioridade,
+                    colaborador: formData.colaborador,
+                    projeto_id: formData.projeto_id,
+                },
+            })
 
             toast.success("Report enviado com sucesso!")
             onClose()

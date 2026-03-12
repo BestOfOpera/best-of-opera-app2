@@ -229,7 +229,9 @@ class LetraAprovar(BaseModel):
 # --- Report ---
 class ReportCreate(BaseModel):
     edicao_id: Optional[int] = None
-    tipo: str  # "bug", "qualidade", "audio", "legenda", "outro"
+    projeto_id: Optional[int] = None
+    colaborador: str = ""
+    tipo: str  # "bug", "melhoria", "sugestao", "qualidade", "outro"
     titulo: str
     descricao: Optional[str] = None
     prioridade: Optional[str] = "media"
@@ -239,20 +241,22 @@ class ReportUpdate(BaseModel):
     status: Optional[str] = None
     prioridade: Optional[str] = None
     descricao: Optional[str] = None
+    resolucao: Optional[str] = None
+    resolvido_por: Optional[str] = None
+    codigo_err: Optional[str] = None
 
 
 class ReportOut(BaseModel):
     id: int
-    edicao_id: Optional[int] = None
-    tipo: str
+    colaborador: str = ""
     titulo: str
     descricao: Optional[str] = None
-    screenshot_r2_key: Optional[str] = None
-    status: str
+    tipo: str
     prioridade: str
-    resolvido_em: Optional[datetime] = None
+    status: str
+    projeto_id: Optional[int] = None
+    screenshots: list[str] = []
+    resolucao: Optional[str] = None
+    resolvido_por: Optional[str] = None
+    codigo_err: Optional[str] = None
     created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

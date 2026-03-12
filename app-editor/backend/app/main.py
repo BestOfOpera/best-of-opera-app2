@@ -342,6 +342,12 @@ def _run_migrations():
                 ("prioridade", "VARCHAR(20) DEFAULT 'media'"),
                 ("resolvido_em", "TIMESTAMP"),
                 ("updated_at", "TIMESTAMP"),
+                ("colaborador", "VARCHAR(200)"),
+                ("projeto_id", "INTEGER"),
+                ("screenshots_json", "TEXT DEFAULT '[]'"),
+                ("resolucao", "TEXT"),
+                ("resolvido_por", "VARCHAR(200)"),
+                ("codigo_err", "VARCHAR(50)"),
             ]:
                 if col_name not in report_cols:
                     try:

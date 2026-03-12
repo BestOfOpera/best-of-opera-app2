@@ -1,4 +1,5 @@
 """CRUD de reports de bugs e qualidade."""
+import json
 import os
 from datetime import datetime, timezone
 from typing import Optional
@@ -19,16 +20,42 @@ router = APIRouter(prefix="/api/v1/editor", tags=["reports"])
 _MAX_SCREENSHOT_BYTES = 10 * 1024 * 1024  # 10MB
 
 
+def _report_to_dict(report: Report) -> dict:
+    """Converte Report ORM em dict compatível com ReportOut, gerando URLs presigned."""
+    keys: list[str] = json.loads(report.screenshots_json or "[]")
+    screenshots: list[str] = []
+    for key in keys:
+        try:
+            screenshots.append(storage.get_presigned_url(key, expires_in=7200))
+        except Exception:
+            pass  # ignora chave inválida
+
+    return {
+        "id": report.id,
+        "colaborador": report.colaborador or "",
+        "titulo": report.titulo,
+        "descricao": report.descricao,
+        "tipo": report.tipo,
+        "prioridade": report.prioridade,
+        "status": report.status,
+        "projeto_id": report.projeto_id,
+        "screenshots": screenshots,
+        "resolucao": report.resolucao,
+        "resolvido_por": report.resolvido_por,
+        "codigo_err": report.codigo_err,
+        "created_at": report.created_at,
+    }
+
+
 @router.get("/reports", response_model=list[ReportOut])
 def listar_reports(
     status: Optional[str] = Query(None),
     tipo: Optional[str] = Query(None),
     edicao_id: Optional[int] = Query(None),
     perfil_id: Optional[int] = Query(None),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    """Lista todos os reports com filtros opcionais, ordenados por created_at DESC."""
     q = db.query(Report)
     if perfil_id is not None:
         q = q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
@@ -38,68 +65,55 @@ def listar_reports(
         q = q.filter(Report.tipo == tipo)
     if edicao_id is not None:
         q = q.filter(Report.edicao_id == edicao_id)
-    return q.order_by(Report.created_at.desc()).limit(limit).all()
+    reports = q.order_by(Report.created_at.desc()).limit(limit).all()
+    return [_report_to_dict(r) for r in reports]
 
 
 @router.post("/reports", response_model=ReportOut, status_code=201)
 def criar_report(data: ReportCreate, db: Session = Depends(get_db)):
-    """Cria um novo report."""
-    report = Report(**data.model_dump())
+    report = Report(
+        edicao_id=data.edicao_id,
+        projeto_id=data.projeto_id,
+        colaborador=data.colaborador,
+        tipo=data.tipo,
+        titulo=data.titulo,
+        descricao=data.descricao,
+        prioridade=data.prioridade or "media",
+        status="novo",
+        screenshots_json="[]",
+    )
     db.add(report)
     db.commit()
     db.refresh(report)
-    return report
+    return _report_to_dict(report)
 
 
 @router.get("/reports/resumo")
-def resumo_reports(perfil_id: Optional[int] = None, db: Session = Depends(get_db)) -> dict:
-    """Retorna contagens agregadas de reports por status, tipo e prioridade."""
-    base_q = db.query(Report)
-    if perfil_id is not None:
-        base_q = base_q.join(Edicao, Report.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
-
-    por_status = {
-        row[0]: row[1]
-        for row in base_q.with_entities(Report.status, func.count(Report.id))
+def resumo_reports(db: Session = Depends(get_db)) -> dict:
+    """Retorna contagens por status compatíveis com o frontend."""
+    counts = (
+        db.query(Report.status, func.count(Report.id))
         .group_by(Report.status)
         .all()
-    }
-    por_tipo = {
-        row[0]: row[1]
-        for row in base_q.with_entities(Report.tipo, func.count(Report.id))
-        .group_by(Report.tipo)
-        .all()
-    }
-    por_prioridade = {
-        row[0]: row[1]
-        for row in base_q.with_entities(Report.prioridade, func.count(Report.id))
-        .group_by(Report.prioridade)
-        .all()
-    }
-    total_abertos = base_q.with_entities(func.count(Report.id)).filter(Report.status == "aberto").scalar() or 0
-    total = base_q.with_entities(func.count(Report.id)).scalar() or 0
-
+    )
+    by_status: dict[str, int] = {row[0]: row[1] for row in counts}
     return {
-        "total": total,
-        "total_abertos": total_abertos,
-        "por_status": por_status,
-        "por_tipo": por_tipo,
-        "por_prioridade": por_prioridade,
+        "novos": by_status.get("novo", 0),
+        "em_analise": by_status.get("analise", 0),
+        "resolvidos": by_status.get("resolvido", 0),
     }
 
 
 @router.get("/reports/{report_id}", response_model=ReportOut)
 def obter_report(report_id: int, db: Session = Depends(get_db)):
-    """Retorna um report pelo ID."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report não encontrado")
-    return report
+    return _report_to_dict(report)
 
 
 @router.patch("/reports/{report_id}", response_model=ReportOut)
 def atualizar_report(report_id: int, data: ReportUpdate, db: Session = Depends(get_db)):
-    """Atualiza status, prioridade e/ou descrição de um report."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report não encontrado")
@@ -113,7 +127,7 @@ def atualizar_report(report_id: int, data: ReportUpdate, db: Session = Depends(g
 
     db.commit()
     db.refresh(report)
-    return report
+    return _report_to_dict(report)
 
 
 @router.post("/reports/{report_id}/screenshot")
@@ -122,7 +136,6 @@ async def upload_screenshot(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    """Faz upload de screenshot (PNG/JPG) para R2 e atualiza o report."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report não encontrado")
@@ -140,7 +153,7 @@ async def upload_screenshot(
             detail=f"Screenshot excede o limite de 10MB ({len(conteudo) / 1024 / 1024:.1f}MB enviado)",
         )
 
-    filename = file.filename or f"screenshot.png"
+    filename = file.filename or "screenshot.png"
     local_path = f"/tmp/report_{report_id}_{filename}"
 
     try:
@@ -150,7 +163,9 @@ async def upload_screenshot(
         r2_key = f"reports/{report_id}/{filename}"
         storage.upload_file(local_path, r2_key)
 
-        report.screenshot_r2_key = r2_key
+        keys: list[str] = json.loads(report.screenshots_json or "[]")
+        keys.append(r2_key)
+        report.screenshots_json = json.dumps(keys)
         db.commit()
         db.refresh(report)
 
@@ -163,16 +178,16 @@ async def upload_screenshot(
 
 @router.delete("/reports/{report_id}", status_code=204)
 def deletar_report(report_id: int, db: Session = Depends(get_db)):
-    """Deleta um report. Se tiver screenshot no R2, tenta deletar também."""
     report = db.get(Report, report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report não encontrado")
 
-    if report.screenshot_r2_key:
+    keys: list[str] = json.loads(report.screenshots_json or "[]")
+    for key in keys:
         try:
-            storage.delete(report.screenshot_r2_key)
+            storage.delete(key)
         except Exception:
-            pass  # Não falha se R2 der erro
+            pass
 
     db.delete(report)
     db.commit()
