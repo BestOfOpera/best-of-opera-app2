@@ -151,11 +151,11 @@ EMOTIONAL TOOLKIT — use these techniques
 - **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
 - **The countdown**: "The note that's coming will change how you hear music"
 - **The CTA (Engagement)**: The VERY LAST subtitle MUST be an emotional CTA that feels like a natural continuation of the story — NOT a generic "follow/subscribe" command. Tie the CTA to what the viewer just experienced.
-   GOOD (EN): "If this gave you chills, wait for what comes next" / "There are 47 more moments like this one"
-   GOOD (PT): "Se isso arrepiou, espere pelo que vem a seguir" / "Existem mais 47 momentos como este"
+   GOOD: A CTA that references what the viewer just felt or saw — makes them curious about more.
    BAD (EN): "Follow for more moments like this" / "Subscribe for more"
    BAD (PT): "Segue para mais momentos assim" / "Siga para mais conteúdo" / "Se inscreva" — these are GENERIC and BORING in ANY language. Never use them.
    The CTA should make the viewer FEEL something, not just obey a command.
+   CRITICAL: Create an ORIGINAL CTA every time. Do NOT reuse phrases from these instructions or previous outputs. Never use "47 momentos" or any fixed number of "moments" — invent something fresh that connects to THIS specific video.
 
 {identity_block}═══════════════════════════════
 OUTPUT FORMAT

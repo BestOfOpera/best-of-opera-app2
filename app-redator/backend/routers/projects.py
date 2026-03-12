@@ -51,6 +51,21 @@ def list_r2_available(db: Session = Depends(get_db)):
     return result
 
 
+@router.delete("/by-brand/{brand_slug}")
+def delete_projects_by_brand(brand_slug: str, db: Session = Depends(get_db)):
+    """Deleta todos os projetos de uma marca. CASCADE limpa translations."""
+    projects = db.query(Project).filter(Project.brand_slug == brand_slug).all()
+    if not projects:
+        return {"deleted": 0}
+
+    count = len(projects)
+    for p in projects:
+        db.delete(p)
+
+    db.commit()
+    return {"deleted": count}
+
+
 @router.get("/{project_id}", response_model=ProjectOut)
 def get_project(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)

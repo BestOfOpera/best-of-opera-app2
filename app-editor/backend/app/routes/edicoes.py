@@ -1,11 +1,16 @@
 """CRUD de edições."""
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
 from app.models import Edicao, Overlay, Post, Seo
+from app.models.perfil import Perfil
 from app.schemas import EdicaoCreate, EdicaoUpdate, EdicaoOut
+from shared.storage_service import storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/editor", tags=["edicoes"])
 
@@ -99,6 +104,27 @@ def remover_edicao(edicao_id: int, db: Session = Depends(get_db)):
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
+
+    # Limpar arquivos R2 da edição
+    r2_deleted = 0
+    if edicao.r2_base:
+        r2_prefix = "editor"  # default
+        if edicao.perfil_id:
+            perfil = db.get(Perfil, edicao.perfil_id)
+            if perfil and perfil.r2_prefix:
+                r2_prefix = perfil.r2_prefix
+        prefix = f"{r2_prefix}/{edicao.r2_base}"
+        try:
+            files = storage.list_files(prefix)
+            for key in files:
+                try:
+                    storage.delete(key)
+                    r2_deleted += 1
+                except Exception:
+                    pass
+        except Exception:
+            logger.warning(f"Erro listando R2 prefix={prefix}")
+
     db.delete(edicao)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "r2_files_deleted": r2_deleted}

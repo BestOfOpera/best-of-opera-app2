@@ -176,6 +176,28 @@ async def upload_screenshot(
     return {"r2_key": r2_key, "report_id": report_id}
 
 
+@router.delete("/reports/resolvidos")
+def deletar_reports_resolvidos(db: Session = Depends(get_db)):
+    """Deleta todos os reports com status 'resolvido' + screenshots R2."""
+    reports = db.query(Report).filter(Report.status == "resolvido").all()
+    if not reports:
+        return {"deleted": 0}
+
+    count = 0
+    for report in reports:
+        keys: list[str] = json.loads(report.screenshots_json or "[]")
+        for key in keys:
+            try:
+                storage.delete(key)
+            except Exception:
+                pass
+        db.delete(report)
+        count += 1
+
+    db.commit()
+    return {"deleted": count}
+
+
 @router.delete("/reports/{report_id}", status_code=204)
 def deletar_report(report_id: int, db: Session = Depends(get_db)):
     report = db.get(Report, report_id)

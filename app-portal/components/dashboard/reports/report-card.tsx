@@ -1,14 +1,17 @@
 "use client"
 
-import { Report } from "@/lib/api/editor"
+import { useState } from "react"
+import { editorApi, Report } from "@/lib/api/editor"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { AlertCircle, Lightbulb, MessageSquare, Clock, ArrowRight } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { AlertCircle, Lightbulb, MessageSquare, Clock, ArrowRight, Trash2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
-export function ReportCard({ report }: { report: Report }) {
+export function ReportCard({ report, onDelete }: { report: Report; onDelete?: () => void }) {
     const typeConfig: any = {
         bug: { icon: AlertCircle, color: "text-rose-600 bg-rose-50", label: "Bug" },
         melhoria: { icon: Lightbulb, color: "text-amber-600 bg-amber-50", label: "Melhoria" },
@@ -27,9 +30,47 @@ export function ReportCard({ report }: { report: Report }) {
         resolvido: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
     }
 
+    const [confirmOpen, setConfirmOpen] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+
+    const handleDelete = async () => {
+        setDeleting(true)
+        try {
+            await editorApi.deletarReport(report.id)
+            toast.success("Report deletado.")
+            setConfirmOpen(false)
+            onDelete?.()
+        } catch (err: any) {
+            toast.error("Erro ao deletar report: " + (err?.message || "desconhecido"))
+        } finally {
+            setDeleting(false)
+        }
+    }
+
     const { icon: Icon, color, label } = typeConfig[report.tipo] || typeConfig.bug
 
     return (
+        <>
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Trash2 className="h-5 w-5 text-rose-500" />
+                        Deletar report
+                    </DialogTitle>
+                    <DialogDescription>
+                        Tem certeza que deseja deletar &quot;{report.titulo}&quot;? Screenshots associados tamb&eacute;m ser&atilde;o removidos. Esta a&ccedil;&atilde;o &eacute; irrevers&iacute;vel.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancelar</Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                        {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        Deletar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         <Card className="hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group border-none bg-card/60 backdrop-blur-sm rounded-[2rem] overflow-hidden">
             <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
@@ -87,15 +128,25 @@ export function ReportCard({ report }: { report: Report }) {
                                 )}
                             </div>
                         )}
-                        <Link href={`/dashboard/reports/${report.id}`} className="sm:mt-auto">
-                            <Button className="h-12 w-12 rounded-2xl bg-muted text-primary hover:bg-secondary hover:text-white transition-all shadow-sm group-hover:scale-110 duration-500">
-                                <ArrowRight className="w-5 h-5 stroke-[3px]" />
+                        <div className="flex gap-2 sm:mt-auto">
+                            <Button
+                                variant="ghost"
+                                className="h-12 w-12 rounded-2xl text-muted-foreground hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm"
+                                onClick={(e) => { e.preventDefault(); setConfirmOpen(true) }}
+                            >
+                                <Trash2 className="w-5 h-5 stroke-[2.5px]" />
                             </Button>
-                        </Link>
+                            <Link href={`/dashboard/reports/${report.id}`}>
+                                <Button className="h-12 w-12 rounded-2xl bg-muted text-primary hover:bg-secondary hover:text-white transition-all shadow-sm group-hover:scale-110 duration-500">
+                                    <ArrowRight className="w-5 h-5 stroke-[3px]" />
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </CardContent>
         </Card>
+        </>
     )
 }
 

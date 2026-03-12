@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Perfil } from "@/lib/api/editor"
+import { redatorApi } from "@/lib/api/redator"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { Loader2, ArrowLeft, Save, Globe, Eye, MonitorPlay, Type, Settings2, Palette, ChevronDown, Video, Check, Cpu, Copy, ShieldAlert } from "lucide-react"
+import { Loader2, ArrowLeft, Save, Globe, Eye, MonitorPlay, Type, Settings2, Palette, ChevronDown, Video, Check, Cpu, Copy, ShieldAlert, Trash2, AlertTriangle } from "lucide-react"
 import { DialogFooter } from "@/components/ui/dialog"
 import { StyleTrackConfig } from "@/components/admin/style-track-config"
 import { BrandPreview } from "@/components/admin/brand-preview"
@@ -77,6 +78,8 @@ export default function MarcaConfigPage() {
     const [saving, setSaving] = useState(false)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [confirmBO, setConfirmBO] = useState(false)
+    const [confirmReset, setConfirmReset] = useState(false)
+    const [resetting, setResetting] = useState(false)
 
     const [formData, setFormData] = useState<Partial<Perfil>>({})
 
@@ -145,6 +148,29 @@ export default function MarcaConfigPage() {
             loadPerfil()
         } catch (err: any) {
             toast.error("Erro ao alterar status: " + err.message)
+        }
+    }
+
+    const handleReset = async () => {
+        setResetting(true)
+        try {
+            const editorRes = await editorApi.resetarEdicoesPerfil(Number(id), isBO)
+            let redatorCount = 0
+            if (formData.slug) {
+                try {
+                    const redatorRes = await redatorApi.deleteProjectsByBrand(formData.slug)
+                    redatorCount = redatorRes.deleted
+                } catch {
+                    // Redator pode não ter projetos desta marca
+                }
+            }
+            toast.success(`Reset completo: ${editorRes.deleted} edições + ${editorRes.r2_files_deleted} arquivos R2 + ${redatorCount} projetos redator removidos.`)
+            setConfirmReset(false)
+            loadPerfil()
+        } catch (err: any) {
+            toast.error("Erro ao resetar marca: " + (err?.message || "desconhecido"))
+        } finally {
+            setResetting(false)
         }
     }
 
@@ -575,6 +601,36 @@ export default function MarcaConfigPage() {
                     </div>
                 </CollapsibleSection>
 
+                <Card className="overflow-hidden border-rose-200/50 shadow-sm bg-rose-50/30">
+                    <div className="p-5 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <h3 className="text-base font-semibold leading-none tracking-tight text-rose-700">Zona de Perigo</h3>
+                                <p className="text-sm text-rose-600/70 mt-1.5 leading-snug">Ações destrutivas e irreversíveis para esta marca.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-background rounded-xl border border-rose-200/50">
+                            <div>
+                                <p className="font-semibold text-sm text-foreground">Resetar Edições</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">Deleta todas as edições, renders, arquivos R2 e projetos do redator desta marca.</p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="shrink-0 gap-2"
+                                onClick={() => setConfirmReset(true)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                                Resetar Marca
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+
                 <div className="fixed bottom-0 left-0 lg:left-[224px] right-0 p-5 bg-background/80 backdrop-blur-md border-t border-border flex justify-end gap-3 z-30 shadow-[0_-4px_16px_rgba(0,0,0,0.05)]">
                     <Button type="button" variant="outline" onClick={() => router.push("/admin/marcas")} className="bg-card hover:bg-muted text-foreground px-6 h-11">
                         Cancelar
@@ -634,6 +690,29 @@ export default function MarcaConfigPage() {
                             Continuar Editando
                         </Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmReset} onOpenChange={setConfirmReset}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-rose-500" />
+                            Resetar edições da marca
+                        </DialogTitle>
+                        <DialogDescription>
+                            Isso vai deletar <strong>TODAS</strong> as edições, renders, arquivos do R2 e projetos do redator de <strong>{formData.nome}</strong>. Letras e configurações da marca serão mantidas. Esta ação é irreversível.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setConfirmReset(false)} disabled={resetting}>
+                            Cancelar
+                        </Button>
+                        <Button variant="destructive" onClick={handleReset} disabled={resetting}>
+                            {resetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            {resetting ? "Resetando..." : "Confirmar Reset"}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

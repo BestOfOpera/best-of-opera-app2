@@ -1,4 +1,5 @@
 """Admin CRUD de Perfis de Marca — Best of Opera Editor."""
+import json
 import logging
 import os
 import re
@@ -14,7 +15,9 @@ from app.database import get_db
 from app.middleware.auth import require_admin
 from app.models.perfil import Perfil
 from app.models.edicao import Edicao
+from app.models.report import Report
 from app.services.perfil_service import build_curadoria_config, build_redator_config
+from shared.storage_service import storage
 
 logger = logging.getLogger(__name__)
 
@@ -484,6 +487,59 @@ def curadoria_config_admin(perfil_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Perfil nao encontrado")
 
     return build_curadoria_config(perfil)
+
+
+@router.delete("/{perfil_id}/edicoes")
+def resetar_edicoes_perfil(perfil_id: int, db: Session = Depends(get_db), force: bool = False):
+    """Deleta TODAS as edições de um perfil + arquivos R2. Irreversível."""
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil nao encontrado")
+
+    _protegido(perfil, force=force)
+
+    edicoes = db.query(Edicao).filter(Edicao.perfil_id == perfil_id).all()
+    if not edicoes:
+        return {"deleted": 0, "r2_files_deleted": 0}
+
+    r2_deleted = 0
+
+    # Limpar screenshots de reports vinculados antes do cascade SET NULL
+    edicao_ids = [e.id for e in edicoes]
+    reports = db.query(Report).filter(Report.edicao_id.in_(edicao_ids)).all()
+    for report in reports:
+        keys: list[str] = json.loads(report.screenshots_json or "[]")
+        for key in keys:
+            try:
+                storage.delete(key)
+                r2_deleted += 1
+            except Exception:
+                pass
+        report.screenshots_json = "[]"
+
+    # Limpar arquivos R2 de cada edição
+    for edicao in edicoes:
+        if edicao.r2_base and perfil.r2_prefix:
+            prefix = f"{perfil.r2_prefix}/{edicao.r2_base}"
+            try:
+                files = storage.list_files(prefix)
+                for key in files:
+                    try:
+                        storage.delete(key)
+                        r2_deleted += 1
+                    except Exception:
+                        pass
+            except Exception:
+                logger.warning(f"Erro listando R2 prefix={prefix}")
+
+    # Deletar edições (CASCADE limpa overlays, posts, seo, renders, alinhamentos, traduções)
+    count = len(edicoes)
+    for edicao in edicoes:
+        db.delete(edicao)
+
+    db.commit()
+    logger.info(f"[admin-perfis] Reset perfil={perfil.slug}: {count} edicoes deletadas, {r2_deleted} arquivos R2 removidos")
+    return {"deleted": count, "r2_files_deleted": r2_deleted}
 
 
 # -- Router interno (sem auth) ------------------------------------------------

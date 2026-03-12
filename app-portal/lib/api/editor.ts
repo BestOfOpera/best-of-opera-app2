@@ -375,6 +375,10 @@ export const editorApi = {
   atualizarReport: (id: number, data: Partial<Report>) =>
     request<Report>(`${BASE()}/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   resumoReports: () => request<ReportResumo>(`${BASE()}/reports/resumo`),
+  deletarReport: (id: number) =>
+    request<void>(`${BASE()}/reports/${id}`, { method: "DELETE" }),
+  deletarReportsResolvidos: () =>
+    request<{ deleted: number }>(`${BASE()}/reports/resolvidos`, { method: "DELETE" }),
 
   // Auth API
   login: (data: { email: string; senha: string }) =>
@@ -395,6 +399,8 @@ export const editorApi = {
   atualizarPerfil: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PUT", body: JSON.stringify(data) }),
   atualizarPerfilParcial: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PATCH", body: JSON.stringify(data) }),
   duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
+  resetarEdicoesPerfil: (id: number, force = false) =>
+    request<{ deleted: number; r2_files_deleted: number }>(`${BASE()}/admin/perfis/${id}/edicoes${force ? "?force=true" : ""}`, { method: "DELETE", timeout: 120000 }),
   previewLegenda: (id: number) => request<{ status: string; url?: string }>(`${BASE()}/admin/perfis/${id}/preview-legenda`),
   uploadFonte: (id: number, file: File) => {
     const form = new FormData()

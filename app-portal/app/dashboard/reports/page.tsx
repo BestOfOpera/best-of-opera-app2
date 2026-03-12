@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ReportCard, ReportSkeleton } from "@/components/dashboard/reports/report-card"
-import { Plus, X, Upload, CheckCircle2, AlertCircle, Camera } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Plus, X, Upload, CheckCircle2, AlertCircle, Camera, Trash2, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import * as Sentry from "@sentry/nextjs"
@@ -19,6 +20,8 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState("Todos")
     const [isModalOpen, setIsModalOpen] = useState(false)
+    const [confirmLimpar, setConfirmLimpar] = useState(false)
+    const [limpando, setLimpando] = useState(false)
 
     const fetchReports = async () => {
         try {
@@ -38,6 +41,20 @@ export default function ReportsPage() {
     useEffect(() => {
         fetchReports()
     }, [])
+
+    const handleLimparResolvidos = async () => {
+        setLimpando(true)
+        try {
+            const res = await editorApi.deletarReportsResolvidos()
+            toast.success(`${res.deleted} report(s) resolvido(s) removido(s).`)
+            setConfirmLimpar(false)
+            fetchReports()
+        } catch (err: any) {
+            toast.error("Erro ao limpar resolvidos: " + (err?.message || "desconhecido"))
+        } finally {
+            setLimpando(false)
+        }
+    }
 
     const filtered = reports.filter(r => {
         if (filter === "Todos") return true
@@ -88,8 +105,21 @@ export default function ReportsPage() {
                         </button>
                     ))}
                 </div>
-                <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
-                    Total: {filtered.length} reports encontrados
+                <div className="flex items-center gap-4">
+                    {(resumo?.resolvidos ?? 0) > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300 font-black text-[10px] uppercase tracking-widest gap-1.5"
+                            onClick={() => setConfirmLimpar(true)}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Limpar Resolvidos ({resumo?.resolvidos})
+                        </Button>
+                    )}
+                    <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
+                        Total: {filtered.length} reports encontrados
+                    </div>
                 </div>
             </div>
 
@@ -108,7 +138,7 @@ export default function ReportsPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4">
-                            {filtered.map(report => <ReportCard key={report.id} report={report} />)}
+                            {filtered.map(report => <ReportCard key={report.id} report={report} onDelete={fetchReports} />)}
                         </div>
                     )
                 )}
@@ -118,6 +148,27 @@ export default function ReportsPage() {
                 setIsModalOpen(false)
                 fetchReports()
             }} />}
+
+            <Dialog open={confirmLimpar} onOpenChange={setConfirmLimpar}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Trash2 className="h-5 w-5 text-rose-500" />
+                            Limpar reports resolvidos
+                        </DialogTitle>
+                        <DialogDescription>
+                            Isso vai deletar permanentemente {resumo?.resolvidos || 0} report(s) com status &quot;resolvido&quot; e seus screenshots. Esta a&ccedil;&atilde;o &eacute; irrevers&iacute;vel.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setConfirmLimpar(false)} disabled={limpando}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleLimparResolvidos} disabled={limpando}>
+                            {limpando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            Deletar Resolvidos
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

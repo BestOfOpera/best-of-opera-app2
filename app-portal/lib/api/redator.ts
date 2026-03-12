@@ -151,4 +151,6 @@ export const redatorApi = {
     request<{ ok: boolean; r2_base: string }>(`${BASE()}/projects/${id}/save-to-r2`, { method: "POST", timeout: 60000 }),
   getExportConfig: () =>
     request<{ export_path: string | null }>(`${BASE()}/projects/export-config`),
+  deleteProjectsByBrand: (brandSlug: string) =>
+    request<{ deleted: number }>(`${BASE()}/projects/by-brand/${brandSlug}`, { method: "DELETE", timeout: 60000 }),
 }
