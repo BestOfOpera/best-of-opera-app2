@@ -126,7 +126,7 @@ function MarcasContent() {
                 </div>
 
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(perfil.idiomas_alvo || "").split(",").filter(Boolean).map((lang) => (
+                  {(perfil.idiomas_alvo || []).filter(Boolean).map((lang) => (
                     <span key={lang} className="rounded-md bg-secondary/50 px-2 py-0.5 text-[10px] text-secondary-foreground font-mono uppercase border border-border/50">{lang.trim()}</span>
                   ))}
                 </div>
