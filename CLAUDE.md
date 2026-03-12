@@ -11,20 +11,32 @@ Python 3.11/FastAPI · Next.js · PostgreSQL · Railway (efêmero) · Cloudflare
 
 ## Monorepo
 ```
-app-curadoria/    — curadoria de vídeos
-app-redator/      — conteúdo editorial
-app-editor/       — edição de vídeo (FOCO) → tem seu próprio CLAUDE.md
-app-portal/       — frontend Next.js compartilhado
+app-curadoria/    — curadoria de vídeos (Backend FastAPI apenas)
+app-redator/      — conteúdo editorial (Backend FastAPI apenas)
+app-editor/       — edição de vídeo (Backend FastAPI apenas)
+app-portal/       — O "APP GERAL". Frontend Next.js para todos os serviços acima.
 shared/           — storage_service.py (abstração R2)
 dados-relevantes/ — credenciais, planos ATIVOS, configs
 arquivo/          — planos concluídos e docs superados
 ```
+
+## ⚠️ Nomenclatura e Frontend
+- **Frontend / App Geral:** É EXCLUSIVAMENTE o `app-portal/`. NUNCA procure, edite ou crie arquivos de frontend dentro das pastas `app-editor`, `app-curadoria` ou `app-redator`.
+- **Backend:** É dividido em `app-editor/backend`, `app-curadoria/backend`, e `app-redator/backend`.
+
+## 👥 Agent Teams e Rotinas de Trabalho
+A coordenação entre agentes segue a skill `workflow-completo-projetos`:
+- **Antigravity (Gerente / Frontend):** Atua com prioridade máxima no desenvolvimento visual e frontend (`app-portal/`).
+- **Claude Code (Backend / Infra):** Executa rotinas de backend, regras de negócio, deploy e segurança (`app-*/backend/`).
+- **Paralelismo Seguro:** Ao agir em paralelo, os escopos de arquivos **NÃO PODEM** se cruzar. O Antigravity lidera o frontend e o Claude Code foca no backend de forma isolada. Múltiplos agentes no mesmo arquivo causam sobrescritas silenciosas.
+
 
 ## Início de sessão
 1. Ler este arquivo (automático)
 2. Ler `MEMORIA-VIVA.md` — estado atual do projeto
 3. Se for mexer no editor: ler `app-editor/CLAUDE.md`
 4. Se precisar de URLs/tokens: ler `dados-relevantes/`
+5. **Sentry**: hook bash verifica issues automaticamente na 1ª mensagem do dia e injeta resumo. Se aparecer "SENTRY: N issue(s)", reportar ao Bolivar antes de continuar.
 
 ## Regras de operação
 - Autonomia total em decisões técnicas — nunca perguntar ao Bolivar sobre código
@@ -33,6 +45,7 @@ arquivo/          — planos concluídos e docs superados
 - Commits em português
 - Variáveis novas DEVEM ter defaults seguros — nunca travar se não configurada
 - Credenciais/tokens NUNCA neste arquivo — ficam em `dados-relevantes/`
+- Este projeto usa sistema BLAST (prompts numerados) em vez de PLANO-DE-ACAO
 
 ## Armadilhas conhecidas (o que o Claude erra neste projeto)
 Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERROS-CORRECOES.md`:
@@ -59,8 +72,6 @@ Ao FINAL de toda sessão que altere código ou tome decisões:
 |---------------|--------|
 | Estado atual do projeto | `MEMORIA-VIVA.md` |
 | Regras de código do editor | `app-editor/CLAUDE.md` |
-| Arquitetura detalhada | `CONTEXTO-CODIGO-FINAL.md` |
-| Histórico de decisões | `MEMORIAL-REVISAO-EDITOR.md` |
 | Bugs conhecidos (57+) | `HISTORICO-ERROS-CORRECOES.md` |
 | Planos ativos | `dados-relevantes/` |
 | URLs e tokens | `dados-relevantes/` |
@@ -68,7 +79,21 @@ Ao FINAL de toda sessão que altere código ou tome decisões:
 
 ## Decisões fechadas (não rediscutir)
 - Railway horizontal scaling, não Transloadit
-- cobalt.tools planejado como primário pra download (yt-dlp atual como backup)
+- cobalt.tools como primário pra download (cascata: local → R2 → cobalt → curadoria → yt-dlp)
 - Google Cloud Translation, não Gemini pra tradução
 - Preview sempre em PT (audiência principal)
 - Curadoria é autoridade de vídeo — editor não re-baixa
+
+## Glossário (evitar confusão de nomenclatura)
+- **app-editor** = pipeline de processamento de vídeo (download→render→pacote). NÃO é um "editor visual"
+- **Edição / Edicao** = um "job" de processamento (registro no banco), não o ato de editar
+- **app-curadoria** = descoberta e seleção de vídeos no YouTube
+- **app-redator** = criação de conteúdo editorial (posts, SEO, hashtags)
+- **app-portal** = frontend Next.js ÚNICO para todos os serviços
+- **Perfil** = configuração de marca/canal (multi-brand), NÃO perfil de usuário
+
+## Equivalência de documentação obrigatória
+Este projeto usa estrutura própria em vez de PRD/ARCHITECTURE/ROADMAP:
+- PRD → `CLAUDE.md` (seção "O que é") + `BLAST-FASE2-MULTI-BRAND-v2.md`
+- ARCHITECTURE → `app-editor/CLAUDE.md` + código fonte (referenciado, não copiado)
+- ROADMAP → `BLAST-FASE2-MULTI-BRAND-v2.md` em `dados-relevantes/`

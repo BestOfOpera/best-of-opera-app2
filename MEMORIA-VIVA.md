@@ -13,6 +13,15 @@
 - Railway token válido (2025-02): `5d70b3e4-85cf-43d9-893c-38578a90b8e9` (Code Token 2502)
 - psql não disponível no Mac — usar python3 com psycopg2
 
+## Sessão 2026-03-12 (2) — Auditoria e Limpeza de Workspace
+
+### O que foi feito
+- **Limpeza de Documentos Superados**: 8 arquivos (`CONTEXTO-*.md`, `DIAGNOSTICO-*.md`, `RELATORIO-*.md/docx`, `MEMORIAL-*.md`) foram movidos para a pasta `arquivo/`.
+- **Exclusão de Diretório Fantasma**: A pasta `app-editor/frontend/` foi deletada para evitar confusão. Fica estabelecido oficialmente que o frontend "Geral" vive unicamente em `app-portal/`.
+- **Atualização do CLAUDE.md**: 
+    - Explicitado: `app-portal/` = Frontend, `app-editor/`, `app-curadoria/`, `app-redator/` = Backend FastAPI apenas.
+    - Definidas as regras de **Agent Teams**: Antigravity no frontend, Claude Code no backend.
+
 ## Sessão 2026-03-11 (2) — Bugfix ERR-066 via Sentry
 
 ### O que foi feito
@@ -522,3 +531,19 @@ main.py                      # 52 linhas: app + lifespan + include_router + stat
 ### Próximos passos
 1. Verificar no portal Railway se `/admin/marcas` está acessível após o deploy das correções.
 2. Testar criação de marca real com os novos inputs de cor para confirmar integridade dos dados no banco.
+
+---
+
+## Sessão 2026-03-12 — Validação E2E Pós-Deploy BLAST v4 Fase 2
+
+### Status da Validação (Ambiente de Produção)
+- **1. Autenticação (/login):** PASSOU ✅ (Login correto, nome "Admin" visível e redirecionamento de dashboard OK)
+- **2. Admin → Marcas (/admin/marcas):** FALHOU ❌ (Erro crítico de Mixed Content impedindo listagem. O frontend HTTPS tenta buscar `/api/v1/editor/admin/perfis/` via HTTP)
+- **3. Admin → Usuários (/admin/usuarios):** PASSOU ✅ (Página carrega listagem sem erros 404/500)
+- **4. Editor Stepper:** FALHOU ❌ (Stepper e cabeçalho não aparecem. O erro de Mixed Content nas Marcas quebra o estado da UI da edição)
+- **5. Re-render no Editor:** FALHOU ❌ (Devido à falha no carregamento inicial da edição, os ícones 🔄 "Refazer" por idioma não ficam acessíveis)
+- **6. Retrocompatibilidade:** PASSOU ✅ (A listagem "Inventário R2" na aba de conclusão carrega e exibe os 7 idiomas renderizados corretamente)
+
+### Pendências Identificadas
+- **Corrigir Mixed Content:** URL da API nas variáveis de ambiente do Frontend (em produção) precisa usar `https://` em vez de `http://`.
+- **Re-testar Stepper e Re-render:** Uma vez que o Mixed Content for resolvido, re-executar validação do Editor para confirmar que UI do Stepper e botões "Refazer" operam sem erros.
