@@ -3,6 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  turbopack: {},
 };
 
 export default withSentryConfig(nextConfig, {
