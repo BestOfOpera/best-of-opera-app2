@@ -60,6 +60,8 @@ class Perfil(Base):
     identity_prompt_redator = Column(Text)
     tom_de_voz_redator = Column(Text)
     custom_post_structure = Column(Text)  # estrutura de post customizável por marca
+    brand_opening_line = Column(Text)  # frase de abertura do prompt (substitui hardcoded)
+    hashtag_count = Column(Integer)  # quantidade de hashtags por marca (default 4)
     logo_url = Column(String(500))
     font_name = Column(String(100))
     font_file_r2_key = Column(String(200))

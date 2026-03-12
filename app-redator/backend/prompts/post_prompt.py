@@ -25,7 +25,7 @@ def _brand_block(brand_config: dict) -> str:
     return "\n\n═══════════════════════════════\nBRAND CUSTOMIZATION\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
 
 
-def _default_structure(hashtags, hashtags_str) -> str:
+def _default_structure(hashtags, hashtags_str, hashtag_count: int = 4) -> str:
     """Estrutura padrão de 5 seções (Best of Opera)."""
     return f"""═══════════════════════════════
 POST STRUCTURE (5 sections, separated by blank lines)
@@ -137,7 +137,7 @@ Example: "Does this give you 🔥 or ❄️? Tell us below!"
 ──────────────────────
 SECTION 5 — HASHTAGS (exactly 1 line)
 ──────────────────────
-Exactly 4 hashtags. Always include {hashtags[0] if hashtags else "#BestOfOpera"}. Add 3 relevant ones.
+Exactly {hashtag_count} hashtags. Always include {hashtags[0] if hashtags else "#BestOfOpera"}. Add {hashtag_count - 1} relevant ones.
 Example: "{hashtags_str}"
 """
 
@@ -156,6 +156,8 @@ def build_post_prompt(project, brand_config=None) -> str:
     brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
     hashtags = (brand_config or {}).get("hashtags_fixas", ["#BestOfOpera", "#Opera", "#ClassicalMusic"])
     custom_post = (brand_config or {}).get("custom_post_structure", "")
+    opening_line = (brand_config or {}).get("brand_opening_line", "")
+    hashtag_count = (brand_config or {}).get("hashtag_count", 4)
     flag = project.nationality_flag or ""
 
     # Build input fields, omitting any that are empty
@@ -180,9 +182,12 @@ def build_post_prompt(project, brand_config=None) -> str:
     if custom_post:
         structure = _custom_structure(custom_post)
     else:
-        structure = _default_structure(hashtags, hashtags_str)
+        structure = _default_structure(hashtags, hashtags_str, hashtag_count=hashtag_count)
 
-    return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}" — a channel that turns complete strangers to opera into obsessed fans, one post at a time.
+    default_opening = "a channel that turns complete strangers to opera into obsessed fans, one post at a time"
+    brand_opening = opening_line if opening_line else default_opening
+
+    return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}" — {brand_opening}.
 
 Your posts don't describe performances. They make people FEEL something they didn't expect to feel today.
 

@@ -226,6 +226,8 @@ def _run_migrations():
                 ("font_file_r2_key", "VARCHAR(200)"),
                 ("overlay_interval_secs", "INTEGER DEFAULT 15"),
                 ("custom_post_structure", "TEXT"),
+                ("brand_opening_line", "TEXT"),
+                ("hashtag_count", "INTEGER"),
             ]:
                 if col_name not in perfil_cols:
                     conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))

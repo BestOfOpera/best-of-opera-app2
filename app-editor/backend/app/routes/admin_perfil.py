@@ -128,6 +128,8 @@ class PerfilDetalheOut(BaseModel):
     identity_prompt_redator: Optional[str] = None
     tom_de_voz_redator: Optional[str] = None
     custom_post_structure: Optional[str] = None
+    brand_opening_line: Optional[str] = None
+    hashtag_count: Optional[int] = None
     logo_url: Optional[str] = None
     font_name: Optional[str] = None
     font_file_r2_key: Optional[str] = None
@@ -437,6 +439,8 @@ def duplicar_perfil(perfil_id: int, db: Session = Depends(get_db)):
         identity_prompt_redator=original.identity_prompt_redator,
         tom_de_voz_redator=original.tom_de_voz_redator,
         custom_post_structure=original.custom_post_structure,
+        brand_opening_line=original.brand_opening_line,
+        hashtag_count=original.hashtag_count,
         logo_url=original.logo_url,
         font_name=original.font_name,
         font_file_r2_key=None,  # nova marca começa sem fonte carregada

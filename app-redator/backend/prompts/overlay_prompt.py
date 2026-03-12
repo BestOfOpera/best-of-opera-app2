@@ -50,6 +50,7 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     max_chars_line = (brand_config or {}).get("overlay_max_chars_linha", 35)
     interval_secs = (brand_config or {}).get("overlay_interval_secs", 15)
+    opening_line = (brand_config or {}).get("brand_opening_line", "")
     identity = (brand_config or {}).get("identity_prompt_redator", "")
     tom_de_voz = (brand_config or {}).get("tom_de_voz_redator", "")
     escopo = (brand_config or {}).get("escopo_conteudo", "")
@@ -80,7 +81,10 @@ BRAND CUSTOMIZATION
 {chr(10).join(brand_block_parts)}
 """
 
-    return f"""You are a master storyteller and viral content writer for "{brand_name}", a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds.
+    default_opening = "a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds"
+    brand_opening = opening_line if opening_line else default_opening
+
+    return f"""You are a master storyteller and viral content writer for "{brand_name}", {brand_opening}.
 
 Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
 

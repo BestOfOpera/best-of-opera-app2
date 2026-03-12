@@ -42,5 +42,7 @@ def build_redator_config(perfil: Perfil) -> dict:
         "overlay_max_chars_linha": perfil.overlay_max_chars_linha or 35,
         "overlay_interval_secs": perfil.overlay_interval_secs or 15,
         "custom_post_structure": perfil.custom_post_structure or "",
+        "brand_opening_line": perfil.brand_opening_line or "",
+        "hashtag_count": perfil.hashtag_count or 4,
         "r2_prefix": perfil.r2_prefix or "",
     }
