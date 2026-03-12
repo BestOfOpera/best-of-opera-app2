@@ -6,7 +6,7 @@ import Link from "next/link"
 import { editorApi, type Edicao, type Segmento, type AlinhamentoData, type Janela } from "@/lib/api/editor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Check, Plus, RefreshCw, Scissors, Trash2 } from "lucide-react"
+import { ArrowLeft, Check, PenLine, Plus, RefreshCw, Scissors, Trash2 } from "lucide-react"
 
 const FLAG_STYLES: Record<string, string> = {
   VERDE: "border-l-green-500 bg-green-50",
@@ -59,6 +59,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
   const [addFormEnd, setAddFormEnd] = useState("")
   const [addFormText, setAddFormText] = useState("")
   const addFormTextRef = useRef<HTMLInputElement>(null)
+  const [criandoManual, setCriandoManual] = useState(false)
 
   const load = async () => {
     try {
@@ -132,6 +133,20 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
     }
   }
 
+  const handleInserirManual = async () => {
+    setCriandoManual(true)
+    setError("")
+    try {
+      await editorApi.criarAlinhamentoManual(edicaoId)
+      setPolling(false)
+      await load()
+    } catch (err: unknown) {
+      setError("Erro ao criar alinhamento manual: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setCriandoManual(false)
+    }
+  }
+
   const updateSegmento = (index: number, field: string, value: string) => {
     const updated = [...segmentos]
     updated[index] = { ...updated[index], [field]: value } as Segmento
@@ -180,7 +195,8 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
 
   // --- Adicionar segmento: abrir form inline ---
   const handleOpenAddForm = (afterIndex: number) => {
-    const prevEnd = segmentos[afterIndex]?.end || "00:00.000"
+    const defaultStart = edicao?.cut_start || "00:00.000"
+    const prevEnd = segmentos[afterIndex]?.end || defaultStart
     const nextStart = segmentos[afterIndex + 1]?.start || prevEnd
     setAddFormStart(prevEnd)
     setAddFormEnd(nextStart)
@@ -254,6 +270,18 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
   if (loading || !edicao) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
   if (polling || error) {
+    const manualButton = (
+      <Button
+        variant="outline"
+        onClick={handleInserirManual}
+        disabled={criandoManual}
+        className="gap-2"
+      >
+        <PenLine className="h-4 w-4" />
+        {criandoManual ? "Criando..." : "Inserir letra manualmente"}
+      </Button>
+    )
+
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
         {error ? (
@@ -261,7 +289,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
             <div className="text-destructive text-4xl mb-4">!</div>
             <h3 className="text-lg font-semibold mb-2 text-destructive">Erro na transcrição</h3>
             <div className="bg-destructive/10 text-destructive text-sm rounded-lg p-4 mb-4 text-left max-w-lg mx-auto whitespace-pre-wrap">{error}</div>
-            <div className="flex gap-3 justify-center mt-4">
+            <div className="flex gap-3 justify-center mt-4 flex-wrap">
               <Button variant="link" onClick={() => router.push(`/editor/edicao/${edicaoId}/letra`)}>
                 Voltar para letra
               </Button>
@@ -269,6 +297,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
                 <RefreshCw className={`h-4 w-4 mr-2 ${retranscrevendo ? "animate-spin" : ""}`} />
                 {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
               </Button>
+              {manualButton}
             </div>
           </>
         ) : (
@@ -278,11 +307,12 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
                 <div className="h-8 w-8 mx-auto mb-4 text-yellow-500 text-3xl">⏱</div>
                 <h3 className="text-lg font-semibold mb-2 text-yellow-700">Timeout — transcrição demorando demais</h3>
                 <p className="text-sm text-muted-foreground">O backend pode ter travado. Tente recarregar ou iniciar novamente.</p>
-                <div className="flex gap-3 justify-center mt-4">
+                <div className="flex gap-3 justify-center mt-4 flex-wrap">
                   <Button variant="outline" onClick={() => window.location.reload()}>Recarregar</Button>
                   <Button onClick={handleRetranscrever} disabled={retranscrevendo}>
                     {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
                   </Button>
+                  {manualButton}
                 </div>
               </>
             ) : (
@@ -291,6 +321,9 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
                 <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
                 <p className="text-sm text-muted-foreground">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
                 <p className="text-xs text-muted-foreground mt-4">Atualizando automaticamente...</p>
+                <div className="mt-6">
+                  {manualButton}
+                </div>
               </>
             )}
           </>
@@ -348,6 +381,28 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
           <p className="text-xs text-muted-foreground">Nenhuma fonte de áudio disponível.</p>
         )}
       </div>
+
+      {/* Banner modo manual */}
+      {alinhamento.rota === "M" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <PenLine className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <h4 className="text-sm font-semibold text-amber-800">Modo manual — insira a letra com timestamps</h4>
+              <p className="text-sm text-amber-700 mt-1">
+                Use o botão <span className="font-medium">+</span> abaixo para adicionar cada verso com seu timestamp.
+                {(edicao.cut_start || edicao.cut_end) && (
+                  <>
+                    {" "}Corte escolhido:{" "}
+                    <span className="font-bold">{edicao.cut_start || "?"} — {edicao.cut_end || "?"}</span>
+                    {" "}(só é necessário sincronizar esse trecho).
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info bar */}
       <div className="flex items-center gap-4 mb-6 flex-wrap">
@@ -521,7 +576,65 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
             )
           })}
         </div>
-        {addingAfterIndex === segmentos.length - 1 ? null : (
+        {segmentos.length === 0 && addingAfterIndex === null ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenAddForm(-1)}
+            className="mt-2 w-full gap-2 border-dashed text-muted-foreground hover:text-primary"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar primeiro segmento
+          </Button>
+        ) : segmentos.length === 0 && addingAfterIndex === -1 ? (
+          <div className="border-l-4 border-l-blue-400 bg-blue-50 rounded-lg p-3 my-1">
+            <div className="flex items-start gap-3">
+              <span className="text-xs mt-1">➕</span>
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={addFormStart}
+                    onChange={e => setAddFormStart(e.target.value)}
+                    className="w-[85px] h-6 text-xs font-mono"
+                    title="Início"
+                    placeholder="00:00.000"
+                  />
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Input
+                    value={addFormEnd}
+                    onChange={e => setAddFormEnd(e.target.value)}
+                    className="w-[85px] h-6 text-xs font-mono"
+                    title="Fim"
+                    placeholder="00:00.000"
+                  />
+                </div>
+              </div>
+              <div className="flex-1">
+                <Input
+                  ref={addFormTextRef}
+                  value={addFormText}
+                  onChange={e => setAddFormText(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") handleConfirmAdd()
+                    if (e.key === "Escape") handleCancelAdd()
+                  }}
+                  placeholder="Texto do segmento..."
+                  className="h-7 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-2 justify-end">
+              <Button type="button" size="sm" variant="ghost" onClick={handleCancelAdd}>
+                Cancelar
+              </Button>
+              <Button type="button" size="sm" onClick={handleConfirmAdd} className="gap-1">
+                <Check className="h-3.5 w-3.5" />
+                Adicionar
+              </Button>
+            </div>
+          </div>
+        ) : addingAfterIndex === segmentos.length - 1 ? null : segmentos.length > 0 ? (
           <Button
             type="button"
             variant="outline"
@@ -532,7 +645,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
             <Plus className="h-4 w-4" />
             Adicionar segmento
           </Button>
-        )}
+        ) : null}
       </div>
 
       {/* Actions */}

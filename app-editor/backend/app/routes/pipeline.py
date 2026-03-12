@@ -532,15 +532,25 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
         db.commit()
         return {"fonte": "banco", "letra": letra_existente.letra, "letra_id": letra_existente.id}
 
-    # Buscar via Gemini
+    metadados = {
+        "artista": edicao.artista,
+        "musica": edicao.musica,
+        "opera": edicao.opera,
+        "compositor": edicao.compositor,
+        "idioma": edicao.idioma,
+    }
+
+    # Buscar via Genius (mais confiável — banco de letras curado)
     try:
-        metadados = {
-            "artista": edicao.artista,
-            "musica": edicao.musica,
-            "opera": edicao.opera,
-            "compositor": edicao.compositor,
-            "idioma": edicao.idioma,
-        }
+        from app.services.genius import buscar_letra as genius_buscar_letra
+        letra_genius = await genius_buscar_letra(metadados)
+        if letra_genius:
+            return {"fonte": "genius", "letra": letra_genius}
+    except Exception as e:
+        logger.warning(f"[{edicao_id}] Genius falhou: {e}")
+
+    # Fallback: Gemini (pode alucinar — requer revisão)
+    try:
         letra_text = await gemini_buscar_letra(metadados)
         return {"fonte": "gemini", "letra": letra_text}
     except Exception as e:
@@ -1012,6 +1022,43 @@ def obter_alinhamento(edicao_id: int, db: Session = Depends(get_db)):
             "fim": edicao.janela_fim_sec,
             "duracao": edicao.duracao_corte_sec,
         } if edicao.janela_inicio_sec else None,
+    }
+
+
+@router.post("/edicoes/{edicao_id}/alinhamento-manual")
+def criar_alinhamento_manual(edicao_id: int, db: Session = Depends(get_db)):
+    """Cria alinhamento vazio para inserção manual de letra pelo usuário."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    # Buscar letra_id se existir
+    from app.models.letra import Letra
+    letra = db.query(Letra).filter(Letra.edicao_id == edicao_id).order_by(Letra.id.desc()).first()
+
+    alinhamento = Alinhamento(
+        edicao_id=edicao_id,
+        letra_id=letra.id if letra else None,
+        segmentos_completo=[],
+        confianca_media=0,
+        rota="M",
+        validado=False,
+    )
+    db.add(alinhamento)
+
+    edicao.status = "alinhamento"
+    edicao.passo_atual = 4
+    edicao.erro_msg = None
+    edicao.rota_alinhamento = "M"
+    db.commit()
+
+    return {
+        "ok": True,
+        "alinhamento_id": alinhamento.id,
+        "corte": {
+            "inicio": edicao.corte_original_inicio,
+            "fim": edicao.corte_original_fim,
+        },
     }
 
 
