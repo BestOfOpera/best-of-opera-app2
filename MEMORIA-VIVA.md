@@ -1,5 +1,84 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (8) — Investigação prompt Claude + fix espaços overlay
+
+### Problemas investigados
+- Textos da marca BO "paupérrimos" — investigação completa do pipeline de prompt
+- Legendas overlay com falta de espaço entre palavras
+
+### Causa raiz: Textos pobres
+Os campos `identity_prompt_redator`, `tom_de_voz_redator`, `escopo_conteudo` estão **NULL no banco para todos os perfis**. A seção `BRAND CUSTOMIZATION` nunca é injetada no prompt do Claude. Claude escreve sem identidade de marca.
+
+Descoberta adicional: o formulário admin usava campos GENÉRICOS (`identity_prompt`, `tom_de_voz`) mas o redator lê campos `_redator` específicos (`identity_prompt_redator`, `tom_de_voz_redator`) — dois conjuntos de campos distintos, todos vazios.
+
+### Causa raiz: Espaços faltando
+Três causas simultâneas:
+1. `_limpar_texto_overlay()` só corrigia `minúscula→MAIÚSCULA`, não outros padrões
+2. `_formatar_overlay()` não detectava `\n` literal (backslash+n, 2 chars) como separador
+3. Faltava instrução explícita no prompt do Claude
+
+### Correções aplicadas (não commitadas)
+- `app-redator/backend/services/claude_service.py` — `_limpar_texto_overlay()` ampliada: normaliza `\n`/`\N` literais, adiciona detecção de ponto+maiúscula e número+letra
+- `app-editor/backend/app/services/legendas.py` — `_formatar_overlay()` detecta `\\n` (2 chars) além de `\N` e newline real
+- `app-redator/backend/prompts/overlay_prompt.py` — regra 9 adicionada: "WORD SPACING — CRITICAL"
+- `app-portal/lib/api/editor.ts` — adicionados `identity_prompt_redator` e `tom_de_voz_redator` ao tipo `Perfil`
+- `app-portal/app/(app)/admin/marcas/nova/page.tsx` — form usa campos `_redator` corretos
+- `app-portal/app/(app)/admin/marcas/[id]/page.tsx` — form usa campos `_redator` corretos
+
+### Pendências críticas
+1. **Bolivar deve aprovar e devolver os 3 blocos de texto** para inserir no banco:
+   - `identity_prompt_redator`: quem é o canal, público, propósito
+   - `tom_de_voz_redator`: estilo de escrita, tom, como criar tensão
+   - `escopo_conteudo`: o que focar/evitar por projeto
+   Drafts propostos estão no histórico da sessão 8.
+2. **Git push** de todos os 6 arquivos modificados após aprovação dos textos.
+
+### Decisão de arquitetura: Regras comuns vs por marca
+Investigação completa do prompt revelou a estrutura em camadas:
+
+**UNIVERSAL (todas as marcas — hardcoded em `overlay_prompt.py`):**
+- Regras técnicas: max_chars, timing, spacing, word spacing, JSON format
+- Regras de qualidade: narrative arc, first subtitle at 00:00, 1s gap entre legendas
+- Regra nova: WORD SPACING obrigatório (regra 9)
+
+**JÁ CONFIGURÁVEL POR MARCA (lido do banco via `build_redator_config()`):**
+- `overlay_max_chars` e `overlay_max_chars_linha` — limite de caracteres por marca
+- `identity_prompt_redator` — identidade/personalidade do canal
+- `tom_de_voz_redator` — estilo de escrita
+- `escopo_conteudo` — foco de conteúdo
+- `hook_categories_redator` — categorias de hook customizadas por marca
+- `hashtags_fixas` — hashtags fixas do canal
+
+**HARDCODED MAS CANDIDATO A POR MARCA (não implementado ainda):**
+- FORBIDDEN phrases ("beautiful performance", "amazing voice"...) — marcas acadêmicas podem querer usar
+- FORBIDDEN jargon ("bel canto", "coloratura"...) — idem, canal mais técnico pode querer usar
+- RETENTION PRINCIPLES (Open loops, Specificity, Tension & Release) — podem ser sobrescritos via `identity_prompt_redator`
+- EMOTIONAL TOOLKIT (hidden story, contrast, stakes...) — idem, via `tom_de_voz_redator`
+- CTA obrigatório na última legenda — toggle booleano seria útil
+
+**Recomendação para próximas marcas:** os campos `identity_prompt_redator` e `tom_de_voz_redator` já permitem sobrescrever indiretamente as regras criativas (Claude obedece BRAND CUSTOMIZATION que aparece depois das regras gerais). Para casos extremos (marca que quer jargão técnico), adicionar campo `custom_overlay_rules` ao Perfil.
+
+**Para BO especificamente:** as regras hardcoded são exatamente o que o canal precisa. A diferenciação virá dos 3 campos de identidade pendentes.
+
+---
+
+## Sessão 2026-03-12 (7) — Fix timeouts IA + URL report (ERR-072/073/074)
+
+### Problemas
+- ERR-072: Request timeout no Novo Projeto (Redator) — `generate()` chama Claude AI, timeout padrão 15s insuficiente
+- ERR-073: Request timeout no Buscar Letra (Editor) — `buscarLetra()` chama Gemini, timeout padrão 15s insuficiente
+- ERR-074: Erro ao enviar report — URL `/reports/{id}/screenshots` (plural) não existe no backend; endpoint correto é `/screenshot` (singular)
+
+### Correções
+- `app-portal/lib/api/redator.ts`: `generate()` timeout 15s → 90s
+- `app-portal/lib/api/editor.ts`: `buscarLetra()` timeout 15s → 90s; `uploadScreenshot` URL corrigida
+- Sentry: issues stale genius (ERR-068) e falhas (ERR-066) marcados como resolved
+
+### Estado
+- Commit `f03e90e` pushed, deploy automático no Railway
+
+---
+
 ## Sessão 2026-03-12 (6) — Fix 403 admin perfil BO (ERR-075)
 
 ### Problema
