@@ -290,7 +290,7 @@ export const editorApi = {
   infoCorte: (id: number) =>
     request<{ cut_start: string; cut_end: string; duracao: number }>(`${BASE()}/edicoes/${id}/corte`),
   traduzirLyrics: (id: number) =>
-    request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`, { method: "POST" }),
+    request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`, { method: "POST", timeout: 180000 }),
   obterTraducoes: (id: number) =>
     request<{ traducoes: Record<string, string> }>(`${BASE()}/edicoes/${id}/traducao-lyrics`),
   renderizar: (id: number, opts?: { sem_legendas?: boolean }) => {
@@ -308,7 +308,7 @@ export const editorApi = {
   listarRenders: (id: number) =>
     request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
   exportarRenders: (id: number) =>
-    request<{ pasta: string; arquivos_exportados: number }>(`${BASE()}/edicoes/${id}/exportar`, { method: "POST" }),
+    request<{ pasta: string; arquivos_exportados: number }>(`${BASE()}/edicoes/${id}/exportar`, { method: "POST", timeout: 60000 }),
   reRenderizar: (id: number, idioma: string) =>
     request<{ status: string }>(`${BASE()}/edicoes/${id}/re-renderizar/${idioma}`, { method: "POST" }),
   reTraduzir: (id: number, idioma: string) =>
@@ -344,7 +344,7 @@ export const editorApi = {
     if (ehInstrumental) params.append("eh_instrumental", "true")
     if (perfil_id) params.append("perfil_id", perfil_id.toString())
     const qs = params.toString() ? `?${params.toString()}` : ""
-    return request<Edicao>(`${BASE()}/redator/importar/${projectId}${qs}`, { method: "POST" })
+    return request<Edicao>(`${BASE()}/redator/importar/${projectId}${qs}`, { method: "POST", timeout: 60000 })
   },
 
   // Dashboard API

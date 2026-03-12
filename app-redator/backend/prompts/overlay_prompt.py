@@ -115,9 +115,10 @@ STRUCTURE RULES
      "A legendary performance!" ✅ (24 chars, 1 line)
      "Die\\nanspruchsvollste Arie der Oper!" ❌ (3+31 chars, UNBALANCED)
 
-9. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space. NEVER concatenate two words without a space. This is non-negotiable and will break the subtitle display.
-   WRONG: "Elecantou" / "amúsicafaz" / "trêstenores"
-   CORRECT: "Ele cantou" / "a música faz" / "três tenores"
+9. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks. If you need a space between words, use a literal space character.
+   WRONG: "nuncasetocam" / "harmoniaé" / "comoum" / "momentosque"
+   CORRECT: "nunca se tocam" / "harmonia é" / "como um" / "momentos que"
+   This is non-negotiable. Verify every word is properly separated before outputting.
 
 ═══════════════════════════════
 EMOTIONAL TOOLKIT — use these techniques
@@ -129,7 +130,10 @@ EMOTIONAL TOOLKIT — use these techniques
 - **The confession**: "This is the part where people always start crying"
 - **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
 - **The countdown**: "The note that's coming will change how you hear music"
-- **The CTA (Engagement)**: The VERY LAST subtitle of the array MUST always be a CTA. Examples: "Follow for more moments like this", "Turn on notifications and don't miss a thing", "Save this video for later". Adapt to the song's context, but always invite engagement.
+- **The CTA (Engagement)**: The VERY LAST subtitle MUST be an emotional CTA that feels like a natural continuation of the story — NOT a generic "follow/subscribe" command. Tie the CTA to what the viewer just experienced.
+   GOOD: "If this gave you chills, wait for what comes next" / "There are 47 more moments like this one" / "This is just the beginning — the duet gets even better"
+   BAD: "Follow for more moments like this" / "Turn on notifications" / "Subscribe for more" — these are GENERIC and BORING. Never use them.
+   The CTA should make the viewer FEEL something, not just obey a command.
 
 {identity_block}═══════════════════════════════
 OUTPUT FORMAT

@@ -27,7 +27,11 @@ def _limpar_texto_overlay(texto: str) -> str:
     """Fix common orthographic issues: stuck words and missing spaces after punctuation."""
     if not texto:
         return texto
-    # Normalizar \n literal (dois chars: barra+n) para espaço — evita palavras grudadas por quebra de linha mal codificada
+    # Normalizar TODOS os tipos de quebra de linha para espaço:
+    # 1. Newlines reais (1 char) — quando Claude escreve \n no JSON e json.loads converte para newline real
+    # 2. Literal \n e \N (2 chars: barra+letra) — quando Claude escreve \\n no JSON
+    # Sem isso, "nunca\nse" vira "nuncasetocam" no frontend (ERR-056 v2)
+    texto = texto.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
     texto = texto.replace("\\n", " ").replace("\\N", " ")
     # Espaço após pontuação colada a palavra
     texto = re.sub(r'([,;:!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
@@ -205,6 +209,16 @@ Return the JSON object and nothing else."""
     return json.loads(_strip_json_fences(raw))
 
 
+def _truncar_no_limite(texto: str, max_chars: int) -> str:
+    """Truncate text at word boundary to fit within max_chars."""
+    if len(texto) <= max_chars:
+        return texto
+    pos = texto.rfind(" ", 0, max_chars)
+    if pos == -1:
+        return texto[:max_chars - 1] + "…"
+    return texto[:pos]
+
+
 def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=None) -> list[dict]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
@@ -214,11 +228,15 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_overlay_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
-    
-    # Apply orthographic cleaning (ERR-056)
+
+    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
+
+    # Apply orthographic cleaning + enforce character limit (ERR-056)
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
+            if len(leg["text"]) > max_chars:
+                leg["text"] = _truncar_no_limite(leg["text"], max_chars)
             
     # Validation: Last subtitle timing (ERR-054)
     if parsed:

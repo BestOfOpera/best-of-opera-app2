@@ -58,7 +58,7 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
     if (token) headers["Authorization"] = `Bearer ${token}`
   }
 
-  const { timeout = 15000, ...fetchOptions } = options ?? {}
+  const { timeout = 30000, ...fetchOptions } = options ?? {}
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
 
@@ -90,7 +90,7 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
   return res.json()
 }
 
-export async function requestFormData<T>(path: string, body: FormData, timeout = 15000): Promise<T> {
+export async function requestFormData<T>(path: string, body: FormData, timeout = 30000): Promise<T> {
   const headers: Record<string, string> = {}
 
   if (typeof window !== "undefined") {

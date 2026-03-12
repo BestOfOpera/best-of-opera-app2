@@ -79,11 +79,12 @@ export const redatorApi = {
     const formData = new FormData()
     formData.append("screenshot", screenshot)
     formData.append("youtube_url", youtubeUrl)
-    return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData)
+    return requestFormData<DetectedMetadata>(`${BASE()}/projects/detect-metadata`, formData, 60000)
   },
   detectMetadataFromText: (youtubeUrl: string, title: string, description: string): Promise<DetectedMetadata> =>
     request<DetectedMetadata>(`${BASE()}/projects/detect-metadata-text`, {
       method: "POST",
+      timeout: 60000,
       body: JSON.stringify({ youtube_url: youtubeUrl, title, description }),
     }),
   listProjects: () => request<Project[]>(`${BASE()}/projects`),
@@ -99,16 +100,19 @@ export const redatorApi = {
   regenerateOverlay: (id: number, customPrompt?: string) =>
     request<Project>(`${BASE()}/projects/${id}/regenerate-overlay`, {
       method: "POST",
+      timeout: 90000,
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
   regeneratePost: (id: number, customPrompt?: string) =>
     request<Project>(`${BASE()}/projects/${id}/regenerate-post`, {
       method: "POST",
+      timeout: 90000,
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
   regenerateYoutube: (id: number, customPrompt?: string) =>
     request<Project>(`${BASE()}/projects/${id}/regenerate-youtube`, {
       method: "POST",
+      timeout: 90000,
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
 
@@ -129,9 +133,9 @@ export const redatorApi = {
     }),
 
   translate: (id: number) =>
-    request<Project>(`${BASE()}/projects/${id}/translate`, { method: "POST" }),
+    request<Project>(`${BASE()}/projects/${id}/translate`, { method: "POST", timeout: 180000 }),
   retranslate: (id: number, lang: string) =>
-    request<ExportData>(`${BASE()}/projects/${id}/retranslate/${lang}`, { method: "POST" }),
+    request<ExportData>(`${BASE()}/projects/${id}/retranslate/${lang}`, { method: "POST", timeout: 60000 }),
   updateTranslation: (id: number, lang: string, data: Partial<ExportData>) =>
     request<ExportData>(`${BASE()}/projects/${id}/translation/${lang}`, {
       method: "PUT",
@@ -144,7 +148,7 @@ export const redatorApi = {
   exportToFolder: (id: number) =>
     request<{ path: string }>(`${BASE()}/projects/${id}/export-to-folder`, { method: "POST" }),
   saveToR2: (id: number) =>
-    request<{ ok: boolean; r2_base: string }>(`${BASE()}/projects/${id}/save-to-r2`, { method: "POST" }),
+    request<{ ok: boolean; r2_base: string }>(`${BASE()}/projects/${id}/save-to-r2`, { method: "POST", timeout: 60000 }),
   getExportConfig: () =>
     request<{ export_path: string | null }>(`${BASE()}/projects/export-config`),
 }

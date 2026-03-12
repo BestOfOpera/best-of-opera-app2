@@ -1,5 +1,34 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (9) — Fix timeouts frontend (Request timeout em todas as telas)
+
+### Problema
+Todas as chamadas de API no frontend (app-portal) tinham timeout padrão de 15 segundos. Operações com IA (tradução 7 idiomas, regeneração overlay/post/youtube) e operações de arquivo (save to R2, export) excediam esse limite, causando "Request timeout" visível ao usuário.
+
+### Correções aplicadas — Timeouts
+- `app-portal/lib/api/base.ts` — timeout padrão: 15s → **30s** (request + requestFormData)
+- `app-portal/lib/api/redator.ts`:
+  - `translate`: 15s → **180s** (7 idiomas simultâneos)
+  - `regenerateOverlay/Post/Youtube`: 15s → **90s** (chamadas Claude AI)
+  - `retranslate`: 15s → **60s** (1 idioma)
+  - `detectMetadata/detectMetadataFromText`: 15s → **60s** (Gemini)
+  - `saveToR2`: 15s → **60s** (upload arquivos)
+- `app-portal/lib/api/editor.ts`:
+  - `traduzirLyrics`: 15s → **180s** (múltiplas traduções)
+  - `exportarRenders`: 15s → **60s** (operação de arquivos)
+  - `importarDoRedator`: 15s → **60s** (download + processamento)
+
+### Correções aplicadas — Word spacing overlay (ERR-056 v2)
+**Causa raiz**: Claude gera `\n` como JSON escape (1 char: newline real) entre palavras para quebra de linha. `_limpar_texto_overlay()` só tratava `\\n` literal (2 chars: barra+n), não o newline real. O `<input>` do frontend elimina newlines sem substituir por espaço → "nunca\nse" virava "nuncasetocam".
+
+**Evidência**: TODOS os 6 erros no screenshot seguem o padrão: palavras grudadas exatamente onde uma quebra de linha `\n` estaria.
+
+**Fixes**:
+- `app-redator/backend/services/claude_service.py` — `_limpar_texto_overlay()` agora trata `\r\n`, `\r`, `\n` (reais) ANTES dos literais `\\n`/`\\N`
+- `app-redator/backend/prompts/overlay_prompt.py` — regra 9 reforçada com exemplos reais dos erros + instrução para não usar `\n` como separador de palavras
+
+---
+
 ## Sessão 2026-03-12 (8) — Investigação prompt Claude + fix espaços overlay
 
 ### Problemas investigados
