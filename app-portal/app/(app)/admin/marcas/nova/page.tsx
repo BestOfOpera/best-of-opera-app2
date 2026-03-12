@@ -87,7 +87,9 @@ export default function NovaMarcaPage() {
         idioma_preview: "pt",
         editorial_lang: "pt",
         identity_prompt: "",
+        identity_prompt_redator: "",
         tom_de_voz: "",
+        tom_de_voz_redator: "",
         hashtags_fixas: ["opera", "classicalmusic"],
         categorias_hook: [],
         escopo_conteudo: "",
@@ -291,28 +293,33 @@ export default function NovaMarcaPage() {
                 <CollapsibleSection title="Prompts & Editorial" description="Personalidade da marca para a inteligência artificial." icon={Type}>
                     <div className="space-y-5">
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Prompt de Identidade (LLM Redator)</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1 line-clamp-1">Prompt base que define a persona do redator para esta marca.</p>
+                            <Label className="font-semibold text-muted-foreground">Identidade da Marca — Geração de Conteúdo</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Injetado diretamente no prompt do Claude ao gerar legendas, post e título. Descreva quem é a marca, o público-alvo e o propósito do canal.</p>
                             <Textarea
-                                value={formData.identity_prompt || ""}
-                                onChange={e => handleChange("identity_prompt", e.target.value)}
+                                value={formData.identity_prompt_redator || ""}
+                                onChange={e => handleChange("identity_prompt_redator", e.target.value)}
                                 className="min-h-[120px] bg-background resize-y text-sm"
-                                placeholder="Você atua como um editor especializado em ópera..."
+                                placeholder="Ex: Best of Opera tem 6M+ seguidores e transforma desconhecidos da ópera em fãs apaixonados..."
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Tom de Voz</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1">Presets recomendados: Informativo, Entusiasta, Acadêmico, Provocador.</p>
-                            <Input value={formData.tom_de_voz || ""} onChange={e => handleChange("tom_de_voz", e.target.value)} className="bg-background" placeholder="Ex: Informativo e elegante" />
+                            <Label className="font-semibold text-muted-foreground">Tom de Voz — Geração de Conteúdo</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Define o estilo de escrita injetado no prompt do Claude. Use frases curtas e descritivas.</p>
+                            <Textarea
+                                value={formData.tom_de_voz_redator || ""}
+                                onChange={e => handleChange("tom_de_voz_redator", e.target.value)}
+                                className="min-h-[80px] bg-background resize-y text-sm"
+                                placeholder="Ex: Íntimo e revelador. Frases curtas. Cria tensão antes de soltar. Tom de bastidores exclusivos..."
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Nota de Escopo de Conteúdo</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar.</p>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar ou evitar.</p>
                             <Textarea
                                 value={formData.escopo_conteudo || ""}
                                 onChange={e => handleChange("escopo_conteudo", e.target.value)}
                                 className="min-h-[80px] bg-background resize-y text-sm"
-                                placeholder="Focar em curiosidades históricas e técnica vocal..."
+                                placeholder="Ex: Foco exclusivo nesta performance — este artista, esta peça, este momento..."
                             />
                         </div>
                         <div className="space-y-4">

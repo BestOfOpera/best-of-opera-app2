@@ -405,39 +405,33 @@ export default function MarcaConfigPage() {
                 <CollapsibleSection title="Prompts & Editorial" description="Personalidade da marca para a inteligência artificial." icon={Type}>
                     <div className="space-y-5">
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Persona do Redator (Prompt Base)</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1">Define como a IA deve se comportar e escrever para esta marca.</p>
+                            <Label className="font-semibold text-muted-foreground">Identidade da Marca — Geração de Conteúdo</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Injetado diretamente no prompt do Claude ao gerar legendas, post e título. Descreva quem é a marca, o público-alvo e o propósito do canal.</p>
                             <Textarea
-                                value={formData.identity_prompt || ""}
-                                onChange={e => handleChange("identity_prompt", e.target.value)}
+                                value={formData.identity_prompt_redator || ""}
+                                onChange={e => handleChange("identity_prompt_redator", e.target.value)}
                                 className="min-h-[140px] bg-background resize-y text-sm leading-relaxed"
-                                placeholder="Ex: Você é um curador de ópera sofisticado que escreve para jovens entusiastas..."
+                                placeholder="Ex: Best of Opera tem 6M+ seguidores e transforma desconhecidos da ópera em fãs apaixonados..."
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Tom de Voz & Estilo</Label>
-                            <div className="flex flex-wrap gap-2 mb-2">
-                                {["Informativo", "Entusiasta", "Acadêmico", "Provocador", "Minimalista"].map(tone => (
-                                    <Badge 
-                                        key={tone} 
-                                        variant="secondary" 
-                                        className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
-                                        onClick={() => handleChange("tom_de_voz", tone)}
-                                    >
-                                        {tone}
-                                    </Badge>
-                                ))}
-                            </div>
-                            <Input value={formData.tom_de_voz || ""} onChange={e => handleChange("tom_de_voz", e.target.value)} className="bg-background" placeholder="Sinta-se livre para customizar o tom aqui..." />
+                            <Label className="font-semibold text-muted-foreground">Tom de Voz — Geração de Conteúdo</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Define o estilo de escrita injetado no prompt do Claude. Use frases curtas e descritivas.</p>
+                            <Textarea
+                                value={formData.tom_de_voz_redator || ""}
+                                onChange={e => handleChange("tom_de_voz_redator", e.target.value)}
+                                className="min-h-[80px] bg-background resize-y text-sm"
+                                placeholder="Ex: Íntimo e revelador. Frases curtas. Cria tensão antes de soltar. Tom de bastidores exclusivos..."
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label className="font-semibold text-muted-foreground">Nota de Escopo de Conteúdo</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar.</p>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar ou evitar.</p>
                             <Textarea
                                 value={formData.escopo_conteudo || ""}
                                 onChange={e => handleChange("escopo_conteudo", e.target.value)}
                                 className="min-h-[80px] bg-background resize-y text-sm"
-                                placeholder="Focar em curiosidades históricas e técnica vocal..."
+                                placeholder="Ex: Foco exclusivo nesta performance — este artista, esta peça, este momento..."
                             />
                         </div>
                         <div className="space-y-4">

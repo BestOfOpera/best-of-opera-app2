@@ -205,7 +205,9 @@ export interface Perfil {
   ativo: boolean
   editorial_lang: string
   identity_prompt: string
+  identity_prompt_redator: string
   tom_de_voz: string
+  tom_de_voz_redator: string
   hashtags_fixas: string[]
   categorias_hook: string[]
   escopo_conteudo: string
