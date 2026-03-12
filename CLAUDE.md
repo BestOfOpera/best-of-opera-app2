@@ -59,6 +59,10 @@ Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERR
 7. **git push via HTTPS** → trava esperando Keychain (ERR-038)
 8. **requeue_stale_tasks checando heartbeat no startup** → nada está rodando no startup, heartbeat é mentira (ERR-007)
 9. **Copiar valores do código pra documentação** → fica desatualizado. Referenciar o arquivo fonte
+10. **Declarar bug "corrigido" sem verificação end-to-end** → bug reaparece na sessão seguinte. REGRA: nunca dizer "corrigido" sem confirmar que o OUTPUT FINAL mudou (não basta ler o código)
+11. **Corrigir UMA ponta da cadeia e parar** → dado nasce no banco, passa por API, processamento e chega no output. Corrigir só uma camada não resolve. REGRA: mapear a cadeia completa (origem → transporte → processamento → output) ANTES de corrigir
+12. **Uma causa raiz por sessão** → bugs recorrentes têm múltiplas causas simultâneas. REGRA: investigar até não ter mais "e se..." pendentes, documentar TODAS as causas, só depois corrigir
+13. **Fix parcial documentado como completo** → se falta dado no banco, ou deploy, ou teste, o bug NÃO está corrigido. REGRA: documentar pendências como BLOCKER, não como "corrigido"
 
 ## Auto-atualização (OBRIGATÓRIO)
 Ao FINAL de toda sessão que altere código ou tome decisões:

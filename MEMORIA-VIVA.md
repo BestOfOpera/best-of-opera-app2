@@ -1,5 +1,60 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (11) — Revisão de bugs recorrentes e regras de qualidade
+
+### Contexto
+Bolivar apontou 4 bugs que foram declarados "corrigidos" múltiplas vezes mas nunca estavam:
+1. Fonte Playfair Display não aplicada (corrigida em camadas isoladas ao longo de várias sessões)
+2. Brand config NULL no banco (código corrigido, dado nunca inserido, declarado "corrigido")
+3. Word spacing (3 rodadas de regex incremental, cada uma pegava só os casos do screenshot)
+4. Erros repetidos na transcrição (backend corrigido, frontend sem retry automático)
+
+### Diagnóstico
+Padrão comum: **fix superficial + vitória prematura**. Corrigir uma camada, ler o código, declarar resolvido sem verificar o output final. Múltiplas causas raiz tratadas uma por sessão em vez de todas de uma vez.
+
+### Regras gravadas em CLAUDE.md (itens 10-13 das armadilhas)
+- Nunca declarar "corrigido" sem verificar output final
+- Mapear cadeia completa (banco → API → processamento → output) antes de corrigir
+- Investigar TODAS as causas raiz antes de corrigir qualquer uma
+- Pendências = BLOCKER, não "corrigido"
+
+### Estado atual dos 4 bugs
+| Bug | Status real | Pendência |
+|-----|------------|-----------|
+| Fonte Playfair | ✅ Corrigido (commit 3ccddda) | Nenhuma |
+| Brand config | ⚠️ Código OK, dado vazio | BLOCKER: campos identity_prompt_redator, tom_de_voz_redator, escopo_conteudo NULL no banco |
+| Word spacing | ✅ Overlay corrigido | Post/YouTube não passam por _limpar_texto |
+| Erros transcrição | ⚠️ Exibe erro corretamente | Sem retry automático no frontend |
+
+---
+
+## Sessão 2026-03-12 (10) — Fix crítico: brand config nunca chegava ao Claude
+
+### Causa raiz
+`EDITOR_API_URL` não estava configurado como env var no Railway para o serviço do redator. O código usava default `localhost:8000`, que em Railway aponta para o próprio container (não para o editor). `load_brand_config()` falhava silenciosamente e retornava fallback com campos VAZIOS. Os 9300 chars de brand config (identity_prompt_redator, tom_de_voz_redator, escopo_conteudo) inseridos no banco em sessão anterior **nunca chegavam ao prompt do Claude**.
+
+Isso explica 3 bugs recorrentes:
+1. Texto overlay "paupérrimo" — sem brand customization, Claude usava só prompt base genérico
+2. CTA genérico "Segue para mais momentos assim" — sem escopo_conteudo, CTA caía no fallback
+3. POST melhor que overlay — prompt base do POST é estruturalmente superior mesmo sem brand config
+
+### Correções aplicadas (commit e38a2ee)
+1. **Auto-detect Railway** — `_resolve_editor_url()` em `app-redator/backend/config.py` e `app-curadoria/backend/config.py`: detecta `RAILWAY_ENVIRONMENT` ou `RAILWAY_PROJECT_ID` e usa URL pública do editor
+2. **brand_config no regenerate** — `build_overlay/post/youtube_prompt_with_custom()` agora recebem e repassam `brand_config` (antes descartavam silenciosamente)
+3. **Word spacing regex** — `_limpar_texto_overlay()` agora cobre apóstrofos `'`, aspas curvas `""''`, parênteses `)`, colchetes `]`
+4. **CTA em PT** — exemplos BAD no overlay prompt agora incluem português ("Segue para mais momentos assim")
+5. **new-project.tsx** — mensagem detalhada de campos obrigatórios faltando
+
+### Bugs documentados
+- **EDITOR_API_URL não configurado no Railway** → redator nunca recebe brand config → overlay sem identidade de marca. Fix: auto-detect Railway environment.
+- **`_with_custom` descartava brand_config** → regeneração com prompt customizado perdia toda customização de marca. Fix: propagar brand_config.
+- **Regex word spacing incompleto** → apóstrofos e aspas não tratados (ex: `Marquis'para`). Fix: regex expandido.
+
+### Decisão: Rewrite do overlay prompt (pendente)
+Análise comparativa revelou que overlay prompt é 59% formatação / 41% storytelling (vs POST que é 62% storytelling / 38% formatação). Com brand config agora funcionando, avaliar se o overlay prompt precisa de rewrite estrutural ou se os 9300 chars de brand config compensam.
+
+---
+
 ## Sessão 2026-03-12 (9) — Fix timeouts frontend (Request timeout em todas as telas)
 
 ### Problema
