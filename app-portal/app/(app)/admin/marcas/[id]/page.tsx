@@ -434,6 +434,16 @@ export default function MarcaConfigPage() {
                                 placeholder="Ex: Foco exclusivo nesta performance — este artista, esta peça, este momento..."
                             />
                         </div>
+                        <div className="space-y-2">
+                            <Label className="font-semibold text-muted-foreground">Estrutura de Post Customizada</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">Template de estrutura do post para esta marca. Injetado no prompt do redator. Deixe vazio para usar o padrão.</p>
+                            <Textarea
+                                value={formData.custom_post_structure || ""}
+                                onChange={e => handleChange("custom_post_structure", e.target.value)}
+                                className="min-h-[100px] bg-background resize-y text-sm leading-relaxed font-mono"
+                                placeholder="Ex: Linha 1: Hook emocional&#10;Linha 2: Contexto histórico&#10;Linha 3: CTA"
+                            />
+                        </div>
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <Label className="font-semibold text-muted-foreground">Hashtags Fixas</Label>
@@ -502,7 +512,7 @@ export default function MarcaConfigPage() {
                         </Button>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 md:col-span-2 p-5 bg-muted/20 rounded-xl border border-border/30">
+                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-5 md:col-span-2 p-5 bg-muted/20 rounded-xl border border-border/30">
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Overlay Max</Label>
                                 <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
@@ -518,6 +528,14 @@ export default function MarcaConfigPage() {
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Trad Max</Label>
                                 <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Intervalo Overlay</Label>
+                                <div className="relative">
+                                    <Input type="number" min={5} max={60} value={formData.overlay_interval_secs || 15} onChange={e => handleChange("overlay_interval_secs", parseInt(e.target.value))} className="bg-background h-8 text-xs pr-6" />
+                                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">s</span>
+                                </div>
+                                <p className="text-[10px] text-muted-foreground leading-tight">Referência flexível — AI adensa em momentos de contexto</p>
                             </div>
                         </div>
 

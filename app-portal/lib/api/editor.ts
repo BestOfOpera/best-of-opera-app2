@@ -220,6 +220,8 @@ export interface Perfil {
   overlay_max_chars_linha: number
   lyrics_max_chars: number
   traducao_max_chars: number
+  overlay_interval_secs: number
+  custom_post_structure: string
   video_width: number
   video_height: number
   cor_primaria: string
@@ -281,6 +283,10 @@ export const editorApi = {
     request<Edicao>(`${BASE()}/edicoes/${id}/letra`, { method: "PUT", body: JSON.stringify(data) }),
   iniciarTranscricao: (id: number) =>
     request<{ status: string }>(`${BASE()}/edicoes/${id}/transcricao`, { method: "POST" }),
+  criarAlinhamentoManual: (id: number) =>
+    request<{ ok: boolean; alinhamento_id: number; corte: { inicio: string | null; fim: string | null } }>(
+      `${BASE()}/edicoes/${id}/alinhamento-manual`, { method: "POST" }
+    ),
   obterAlinhamento: (id: number) =>
     request<AlinhamentoResponse>(`${BASE()}/edicoes/${id}/alinhamento`),
   validarAlinhamento: (id: number, data: { segmentos: Segmento[] }) =>

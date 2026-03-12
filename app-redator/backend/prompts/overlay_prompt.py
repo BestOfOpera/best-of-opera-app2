@@ -10,7 +10,12 @@ def _field(label: str, value) -> str:
 
 
 def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
-    """Calculate approximate number of subtitles based on cut duration."""
+    """Calculate approximate number of subtitles based on cut duration.
+
+    The interval is a flexible reference — the AI should cluster overlays
+    around moments rich in context and space them out during purely musical
+    passages.
+    """
     try:
         if project.cut_start and project.cut_end:
             start_parts = project.cut_start.split(":")
@@ -22,12 +27,22 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
             parts = project.original_duration.split(":")
             duration_secs = int(parts[0]) * 60 + int(parts[1])
         else:
-            return "Create approximately 4-6 subtitle entries."
+            return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
 
         count = max(3, round(duration_secs / interval_secs))
-        return f"The video is {duration_secs} seconds long. Create approximately {count} subtitle entries (averaging ~1 every {interval_secs} seconds)."
+        min_count = max(3, count - 2)
+        max_count = count + 2
+        return (
+            f"The video is {duration_secs} seconds long. "
+            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable), "
+            f"using ~{interval_secs}s as a flexible reference interval. "
+            f"IMPORTANT: This interval is a GUIDE, not a rigid rule. "
+            f"Cluster subtitles closer together during context-rich moments "
+            f"(introductions, revelations, emotional peaks) and space them further apart "
+            f"during purely musical passages where the performance speaks for itself."
+        )
     except (ValueError, IndexError):
-        return "Create approximately 4-6 subtitle entries."
+        return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
 
 
 def build_overlay_prompt(project, brand_config=None) -> str:
@@ -99,7 +114,7 @@ STRUCTURE RULES
 ═══════════════════════════════
 
 1. Maximum {max_chars} characters per subtitle.
-2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end.
+2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
 3. Subtitles must follow a narrative arc: hook → build → climax → payoff.
 4. FIRST subtitle starts at "00:00" — short, punchy, under 30 characters. Make it impossible to ignore.
 5. FORBIDDEN phrases — never use: "beautiful performance", "amazing voice", "stunning rendition", "incredible talent", "breathtaking", "timeless masterpiece", "legendary performance". These are filler. Be specific instead.
