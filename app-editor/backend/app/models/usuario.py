@@ -12,5 +12,6 @@ class Usuario(Base):
     senha_hash = Column(String(500), nullable=False)
     role = Column(String(20), default="operador")  # "admin" ou "operador"
     ativo = Column(Boolean, default=True)
+    must_change_password = Column(Boolean, default=True)
     ultimo_login = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now())

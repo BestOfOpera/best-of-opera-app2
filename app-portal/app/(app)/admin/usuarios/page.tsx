@@ -254,7 +254,7 @@ export default function AdminUsuariosPage() {
                         </DialogTitle>
                         <DialogDescription>
                             {modalMode === "create"
-                                ? "Preencha os dados do novo integrante da equipe. A senha inicial será definida aqui."
+                                ? "Preencha os dados do novo integrante. A senha inicial será arias2026 e ele precisará trocá-la no primeiro acesso."
                                 : "Atualize os dados e as permissões de acesso deste colaborador."}
                         </DialogDescription>
                     </DialogHeader>
@@ -267,17 +267,18 @@ export default function AdminUsuariosPage() {
                             <Label htmlFor="email">Email</Label>
                             <Input id="email" type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="senha">Senha {modalMode === "edit" ? "(deixe em branco para não alterar)" : "*"}</Label>
-                            <Input
-                                id="senha"
-                                type="password"
-                                required={modalMode === "create"}
-                                value={formData.senha}
-                                onChange={e => setFormData({ ...formData, senha: e.target.value })}
-                                placeholder={modalMode === "edit" ? "••••••••" : ""}
-                            />
-                        </div>
+                        {modalMode === "edit" && (
+                            <div className="space-y-2">
+                                <Label htmlFor="senha">Nova senha <span className="text-muted-foreground font-normal">(deixe em branco para não alterar)</span></Label>
+                                <Input
+                                    id="senha"
+                                    type="password"
+                                    value={formData.senha}
+                                    onChange={e => setFormData({ ...formData, senha: e.target.value })}
+                                    placeholder="••••••••"
+                                />
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Nível de Acesso</Label>

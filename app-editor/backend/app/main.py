@@ -234,6 +234,7 @@ def _run_migrations():
             )
         """))
         conn.execute(text("CREATE INDEX IF NOT EXISTS ix_editor_usuarios_email ON editor_usuarios (email)"))
+        conn.execute(text("ALTER TABLE editor_usuarios ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE"))
         logger.info("Migration: tabela editor_usuarios garantida")
 
         # Seed: usuario admin padrão (idempotente)

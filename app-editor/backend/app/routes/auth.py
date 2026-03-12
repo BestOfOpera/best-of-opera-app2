@@ -28,7 +28,7 @@ def _verificar_senha(senha: str, hash_: str) -> bool:
 
 # ── Schemas inline ───────────────────────────────────────────────────────────
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 
 
@@ -44,12 +44,13 @@ class TokenResponse(BaseModel):
     email: str
     nome: str
     role: str
+    must_change_password: bool = False
 
 
 class UsuarioCreate(BaseModel):
     nome: str
     email: str
-    senha: str
+    senha: str = "arias2026"
     role: str = "operador"
 
 
@@ -59,6 +60,7 @@ class UsuarioOut(BaseModel):
     email: str
     role: str
     ativo: bool
+    must_change_password: bool = False
     ultimo_login: Optional[datetime] = None
     created_at: Optional[datetime] = None
 
@@ -71,6 +73,11 @@ class UsuarioUpdate(BaseModel):
     email: Optional[str] = None
     role: Optional[str] = None
     ativo: Optional[bool] = None
+    senha: Optional[str] = None
+
+
+class AlterarSenhaRequest(BaseModel):
+    senha_nova: str
 
 
 # ── Rotas ────────────────────────────────────────────────────────────────────
@@ -100,12 +107,13 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         email=usuario.email,
         nome=usuario.nome,
         role=usuario.role,
+        must_change_password=bool(usuario.must_change_password),
     )
 
 
 @router.post("/registrar", response_model=UsuarioOut, status_code=status.HTTP_201_CREATED)
 def registrar(body: UsuarioCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_admin)):
-    """Criar novo usuário (somente admins)."""
+    """Criar novo usuário (somente admins). Senha padrão: arias2026."""
     existente = db.query(Usuario).filter(Usuario.email == body.email).first()
     if existente:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email já cadastrado")
@@ -115,6 +123,7 @@ def registrar(body: UsuarioCreate, db: Session = Depends(get_db), _: Usuario = D
         email=body.email,
         senha_hash=_hash_senha(body.senha),
         role=body.role,
+        must_change_password=True,
     )
     db.add(novo)
     db.commit()
@@ -127,6 +136,20 @@ def registrar(body: UsuarioCreate, db: Session = Depends(get_db), _: Usuario = D
 def me(current_user: Usuario = Depends(get_current_user)):
     """Retorna dados do usuário logado."""
     return current_user
+
+
+@router.post("/alterar-senha", status_code=status.HTTP_204_NO_CONTENT)
+def alterar_senha(
+    body: AlterarSenhaRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+):
+    """Permite que o usuário logado troque a própria senha."""
+    if len(body.senha_nova) < 6:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Senha deve ter pelo menos 6 caracteres")
+    current_user.senha_hash = _hash_senha(body.senha_nova)
+    current_user.must_change_password = False
+    db.commit()
 
 
 @router.patch("/usuarios/{usuario_id}", response_model=UsuarioOut)
@@ -144,8 +167,13 @@ def atualizar_usuario(
     if body.role is not None and usuario_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Não é possível alterar o próprio role")
 
-    for campo, valor in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    nova_senha = updates.pop("senha", None)
+    for campo, valor in updates.items():
         setattr(usuario, campo, valor)
+    if nova_senha:
+        usuario.senha_hash = _hash_senha(nova_senha)
+        usuario.must_change_password = True  # força troca na próxima entrada
 
     db.commit()
     db.refresh(usuario)

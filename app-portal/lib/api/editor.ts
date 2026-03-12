@@ -230,6 +230,7 @@ export interface AuthUser {
   email: string
   role: string
   ativo: boolean
+  must_change_password?: boolean
   ultimo_login?: string
 }
 
@@ -358,8 +359,10 @@ export const editorApi = {
   listarUsuarios: () => request<AuthUser[]>(`${BASE()}/auth/usuarios`),
   registrarUsuario: (data: Partial<AuthUser> & { senha?: string }) =>
     request<AuthUser>(`${BASE()}/auth/registrar`, { method: "POST", body: JSON.stringify(data) }),
-  atualizarUsuario: (id: number, data: Partial<AuthUser>) =>
+  atualizarUsuario: (id: number, data: Partial<AuthUser> & { senha?: string }) =>
     request<AuthUser>(`${BASE()}/auth/usuarios/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  alterarSenha: (senha_nova: string) =>
+    request<void>(`${BASE()}/auth/alterar-senha`, { method: "POST", body: JSON.stringify({ senha_nova }) }),
 
   // Admin Perfis API
   listarPerfis: () => request<Perfil[]>(`${BASE()}/admin/perfis`),
