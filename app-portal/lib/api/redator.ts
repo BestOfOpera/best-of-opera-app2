@@ -95,7 +95,7 @@ export const redatorApi = {
     request<Project>(`${BASE()}/projects/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   generate: (id: number) =>
-    request<Project>(`${BASE()}/projects/${id}/generate`, { method: "POST" }),
+    request<Project>(`${BASE()}/projects/${id}/generate`, { method: "POST", timeout: 90000 }),
   regenerateOverlay: (id: number, customPrompt?: string) =>
     request<Project>(`${BASE()}/projects/${id}/regenerate-overlay`, {
       method: "POST",

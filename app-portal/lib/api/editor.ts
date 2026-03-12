@@ -274,7 +274,7 @@ export const editorApi = {
   statusVideo: (id: number) =>
     request<{ status: string; video_completo: boolean; audio_completo: boolean; duracao_total: number | null }>(`${BASE()}/edicoes/${id}/video/status`),
   buscarLetra: (id: number) =>
-    request<{ letra: string; fonte: string }>(`${BASE()}/edicoes/${id}/letra`, { method: "POST" }),
+    request<{ letra: string; fonte: string }>(`${BASE()}/edicoes/${id}/letra`, { method: "POST", timeout: 90000 }),
   aprovarLetra: (id: number, data: { letra: string }) =>
     request<Edicao>(`${BASE()}/edicoes/${id}/letra`, { method: "PUT", body: JSON.stringify(data) }),
   iniciarTranscricao: (id: number) =>
@@ -357,7 +357,7 @@ export const editorApi = {
   uploadScreenshot: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<{ url: string }>(`${BASE()}/reports/${id}/screenshots`, form)
+    return requestFormData<{ url: string }>(`${BASE()}/reports/${id}/screenshot`, form)
   },
   listarReports: (params?: Record<string, string>) => {
     const qs = params ? "?" + new URLSearchParams(params).toString() : ""
