@@ -84,11 +84,15 @@ def _normalize_categories(data: dict) -> dict:
                 "desc": "",
                 "seeds": val,
             }
-        elif isinstance(val, dict) and "seeds" in val:
+        elif isinstance(val, dict):
+            # Garante que 'seeds' sempre existe — sem isso, data["seeds"] quebra em 8 pontos do código
+            if "seeds" not in val:
+                logger.warning(f"_normalize_categories: categoria '{key}' sem chave 'seeds' — adicionando lista vazia")
+                val = {**val, "seeds": []}
             normalized[key] = val
         else:
-            # Formato desconhecido — preservar como está
-            normalized[key] = val
+            # Formato completamente desconhecido (ex: int, None) — ignorar com warning em vez de preservar
+            logger.warning(f"_normalize_categories: categoria '{key}' com tipo inesperado ({type(val).__name__}) — ignorando")
 
     data["categories"] = normalized
     return data
