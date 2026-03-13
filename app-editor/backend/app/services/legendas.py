@@ -55,15 +55,25 @@ def _estilos_do_perfil(perfil) -> dict:
     """Converte campos JSON do Perfil para dict de estilos ASS.
     Retorna estrutura idêntica a ESTILOS_PADRAO.
 
+    Merge: ESTILOS_PADRAO como base, sobrescrito pelos valores do perfil.
+    Garante que mesmo estilos parciais ou dicts vazios tenham todas as chaves.
+
     Se perfil.font_name estiver definido, sobrescreve o fontname em todos
     os estilos — isso garante que a fonte customizada do perfil seja usada
     mesmo que os JSONs de estilo no banco ainda tenham o nome antigo.
     """
-    estilos = {
-        "overlay": perfil.overlay_style or ESTILOS_PADRAO["overlay"],
-        "lyrics": perfil.lyrics_style or ESTILOS_PADRAO["lyrics"],
-        "traducao": perfil.traducao_style or ESTILOS_PADRAO["traducao"],
+    _TRACK_ATTRS = {
+        "overlay": "overlay_style",
+        "lyrics": "lyrics_style",
+        "traducao": "traducao_style",
     }
+    estilos = {}
+    for track, attr in _TRACK_ATTRS.items():
+        perfil_style = getattr(perfil, attr, None)
+        merged = dict(ESTILOS_PADRAO[track])  # copia defaults
+        if perfil_style and isinstance(perfil_style, dict):
+            merged.update(perfil_style)  # sobrescreve com valores do perfil
+        estilos[track] = merged
     # font_name do perfil é a fonte-verdade — override nos estilos
     font_override = getattr(perfil, "font_name", None)
     if font_override:

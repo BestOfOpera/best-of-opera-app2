@@ -31,6 +31,11 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
       setVideoCompleto(!!e.arquivo_video_completo)
       setVideoErro(e.status === "erro")
       setLoading(false)
+      // Instrumental: redirecionar direto para conclusão (corte/render)
+      if (e.sem_lyrics || e.eh_instrumental) {
+        router.push(`/editor/edicao/${edicaoId}/conclusao`)
+        return
+      }
       if (!e.arquivo_video_completo && e.status !== "erro") {
         editorApi.garantirVideo(edicaoId).catch(() => { })
       }

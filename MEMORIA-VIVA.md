@@ -1,5 +1,40 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (22) — Correção de 3 bugs (título Redator, instrumental, primarycolor)
+
+### Problemas encontrados
+1. **Título YouTube "# Resposta:"** — Claude retornava markdown header antes do título real. Parsing capturava o header.
+2. **Instrumental tratado como letra** — Músicas sem lyrics passavam por todo o pipeline de letra/transcrição/tradução. Mensagem do Gemini "Esta peça é instrumental..." era tratada como lyrics reais.
+3. **Erro 'primarycolor' no render** — Perfil com `overlay_style={}` (dict vazio) não caia no fallback de defaults. KeyError ao acessar `config["primarycolor"]`.
+
+### O que foi feito
+
+**Bug 1 (Redator):**
+- `app-redator/backend/services/claude_service.py` — adicionada `_strip_markdown_preamble()` que remove headers markdown e labels antes do parsing de título/tags
+- `app-redator/backend/prompts/youtube_prompt.py` — prompt reforçado: "Do NOT use markdown formatting, headers (#), or labels"
+
+**Bug 2 (Instrumental):**
+- `app-editor/backend/app/routes/pipeline.py`:
+  - Helper `_set_post_download_state()` centraliza lógica pós-download — 7 pontos agora usam essa function
+  - Se `sem_lyrics=True`: download → passo 5 (corte) direto, pulando letra/transcrição/alinhamento
+  - Guards em `buscar_letra_endpoint` e `aprovar_letra` para rejeitar instrumental
+  - `_aplicar_corte_impl` pula tradução → direto para montagem (passo 7) se instrumental
+  - Endpoint "desbloquear edição" respeita instrumental
+- `app-portal/components/editor/validate-lyrics.tsx` — redirect automático para conclusão se `sem_lyrics` ou `eh_instrumental`
+
+**Bug 3 (primarycolor):**
+- `app-editor/backend/app/services/legendas.py` — `_estilos_do_perfil()` agora faz merge: `ESTILOS_PADRAO` como base + valores do perfil sobrescrevem. Dicts vazios ou parciais nunca causam KeyError.
+
+### Decisões técnicas
+- Helper `_set_post_download_state()` em vez de 7 if/else espalhados — DRY e manutenível
+- Merge de estilos em vez de `or` — cobre dict vazio, parcial e None
+- Defesa em profundidade no título: sanitização do output + reforço no prompt
+
+### Estado resultante
+- Código aplicado — pendente: deploy de editor-backend, redator (app), e portal no Railway
+
+---
+
 ## Sessão 2026-03-12 (21) — Fallback cobalt.tools na curadoria
 
 ### Problema

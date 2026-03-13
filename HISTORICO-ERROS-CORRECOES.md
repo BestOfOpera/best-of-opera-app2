@@ -5,6 +5,31 @@
 
 ---
 
+## Fase 15 — 3 bugs: título Redator, instrumental, primarycolor (12/03/2026)
+
+### ERR-067 · Título YouTube mostra "# Resposta:" em vez do título real
+
+- **Sintoma:** Campo título na tela "Aprovar YouTube" exibia `# Resposta:` — header markdown do Claude
+- **Causa raiz:** `generate_youtube()` em `claude_service.py` fazia `lines[0]` no response do Claude. Claude às vezes retorna markdown headers como preamble.
+- **Arquivos corrigidos:** `app-redator/backend/services/claude_service.py` (adicionada `_strip_markdown_preamble()`), `app-redator/backend/prompts/youtube_prompt.py` (prompt reforçado)
+- **Correção (12/03/2026):** Sanitização do output (remove `#` headers e labels) + reforço no prompt ("Do NOT use markdown")
+
+### ERR-068 · Instrumental entra no pipeline de letra/transcrição/tradução
+
+- **Sintoma:** Músicas instrumentais (Für Elise) passavam por busca de letra, transcrição, alinhamento. Gemini retornava "Esta peça é instrumental..." que era tratada como lyrics.
+- **Causa raiz:** Flags `sem_lyrics` e `eh_instrumental` eram setadas no import mas ignoradas em todos os passos subsequentes (7 pontos pós-download, endpoints de letra, corte→tradução)
+- **Arquivos corrigidos:** `app-editor/backend/app/routes/pipeline.py` (helper `_set_post_download_state()`, guards em letra, skip tradução), `app-portal/components/editor/validate-lyrics.tsx` (redirect)
+- **Correção (12/03/2026):** Download → passo 5 (corte) direto. Guards em buscar/aprovar letra. Corte pula tradução → montagem. Frontend redireciona para conclusão.
+
+### ERR-069 · KeyError 'primarycolor' no render de perfil com estilo vazio
+
+- **Sintoma:** Render falhava com `'primarycolor'` para perfil Reels Classics
+- **Causa raiz:** `_estilos_do_perfil()` usava `perfil.overlay_style or ESTILOS_PADRAO["overlay"]`. Dict vazio `{}` é truthy em Python, não caia no fallback. Depois `config["primarycolor"]` dava KeyError.
+- **Arquivos corrigidos:** `app-editor/backend/app/services/legendas.py`
+- **Correção (12/03/2026):** Merge: `ESTILOS_PADRAO` como base + `perfil_style.update()` sobrescreve. Dicts vazios, parciais ou None todos cobertos.
+
+---
+
 ## Fase 14 — Sentry coverage + bugfix (11/03/2026)
 
 ### ERR-066 · NameError 'falhas' em _traducao_task

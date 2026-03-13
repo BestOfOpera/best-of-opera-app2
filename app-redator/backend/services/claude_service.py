@@ -278,6 +278,22 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
     return result
 
 
+def _strip_markdown_preamble(text: str) -> str:
+    """Remove markdown headers and label-only lines from LLM response."""
+    cleaned = []
+    for line in text.strip().splitlines():
+        stripped = line.strip()
+        # Skip markdown headers (# Title, ## Resposta, etc.)
+        if re.match(r'^#{1,3}\s', stripped):
+            continue
+        # Skip label-only lines like "**Title:**" or "Title:" or "Resposta:"
+        label = re.sub(r'[*_`]', '', stripped).strip()
+        if label.lower().rstrip(':') in ('title', 'tags', 'resposta', 'titulo', 'título', 'response'):
+            continue
+        cleaned.append(line)
+    return '\n'.join(cleaned)
+
+
 def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=None) -> tuple[str, str]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
@@ -286,6 +302,7 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
     else:
         prompt = build_youtube_prompt(project, brand_config=brand_config)
     raw = _call_claude(prompt, system=system)
+    raw = _strip_markdown_preamble(raw)
     _check_language_leak(raw, lang)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
     if not lines:

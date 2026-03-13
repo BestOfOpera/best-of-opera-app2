@@ -155,6 +155,20 @@ class CorteParams(BaseModel):
 _STATUS_PERMITIDOS_DOWNLOAD = {"aguardando", "baixando", "letra", "erro"}
 
 
+def _set_post_download_state(edicao):
+    """Define status/passo após download bem-sucedido.
+    Instrumental (sem_lyrics) pula direto para corte (passo 5).
+    """
+    if edicao.sem_lyrics:
+        edicao.status = "corte"
+        edicao.passo_atual = 5
+        logger.info(f"[{edicao.id}] Instrumental — pulando letra/transcrição, direto para corte")
+    else:
+        edicao.status = "letra"
+        edicao.passo_atual = 2
+    edicao.erro_msg = None
+
+
 # --- Passo 1: Garantir vídeo ---
 @router.post("/edicoes/{edicao_id}/garantir-video")
 async def garantir_video(edicao_id: int, db: Session = Depends(get_db)):
@@ -211,9 +225,7 @@ async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session
 
     edicao.arquivo_video_completo = r2_key
     edicao.r2_base = base  # BARE no DB
-    edicao.status = "letra"
-    edicao.passo_atual = 2
-    edicao.erro_msg = None
+    _set_post_download_state(edicao)
     db.commit()
     return {"status": "ok", "arquivo": r2_key}
 
@@ -252,9 +264,7 @@ async def _download_task(edicao_id: int):
             # Idempotência: se já tem vídeo no R2, não baixar de novo
             if edicao.arquivo_video_completo and storage.exists(edicao.arquivo_video_completo):
                 logger.info(f"[{edicao_id}] Vídeo já existe no R2 ({edicao.arquivo_video_completo}), pulando download")
-                edicao.status = "letra"
-                edicao.passo_atual = 2
-                edicao.erro_msg = None
+                _set_post_download_state(edicao)
                 db.commit()
                 return
 
@@ -303,9 +313,7 @@ async def _download_task(edicao_id: int):
                 if edicao:
                     edicao.arquivo_video_completo = r2_key
                     edicao.r2_base = base
-                    edicao.status = "letra"
-                    edicao.passo_atual = 2
-                    edicao.erro_msg = None
+                    _set_post_download_state(edicao)
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {}
                     db.commit()
@@ -338,9 +346,7 @@ async def _download_task(edicao_id: int):
                 if edicao:
                     edicao.arquivo_video_completo = r2_key
                     edicao.r2_base = base
-                    edicao.status = "letra"
-                    edicao.passo_atual = 2
-                    edicao.erro_msg = None
+                    _set_post_download_state(edicao)
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {}
                     db.commit()
@@ -378,9 +384,7 @@ async def _download_task(edicao_id: int):
                         if edicao:
                             edicao.arquivo_video_completo = cur_r2_key
                             edicao.r2_base = cur_r2_base
-                            edicao.status = "letra"
-                            edicao.passo_atual = 2
-                            edicao.erro_msg = None
+                            _set_post_download_state(edicao)
                             edicao.task_heartbeat = datetime.now(timezone.utc)
                             edicao.progresso_detalhe = {}
                             db.commit()
@@ -425,9 +429,7 @@ async def _download_task(edicao_id: int):
                     if edicao:
                         edicao.arquivo_video_completo = r2_key2
                         edicao.r2_base = base2
-                        edicao.status = "letra"
-                        edicao.passo_atual = 2
-                        edicao.erro_msg = None
+                        _set_post_download_state(edicao)
                         edicao.task_heartbeat = datetime.now(timezone.utc)
                         edicao.progresso_detalhe = {}
                         db.commit()
@@ -467,9 +469,7 @@ async def _download_task(edicao_id: int):
                     if edicao:
                         edicao.arquivo_video_completo = r2_key3
                         edicao.r2_base = base3
-                        edicao.status = "letra"
-                        edicao.passo_atual = 2
-                        edicao.erro_msg = None
+                        _set_post_download_state(edicao)
                         edicao.task_heartbeat = datetime.now(timezone.utc)
                         edicao.progresso_detalhe = {}
                         db.commit()
@@ -521,6 +521,9 @@ async def buscar_letra_endpoint(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
+    if edicao.sem_lyrics:
+        return {"fonte": "instrumental", "letra": "", "mensagem": "Música instrumental — sem letra"}
+
     # Buscar no banco primeiro
     from app.models import Letra
     letra_existente = db.query(Letra).filter(
@@ -562,6 +565,9 @@ def aprovar_letra(edicao_id: int, body: LetraAprovar, db: Session = Depends(get_
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
+
+    if edicao.sem_lyrics:
+        raise HTTPException(400, "Música instrumental — não aceita aprovação de letra")
 
     from app.models import Letra
 
@@ -1199,7 +1205,21 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             janela["janela_fim_sec"],
         )
 
-    # Se instrumental, pular tradução direto para montagem
+    # Instrumental: pular tradução, direto para render (passo 7)
+    if edicao.sem_lyrics:
+        edicao.passo_atual = 7
+        edicao.status = "montagem"
+        edicao.erro_msg = None
+        edicao.task_heartbeat = None
+        edicao.progresso_detalhe = {}
+        db.commit()
+        logger.info(f"[aplicar_corte] Instrumental — tradução pulada, direto para montagem edicao_id={edicao_id}")
+        return {
+            "janela": janela,
+            "video_cortado": edicao.arquivo_video_cortado,
+            "traducao": "instrumental — tradução pulada",
+        }
+
     edicao.passo_atual = 6
     edicao.status = "traducao"
     edicao.erro_msg = None
@@ -2726,6 +2746,9 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
         elif tem_letra:
             novo_status = "transcricao"
             base = "letra_aprovada"
+        elif tem_video and edicao.sem_lyrics:
+            novo_status = "corte"
+            base = "video_r2_instrumental"
         elif tem_video:
             novo_status = "letra"
             base = "video_r2"

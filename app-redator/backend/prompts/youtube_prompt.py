@@ -63,7 +63,7 @@ Line 2: The tags (comma-separated)
 Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.
 Only use information that was provided above. If a field (composer, voice type, etc.) was not listed, do not include it in the title or tags.
 
-Nothing else.
+Nothing else. Do NOT use markdown formatting, headers (#), or labels (Title:, Tags:). Output the raw title on line 1 and raw tags on line 2.
 {_brand_block(brand_config or {})}{build_language_reinforcement(project)}"""
 
 
