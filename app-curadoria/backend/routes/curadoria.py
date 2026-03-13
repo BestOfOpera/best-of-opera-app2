@@ -18,6 +18,7 @@ from services.scoring import calc_score_v7, _process_v7, _rescore_cached, is_pos
 from services.download import (
     manager, download_semaphore, sanitize_filename,
     _get_ydl_opts, _prepare_video_logic, _wrapped_prepare_video,
+    _download_via_cobalt,
 )
 from shared.storage_service import storage, check_conflict, save_youtube_marker
 from worker import task_queue
@@ -513,24 +514,37 @@ async def prepare_video(
     dl_path = str(project_dir / "video" / f"{project_name}.mp4")
 
     async with download_semaphore:
+        dl_path_actual = None
         try:
-            import yt_dlp
-            ydl_opts = _get_ydl_opts(dl_path)
+            # PASSO 1 — yt-dlp (com cookies se configurado)
+            try:
+                import yt_dlp
+                ydl_opts = _get_ydl_opts(dl_path)
 
-            def _download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([youtube_url])
+                def _download():
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([youtube_url])
 
-            await asyncio.to_thread(_download)
+                await asyncio.to_thread(_download)
 
-            if not os.path.exists(dl_path):
-                import glob as _glob
-                files = _glob.glob(str(project_dir / "video" / '*'))
-                dl_path_actual = files[0] if files else None
-                if not dl_path_actual:
-                    raise HTTPException(500, "Download falhou: arquivo não encontrado")
-            else:
-                dl_path_actual = dl_path
+                if not os.path.exists(dl_path):
+                    import glob as _glob
+                    files = _glob.glob(str(project_dir / "video" / '*'))
+                    dl_path_actual = files[0] if files else None
+                else:
+                    dl_path_actual = dl_path
+            except Exception as e:
+                logger.warning(f"[prepare-video] yt-dlp falhou para {video_id}: {e}")
+
+            # PASSO 2 — cobalt.tools (fallback)
+            if not dl_path_actual:
+                logger.info(f"[prepare-video] Tentando cobalt.tools para {video_id}...")
+                cobalt_ok = await _download_via_cobalt(youtube_url, dl_path)
+                if cobalt_ok:
+                    dl_path_actual = dl_path
+
+            if not dl_path_actual:
+                raise HTTPException(500, "Download falhou: yt-dlp e cobalt.tools falharam. Use upload manual.")
 
             try:
                 db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
@@ -557,7 +571,7 @@ async def prepare_video(
             raise
         except Exception as e:
             logger.error(f"prepare-video error for {video_id}: {e}")
-            raise HTTPException(500, f"Erro yt-dlp (prepare): {str(e)}")
+            raise HTTPException(500, f"Erro no download (prepare): {str(e)}")
 
 
 @router.post("/api/upload-video/{video_id}")

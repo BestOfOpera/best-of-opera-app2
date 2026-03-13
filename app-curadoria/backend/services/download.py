@@ -5,7 +5,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 import database as db
-from config import PROJECTS_DIR, load_brand_config
+from config import PROJECTS_DIR, COBALT_API_URL, load_brand_config
 from shared.storage_service import storage, check_conflict, save_youtube_marker
 
 # ─── DOWNLOAD WORKER (ERR-055) ───
@@ -111,6 +111,46 @@ def _get_ydl_opts(dl_path: str):
     return opts
 
 
+async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
+    """Baixa vídeo usando cobalt.tools API. Retorna True se ok, False se falhar."""
+    if not COBALT_API_URL:
+        return False
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+            resp = await client.post(
+                COBALT_API_URL,
+                json={"url": youtube_url, "videoQuality": "1080"},
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+            )
+        if resp.status_code != 200:
+            logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")
+            return False
+        data = resp.json()
+        status = data.get("status")
+        if status not in ("tunnel", "redirect"):
+            logger.warning(f"[cobalt] Status inesperado: {status} — {data}")
+            return False
+        download_url = data.get("url")
+        if not download_url:
+            logger.warning(f"[cobalt] URL ausente na resposta")
+            return False
+
+        async with httpx.AsyncClient(timeout=httpx.Timeout(300, connect=15)) as client:
+            async with client.stream("GET", download_url) as r:
+                if r.status_code != 200:
+                    logger.warning(f"[cobalt] Download falhou HTTP {r.status_code}")
+                    return False
+                with open(output_path, "wb") as f:
+                    async for chunk in r.aiter_bytes(chunk_size=1024 * 1024):
+                        f.write(chunk)
+        logger.info(f"[cobalt] Download concluído → {output_path}")
+        return True
+    except Exception as e:
+        logger.warning(f"[cobalt] Falha: {e}")
+        return False
+
+
 async def _prepare_video_logic(video_id: str, artist: str, song: str):
     safe_artist = sanitize_filename(artist)
     safe_song = sanitize_filename(song)
@@ -122,26 +162,40 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
     (project_dir / "video").mkdir(exist_ok=True)
     dl_path = str(project_dir / "video" / f"{project_name}.mp4")
 
-    manager.set_task(video_id, {"status": "processing", "progress": 30, "message": "Fazendo download..."})
+    manager.set_task(video_id, {"status": "processing", "progress": 30, "message": "Fazendo download (yt-dlp)..."})
 
+    dl_path_actual = None
     try:
-        import yt_dlp
-        ydl_opts = _get_ydl_opts(dl_path)
+        # PASSO 1 — yt-dlp (com cookies se configurado)
+        try:
+            import yt_dlp
+            ydl_opts = _get_ydl_opts(dl_path)
 
-        def _download():
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([youtube_url])
+            def _download():
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
 
-        await asyncio.to_thread(_download)
+            await asyncio.to_thread(_download)
 
-        if not os.path.exists(dl_path):
-            import glob as _glob
-            files = _glob.glob(str(project_dir / "video" / '*'))
-            dl_path_actual = files[0] if files else None
-            if not dl_path_actual:
-                raise Exception("Download falhou: arquivo não encontrado")
-        else:
-            dl_path_actual = dl_path
+            if not os.path.exists(dl_path):
+                import glob as _glob
+                files = _glob.glob(str(project_dir / "video" / '*'))
+                dl_path_actual = files[0] if files else None
+            else:
+                dl_path_actual = dl_path
+        except Exception as e:
+            logger.warning(f"[{video_id}] yt-dlp falhou: {e}")
+
+        # PASSO 2 — cobalt.tools (fallback se yt-dlp falhou)
+        if not dl_path_actual:
+            logger.info(f"[{video_id}] Tentando cobalt.tools como fallback...")
+            manager.set_task(video_id, {"status": "processing", "progress": 40, "message": "Fallback cobalt.tools..."})
+            cobalt_ok = await _download_via_cobalt(youtube_url, dl_path)
+            if cobalt_ok:
+                dl_path_actual = dl_path
+
+        if not dl_path_actual:
+            raise Exception("Download falhou: yt-dlp (bot detection) e cobalt.tools falharam. Use upload manual.")
 
         manager.set_task(video_id, {"status": "processing", "progress": 70, "message": "Enviando para o R2..."})
 

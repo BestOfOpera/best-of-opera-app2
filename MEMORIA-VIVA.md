@@ -1,5 +1,59 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (21) — Fallback cobalt.tools na curadoria
+
+### Problema
+Curadoria falhava ao baixar vídeo do YouTube (yt-dlp bloqueado por bot detection) sem nenhum fallback. O editor já tinha cascata completa (R2 → local → curadoria → cobalt → yt-dlp), mas a curadoria só usava yt-dlp — single point of failure.
+
+### O que foi feito
+- Adicionado `COBALT_API_URL` em `app-curadoria/backend/config.py` (default: `https://api.cobalt.tools`)
+- Criada função `_download_via_cobalt()` em `app-curadoria/backend/services/download.py` (mesma lógica do editor)
+- Integrado fallback cobalt em 2 pontos de download:
+  - `_prepare_video_logic()` (worker de batch download)
+  - `prepare_video` endpoint em `routes/curadoria.py` (chamado pelo botão "Preparando...")
+- Cascata agora: **yt-dlp (com cookies) → cobalt.tools → erro**
+
+### Arquivos editados
+- `app-curadoria/backend/config.py` — COBALT_API_URL
+- `app-curadoria/backend/services/download.py` — `_download_via_cobalt()` + fallback no worker
+- `app-curadoria/backend/routes/curadoria.py` — import + fallback no endpoint
+
+### Estado resultante
+- Código aplicado — pendente: deploy do curadoria-backend no Railway
+- COBALT_API_URL usa default público, não precisa de env var no Railway
+
+---
+
+## Sessão 2026-03-12 (20) — Deploy + E2E multi-brand completo
+
+### O que foi feito
+- Deploy dos 4 serviços Railway (editor-backend, redator, curadoria-backend, portal) com filtro multi-brand
+- Auditoria completa do frontend: 9 componentes verificados para propagação de brand context
+- **Bug fix encontrado e corrigido**: `deletarReportsResolvidos()` não filtrava por `perfil_id` — deletaria reports de TODAS as marcas. Corrigido no backend (aceita `perfil_id` query param com join em Edicao) e frontend (passa `selectedBrand?.id`)
+- Teste E2E em produção: 9 endpoints verificados com curl, todos filtrando corretamente
+- Plano MULTIBRAND 100% concluído (5/5 tarefas)
+
+### Arquivos editados
+- `app-editor/backend/app/routes/reports.py` — `deletarReportsResolvidos` agora aceita `perfil_id`
+- `app-portal/lib/api/editor.ts` — `deletarReportsResolvidos` passa `perfil_id`
+- `app-portal/app/dashboard/reports/page.tsx` — passa `selectedBrand?.id` ao limpar resolvidos
+
+### Verificações E2E (produção)
+- Editor `GET /edicoes?perfil_id=1` → 1 edição (filtro OK)
+- Editor `GET /edicoes?perfil_id=2` → 0 edições (isolamento OK)
+- Redator `?brand_slug=best-of-opera` → 2 projetos
+- Redator `?brand_slug=reels-classics` → 0 projetos (isolamento OK)
+- Curadoria `?brand_slug=best-of-opera` → 6 categorias (config dinâmica OK)
+- Dashboard e Reports resumo filtrados por perfil_id OK
+- Retrocompatibilidade: sem parâmetro = retorna tudo (admin view)
+
+### Estado resultante
+- **PLANO-DE-ACAO-120326-MULTIBRAND**: 100% CONCLUÍDO — pronto para mover para `arquivo/`
+- Sistema multi-brand funcional end-to-end: frontend seleciona marca → API propaga → backend filtra
+- Próximo passo sugerido: teste manual no portal (selecionar "Reels Classics" vs "Best of Opera")
+
+---
+
 ## Sessão 2026-03-12 (19) — Config de marca dinâmica por request na Curadoria
 
 ### O que foi feito
