@@ -1,5 +1,34 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-12 (23) — Fix curadoria multi-brand (Reels Classics não carregava)
+
+### Problema
+Ao selecionar "Reels Classics" na curadoria, nada carregava — nem categorias nem playlist. Tudo mostrava dados do Best of Opera.
+
+### Causa raiz (dupla)
+1. **Categorias formato incompatível**: RC no banco usava formato simples `{"Symphony": ["seed1", ...]}` mas o código esperava `{"Symphony": {"name": ..., "emoji": ..., "desc": ..., "seeds": [...]}}`. `list_categories` crashava silenciosamente.
+2. **Playlist sem isolamento por marca**: `refresh_playlist` usava `PLAYLIST_ID` global (hardcoded BO). Tabela `playlist_videos` não tinha coluna `brand_slug` — tudo era compartilhado.
+
+### Correções
+- `config.py`: `_normalize_categories()` converte formato simples → completo em `load_brand_config()`
+- `database.py`: coluna `brand_slug` em `playlist_videos` + migração automática, save/get filtram por marca
+- `curadoria.py`: `_extract_playlist_id()` parseia URL, `refresh_playlist()` usa `playlist_id` da config
+
+### Arquivos editados
+- `app-curadoria/backend/config.py`
+- `app-curadoria/backend/database.py`
+- `app-curadoria/backend/routes/curadoria.py`
+
+### Pendências identificadas
+- `ANTI_SPAM` global hardcoded em buscas — RC tem seu próprio `anti_spam` na config mas não é usado nos endpoints de search (melhoria futura)
+- Endpoint `/api/search` hardcoda `opera live` no query — errado pra RC (música clássica)
+- `cached_videos` não tem `brand_slug` — funciona por enquanto porque categorias têm nomes diferentes (BO: icones/estrelas/hits vs RC: Symphony/Concerto/Chamber)
+
+### Estado resultante
+- Código aplicado e pushed — pendente: confirmar deploy do curadoria-backend no Railway
+
+---
+
 ## Sessão 2026-03-12 (22) — Correção de 3 bugs (título Redator, instrumental, primarycolor)
 
 ### Problemas encontrados
@@ -1199,3 +1228,52 @@ Concluída a injeção do contexto de marca em toda a camada de integração do 
 ### Observações
 - Tarefa de **Playlist vs Instagram** concluída em paralelo (script Python no /tmp), sem afetar o core do sistema.
 - Correção de bug pré-existente no `joinField` do componente NewProject.
+
+---
+
+## Sessão 2026-03-13 — Sentry Triage + Build Failures Railway
+
+### Problemas investigados e resolvidos
+
+#### P0 — YOUTUBE_COOKIES com nome errado (BUG CRÍTICO)
+- **Raiz:** Variável no Railway estava `YOU_TUBECOOKIES` (typo) — código em `download.py:94` procura `YOUTUBE_COOKIES`
+- **Efeito:** Cookies NUNCA carregados → yt-dlp sem autenticação → bot detection do YouTube → downloads falhando
+- **Fix:** Variável renomeada via Railway GraphQL API + redeploy triggado às 19:48
+- **Commit:** nenhum (só Railway vars)
+
+#### P1 — Guard defensivo em `_normalize_categories()`
+- **Raiz:** `else` branch em `config.py:89-91` preservava dict sem key `seeds` como estava
+- **Efeito:** `data["seeds"]` acessa chave inexistente em 8 pontos em `routes/curadoria.py` → KeyError latente
+- **Fix:** `elif isinstance(val, dict)` garante `seeds=[]` se ausente; tipos desconhecidos são ignorados com warning
+- **Commit:** `57addac` — "fix: guard defensivo em _normalize_categories"
+- **Deploy:** curadoria-backend SUCCESS às 21:12
+
+#### P2 — Sentry issues adicionais (3 issues)
+- **Bloqueio:** Sem `SENTRY_AUTH_TOKEN` em nenhum serviço Railway — impossível acessar Sentry API programaticamente
+- **Org URL identificada:** `https://arias-conteudo-k2.sentry.io/issues/`
+- **Pendência:** Para ver os 3 issues restantes, gerar um Sentry Auth Token em `https://sentry.io/settings/account/api/auth-tokens/` e salvar como `SENTRY_AUTH_TOKEN` em Railway
+
+#### Build failures Railway — editor-frontend (RESOLVIDO)
+- **Raiz:** Serviço `editor-frontend` tinha `rootDirectory: "app-editor/frontend"` — diretório deletado em commit `1dff557` (11/03, substituído por `app-portal`)
+- **Falhas acumuladas desde:** 12/03/2026 (4 deploys FAILED)
+- **Fix:**
+  1. `editor-frontend` deletado do Railway
+  2. `CORS_ORIGINS` em `editor-backend` limpo (removido `editor-frontend-production.up.railway.app`)
+  3. `portal` (SUCCESS 19:47) já serve o frontend com sucesso
+
+### Estado pós-sessão
+- curadoria-backend: rodando com YOUTUBE_COOKIES correto + guard de categorias ✅
+- editor-frontend: DELETADO (era obsoleto) ✅
+- portal: SUCCESS ✅
+- Sentry: YOUTUBE_COOKIES fix deve reduzir/eliminar bot detection events — confirmar em 24h
+- Pendência: SENTRY_AUTH_TOKEN para visibilidade completa dos 3 issues restantes
+
+### Serviços Railway ativos (pós-limpeza)
+| Serviço | Status |
+|---------|--------|
+| Postgres | ativo |
+| portal | SUCCESS |
+| editor-backend | ativo |
+| curadoria | ativo |
+| curadoria-backend | SUCCESS |
+| app | ativo |
