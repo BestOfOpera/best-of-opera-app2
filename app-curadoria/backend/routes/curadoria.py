@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse, Response
 
 import database as db
 from config import (
-    YOUTUBE_API_KEY, APP_PASSWORD, PLAYLIST_ID,
+    YOUTUBE_API_KEY, APP_PASSWORD, PLAYLIST_ID, BRAND_SLUG,
     ANTI_SPAM, PROJECTS_DIR, load_brand_config,
 )
 from services.youtube import yt_search, yt_playlist, extract_artist_song, parse_iso_dur
@@ -49,14 +49,27 @@ async def populate_initial_cache(brand_slug: str | None = None):
     logger.info("V7 cache population complete!")
 
 
+def _extract_playlist_id(raw: str) -> str:
+    """Extrai playlist ID de URL completa ou retorna raw se já for ID."""
+    if not raw:
+        return PLAYLIST_ID  # fallback global
+    if "list=" in raw:
+        from urllib.parse import urlparse, parse_qs
+        parsed = parse_qs(urlparse(raw).query)
+        return parsed.get("list", [raw])[0]
+    return raw
+
+
 async def refresh_playlist(brand_slug: str | None = None):
-    logger.info("Refreshing full playlist with pagination...")
+    slug = brand_slug or BRAND_SLUG
     config = load_brand_config(brand_slug)
-    raw = await yt_playlist(PLAYLIST_ID, api_key=YOUTUBE_API_KEY)
+    pl_id = _extract_playlist_id(config.get("playlist_id", ""))
+    logger.info(f"Refreshing playlist for {slug} (playlist_id={pl_id})...")
+    raw = await yt_playlist(pl_id, api_key=YOUTUBE_API_KEY)
     processed = _process_v7(raw, "Playlist", False, "Playlist", config)
-    db.save_playlist_videos(processed["videos"])
-    db.set_config("last_playlist_refresh", datetime.now().isoformat())
-    logger.info(f"Playlist refreshed: {len(processed['videos'])} videos found in total")
+    db.save_playlist_videos(processed["videos"], brand_slug=slug)
+    db.set_config(f"last_playlist_refresh:{slug}", datetime.now().isoformat())
+    logger.info(f"Playlist refreshed for {slug}: {len(processed['videos'])} videos")
 
 
 # ─── AUTH ───
@@ -319,11 +332,14 @@ async def get_playlist(
     hide_posted: bool = Query(True),
     brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
-    videos = db.get_playlist_videos(hide_posted)
+    slug = brand_slug or BRAND_SLUG
+    videos = db.get_playlist_videos(hide_posted, brand_slug=slug)
     if not videos:
         await refresh_playlist(brand_slug)
-        videos = db.get_playlist_videos(hide_posted)
-    return {"total_found": len(videos), "videos": videos, "playlist_id": PLAYLIST_ID, "cached": True}
+        videos = db.get_playlist_videos(hide_posted, brand_slug=slug)
+    config = load_brand_config(brand_slug)
+    pl_id = _extract_playlist_id(config.get("playlist_id", ""))
+    return {"total_found": len(videos), "videos": videos, "playlist_id": pl_id, "cached": True}
 
 
 @router.post("/api/playlist/refresh")
@@ -338,7 +354,8 @@ async def refresh_playlist_endpoint(
 async def download_all_playlist(
     brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
-    videos = db.get_playlist_videos(hide_posted=False)
+    slug = brand_slug or BRAND_SLUG
+    videos = db.get_playlist_videos(hide_posted=False, brand_slug=slug)
     if not videos:
         return {"status": "error", "message": "Playlist vazia"}
 

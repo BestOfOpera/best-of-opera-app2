@@ -83,7 +83,7 @@ def init_db():
             c.execute("""
                 CREATE TABLE IF NOT EXISTS playlist_videos (
                     id SERIAL PRIMARY KEY,
-                    video_id TEXT UNIQUE NOT NULL,
+                    video_id TEXT NOT NULL,
                     url TEXT,
                     title TEXT,
                     artist TEXT,
@@ -102,10 +102,25 @@ def init_db():
                     song_match TEXT,
                     posted BOOLEAN,
                     position INTEGER,
+                    brand_slug TEXT NOT NULL DEFAULT 'best-of-opera',
                     fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             c.execute("CREATE INDEX IF NOT EXISTS idx_playlist_score ON playlist_videos(score_total DESC)")
+
+            # Migration: add brand_slug to existing playlist_videos
+            try:
+                c.execute("ALTER TABLE playlist_videos ADD COLUMN IF NOT EXISTS brand_slug TEXT NOT NULL DEFAULT 'best-of-opera'")
+            except Exception:
+                pass  # Column already exists
+
+            # Migration: update unique constraint to include brand_slug
+            try:
+                c.execute("ALTER TABLE playlist_videos DROP CONSTRAINT IF EXISTS playlist_videos_video_id_key")
+                c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_playlist_video_brand ON playlist_videos(video_id, brand_slug)")
+            except Exception:
+                pass  # Already migrated
+            c.execute("CREATE INDEX IF NOT EXISTS idx_playlist_brand ON playlist_videos(brand_slug)")
 
             # Table: system_config
             c.execute("""
@@ -221,22 +236,22 @@ def get_cached_videos(category: str, hide_posted: bool = True) -> List[Dict]:
 
 # ─── PLAYLIST ───
 
-def save_playlist_videos(videos: List[Dict]):
+def save_playlist_videos(videos: List[Dict], brand_slug: str = "best-of-opera"):
     if not videos:
         logger.warning("Skipping playlist save: no videos")
         return
     with _get_pool().connection() as conn:
         c = conn.cursor()
-        c.execute("DELETE FROM playlist_videos")
+        c.execute("DELETE FROM playlist_videos WHERE brand_slug = %s", (brand_slug,))
         for idx, v in enumerate(videos):
             score = v.get("score", {})
             c.execute("""
                 INSERT INTO playlist_videos
                 (video_id, url, title, artist, song, channel, year, published, duration,
                  views, hd, thumbnail, score_total, score_fixed, score_guia,
-                 artist_match, song_match, posted, position)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (video_id) DO UPDATE SET
+                 artist_match, song_match, posted, position, brand_slug)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (video_id, brand_slug) DO UPDATE SET
                     url=EXCLUDED.url, title=EXCLUDED.title, artist=EXCLUDED.artist,
                     song=EXCLUDED.song, channel=EXCLUDED.channel, year=EXCLUDED.year,
                     published=EXCLUDED.published, duration=EXCLUDED.duration, views=EXCLUDED.views,
@@ -249,20 +264,22 @@ def save_playlist_videos(videos: List[Dict]):
                 v["channel"], v["year"], v["published"], v["duration"],
                 v["views"], v["hd"], v["thumbnail"],
                 score.get("total", 0), score.get("fixed", 0), score.get("guia", 0.0),
-                score.get("artist_match"), score.get("song_match"), v.get("posted", False), idx
+                score.get("artist_match"), score.get("song_match"), v.get("posted", False), idx,
+                brand_slug,
             ))
         conn.commit()
-    logger.info(f"Cached {len(videos)} playlist videos")
+    logger.info(f"Cached {len(videos)} playlist videos for {brand_slug}")
 
 
-def get_playlist_videos(hide_posted: bool = True) -> List[Dict]:
+def get_playlist_videos(hide_posted: bool = True, brand_slug: str = "best-of-opera") -> List[Dict]:
     with _get_pool().connection() as conn:
         c = conn.cursor(row_factory=dict_row)
-        query = "SELECT * FROM playlist_videos"
+        query = "SELECT * FROM playlist_videos WHERE brand_slug = %s"
+        params: list = [brand_slug]
         if hide_posted:
-            query += " WHERE posted = FALSE"
+            query += " AND posted = FALSE"
         query += " ORDER BY score_total DESC"
-        c.execute(query)
+        c.execute(query, params)
         rows = c.fetchall()
     return [
         {

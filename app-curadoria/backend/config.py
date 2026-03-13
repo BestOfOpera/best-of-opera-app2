@@ -61,6 +61,39 @@ def _load_from_json(slug: str) -> dict:
         return json.load(f)
 
 
+def _normalize_categories(data: dict) -> dict:
+    """Normaliza categories para formato completo {name, emoji, desc, seeds}.
+
+    Aceita dois formatos de entrada:
+      - Completo: {"key": {"name": "...", "emoji": "...", "desc": "...", "seeds": [...]}}
+      - Simples:  {"key": ["seed1", "seed2", ...]}
+
+    O formato simples é convertido automaticamente para o completo.
+    """
+    cats = data.get("categories")
+    if not cats or not isinstance(cats, dict):
+        return data
+
+    normalized = {}
+    for key, val in cats.items():
+        if isinstance(val, list):
+            # Formato simples → converter para completo
+            normalized[key] = {
+                "name": key,
+                "emoji": "",
+                "desc": "",
+                "seeds": val,
+            }
+        elif isinstance(val, dict) and "seeds" in val:
+            normalized[key] = val
+        else:
+            # Formato desconhecido — preservar como está
+            normalized[key] = val
+
+    data["categories"] = normalized
+    return data
+
+
 def load_brand_config(slug: str = None) -> dict:
     """Carrega config da marca.
 
@@ -68,6 +101,7 @@ def load_brand_config(slug: str = None) -> dict:
     2. Se falhar (editor offline / erro de rede), usa JSON local como fallback.
 
     Resultado cacheado por _CACHE_TTL segundos para evitar I/O excessivo.
+    Categorias são normalizadas para formato completo automaticamente.
     """
     target_slug = slug or BRAND_SLUG
     now = time.monotonic()
@@ -82,6 +116,7 @@ def load_brand_config(slug: str = None) -> dict:
         url = f"{EDITOR_API_URL}/api/internal/perfil/{target_slug}/curadoria-config"
         with urllib.request.urlopen(url, timeout=3) as resp:
             data = json.loads(resp.read().decode())
+        data = _normalize_categories(data)
         _brand_config_cache[target_slug] = {"data": data, "ts": now}
         return data
     except Exception as exc:
@@ -89,6 +124,7 @@ def load_brand_config(slug: str = None) -> dict:
 
     # Fallback JSON local
     data = _load_from_json(target_slug)
+    data = _normalize_categories(data)
     _brand_config_cache[target_slug] = {"data": data, "ts": now}
     return data
 
