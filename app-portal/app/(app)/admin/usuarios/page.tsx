@@ -12,8 +12,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Search, PencilLine, CheckCircle2, XCircle, Power, UserIcon } from "lucide-react"
+import { RequireAdmin } from "@/components/auth/require-admin"
 
 export default function AdminUsuariosPage() {
+  return (
+    <RequireAdmin>
+      <AdminUsuariosContent />
+    </RequireAdmin>
+  )
+}
+
+function AdminUsuariosContent() {
     const { user: currentUser } = useAuth()
     const [users, setUsers] = useState<AuthUser[]>([])
     const [loading, setLoading] = useState(true)
@@ -29,7 +38,7 @@ export default function AdminUsuariosPage() {
         nome: "",
         email: "",
         senha: "",
-        role: "redator",
+        role: "operador",
         ativo: true
     })
     const [submitting, setSubmitting] = useState(false)
@@ -51,7 +60,7 @@ export default function AdminUsuariosPage() {
 
     const handleOpenCreate = () => {
         setModalMode("create")
-        setFormData({ nome: "", email: "", senha: "", role: "redator", ativo: true })
+        setFormData({ nome: "", email: "", senha: "", role: "operador", ativo: true })
         setEditingId(null)
         setIsModalOpen(true)
     }
@@ -285,8 +294,7 @@ export default function AdminUsuariosPage() {
                                 <Select value={formData.role} onValueChange={(val) => setFormData({ ...formData, role: val })}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="redator">Redator</SelectItem>
-                                        <SelectItem value="editor">Editor</SelectItem>
+                                        <SelectItem value="operador">Operador</SelectItem>
                                         <SelectItem value="admin">Admin</SelectItem>
                                     </SelectContent>
                                 </Select>
