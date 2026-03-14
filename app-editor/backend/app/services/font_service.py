@@ -34,7 +34,7 @@ def get_fontsdir() -> str:
     # Em dev, copiar fontes bundled para /tmp/custom-fonts
     FONTS_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
     if _BUNDLED_FONTS_DIR.exists():
-        for f in _BUNDLED_FONTS_DIR.glob("*.ttf"):
+        for f in list(_BUNDLED_FONTS_DIR.glob("*.ttf")) + list(_BUNDLED_FONTS_DIR.glob("*.otf")):
             dest = FONTS_LOCAL_DIR / f.name
             if not dest.exists():
                 shutil.copy2(str(f), str(dest))

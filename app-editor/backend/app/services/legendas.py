@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "Playfair Display",
+        "fontname": "TeX Gyre Schola",
         "fontsize": 40,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
@@ -20,7 +20,7 @@ ESTILOS_PADRAO = {
         "italic": False,
     },
     "lyrics": {
-        "fontname": "Playfair Display",
+        "fontname": "TeX Gyre Schola",
         "fontsize": 30,
         "primarycolor": "#FFFF64",
         "outlinecolor": "#000000",
@@ -32,7 +32,7 @@ ESTILOS_PADRAO = {
         "italic": True,
     },
     "traducao": {
-        "fontname": "Playfair Display",
+        "fontname": "TeX Gyre Schola",
         "fontsize": 30,
         "primarycolor": "#FFFFFF",
         "outlinecolor": "#000000",
