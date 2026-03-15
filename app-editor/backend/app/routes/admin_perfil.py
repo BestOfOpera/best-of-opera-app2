@@ -270,11 +270,11 @@ def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depe
     perfil.font_file_r2_key = r2_key
 
     # Propagar fontname para os 3 estilos de legenda (overlay, lyrics, tradução)
+    # Nota: Column(JSON) sem MutableDict não rastreia mutação in-place — criar novo dict
     for attr in ("overlay_style", "lyrics_style", "traducao_style"):
         style_dict = getattr(perfil, attr, None)
         if style_dict and isinstance(style_dict, dict):
-            style_dict["fontname"] = family_name
-            setattr(perfil, attr, style_dict)
+            setattr(perfil, attr, {**style_dict, "fontname": family_name})
 
     db.commit()
     db.refresh(perfil)
