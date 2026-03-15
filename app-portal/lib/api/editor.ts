@@ -427,9 +427,9 @@ export const editorApi = {
   resetarEdicoesPerfil: (id: number, force = false) =>
     request<{ deleted: number; r2_files_deleted: number }>(`${BASE()}/admin/perfis/${id}/edicoes${force ? "?force=true" : ""}`, { method: "DELETE", timeout: 120000 }),
   previewLegenda: (id: number) => request<{ status: string; url?: string }>(`${BASE()}/admin/perfis/${id}/preview-legenda`),
-  uploadFonte: (id: number, file: File) => {
+  uploadFonte: (id: number, file: File, force = false) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<Perfil>(`${BASE()}/admin/perfis/${id}/upload-font`, form)
+    return requestFormData<Perfil>(`${BASE()}/admin/perfis/${id}/upload-font${force ? "?force=true" : ""}`, form)
   },
 }

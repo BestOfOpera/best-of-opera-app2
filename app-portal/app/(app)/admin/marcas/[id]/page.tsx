@@ -325,7 +325,7 @@ export default function MarcaConfigPage() {
                                         
                                         const tId = toast.loading(`Enviando fonte ${file.name}...`)
                                         try {
-                                            const updated = await editorApi.uploadFonte(Number(id), file)
+                                            const updated = await editorApi.uploadFonte(Number(id), file, true)
                                             setFormData(updated)
                                             toast.success("Fonte enviada e configurada!", { id: tId })
                                         } catch (err: any) {
