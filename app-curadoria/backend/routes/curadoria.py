@@ -37,7 +37,8 @@ async def populate_initial_cache(brand_slug: str | None = None):
     for cat_key, cat_data in categories.items():
         try:
             seed_query = cat_data["seeds"][0]
-            full_query = f"{seed_query} {ANTI_SPAM}"
+            anti_spam = config.get("anti_spam") or ANTI_SPAM
+            full_query = f"{seed_query} {anti_spam}"
             raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
             result = _process_v7(raw, seed_query, False, cat_key, config)
             db.save_cached_videos(result["videos"], cat_key)
@@ -91,9 +92,11 @@ async def search(
     brand_slug: str | None = Query(None, description="Slug da marca (default: env BRAND_SLUG)"),
 ):
     """Manual search with anti-spam filtering"""
-    full_query = f"{q} opera live {ANTI_SPAM}"
+    config = load_brand_config(brand_slug)
+    anti_spam = config.get("anti_spam") or ANTI_SPAM
+    full_query = f"{q} {anti_spam}"
     raw = await yt_search(full_query, max_results, YOUTUBE_API_KEY)
-    return _process_v7(raw, q, hide_posted, config=load_brand_config(brand_slug))
+    return _process_v7(raw, q, hide_posted, config=config)
 
 
 @router.get("/api/category/{category}")
@@ -130,7 +133,8 @@ async def search_category(
     # Rotate to next seed
     next_seed = (last_seed + 1) % total_seeds
     seed_query = cat_data["seeds"][next_seed]
-    full_query = f"{seed_query} {ANTI_SPAM}"
+    anti_spam = config.get("anti_spam") or ANTI_SPAM
+    full_query = f"{seed_query} {anti_spam}"
 
     logger.info(f"V7 category '{category}' seed {next_seed}/{total_seeds}: {seed_query[:50]}...")
     raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
@@ -154,7 +158,8 @@ async def ranking(
     config = load_brand_config(brand_slug)
     categories = config["categories"]
     all_q = [(key, data["seeds"][0]) for key, data in categories.items()]
-    tasks = [yt_search(f"{q} {ANTI_SPAM}", 10, YOUTUBE_API_KEY) for _, q in all_q]
+    anti_spam = config.get("anti_spam") or ANTI_SPAM
+    tasks = [yt_search(f"{q} {anti_spam}", 10, YOUTUBE_API_KEY) for _, q in all_q]
     batches = await asyncio.gather(*tasks, return_exceptions=True)
     seen = set()
     merged = []
