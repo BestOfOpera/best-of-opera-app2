@@ -289,3 +289,24 @@
 - **Correção aplicada (12/03/2026):** `_protegido()` aceita `force=True` via query param `?force=true`; frontend mostra modal de confirmação antes de enviar com force
 - **Arquivos:** `app-editor/backend/app/routes/admin_perfil.py`, `app-portal/app/(app)/admin/marcas/[id]/page.tsx`, `app-portal/lib/api/editor.ts`
 - **Status: ✅ CORRIGIDO**
+
+---
+
+## Fase 16 — Curadoria multi-brand: anti-spam e query hardcoded (19/03/2026)
+
+### BUG-C · `/api/search` hardcodava `opera live` no query
+
+- **Sintoma:** Busca manual sempre incluía `opera live` — errado para marcas como Reels Classics
+- **Causa raiz:** `full_query = f"{q} opera live {ANTI_SPAM}"` — string hardcoded + config carregado depois de montar a query
+- **Arquivo:** `app-curadoria/backend/routes/curadoria.py` linha 94
+- **Correção aplicada (19/03/2026):** Config carregado antes da query; `"opera live"` removido; `ANTI_SPAM` substituído por `config.get("anti_spam") or ANTI_SPAM`
+- **Status: ✅ CORRIGIDO — SPEC-001**
+
+### BUG-D · `ANTI_SPAM` global ignorava config da marca em queries de categoria e ranking
+
+- **Sintoma:** `populate_initial_cache`, `search_category` e `ranking` usavam `ANTI_SPAM` global em vez do anti-spam configurado por perfil
+- **Causa raiz:** `config["anti_spam"]` disponível mas ignorado — código usava diretamente a variável de módulo
+- **Arquivo:** `app-curadoria/backend/routes/curadoria.py` linhas 40, 133, 157
+- **Correção aplicada (19/03/2026):** Todas as ocorrências substituídas por `anti_spam = config.get("anti_spam") or ANTI_SPAM` com fallback seguro para perfis antigos com `anti_spam_terms = NULL`
+- **BLOCKER pendente:** rodar `SELECT slug, anti_spam_terms FROM editor_perfis` no banco Railway para confirmar se algum perfil tem NULL
+- **Status: ✅ CORRIGIDO (código) — SPEC-001 | ⚠️ verificação banco pendente**

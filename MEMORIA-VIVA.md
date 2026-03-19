@@ -1,5 +1,36 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-19 (25) — SPEC-001: segurança e curadoria multi-brand
+
+### O que foi feito
+- BUG-C: removido `opera live` hardcoded em `/api/search`; config carregado antes de montar a query
+- BUG-D: `ANTI_SPAM` global substituído por `config.get("anti_spam") or ANTI_SPAM` em 4 ocorrências (`populate_initial_cache`, `/api/search`, `search_category`, `ranking`)
+- BLOCKER pendente: verificar `SELECT slug, anti_spam_terms FROM editor_perfis` no banco Railway
+- SPEC-001 → CONCLUÍDO
+
+---
+
+## Sessão 2026-03-19 (24) — Housekeeping: arquivamento de planos concluídos
+
+### O que foi feito
+- Novo parceiro entrou no projeto (Filip) — onboarding e análise do estado atual
+- Leitura completa de CLAUDE.md, MEMORIA-VIVA.md, HISTORICO-ERROS-CORRECOES.md, DECISIONS.md, PLANO-DE-ACAO-120326-MULTIBRAND.md e dados-relevantes/
+- Movido `PLANO-DE-ACAO-120326-MULTIBRAND.md` → `arquivo/` (plano 100% concluído desde sessão 20)
+- Movido `dados-relevantes/CONTEXTO-MULTIBRAND-PARA-CLAUDE.md` → `arquivo/` (snapshot desatualizado — multi-brand concluído)
+
+### Pendências identificadas (herdadas das sessões anteriores)
+- Deploy do curadoria-backend no Railway (pendente desde sessão 23)
+- `ANTI_SPAM` hardcoded na curadoria — não usa config da marca RC
+- `/api/search` hardcoda `opera live` no query (errado para Reels Classics)
+- `cached_videos` sem `brand_slug` na curadoria
+
+### Estado resultante
+- Repositório clonado localmente na máquina do parceiro Filip
+- Raiz do projeto limpa — sem planos concluídos soltos
+- Próximo passo: definir prioridade entre as pendências herdadas ou novo desenvolvimento
+
+---
+
 ## Sessão 2026-03-12 (23) — Fix curadoria multi-brand (Reels Classics não carregava)
 
 ### Problema

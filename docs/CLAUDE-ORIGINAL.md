@@ -1,8 +1,12 @@
-# CLAUDE.md — Best of Opera
+# CLAUDE.md — Best of Opera (BACKUP ORIGINAL)
 
-> Lido automaticamente a cada sessão. Mantenha enxuto.
+> Este é o backup do CLAUDE.md original, antes da reorganização de workflow feita em 19/03/2026.
+> Para restaurar: mover este arquivo para a raiz como `CLAUDE.md` e deletar o CLAUDE.md atual.
+
+---
+
+> Lido automaticamente a cada sessão. Mantenha enxuto (<120 linhas).
 > Regra de ouro: se a info vive no código, REFERENCIE o arquivo — não copie o valor.
-> Backup do workflow original em `docs/CLAUDE-ORIGINAL.md`.
 
 ## O que é
 Pipeline que transforma vídeos de ópera do YouTube em Reels com legendas ASS (3 tracks) em múltiplos idiomas para redes sociais. Canal principal: Best of Opera (6M+ seguidores).
@@ -17,61 +21,36 @@ app-redator/      — conteúdo editorial (Backend FastAPI apenas)
 app-editor/       — edição de vídeo (Backend FastAPI apenas)
 app-portal/       — O "APP GERAL". Frontend Next.js para todos os serviços acima.
 shared/           — storage_service.py (abstração R2)
-dados-relevantes/ — credenciais, configs ativas
+dados-relevantes/ — credenciais, planos ATIVOS, configs
 arquivo/          — planos concluídos e docs superados
-docs/             — PRDs, SPECs e workflow ativo
 ```
 
 ## ⚠️ Nomenclatura e Frontend
 - **Frontend / App Geral:** É EXCLUSIVAMENTE o `app-portal/`. NUNCA procure, edite ou crie arquivos de frontend dentro das pastas `app-editor`, `app-curadoria` ou `app-redator`.
 - **Backend:** É dividido em `app-editor/backend`, `app-curadoria/backend`, e `app-redator/backend`.
 
+## 👥 Agent Teams e Rotinas de Trabalho
+A coordenação entre agentes segue a skill `workflow-completo-projetos`:
+- **Antigravity (Gerente / Frontend):** Atua com prioridade máxima no desenvolvimento visual e frontend (`app-portal/`).
+- **Claude Code (Backend / Infra):** Executa rotinas de backend, regras de negócio, deploy e segurança (`app-*/backend/`).
+- **Paralelismo Seguro:** Ao agir em paralelo, os escopos de arquivos **NÃO PODEM** se cruzar. O Antigravity lidera o frontend e o Claude Code foca no backend de forma isolada. Múltiplos agentes no mesmo arquivo causam sobrescritas silenciosas.
+
+
 ## Início de sessão
 1. Ler este arquivo (automático)
-2. Ler o SPEC ativo em `docs/` (mais recente com status PENDENTE ou EM EXECUÇÃO)
+2. Ler `MEMORIA-VIVA.md` — estado atual do projeto
 3. Se for mexer no editor: ler `app-editor/CLAUDE.md`
 4. Se precisar de URLs/tokens: ler `dados-relevantes/`
-
-## Workflow PRD/SPEC (sistema ativo)
-Este projeto usa documentação versionada por sessão. Cada ciclo segue o fluxo:
-
-```
-Pesquisa/diagnóstico → cria PRD → /clear → lê PRD → cria SPEC → /clear → lê SPEC → executa
-```
-
-**PRD-NNN-tema.md** (retrospectivo — o que foi encontrado)
-- Bugs confirmados e falsos alarmes
-- Estado atual do sistema
-- Decisões tomadas
-- Arquivos relevantes lidos
-
-**SPEC-NNN-tema.md** (tático — o que fazer)
-- Tarefas exatas, arquivo por arquivo
-- Caminho completo de cada arquivo a criar/modificar
-- Pseudocódigo ou padrão de código esperado
-- Critério de "feito" para cada tarefa
-- `status: PENDENTE | EM EXECUÇÃO | CONCLUÍDO` no cabeçalho
-
-Ambos ficam em `docs/`. Nomenclatura: `PRD-001-relogin.md`, `SPEC-001-relogin.md`.
+5. **Sentry**: hook bash verifica issues automaticamente na 1ª mensagem do dia e injeta resumo. Se aparecer "SENTRY: N issue(s)", reportar ao Bolivar antes de continuar.
 
 ## Regras de operação
-- Autonomia total em decisões técnicas
+- Autonomia total em decisões técnicas — nunca perguntar ao Bolivar sobre código
 - **Git push SOMENTE com aprovação explícita** ("pode fazer o push")
+- SSH para git — HTTPS trava por Keychain do macOS
 - Commits em português
 - Variáveis novas DEVEM ter defaults seguros — nunca travar se não configurada
 - Credenciais/tokens NUNCA neste arquivo — ficam em `dados-relevantes/`
-
-## Atualização ao final de sessão
-1. Atualizar `status` no cabeçalho do SPEC ativo (`PENDENTE` → `EM EXECUÇÃO` → `CONCLUÍDO`)
-2. **OBRIGATÓRIO ao concluir qualquer tarefa:** atualizar o `RESUMO-DIAGNOSTICO` correspondente (em `dados-relevantes/`) com o seguinte:
-   - Seção de bugs: trocar 🔴/🟡 por `✅` + data + referência ao SPEC (ex: `✅ resolvido em SPEC-001`)
-   - Tabela "tarefas da reunião × diagnóstico": atualizar status da linha afetada
-   - Lista de prioridades: marcar itens resolvidos com `✅`
-   - BLOCKERs pendentes de verificação (banco, deploy, teste): registrar explicitamente com `⚠️`
-   - **O RESUMO-DIAGNOSTICO é a base para o próximo PRD — deve refletir o estado real.**
-3. Adicionar linha mínima em `MEMORIA-VIVA.md`: data + referência ao PRD/SPEC da sessão
-4. Se encontrou/corrigiu bug: atualizar `HISTORICO-ERROS-CORRECOES.md`
-5. Se descobriu armadilha nova: adicionar à lista abaixo
+- Este projeto usa **PLANO-DE-ACAO** (sistema padrão) — BLAST Fase 2 concluído e arquivado em `arquivo/`
 
 ## Armadilhas conhecidas (o que o Claude erra neste projeto)
 Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERROS-CORRECOES.md`:
@@ -90,16 +69,22 @@ Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERR
 12. **Uma causa raiz por sessão** → bugs recorrentes têm múltiplas causas simultâneas. REGRA: investigar até não ter mais "e se..." pendentes, documentar TODAS as causas, só depois corrigir
 13. **Fix parcial documentado como completo** → se falta dado no banco, ou deploy, ou teste, o bug NÃO está corrigido. REGRA: documentar pendências como BLOCKER, não como "corrigido"
 
+## Auto-atualização (OBRIGATÓRIO)
+Ao FINAL de toda sessão que altere código ou tome decisões:
+1. Atualizar `MEMORIA-VIVA.md` com: data, o que foi feito, decisões tomadas
+2. Se encontrou/corrigiu bug: atualizar `HISTORICO-ERROS-CORRECOES.md`
+3. Se descobriu armadilha nova: adicionar à lista acima neste arquivo
+4. Se um plano foi concluído: mover de `dados-relevantes/` para `arquivo/`
+
 ## Onde buscar contexto
 | Preciso de... | Ler... |
-|---|---|
-| Tarefa atual | SPEC ativo em `docs/` |
-| Contexto da pesquisa | PRD correspondente em `docs/` |
+|---------------|--------|
+| Estado atual do projeto | `MEMORIA-VIVA.md` |
 | Regras de código do editor | `app-editor/CLAUDE.md` |
 | Bugs conhecidos (57+) | `HISTORICO-ERROS-CORRECOES.md` |
+| Planos ativos | `dados-relevantes/` |
 | URLs e tokens | `dados-relevantes/` |
 | Decisões técnicas pontuais | `DECISIONS.md` |
-| Estado histórico do projeto | `MEMORIA-VIVA.md` |
 
 ## Decisões fechadas (não rediscutir)
 - Railway horizontal scaling, não Transloadit
@@ -115,3 +100,9 @@ Estas são armadilhas reais, baseadas em 57+ bugs documentados em `HISTORICO-ERR
 - **app-redator** = criação de conteúdo editorial (posts, SEO, hashtags)
 - **app-portal** = frontend Next.js ÚNICO para todos os serviços
 - **Perfil** = configuração de marca/canal (multi-brand), NÃO perfil de usuário
+
+## Equivalência de documentação obrigatória
+Este projeto usa estrutura própria em vez de PRD/ARCHITECTURE/ROADMAP:
+- PRD → `CLAUDE.md` (seção "O que é")
+- ARCHITECTURE → `app-editor/CLAUDE.md` + código fonte (referenciado, não copiado)
+- ROADMAP → `PLANO-DE-ACAO-[data].md` na raiz (plano ativo mais recente)
