@@ -62,6 +62,7 @@ def load_brand_config(slug: str = None) -> dict:
         "escopo_conteudo": "",
         "overlay_max_chars": 70,
         "overlay_max_chars_linha": 35,
+        "overlay_interval_secs": 6,
         "r2_prefix": "",
     }
     _brand_config_cache[target_slug] = {"data": data, "ts": now}

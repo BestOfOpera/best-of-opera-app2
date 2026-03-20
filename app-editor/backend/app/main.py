@@ -345,7 +345,7 @@ def _run_migrations():
                 ("logo_url", "VARCHAR(500)"),
                 ("font_name", "VARCHAR(100)"),
                 ("font_file_r2_key", "VARCHAR(200)"),
-                ("overlay_interval_secs", "INTEGER DEFAULT 15"),
+                ("overlay_interval_secs", "INTEGER DEFAULT 6"),
                 ("custom_post_structure", "TEXT"),
                 ("brand_opening_line", "TEXT"),
                 ("hashtag_count", "INTEGER"),

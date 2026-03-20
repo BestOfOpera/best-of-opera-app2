@@ -120,7 +120,7 @@ class PerfilDetalheOut(BaseModel):
     overlay_max_chars_linha: int
     lyrics_max_chars: int
     traducao_max_chars: int
-    overlay_interval_secs: Optional[int] = 15
+    overlay_interval_secs: Optional[int] = 6
     video_width: int
     video_height: int
     escopo_conteudo: Optional[str] = None

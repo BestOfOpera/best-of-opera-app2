@@ -16,7 +16,7 @@ from backend.prompts.youtube_prompt import (
 )
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-MODEL = "claude-sonnet-4-5-20250929"
+MODEL = "claude-sonnet-4-6"
 
 # Common Portuguese words for post-generation leak detection
 _PT_COMMON_WORDS = {"e", "de", "do", "da", "que", "com", "para", "uma", "um", "os", "as"}

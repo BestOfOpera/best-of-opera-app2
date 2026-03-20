@@ -34,7 +34,7 @@ class Perfil(Base):
     overlay_max_chars_linha = Column(Integer, default=30)
     lyrics_max_chars = Column(Integer, default=43)
     traducao_max_chars = Column(Integer, default=100)
-    overlay_interval_secs = Column(Integer, default=15)  # intervalo entre legendas overlay
+    overlay_interval_secs = Column(Integer, default=6)  # intervalo entre legendas overlay
 
     # Video — prever dimensões futuras, só implementar 9:16 agora
     video_width = Column(Integer, default=1080)
