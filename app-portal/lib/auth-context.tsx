@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { editorApi } from "@/lib/api/editor"
+import { ApiError } from "@/lib/api/base"
 
 export interface AuthContextType {
   user: any | null
@@ -53,8 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       if (!signal.aborted) {
         console.error("Failed to load user:", err)
-        localStorage.removeItem("bo_auth_token")
-        setUser(null)
+        // Só remover token se o erro for 401 explícito (token inválido/expirado).
+        // Erros de rede, timeout, 5xx ou AbortError NÃO invalidam o token.
+        if (err instanceof ApiError && err.status === 401) {
+          localStorage.removeItem("bo_auth_token")
+          setUser(null)
+        }
+        // Se não for 401, manter o token e não alterar o estado do usuário.
+        // O usuário será carregado na próxima chamada bem-sucedida.
       }
     } finally {
       if (!signal.aborted) {
