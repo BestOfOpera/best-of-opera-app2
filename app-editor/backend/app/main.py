@@ -88,22 +88,43 @@ def _run_migrations():
 
         # Seed idempotente do perfil Best of Opera
         overlay_style = _json.dumps({
-            "fontname": "Playfair Display", "fontsize": 63,
-            "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
-            "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
-            "bold": True, "italic": False,
+            "fontname": "TeX Gyre Schola",
+            "fontsize": 44,             # corpo
+            "gancho_fontsize": 46,      # 1ª legenda
+            "cta_fontsize": 44,         # última legenda (igual ao corpo)
+            "primarycolor": "#FFFFFF",
+            "outlinecolor": "#000000",
+            "outline": 0,               # sem contorno — texto sobre faixa preta
+            "shadow": 0,
+            "alignment": 2,
+            "marginv": 1296,
+            "bold": True,
+            "italic": True,             # TeX Gyre Schola Bold Italic
+            "gap_overlay_px": 30,       # 30px acima da imagem (brand doc)
         })
         lyrics_style = _json.dumps({
-            "fontname": "Playfair Display", "fontsize": 45,
-            "primarycolor": "#FFFF64", "outlinecolor": "#000000",
-            "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
-            "bold": True, "italic": True,
+            "fontname": "TeX Gyre Schola",
+            "fontsize": 32,
+            "primarycolor": "#E4F042",
+            "outlinecolor": "#000000",
+            "outline": 0,
+            "shadow": 0,
+            "alignment": 2,
+            "marginv": 573,
+            "bold": True,
+            "italic": True,
         })
         traducao_style = _json.dumps({
-            "fontname": "Playfair Display", "fontsize": 43,
-            "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
-            "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
-            "bold": True, "italic": True,
+            "fontname": "TeX Gyre Schola",
+            "fontsize": 32,
+            "primarycolor": "#FFFFFF",
+            "outlinecolor": "#000000",
+            "outline": 0,
+            "shadow": 0,
+            "alignment": 8,
+            "marginv": 1353,
+            "bold": True,
+            "italic": True,
         })
         idiomas_alvo = _json.dumps(["en", "pt", "es", "de", "fr", "it", "pl"])
         hashtags = _json.dumps(["#BestOfOpera", "#Opera", "#ClassicalMusic"])
@@ -202,6 +223,21 @@ def _run_migrations():
               AND overlay_style::text LIKE '%TeX Gyre Pagella%'
         """))
         logger.info("Migration: backfill font_name e fontname nos estilos (Playfair Display) OK")
+
+        # Backfill: atualizar BO para estilos corretos (brand doc v1)
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                font_name = 'TeX Gyre Schola',
+                overlay_style = :overlay_style,
+                lyrics_style = :lyrics_style,
+                traducao_style = :traducao_style
+            WHERE sigla = 'BO'
+        """), {
+            "overlay_style": overlay_style,
+            "lyrics_style": lyrics_style,
+            "traducao_style": traducao_style,
+        })
+        logger.info("Migration: backfill BO estilos brand doc v1 OK")
 
         # Seed idempotente do perfil Reels Classics
         rc_overlay_style = _json.dumps({

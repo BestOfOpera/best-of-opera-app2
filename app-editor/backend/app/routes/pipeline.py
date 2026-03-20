@@ -1814,22 +1814,27 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 vw = video_width_val
                 vh = video_height_val
 
+                # Crop lateral para vídeos widescreen (>4:3): brand doc exige imagem em 40-65% da tela
+                _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
+
                 if sem_legendas:
-                    # Sem legendas: só escalar/pad, sem ASS
+                    # Sem legendas: só crop+escalar/pad, sem ASS
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
+                        f'-vf "{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
                         f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black" '
                         f'-c:v libx264 -preset medium -crf 23 '
                         f'-c:a aac -b:a 128k "{output_video}"'
                     )
                 else:
                     # Calcular posição real da imagem para marginv dinâmico (T5)
+                    # Usa dimensões pós-crop (effective width = min(src_w, src_h * 4/3))
                     _image_top_px = None
                     try:
                         from app.services.ffmpeg_service import probar_video as _probar_video, calcular_image_top as _calcular_image_top
                         _src_w, _src_h = await _probar_video(local_video)
-                        _image_top_px = _calcular_image_top(_src_w, _src_h, frame_w=vw, frame_h=vh)
+                        _src_w_eff = min(_src_w, int(_src_h * 4 / 3))
+                        _image_top_px = _calcular_image_top(_src_w_eff, _src_h, frame_w=vw, frame_h=vh)
                     except Exception:
                         logger.warning(f"[{edicao_id}] probar_video falhou — usando marginv do perfil como fallback")
 
@@ -1850,13 +1855,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                     # FFmpeg com timeout — banco FECHADO
                     ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
-                    # Sempre passar fontsdir — Playfair Display (fonte padrão) está lá
                     from app.services.font_service import get_fontsdir as _get_fontsdir
                     _fontsdir = _get_fontsdir()
                     _ass_filter = f"ass='{ass_escaped}':fontsdir={_fontsdir}"
                     cmd = (
                         f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
+                        f'-vf "{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
                         f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black,'
                         f'{_ass_filter}" '
                         f'-c:v libx264 -preset medium -crf 23 '

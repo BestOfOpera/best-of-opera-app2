@@ -141,9 +141,12 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
         fontsdir = get_fontsdir()
     ass_filter = f"ass='{ass_escaped}':fontsdir={fontsdir}"
 
+    # Crop lateral para vídeos widescreen (>4:3): limita a 4:3 antes do scale+pad
+    # Garante que a imagem ocupe ~40-60% do frame 9:16 (brand doc)
+    _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
     await run_ffmpeg(
         f'ffmpeg -y -i "{local_video}" '
-        f'-vf "scale=1080:1920:force_original_aspect_ratio=decrease,'
+        f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease,'
         f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
         f'{ass_filter}" '
         f"-c:v libx264 -preset medium -crf 23 "
