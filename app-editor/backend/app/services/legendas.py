@@ -300,14 +300,29 @@ def gerar_ass(
     subs.info["PlayResX"] = play_res_x
     subs.info["PlayResY"] = play_res_y
 
-    # Recalcular marginv do overlay baseado na posição real da imagem (T5)
+    # Recalcular marginv do overlay, lyrics e traducao baseado na posição real da imagem
     if image_top_px is not None:
-        overlay_gap = estilos.get("overlay", {}).get("gap_overlay_px", 28)
         frame_h = int(subs.info.get("PlayResY", "1920"))
-        computed_marginv = frame_h - (image_top_px - overlay_gap)
         estilos = dict(estilos)
+
+        # Overlay: posiciona acima da imagem
+        overlay_gap = estilos.get("overlay", {}).get("gap_overlay_px", 28)
         estilos["overlay"] = dict(estilos["overlay"])
-        estilos["overlay"]["marginv"] = computed_marginv
+        estilos["overlay"]["marginv"] = frame_h - (image_top_px - overlay_gap)
+
+        # Lyrics: posiciona abaixo da imagem (na barra preta inferior)
+        # image_top_px == pad_y == altura da barra preta (topo e base são iguais)
+        fontsize_lyrics = estilos.get("lyrics", {}).get("fontsize", 30)
+        text_height = int(fontsize_lyrics * 1.3)  # altura aproximada de uma linha renderizada
+        gap_from_image = 10  # gap entre borda inferior da imagem e texto
+        inter_line_gap = 6   # gap entre lyrics e traducao
+        lyrics_marginv = image_top_px - gap_from_image - text_height
+        estilos["lyrics"] = dict(estilos["lyrics"])
+        estilos["lyrics"]["marginv"] = lyrics_marginv
+
+        # Traducao: posiciona logo abaixo das lyrics
+        estilos["traducao"] = dict(estilos["traducao"])
+        estilos["traducao"]["marginv"] = frame_h - lyrics_marginv + inter_line_gap
 
     # Criar estilos
     for nome, config in estilos.items():
