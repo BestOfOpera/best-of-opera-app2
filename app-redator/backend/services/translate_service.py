@@ -63,13 +63,23 @@ def extract_post_section2(post_text: str) -> tuple:
             break
 
     # Find section 2 end: look for the credit block (Section 3).
-    # Section 3 starts with an emoji line followed by "Voice type:" on the next line.
+    # Section 3 starts with an emoji line followed by any credit label on the next line.
+    # All possible credit labels across all supported languages:
+    _CREDIT_MARKERS = (
+        "voice type:", "tipo de voz:", "date of birth:", "data de nascimento:",
+        "composer:", "compositor:", "composition date:", "data de composição:",
+        "stimmtyp:", "geburtsdatum:", "komponist:", "kompositionsdatum:",
+        "type de voix:", "date de naissance:", "compositeur:", "date de composition:",
+        "tipo di voce:", "data di nascita:", "compositore:", "data di composizione:",
+        "typ głosu:", "data urodzenia:", "kompozytor:", "data kompozycji:",
+        "fecha de nacimiento:", "fecha de composición:",
+    )
     section2_end = None
     if section2_start is not None:
         for i in range(section2_start, len(lines)):
             if i + 1 < len(lines):
                 next_line = lines[i + 1].strip().lower()
-                if next_line.startswith("voice type:") or next_line.startswith("tipo de voz:"):
+                if any(next_line.startswith(marker) for marker in _CREDIT_MARKERS):
                     section2_end = i
                     break
 
