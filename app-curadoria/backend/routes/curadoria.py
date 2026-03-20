@@ -41,7 +41,7 @@ async def populate_initial_cache(brand_slug: str | None = None):
             full_query = f"{seed_query} {anti_spam}"
             raw = await yt_search(full_query, 25, YOUTUBE_API_KEY)
             result = _process_v7(raw, seed_query, False, cat_key, config)
-            db.save_cached_videos(result["videos"], cat_key)
+            db.save_cached_videos(result["videos"], cat_key, brand_slug=brand_slug or BRAND_SLUG)
             db.save_last_seed(cat_key, 0)
             logger.info(f"Cached {len(result['videos'])} videos for {cat_key}")
         except Exception as e:
@@ -118,7 +118,7 @@ async def search_category(
 
     # Serve from cache unless force_refresh
     if not force_refresh:
-        cached = db.get_cached_videos(category, hide_posted)
+        cached = db.get_cached_videos(category, hide_posted, brand_slug=brand_slug or BRAND_SLUG)
         if cached:
             cached = _rescore_cached(cached, category, config)
             logger.info(f"Serving {len(cached)} cached videos for {category}")
@@ -141,7 +141,7 @@ async def search_category(
     db.save_last_seed(category, next_seed)
 
     result = _process_v7(raw, seed_query, hide_posted, category, config)
-    db.save_cached_videos(result["videos"], category)
+    db.save_cached_videos(result["videos"], category, brand_slug=brand_slug or BRAND_SLUG)
     result["cached"] = False
     result["seed_index"] = next_seed
     result["total_seeds"] = total_seeds
