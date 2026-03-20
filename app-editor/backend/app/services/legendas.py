@@ -387,7 +387,7 @@ def gerar_ass(
                 event.end = max(event.start + 1, next_start_ms)
             else:
                 # Último overlay: até o fim do corte
-                event.end = duracao_total_ms if duracao_total_ms > event.start else event.start + 10000
+                event.end = duracao_total_ms if duracao_total_ms > event.start else event.start + 5000
 
         # Garantir duração mínima de 2s para legibilidade, a menos que o próximo sobreponha
         if i + 1 < len(overlay_filtrado):
