@@ -1,5 +1,16 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-19 (26) — SPEC-002: relogin 401
+
+### O que foi feito
+- Task 03: banco verificado — 0 de 8 emails com uppercase. Nenhuma normalização necessária.
+- Task 01: `auth.py` — fix case-insensitive em `login()` e `registrar()` com `func.lower()`. Import `from sqlalchemy import func` adicionado.
+- Task 02: `auth-context.tsx` — catch seletivo: token só removido em `ApiError` com `status === 401`. Import `ApiError` adicionado.
+- SPEC-002 → CONCLUÍDO
+- ⚠️ BLOCKER pendente: deploy de `editor-backend` e `portal` no Railway para ativar os fixes.
+
+---
+
 ## Sessão 2026-03-19 (25) — SPEC-001: segurança e curadoria multi-brand
 
 ### O que foi feito

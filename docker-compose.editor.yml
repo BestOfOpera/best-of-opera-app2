@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: editor
+    ports:
+      - "5433:5432"
+    volumes:
+      - editor_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  editor-backend:
+    build:
+      context: .
+      dockerfile: app-editor/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/editor
+      STORAGE_PATH: /storage
+      # R2 vazio → fallback local (arquivos em /storage)
+      R2_ENDPOINT: ""
+      R2_ACCESS_KEY: ""
+      R2_SECRET_KEY: ""
+      R2_BUCKET: ""
+      # Demais (opcionais em dev)
+      SECRET_KEY: dev-secret-key
+      CORS_ORIGINS: '["*"]'
+    volumes:
+      - editor_storage:/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  editor_pgdata:
+  editor_storage:

@@ -310,3 +310,25 @@
 - **Correção aplicada (19/03/2026):** Todas as ocorrências substituídas por `anti_spam = config.get("anti_spam") or ANTI_SPAM` com fallback seguro para perfis antigos com `anti_spam_terms = NULL`
 - **BLOCKER pendente:** rodar `SELECT slug, anti_spam_terms FROM editor_perfis` no banco Railway para confirmar se algum perfil tem NULL
 - **Status: ✅ CORRIGIDO (código) — SPEC-001 | ⚠️ verificação banco pendente**
+
+
+---
+
+## Fase 17 — Relogin 401: case-sensitive e token apagado por erro transitório (19/03/2026)
+
+### BUG-E · Login falha com 401 quando email tem diferença de case
+
+- **Sintoma:** Usuário cadastrado como `User@Email.com` não consegue logar digitando `user@email.com`
+- **Causa raiz:** `Usuario.email == body.email` no PostgreSQL compara VARCHAR com case-sensitive. Banco sem collation CI.
+- **Arquivo:** `app-editor/backend/app/routes/auth.py` linhas 88–91, 117
+- **Correção aplicada (19/03/2026):** `func.lower(Usuario.email) == body.email.lower()` em `login()` e `registrar()`. Import `from sqlalchemy import func` adicionado.
+- **Verificação banco (19/03/2026):** 0 de 8 emails com uppercase — bug nunca disparou na prática. Fix preventivo.
+- **Status: ✅ CORRIGIDO — SPEC-002 | ⚠️ deploy pendente**
+
+### BUG-F · Token removido em qualquer erro de rede no `getMe()`
+
+- **Sintoma:** Login bem-sucedido seguido de erro transitório de rede no `getMe()` → sessão derrubada sem motivo
+- **Causa raiz:** Bloco `catch` em `auth-context.tsx` chamava `localStorage.removeItem("bo_auth_token")` em QUALQUER erro — rede, timeout, 5xx, qualquer coisa
+- **Arquivo:** `app-portal/lib/auth-context.tsx` linhas 53–58
+- **Correção aplicada (19/03/2026):** Token só removido quando `err instanceof ApiError && err.status === 401`. Erros não-401 mantêm o token intacto. Import `ApiError` de `@/lib/api/base` adicionado.
+- **Status: ✅ CORRIGIDO — SPEC-002 | ⚠️ deploy pendente**
