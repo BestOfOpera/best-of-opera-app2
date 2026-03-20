@@ -5,6 +5,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from passlib.context import CryptContext
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -86,7 +87,7 @@ class AlterarSenhaRequest(BaseModel):
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     """Email + senha → retorna JWT token."""
     usuario = db.query(Usuario).filter(
-        Usuario.email == body.email,
+        func.lower(Usuario.email) == body.email.lower(),
         Usuario.ativo == True,
     ).first()
     if not usuario or not _verificar_senha(body.senha, usuario.senha_hash):
@@ -114,7 +115,9 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 @router.post("/registrar", response_model=UsuarioOut, status_code=status.HTTP_201_CREATED)
 def registrar(body: UsuarioCreate, db: Session = Depends(get_db), _: Usuario = Depends(require_admin)):
     """Criar novo usuário (somente admins). Senha padrão: arias2026."""
-    existente = db.query(Usuario).filter(Usuario.email == body.email).first()
+    existente = db.query(Usuario).filter(
+        func.lower(Usuario.email) == body.email.lower()
+    ).first()
     if existente:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email já cadastrado")
 

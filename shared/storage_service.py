@@ -236,13 +236,16 @@ class StorageService:
         if not _r2_configured():
             return f"/local-storage/{key}"
 
-        client = _get_s3_client()
-        url = client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": R2_BUCKET, "Key": key},
-            ExpiresIn=expires_in,
-        )
-        return url
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _presign():
+            client = _get_s3_client()
+            return client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": R2_BUCKET, "Key": key},
+                ExpiresIn=expires_in,
+            )
+
+        return _presign()
 
     def exists(self, key: str) -> bool:
         """Verifica se o arquivo existe no R2.
@@ -272,9 +275,13 @@ class StorageService:
                 return True
             return False
 
-        try:
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _delete():
             client = _get_s3_client()
             client.delete_object(Bucket=R2_BUCKET, Key=key)
+
+        try:
+            _delete()
             logger.info(f"[storage:r2] delete {key}")
             return True
         except Exception as e:
@@ -292,13 +299,17 @@ class StorageService:
                 for f in base.rglob("*") if f.is_file()
             ]
 
-        client = _get_s3_client()
-        result = []
-        paginator = client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=R2_BUCKET, Prefix=prefix):
-            for obj in page.get("Contents", []):
-                result.append(obj["Key"])
-        return result
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _list():
+            client = _get_s3_client()
+            items = []
+            paginator = client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=R2_BUCKET, Prefix=prefix):
+                for obj in page.get("Contents", []):
+                    items.append(obj["Key"])
+            return items
+
+        return _list()
 
     def upload_text(self, key: str, content: str) -> str:
         """Escreve texto no R2 (cria temp file, faz upload, apaga)."""

@@ -1824,6 +1824,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         f'-c:a aac -b:a 128k "{output_video}"'
                     )
                 else:
+                    # Calcular posição real da imagem para marginv dinâmico (T5)
+                    _image_top_px = None
+                    try:
+                        from app.services.ffmpeg_service import probar_video as _probar_video, calcular_image_top as _calcular_image_top
+                        _src_w, _src_h = await _probar_video(local_video)
+                        _image_top_px = _calcular_image_top(_src_w, _src_h, frame_w=vw, frame_h=vh)
+                    except Exception:
+                        logger.warning(f"[{edicao_id}] probar_video falhou — usando marginv do perfil como fallback")
+
                     # Gerar ASS (sync, rápido — banco já fechado)
                     ass_obj = gerar_ass(
                         overlay=d["overlay_segs"] or [],
@@ -1833,6 +1842,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         idioma_musica=idioma_musica,
                         sem_lyrics=sem_lyrics_val,
                         perfil=perfil_data,
+                        image_top_px=_image_top_px,
                     )
 
                     ass_path = str(output_dir / f"legendas_{idioma}.ass")

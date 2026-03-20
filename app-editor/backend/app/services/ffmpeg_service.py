@@ -6,6 +6,36 @@ from pathlib import Path
 from shared.storage_service import storage, lang_prefix
 
 
+async def probar_video(video_path: str) -> tuple:
+    """Retorna (largura, altura) do vídeo via ffprobe."""
+    process = await asyncio.create_subprocess_shell(
+        f'ffprobe -v error -select_streams v:0 '
+        f'-show_entries stream=width,height '
+        f'-of csv=p=0 "{video_path}"',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await process.communicate()
+    w, h = stdout.decode().strip().split(",")
+    return int(w), int(h)
+
+
+def calcular_image_top(src_w: int, src_h: int,
+                       frame_w: int = 1080, frame_h: int = 1920) -> int:
+    """Calcula coordenada Y do topo da imagem após scale+pad para frame_w x frame_h.
+
+    Usa a mesma lógica do FFmpeg: scale com force_original_aspect_ratio=decrease
+    + pad centralizado.
+
+    Retorna IMAGE_TOP em pixels a partir do topo do frame.
+    """
+    scale = min(frame_w / src_w, frame_h / src_h)
+    scaled_w = int(src_w * scale)
+    scaled_h = int(src_h * scale)
+    pad_y = (frame_h - scaled_h) // 2
+    return pad_y
+
+
 async def run_ffmpeg(cmd: str):
     """Executa comando FFmpeg assíncrono."""
     process = await asyncio.create_subprocess_shell(

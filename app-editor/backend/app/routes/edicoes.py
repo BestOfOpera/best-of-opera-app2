@@ -22,13 +22,15 @@ def listar_edicoes(
     perfil_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Edicao).order_by(Edicao.id.desc())
+    if perfil_id is None:
+        return []
+    q = db.query(Edicao).filter(
+        Edicao.perfil_id == perfil_id
+    ).order_by(Edicao.id.desc())
     if status:
         q = q.filter(Edicao.status == status)
     if categoria:
         q = q.filter(Edicao.categoria == categoria)
-    if perfil_id is not None:
-        q = q.filter(Edicao.perfil_id == perfil_id)
     return q.all()
 
 

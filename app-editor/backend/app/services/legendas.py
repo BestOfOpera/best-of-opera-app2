@@ -271,6 +271,7 @@ def gerar_ass(
     estilos: dict = None,
     sem_lyrics: bool = False,
     perfil=None,
+    image_top_px: Optional[int] = None,
 ) -> pysubs2.SSAFile:
     """Gera arquivo ASS com até 3 tracks.
 
@@ -298,6 +299,15 @@ def gerar_ass(
     subs = pysubs2.SSAFile()
     subs.info["PlayResX"] = play_res_x
     subs.info["PlayResY"] = play_res_y
+
+    # Recalcular marginv do overlay baseado na posição real da imagem (T5)
+    if image_top_px is not None:
+        overlay_gap = estilos.get("overlay", {}).get("gap_overlay_px", 28)
+        frame_h = int(subs.info.get("PlayResY", "1920"))
+        computed_marginv = frame_h - (image_top_px - overlay_gap)
+        estilos = dict(estilos)
+        estilos["overlay"] = dict(estilos["overlay"])
+        estilos["overlay"]["marginv"] = computed_marginv
 
     # Criar estilos
     for nome, config in estilos.items():
@@ -380,7 +390,18 @@ def gerar_ass(
         texto = _formatar_overlay(texto, overlay_max_linha)
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
-        event.text = "{\\q2}" + texto
+
+        # Tags de tamanho por posição: gancho (1ª legenda) / CTA (última legenda)
+        overlay_estilo = estilos.get("overlay", {})
+        gancho_fs = overlay_estilo.get("gancho_fontsize")
+        cta_fs = overlay_estilo.get("cta_fontsize")
+        fs_tag = ""
+        if gancho_fs and i == 0:
+            fs_tag = f"{{\\fs{gancho_fs}}}"
+        elif cta_fs and i == len(overlay_filtrado) - 1:
+            fs_tag = f"{{\\fs{cta_fs}}}"
+
+        event.text = "{\\q2}" + fs_tag + texto
         event.style = "Overlay"
         subs.events.append(event)
 

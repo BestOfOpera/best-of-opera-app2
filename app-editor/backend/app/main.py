@@ -203,6 +203,91 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill font_name e fontname nos estilos (Playfair Display) OK")
 
+        # Seed idempotente do perfil Reels Classics
+        rc_overlay_style = _json.dumps({
+            "fontname": "Inter",
+            "fontsize": 48,
+            "gancho_fontsize": 52,
+            "cta_fontsize": 44,
+            "primarycolor": "#FFFFFF",
+            "outlinecolor": "#000000",
+            "outline": 0,
+            "shadow": 0,
+            "alignment": 2,
+            "marginv": 1291,
+            "bold": True,
+            "italic": False,
+            "gap_overlay_px": 28,
+        })
+        rc_lyrics_style = _json.dumps({
+            "fontname": "Inter",
+            "fontsize": 32,
+            "primarycolor": "#E4F042",
+            "outlinecolor": "#000000",
+            "outline": 0,
+            "shadow": 0,
+            "alignment": 2,
+            "marginv": 614,
+            "bold": True,
+            "italic": True,
+        })
+        rc_traducao_style = _json.dumps({
+            "fontname": "Inter",
+            "fontsize": 32,
+            "primarycolor": "#FFFFFF",
+            "outlinecolor": "#000000",
+            "outline": 0,
+            "shadow": 0,
+            "alignment": 8,
+            "marginv": 614,
+            "bold": True,
+            "italic": True,
+        })
+        conn.execute(text("""
+            INSERT INTO editor_perfis (
+                nome, sigla, slug, ativo, editorial_lang,
+                idiomas_alvo, idioma_preview,
+                overlay_style, lyrics_style, traducao_style,
+                overlay_max_chars, overlay_max_chars_linha,
+                lyrics_max_chars, traducao_max_chars,
+                video_width, video_height,
+                r2_prefix, cor_primaria, cor_secundaria,
+                font_name
+            )
+            SELECT
+                'Reels Classics', 'RC', 'reels-classics', TRUE, 'pt',
+                :idiomas_alvo, 'pt',
+                :overlay_style, :lyrics_style, :traducao_style,
+                70, 35, 43, 100, 1080, 1920,
+                'reels-classics', '#0a0a0a', '#c0a060',
+                :font_name
+            WHERE NOT EXISTS (
+                SELECT 1 FROM editor_perfis WHERE sigla = 'RC'
+            )
+        """), {
+            "idiomas_alvo": idiomas_alvo,
+            "overlay_style": rc_overlay_style,
+            "lyrics_style": rc_lyrics_style,
+            "traducao_style": rc_traducao_style,
+            "font_name": "Inter",
+        })
+        logger.info("Migration: seed editor_perfis Reels Classics OK (idempotente)")
+
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                font_name = :font_name,
+                overlay_style = :overlay_style,
+                lyrics_style = :lyrics_style,
+                traducao_style = :traducao_style
+            WHERE sigla = 'RC' AND font_name IS NULL
+        """), {
+            "font_name": "Inter",
+            "overlay_style": rc_overlay_style,
+            "lyrics_style": rc_lyrics_style,
+            "traducao_style": rc_traducao_style,
+        })
+        logger.info("Migration: backfill Reels Classics font e estilos OK")
+
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:
