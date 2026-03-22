@@ -197,11 +197,15 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const isValidMMSS = (v: string) => /^\d{2}:\d{2}$/.test(v)
   const hookValid = hookCategory === "prefiro_escrever" ? hook.trim().length > 0 : hookCategory.length > 0
   const stepAComplete = hookValid && !!category && isValidMMSS(cutStart) && isValidMMSS(cutEnd)
-  const canSubmit = stepAComplete && detected && !!interpreters[0]?.artist && !!shared.work && !!shared.composer
+  const canSubmit = stepAComplete && detected && !!interpreters[0]?.artist && !!shared.work && !!shared.composer && !!selectedBrand
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
+    if (!selectedBrand) {
+      setError("Selecione uma marca antes de criar o projeto.")
+      return
+    }
     setError("")
     setLoading(true)
     try {
@@ -485,6 +489,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
             if (!interpreters[0]?.artist) missing.push("Artista")
             if (!shared.work) missing.push("Obra")
             if (!shared.composer) missing.push("Compositor")
+            if (!selectedBrand) missing.push("Marca")
             return (
               <p className="mt-2 text-center text-xs text-muted-foreground">
                 {missing.length > 0

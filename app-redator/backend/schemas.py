@@ -37,7 +37,7 @@ class ProjectCreate(BaseModel):
     cut_start: str = ""
     cut_end: str = ""
     perfil_id: Optional[int] = None
-    brand_slug: str = "best-of-opera"
+    brand_slug: str
 
 
 class ProjectUpdate(BaseModel):

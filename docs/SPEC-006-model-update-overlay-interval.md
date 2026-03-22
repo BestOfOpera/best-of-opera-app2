@@ -61,6 +61,11 @@ Localizar o fallback `or 15` (linha ~43) e alterar para `or 6`.
 
 ---
 
+## Deploy
+Commit `8928bb8` — push para `origin/main` em 2026-03-20. Railway faz deploy automático.
+
+**Atenção pós-deploy:** perfis existentes no banco têm `overlay_interval_secs = 15` salvo. Atualizar manualmente via painel admin (ou SQL) o perfil Best of Opera para `6`.
+
 ## Critério de "feito"
 - Modelo atualizado e respondendo (verificar nos logs do app-redator)
 - Gerar overlay de um projeto de ~60s e confirmar que produz ~10 legendas

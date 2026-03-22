@@ -89,6 +89,16 @@ Todos os 4 serviços Railway estão ativos e deployados:
 - **Nunca respondidos nas sessões seguintes.**
 - **Bate com pontos 4 e 9 da reunião.**
 
+### ✅ BUG-G — Projetos Reels Classics gerados com prompts/identidade do Best of Opera — resolvido em SPEC-005b (22/03/2026)
+- **Causa raiz:** múltiplos fallbacks hardcoded `or "best-of-opera"` em `generation.py` (4 endpoints), `config.py` (config hardcoded no except) e `schemas.py` (default no ProjectCreate). Frontend não bloqueava submit sem marca selecionada.
+- **Fix aplicado (22/03/2026):**
+  - `app-redator/backend/routers/generation.py`: 4 fallbacks substituídos por HTTPException 400
+  - `app-redator/backend/config.py`: bloco hardcoded com dados do BO removido; except levanta HTTPException 503
+  - `app-redator/backend/schemas.py`: `brand_slug: str = "best-of-opera"` → `brand_slug: str` (campo obrigatório no schema)
+  - `app-portal/components/redator/new-project.tsx`: `canSubmit` exige `!!selectedBrand`; `handleSubmit` bloqueia com erro explícito se marca ausente
+- **⚠️ BLOCKER pré-deploy:** Rodar `SELECT brand_slug, COUNT(*) FROM projects GROUP BY brand_slug` no banco — se existirem projetos com `brand_slug NULL`, não fazer NOT NULL migration sem populate primeiro.
+- **⚠️ DEPLOY PENDENTE:** `app` (redator-backend) + `portal`.
+
 ### 🟡 Falha em teste pré-existente
 - `test_seed_best_of_opera_valores_corretos` falha: `fontsize` é `63` em `legendas.py` mas `40` no seed de `admin_perfil.py`. Nota original: "não afeta produção".
 

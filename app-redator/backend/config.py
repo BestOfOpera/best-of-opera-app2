@@ -2,6 +2,7 @@ import os
 import json
 import time
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv()
 
@@ -46,27 +47,12 @@ def load_brand_config(slug: str = None) -> dict:
         _brand_config_cache[target_slug] = {"data": data, "ts": now}
         return data
     except Exception as exc:
-        print(f"⚠️ load_brand_config: editor offline ({exc}), usando defaults")
-
-    data = {
-        "brand_name": "Best of Opera",
-        "brand_slug": "best-of-opera",
-        "identity_prompt": "",
-        "identity_prompt_redator": "",
-        "tom_de_voz": "",
-        "tom_de_voz_redator": "",
-        "editorial_lang": "pt",
-        "hashtags_fixas": ["#BestOfOpera", "#Opera", "#ClassicalMusic"],
-        "categorias_hook": [],
-        "hook_categories_redator": {},
-        "escopo_conteudo": "",
-        "overlay_max_chars": 70,
-        "overlay_max_chars_linha": 35,
-        "overlay_interval_secs": 6,
-        "r2_prefix": "",
-    }
-    _brand_config_cache[target_slug] = {"data": data, "ts": now}
-    return data
+        print(f"⚠️ load_brand_config: editor offline para slug='{target_slug}' ({exc})")
+        raise HTTPException(
+            503,
+            f"Não foi possível carregar configuração da marca '{target_slug}'. "
+            "Editor indisponível. Tente novamente em instantes."
+        )
 
 
 HOOK_CATEGORIES = {

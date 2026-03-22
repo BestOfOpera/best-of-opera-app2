@@ -1,5 +1,14 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-03-22 — SPEC-005b: corrigir fallbacks brand_slug → Best of Opera
+
+- 4 fallbacks `or "best-of-opera"` removidos de `generation.py` → HTTPException 400
+- Config hardcoded do BO no except de `config.py` removido → HTTPException 503
+- `brand_slug` obrigatório em `schemas.py` (sem default)
+- Frontend `new-project.tsx`: `canSubmit` e `handleSubmit` bloqueiam sem marca selecionada
+- ⚠️ BLOCKER pré-deploy: verificar `SELECT brand_slug, COUNT(*) FROM projects GROUP BY brand_slug` (NULLs)
+- ⚠️ DEPLOY PENDENTE: `app` (redator) + `portal`
+
 ## Sessão 2026-03-19 (26) — SPEC-002: relogin 401
 
 ### O que foi feito

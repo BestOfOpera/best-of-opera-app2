@@ -59,7 +59,9 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
     project.status = "generating"
     db.commit()
 
-    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
 
     try:
@@ -90,7 +92,9 @@ def regenerate_overlay(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
     project.overlay_json = generate_overlay(project, body.custom_prompt, brand_config=brand_config)
     project.overlay_approved = False
@@ -109,7 +113,9 @@ def regenerate_post(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
     project.post_text = generate_post(project, body.custom_prompt, brand_config=brand_config)
     project.post_approved = False
@@ -128,7 +134,9 @@ def regenerate_youtube(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    brand_slug = getattr(project, 'brand_slug', None) or "best-of-opera"
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
     title, tags = generate_youtube(project, body.custom_prompt, brand_config=brand_config)
     project.youtube_title = title
