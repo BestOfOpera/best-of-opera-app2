@@ -137,8 +137,7 @@ Example: "Does this give you 🔥 or ❄️? Tell us below!"
 ──────────────────────
 SECTION 5 — HASHTAGS (exactly 1 line)
 ──────────────────────
-Exactly {hashtag_count} hashtags. Always include {hashtags[0] if hashtags else "#BestOfOpera"}. Add {hashtag_count - 1} relevant ones.
-Example: "{hashtags_str}"
+Exactly {hashtag_count} hashtags. You MUST include ALL of these: {hashtags_str}.{"" if len(hashtags) >= hashtag_count else f" Add {hashtag_count - len(hashtags)} more relevant ones."}
 """
 
 
