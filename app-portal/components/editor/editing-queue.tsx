@@ -181,8 +181,17 @@ export function EditorEditingQueue() {
       toast.success(`Edição importada: ${result.artista} — ${result.musica}`)
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 422 && (err.detail as Record<string, unknown>)?.idioma_necessario === true) {
-        setIdiomaEscolhido("")
-        toast.error("Não foi possível detectar o idioma. Por favor, selecione um manualmente.")
+        const projeto = projetosRedator.find(p => p.id === projectId)
+        setModalIdioma({
+          projectId,
+          artist: projeto?.artist || "",
+          work: projeto?.work || "",
+          category: projeto?.category,
+        })
+        setIdiomaEscolhido("auto")
+        setOutroIdioma("")
+        setTemLetraImport(null)
+        toast.error("Idioma não detectado automaticamente. Selecione abaixo.")
       } else if (err instanceof ApiError && err.status === 409 && (err.detail as Record<string, unknown>)?.duplicata === true) {
         const detail = err.detail as Record<string, unknown>
         setModalDuplicata({
@@ -447,7 +456,7 @@ export function EditorEditingQueue() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Detectar automaticamente</SelectItem>
+                  <SelectItem value="auto">Detectar automaticamente (se possível)</SelectItem>
                   <SelectItem value="it">Italiano (it)</SelectItem>
                   <SelectItem value="en">English (en)</SelectItem>
                   <SelectItem value="de">Deutsch (de)</SelectItem>

@@ -90,7 +90,7 @@ Análise completa do monorepo via 6 agentes simultâneos, cada um investigando u
 
 ---
 
-### #6 — Troca de perfil sem critério durante edição ativa
+### #6 ✅ CORRIGIDO — Troca de perfil sem critério durante edição ativa
 
 - **Arquivo confirmado:** `app-portal/lib/brand-context.tsx` linhas 1–28 e `app-portal/components/brand-selector.tsx` linha 107
 - **Problema:** Perfil armazenado apenas em `useState` (sem localStorage). Dropdown executa `setSelectedBrand()` imediatamente sem guard ou confirmação.
