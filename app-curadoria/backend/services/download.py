@@ -77,7 +77,7 @@ def _get_ydl_opts(dl_path: str):
         'noplaylist': True,
         'quiet': True,
         'no_warnings': True,
-        'match_filter': yt_dlp.utils.match_filter_func('duration < 900'),
+        'match_filter': yt_dlp.utils.match_filter_func('duration < 1800'),
         'socket_timeout': 30,
         'retries': 3,
         'fragment_retries': 5,
