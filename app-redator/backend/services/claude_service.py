@@ -253,6 +253,11 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
                 limit = duration_secs - 5
                 if ts_secs > limit:
                     new_ts = max(0, duration_secs - 8)
+                    # Ensure new timestamp is after the second-to-last subtitle
+                    if len(parsed) >= 2:
+                        prev_parts = parsed[-2]["timestamp"].split(":")
+                        prev_secs = int(prev_parts[0]) * 60 + int(prev_parts[1])
+                        new_ts = max(new_ts, prev_secs + 1)
                     mins = new_ts // 60
                     secs = new_ts % 60
                     last_leg["timestamp"] = f"{mins:02d}:{secs:02d}"

@@ -34,15 +34,13 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         max_count = count + 2
         return (
             f"The video is {duration_secs} seconds long. "
-            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable), "
-            f"using ~{interval_secs}s as a flexible reference interval. "
-            f"IMPORTANT: This interval is a GUIDE, not a rigid rule. "
-            f"Cluster subtitles closer together during context-rich moments "
-            f"(introductions, revelations, emotional peaks) and space them further apart "
-            f"during purely musical passages where the performance speaks for itself."
+            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable). "
+            f"CRITICAL: Space subtitles exactly {interval_secs} seconds apart. "
+            f"Each subtitle timestamp must be exactly {interval_secs}s after the previous one. "
+            f"Do NOT vary the spacing — consistent {interval_secs}s intervals are required."
         )
     except (ValueError, IndexError):
-        return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
+        return "Create approximately 4-6 subtitle entries with consistent spacing of 6 seconds between each subtitle."
 
 
 def build_overlay_prompt(project, brand_config=None) -> str:
@@ -118,7 +116,7 @@ STRUCTURE RULES
 ═══════════════════════════════
 
 1. Maximum {max_chars} characters per subtitle.
-2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
+2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end.
 3. Subtitles must follow a narrative arc: hook → build → climax → payoff.
 4. FIRST subtitle starts at "00:00" — short, punchy, under 30 characters. Make it impossible to ignore.
 5. FORBIDDEN phrases — never use: "beautiful performance", "amazing voice", "stunning rendition", "incredible talent", "breathtaking", "timeless masterpiece", "legendary performance". These are filler. Be specific instead.
