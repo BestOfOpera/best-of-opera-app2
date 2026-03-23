@@ -2,11 +2,15 @@
 
 **Data:** 22/03/2026
 **Baseado em:** diagnóstico via 6 agentes paralelos (sessão 22/03)
+**Status do ciclo: CONCLUÍDO** (23/03/2026)
+
 **SPECs derivados:**
-- `docs/SPEC-005a-guard-perfil-deteccao-idioma.md` — problemas #6 e #1 *(a criar)*
-- `docs/SPEC-005b-prompts-brand-slug.md` — problema #5 *(a criar)*
-- `docs/SPEC-005c-pipeline-transcricao.md` — problemas #3 e #2 *(a criar)*
-- `docs/SPEC-005d-download-infra.md` — problema #4 *(a criar)*
+- `docs/SPEC-005a-guard-perfil.md` — problema #6 ✅ CONCLUÍDO
+- `docs/SPEC-005b-prompts-brand-slug.md` — problema #5 ✅ CONCLUÍDO
+- `docs/SPEC-005c-idioma-import.md` — problema #1 (UX) ✅ CONCLUÍDO
+- `docs/SPEC-005d-po-token-ytdlp.md` — problema #4 ✅ CONCLUÍDO
+- Problema #3 (timeout) ✅ CONCLUÍDO — `app-portal/components/editor/validate-alignment.tsx`
+- Problema #2 (vídeo R2) ✅ RESOLVIDO indiretamente pelo #4
 
 ---
 
