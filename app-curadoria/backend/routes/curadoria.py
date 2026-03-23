@@ -545,7 +545,9 @@ async def prepare_video(
 
                 def _download():
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([youtube_url])
+                        n_errors = ydl.download([youtube_url])
+                        if n_errors:
+                            raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
 
                 await asyncio.to_thread(_download)
 
@@ -555,6 +557,9 @@ async def prepare_video(
                     dl_path_actual = files[0] if files else None
                 else:
                     dl_path_actual = dl_path
+
+                if not dl_path_actual:
+                    raise Exception("yt-dlp terminou sem erro mas arquivo não encontrado")
             except Exception as e:
                 logger.warning(f"[prepare-video] yt-dlp falhou para {video_id}: {e}")
 
