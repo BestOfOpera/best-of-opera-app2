@@ -98,7 +98,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
 
   useEffect(() => { load() }, [edicaoId])
 
-  // Transcription polling with 8 minute timeout
+  // Transcription polling with 90 minute timeout
   const [pollingTimedOut, setPollingTimedOut] = useState(false)
   const pollingStartRef = useRef<number>(0)
   useEffect(() => {
@@ -109,7 +109,7 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
     pollingStartRef.current = Date.now()
     setPollingTimedOut(false)
     const timer = setInterval(() => {
-      if (Date.now() - pollingStartRef.current > 8 * 60 * 1000) {
+      if (Date.now() - pollingStartRef.current > 90 * 60 * 1000) {
         clearInterval(timer)
         setPollingTimedOut(true)
         return
@@ -319,7 +319,20 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
               <>
                 <RefreshCw className="h-8 w-8 mx-auto mb-4 text-primary animate-spin" />
                 <h3 className="text-lg font-semibold mb-2">Transcrição em andamento...</h3>
-                <p className="text-sm text-muted-foreground">O Gemini está analisando o áudio. Isso pode levar alguns minutos.</p>
+                <p className="text-sm text-muted-foreground">O Gemini está analisando o áudio. Isso pode levar até 60 minutos.</p>
+                {(() => {
+                  const passo = (edicao?.progresso_detalhe as Record<string, string> | null)?.passo
+                  const labels: Record<string, string> = {
+                    inicializando: "Inicializando...",
+                    upload_gemini: "Enviando áudio para o Gemini...",
+                    transcricao_cega: "Mapeando estrutura do áudio...",
+                    transcricao_guiada: "Transcrevendo com a letra...",
+                    completando: "Finalizando transcrição...",
+                  }
+                  return passo ? (
+                    <p className="text-xs font-medium text-primary mt-2">{labels[passo] ?? passo}</p>
+                  ) : null
+                })()}
                 <p className="text-xs text-muted-foreground mt-4">Atualizando automaticamente...</p>
                 <div className="mt-6">
                   {manualButton}
