@@ -66,7 +66,7 @@ Análise completa do monorepo via 6 agentes simultâneos, cada um investigando u
 
 ---
 
-### #5 — Reels Classics usando prompts do Best of Opera (Export / geração de legendas)
+### #5 ✅ CORRIGIDO — Reels Classics usando prompts do Best of Opera (Export / geração de legendas)
 
 - **Confirmado:** sim, ocorre em produção
 - **Causa raiz — múltiplos fallbacks hardcoded para `"best-of-opera"` em toda a cadeia:**
