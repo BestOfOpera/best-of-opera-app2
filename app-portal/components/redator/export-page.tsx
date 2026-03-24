@@ -71,6 +71,13 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
   const handleIrParaEditor = async () => {
     setImportandoEditor(true)
     try {
+      // Auto-save SRTs/textos para R2 antes de importar (não-bloqueante)
+      try {
+        await redatorApi.saveToR2(projectId)
+      } catch {
+        // Falha silenciosa — não bloqueia o avanço para o editor
+      }
+
       const selectedBrandElement = document.querySelector('[data-brand-id]') as HTMLElement
       const perfilId = selectedBrandElement?.dataset.brandId ? parseInt(selectedBrandElement.dataset.brandId) : undefined
 

@@ -215,3 +215,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl unz
 **Critério de feito:** `node --version` no container retorna 18+; bgutil consegue executar scripts Node.js.
 
 **Status:** ✅ CONCLUÍDO em 2026-03-24
+
+---
+
+## Ciclo 4 — Auto-save de SRTs ao avançar para o Editor (adicionado em 24/03/2026 às 17h54)
+
+**Origem:** análise do fluxo completo redator → editor — SRTs não chegavam no ZIP do "Baixar Todos os Vídeos"
+**Problema:** o ZIP gerado pelo editor inclui `subtitles.srt` buscando do R2. O R2 só é populado quando o usuário clica "Salvar Arquivos" na tela Exportar do redator. Como esse passo era manual e frequentemente esquecido, o ZIP era entregue sem as legendas.
+**Decisão:** auto-disparar `saveToR2` no momento em que o usuário clica "Avançar para Editor", dentro de `try/catch` não-bloqueante — falha silenciosa não impede o avanço.
+
+---
+
+### Tarefa 7 — Auto-save no `handleIrParaEditor` em `export-page.tsx`
+
+**Arquivo:** `app-portal/components/redator/export-page.tsx`
+
+**Onde:** função `handleIrParaEditor()` — antes de chamar `editorApi.importarDoRedator()`
+
+**O que adicionar:**
+```typescript
+// Auto-save SRTs/textos para R2 antes de importar (não-bloqueante)
+try {
+  await redatorApi.saveToR2(projectId)
+} catch {
+  // Falha silenciosa — não bloqueia o avanço para o editor
+}
+```
+
+**Critério de feito:** ao clicar "Avançar para Editor", os arquivos `subtitles.srt`, `post.txt` e `youtube.txt` de todos os idiomas são enviados ao R2 automaticamente, sem intervenção manual.
+
+**Status:** ✅ CONCLUÍDO em 24/03/2026 17h54
