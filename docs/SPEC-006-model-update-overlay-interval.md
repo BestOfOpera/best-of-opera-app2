@@ -164,3 +164,54 @@ f"Space subtitles evenly across the video."
 4. Tela de aprovação → usuário revisa e pode editar manualmente
 5. approval.py → salva exatamente o que o usuário aprovou
 ```
+
+---
+
+## Ciclo 3 — Correção do bgutil PO Token (adicionado em 2026-03-24)
+
+**Origem:** análise de logs ao vivo — 100% dos downloads falhando com "Sign in to confirm you're not a bot"
+**Problema 1:** `extractor_args` usa `pot_from_server: ['bgutil']`, que exige um servidor HTTP bgutil rodando separado. Esse servidor nunca foi deployado no Railway — o PO Token está falhando silenciosamente em todos os downloads.
+**Problema 2:** Dockerfile instala Node.js via `apt-get` do Debian slim, que entrega versão antiga (Node 12/14). O bgutil requer Node 18+.
+**Decisão:** corrigir para modo local (auto-registro do plugin) + atualizar Node.js para 18 via NodeSource.
+
+---
+
+### Tarefa 5 — Corrigir extractor_args em `download.py`
+
+**Arquivo:** `app-curadoria/backend/services/download.py`
+
+**Problema:** `pot_from_server` exige servidor externo que não existe.
+
+**Antes:**
+```python
+'extractor_args': {
+    'youtube': {
+        'pot_from_server': ['bgutil'],
+    }
+},
+```
+
+**Depois:** remover o bloco `extractor_args` — o plugin `bgutil-ytdlp-pot-provider` instalado via `requirements.txt` auto-registra como provedor local automaticamente quando o pacote está presente.
+
+**Critério de feito:** downloads não logam erro de PO Token; `pot_from_server` removido do código.
+
+**Status:** ✅ CONCLUÍDO em 2026-03-24
+
+---
+
+### Tarefa 6 — Atualizar Node.js para 18+ no Dockerfile
+
+**Arquivo:** `app-curadoria/backend/Dockerfile`
+
+**Problema:** `apt-get install nodejs` entrega Node 12/14 no Debian slim — incompatível com bgutil.
+
+**Antes:**
+```dockerfile
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl unzip nodejs npm && rm -rf /var/lib/apt/lists/*
+```
+
+**Depois:** instalar Node 18 via NodeSource antes do apt-get principal.
+
+**Critério de feito:** `node --version` no container retorna 18+; bgutil consegue executar scripts Node.js.
+
+**Status:** ✅ CONCLUÍDO em 2026-03-24
