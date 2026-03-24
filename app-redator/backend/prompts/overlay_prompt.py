@@ -35,9 +35,7 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         return (
             f"The video is {duration_secs} seconds long. "
             f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable). "
-            f"CRITICAL: Space subtitles exactly {interval_secs} seconds apart. "
-            f"Each subtitle timestamp must be exactly {interval_secs}s after the previous one. "
-            f"Do NOT vary the spacing — consistent {interval_secs}s intervals are required."
+            f"Space subtitles evenly across the video."
         )
     except (ValueError, IndexError):
         return "Create approximately 4-6 subtitle entries with consistent spacing of 6 seconds between each subtitle."

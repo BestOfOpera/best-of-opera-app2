@@ -225,7 +225,34 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
-            
+
+    # Normalize timestamps deterministically (PRD-006)
+    # Claude generates text only — timestamps are rewritten by this script.
+    if parsed and brand_config:
+        interval_secs = (brand_config or {}).get("overlay_interval_secs", 6)
+        duration_secs_norm = 0
+        if project.cut_start and project.cut_end:
+            try:
+                s_parts = project.cut_start.split(":")
+                e_parts = project.cut_end.split(":")
+                duration_secs_norm = (int(e_parts[0]) * 60 + int(e_parts[1])) - (int(s_parts[0]) * 60 + int(s_parts[1]))
+            except (ValueError, IndexError):
+                pass
+        elif project.original_duration:
+            try:
+                parts = project.original_duration.split(":")
+                duration_secs_norm = int(parts[0]) * 60 + int(parts[1])
+            except (ValueError, IndexError):
+                pass
+
+        ceiling = max(0, duration_secs_norm - 2) if duration_secs_norm > 0 else None
+        for i, entry in enumerate(parsed):
+            total = i * interval_secs
+            if ceiling is not None and total > ceiling:
+                total = ceiling
+            entry["timestamp"] = f"{total // 60:02d}:{total % 60:02d}"
+        print(f"[generate_overlay] Timestamps normalized: {interval_secs}s interval, {len(parsed)} subtitles")
+
     # Validation: Last subtitle timing (ERR-054)
     if parsed:
         duration_secs = 0
