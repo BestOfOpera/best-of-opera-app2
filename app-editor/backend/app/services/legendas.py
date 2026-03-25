@@ -406,15 +406,18 @@ def gerar_ass(
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
 
-        # Tags de tamanho por posição: gancho (1ª legenda) / CTA (última legenda)
+        # Tags de tamanho por posição: gancho (1ª legenda) / corpo (meio) / CTA (última legenda)
         overlay_estilo = estilos.get("overlay", {})
         gancho_fs = overlay_estilo.get("gancho_fontsize")
+        corpo_fs = overlay_estilo.get("corpo_fontsize")
         cta_fs = overlay_estilo.get("cta_fontsize")
         fs_tag = ""
         if gancho_fs and i == 0:
             fs_tag = f"{{\\fs{gancho_fs}}}"
         elif cta_fs and i == len(overlay_filtrado) - 1:
             fs_tag = f"{{\\fs{cta_fs}}}"
+        elif corpo_fs:
+            fs_tag = f"{{\\fs{corpo_fs}}}"
 
         event.text = "{\\q2}" + fs_tag + texto
         event.style = "Overlay"

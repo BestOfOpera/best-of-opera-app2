@@ -192,6 +192,9 @@ async def importar_do_redator(
                 "tags": t.get("youtube_tags", ""),
             }
 
+    # RC é sempre instrumental — sem_lyrics independente do parâmetro enviado
+    eh_instrumental_final = eh_instrumental or (perfil is not None and perfil.sigla == "RC")
+
     # Criar a edição
     edicao = Edicao(
         youtube_url=youtube_url,
@@ -202,8 +205,8 @@ async def importar_do_redator(
         opera=proj.get("album_opera", ""),
         categoria=proj.get("category", ""),
         idioma=music_lang,
-        eh_instrumental=eh_instrumental,
-        sem_lyrics=eh_instrumental,
+        eh_instrumental=eh_instrumental_final,
+        sem_lyrics=eh_instrumental_final,
         corte_original_inicio=proj.get("cut_start"),
         corte_original_fim=proj.get("cut_end"),
         redator_project_id=project_id,
