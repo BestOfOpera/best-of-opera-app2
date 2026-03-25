@@ -2,7 +2,7 @@
 
 **Data:** 25/03/2026
 **Baseado em:** PRD-008
-**Status:** EM EXECUÇÃO
+**Status:** CONCLUÍDO
 
 ---
 
@@ -38,10 +38,14 @@ Dashboard → Redator → Overlay → Post → Tradução → Editor (render 1 t
 
 ## Ordem de execução
 
-1. T1 — Corrigir `overlay_style` do perfil RC no banco *(pré-requisito: garante parâmetros corretos antes do render)*
-2. T2 — Adicionar suporte a `corpo_fontsize` em `legendas.py`
-3. T3 — Auto-setar `sem_lyrics=True` na importação para perfil RC em `importar.py`
-4. T4 — Validação end-to-end
+1. T1 — ✅ Corrigir `overlay_style` do perfil RC no banco *(migration de startup em `main.py`)*
+2. T2 — ✅ Adicionar suporte a `corpo_fontsize` em `legendas.py`
+3. T3 — ✅ Auto-setar `sem_lyrics=True` na importação para perfil RC em `importar.py`
+4. T4 — ✅ Validação end-to-end
+5. T5 — ✅ Badge de marca na Fila de Edição
+6. T6 — ✅ Backfill `sem_lyrics=TRUE` para edições RC existentes (`main.py`)
+7. T7 — ✅ Filtrar lista de Projetos do Redator por marca
+8. T8 — ✅ Ocultar projetos concluídos por padrão + filtrar por `export_ready`
 
 ---
 

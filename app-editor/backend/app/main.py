@@ -399,6 +399,18 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration sem_lyrics RC backfill SPEC-008: {e}")
 
+    # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                DELETE FROM editor_edicoes
+                WHERE status = 'concluido'
+                  AND updated_at < NOW() - INTERVAL '24 hours'
+            """))
+            logger.info("Cleanup: edicoes concluidas > 24h deletadas OK")
+    except Exception as e:
+        logger.warning(f"Cleanup edicoes concluidas: {e}")
+
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

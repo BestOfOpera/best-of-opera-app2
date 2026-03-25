@@ -92,6 +92,8 @@ export function EditorEditingQueue() {
     mensagem: string
   } | null>(null)
 
+  const [showTodosStatus, setShowTodosStatus] = useState(false)
+
   const [limparConfirmId, setLimparConfirmId] = useState<number | null>(null)
   const [limpando, setLimpando] = useState(false)
   const [erroLimpar, setErroLimpar] = useState("")
@@ -281,8 +283,19 @@ export function EditorEditingQueue() {
             ) : projetosRedator.length === 0 && !loadingRedator && !erroRedator ? (
               <div className="text-center py-8 text-muted-foreground">Nenhum projeto encontrado no Redator.</div>
             ) : (
+              <>
+                <div className="flex items-center gap-3 mb-3 text-xs text-muted-foreground">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" checked={showTodosStatus} onChange={e => setShowTodosStatus(e.target.checked)} className="accent-primary" />
+                    Mostrar todos os status
+                  </label>
+                </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {projetosRedator.map(p => {
+                {projetosRedator.filter(p => {
+                  if (p.editor_status === "concluido") return false
+                  if (!showTodosStatus && p.status !== "export_ready") return false
+                  return true
+                }).map(p => {
                   const st = REDATOR_STATUS_LABELS[p.status] || REDATOR_STATUS_LABELS.input_complete
                   const prontoNoRedator = p.status === "export_ready"
                   return (
@@ -348,6 +361,7 @@ export function EditorEditingQueue() {
                   )
                 })}
               </div>
+              </>
             )}
           </CardContent>
         </Card>

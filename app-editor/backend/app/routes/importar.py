@@ -55,21 +55,36 @@ def _detect_music_lang(proj: dict, idiomas_alvo: set = None) -> str:
 
 
 @router.get("/redator/projetos")
-async def listar_projetos_redator(db: Session = Depends(get_db)):
-    """Lista projetos do Redator (APP2) com status no Editor."""
+async def listar_projetos_redator(perfil_id: int = None, db: Session = Depends(get_db)):
+    """Lista projetos do Redator (APP2) com status no Editor.
+
+    ?perfil_id=X — filtra por marca: passa brand_slug ao Redator e cruza só edições da marca.
+    """
+    brand_slug = None
+    if perfil_id:
+        perfil_obj = db.get(Perfil, perfil_id)
+        if perfil_obj:
+            brand_slug = perfil_obj.slug
+
     try:
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-            resp = await client.get(f"{REDATOR_API_URL}/api/projects")
+            url = f"{REDATOR_API_URL}/api/projects"
+            if brand_slug:
+                url += f"?brand_slug={brand_slug}"
+            resp = await client.get(url)
             resp.raise_for_status()
     except httpx.HTTPError as e:
         raise HTTPException(502, f"Erro ao conectar com o Redator: {e}")
 
     projects = resp.json()
 
-    # Cruzar com edições já importadas
-    edicoes_importadas = db.query(
-        Edicao.redator_project_id, Edicao.id, Edicao.status
-    ).filter(Edicao.redator_project_id.isnot(None)).all()
+    # Cruzar com edições já importadas — filtrar por marca se perfil_id fornecido
+    query = db.query(Edicao.redator_project_id, Edicao.id, Edicao.status).filter(
+        Edicao.redator_project_id.isnot(None)
+    )
+    if perfil_id:
+        query = query.filter(Edicao.perfil_id == perfil_id)
+    edicoes_importadas = query.all()
     mapa_edicoes = {e.redator_project_id: (e.id, e.status) for e in edicoes_importadas}
 
     result = []
