@@ -351,30 +351,39 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
 
-        # Backfill: corrigir overlay_style do RC (Brand Definition v1.0 / SPEC-008)
-        # Guarda: só roda se corpo_fontsize ainda não estiver presente
-        rc_overlay_style_v2 = _json.dumps({
-            "fontname": "Inter Bold",
-            "fontsize": 48,
-            "gancho_fontsize": 52,
-            "corpo_fontsize": 48,
-            "cta_fontsize": 44,
-            "primarycolor": "#FFFFFF",
-            "outline": 0,
-            "shadow": 0,
-            "alignment": 2,
-            "marginv": 28,
-        })
-        conn.execute(text("""
-            UPDATE editor_perfis SET
-                font_name = 'Inter Bold',
-                overlay_style = :overlay_style,
-                lyrics_style = '{}',
-                traducao_style = '{}'
-            WHERE sigla = 'RC'
-              AND (overlay_style->>'corpo_fontsize') IS NULL
-        """), {"overlay_style": rc_overlay_style_v2})
-        logger.info("Migration: backfill RC overlay_style Brand Definition v1.0 (SPEC-008) OK")
+
+    # Migration: corrigir overlay_style do RC (Brand Definition v1.0 / SPEC-008)
+    try:
+        with engine.begin() as conn:
+            import json as _json2
+            rc_overlay_style_v2 = _json2.dumps({
+                "fontname": "Inter Bold",
+                "fontsize": 48,
+                "gancho_fontsize": 52,
+                "corpo_fontsize": 48,
+                "cta_fontsize": 44,
+                "primarycolor": "#FFFFFF",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 2,
+                "marginv": 28,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    font_name = :font_name,
+                    overlay_style = :overlay_style,
+                    lyrics_style = :empty_json,
+                    traducao_style = :empty_json
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'corpo_fontsize') IS NULL
+            """), {
+                "font_name": "Inter Bold",
+                "overlay_style": rc_overlay_style_v2,
+                "empty_json": "{}",
+            })
+            logger.info("Migration: backfill RC overlay_style Brand Definition v1.0 (SPEC-008) OK")
+    except Exception as e:
+        logger.warning(f"Migration RC overlay_style SPEC-008: {e}")
 
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():
