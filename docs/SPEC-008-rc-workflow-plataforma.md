@@ -252,14 +252,63 @@ WHERE perfil_id = (SELECT id FROM editor_perfis WHERE sigla = 'RC')
 
 ---
 
+---
+
+## T7 — Filtrar lista de Projetos do Redator por marca
+
+**Arquivos:** `app-editor/backend/app/routes/importar.py` · `app-portal/components/editor/editing-queue.tsx`
+
+**Problema:** a seção "Projetos do Redator" exibe todos os projetos de todas as marcas misturados, sem filtro. Projetos de BO aparecem quando o operador está no contexto RC, e vice-versa. A lista cresce indefinidamente sem organização.
+
+**Diagnóstico:**
+- O modelo `Project` no Redator já tem `brand_slug` (default `"best-of-opera"`) e o endpoint `GET /api/projects` já aceita `?brand_slug=X` — infraestrutura pronta, nunca utilizada pelo Editor
+- O Editor nunca passa `brand_slug` na chamada ao Redator
+- O `mapa_edicoes` em `listar_projetos_redator` não filtra por `perfil_id`, cruzando edições de todas as marcas
+
+**O que fazer:**
+1. Em `listar_projetos_redator` (`importar.py`): receber `perfil_id: int = None`, buscar o `slug` do perfil no banco, passar `?brand_slug=slug` na chamada ao Redator
+2. Filtrar `mapa_edicoes` por `.filter(Edicao.perfil_id == perfil_id)` — só cruzar edições da marca atual
+3. Sem `perfil_id` → comportamento atual mantido (backward compatible, retorna tudo)
+
+**Decisão de design registrada:** BO e RC são marcas completamente separadas — um projeto do Redator nunca é compartilhado entre marcas. A UNIQUE constraint `uix_redator_project_id` em `editor_edicoes` permanece inalterada.
+
+**Risco:** zero — aditivo. Sem `perfil_id`, o endpoint se comporta exatamente como antes.
+
+**Critério de feito:**
+- Com RC selecionado, a lista mostra apenas projetos com `brand_slug = "reels-classics"`
+- Com BO selecionado, apenas `brand_slug = "best-of-opera"`
+- O status "já importado / em andamento / concluído" só aparece para edições da marca correta
+
+---
+
+## T8 — Ocultar projetos concluídos por padrão + filtrar por `export_ready`
+
+**Arquivo:** `app-portal/components/editor/editing-queue.tsx`
+
+**Problema:** a lista de projetos do Redator acumula projetos com `editor_status === "concluido"` que nunca saem, entulhando a visualização. Projetos que ainda não estão prontos (`status !== "export_ready"`) também aparecem sem possibilidade de importação.
+
+**O que fazer:**
+1. Ocultar projetos com `editor_status === "concluido"` por padrão — toggle "Mostrar concluídos" no cabeçalho do card
+2. Filtrar apenas `status === "export_ready"` por padrão — toggle "Mostrar todos os status" no mesmo cabeçalho
+3. Estado dos toggles: local (não persiste entre sessões, intencionalmente)
+
+**Risco:** zero — puramente visual/frontend. Nenhum dado é alterado.
+
+**Critério de feito:**
+- Lista por padrão mostra apenas projetos prontos (`export_ready`) e não concluídos
+- Toggles visíveis e funcionais no cabeçalho do card "Projetos do Redator"
+- Projetos BO/RC de sessões anteriores não aparecem na lista de trabalho ativo
+
+---
+
 ## Arquivos afetados
 
 | Arquivo | Tipo de mudança | Risco |
 |---|---|---|
 | `app-editor/backend/app/main.py` | migration de startup (backfill overlay_style RC + backfill sem_lyrics RC) | Baixo — try/except isolado, não derruba startup |
 | `app-editor/backend/app/services/legendas.py` | +3 linhas (corpo_fontsize) | Muito baixo — aditivo, não quebra BO |
-| `app-editor/backend/app/routes/importar.py` | +2 linhas (OR condition) | Baixo — aditivo, não quebra BO |
-| `app-portal/components/editor/editing-queue.tsx` | +8 linhas (badge de marca) | Muito baixo — visual apenas |
+| `app-editor/backend/app/routes/importar.py` | +2 linhas (OR condition) + filtro brand_slug/perfil_id | Baixo — aditivo, backward compatible |
+| `app-portal/components/editor/editing-queue.tsx` | badge de marca + toggles de filtro | Muito baixo — visual apenas |
 
 **Nota:** T1 (SQL manual no banco) foi absorvido pela migration de startup em `main.py` — não requer execução manual.
 
