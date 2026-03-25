@@ -250,8 +250,8 @@ def _run_migrations():
         # Backfill: lyrics/traducao fontsize 32 → 40px no BO
         conn.execute(text("""
             UPDATE editor_perfis SET
-                lyrics_style = jsonb_set(lyrics_style, '{fontsize}', '40'),
-                traducao_style = jsonb_set(traducao_style, '{fontsize}', '40')
+                lyrics_style = jsonb_set(lyrics_style::jsonb, '{fontsize}', '40')::json,
+                traducao_style = jsonb_set(traducao_style::jsonb, '{fontsize}', '40')::json
             WHERE sigla = 'BO'
               AND (lyrics_style->>'fontsize')::int < 40
         """))
