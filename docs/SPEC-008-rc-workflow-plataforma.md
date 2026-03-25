@@ -211,13 +211,57 @@ Executar o fluxo completo do RC uma vez do início ao fim para confirmar que tud
 
 ---
 
+## T5 — Badge de marca na Fila de Edição
+
+**Arquivo:** `app-portal/components/editor/editing-queue.tsx`
+
+**Problema descoberto em teste:** projetos de BO e RC apareciam misturados visualmente na fila, sem indicação de qual marca pertencia cada item. O filtro por `perfil_id` já funcionava no backend (retorna apenas itens da marca selecionada), mas faltava indicação visual.
+
+**O que foi feito:** adicionado badge colorido com a sigla da marca (`RC` / `BO`) em cada item da fila, usando `cor_secundaria` do perfil selecionado. O badge aparece na linha de metadados, antes do compositor.
+
+**Impacto:** zero no BO — badge usa `selectedBrand` do contexto, que é dinâmico.
+
+**Critério de feito:**
+- Badge `RC` (dourado) aparece em cada item quando o perfil RC está selecionado
+- Badge `BO` (vermelho) aparece quando o perfil BO está selecionado
+- Troca de perfil no dropdown atualiza o badge imediatamente
+
+---
+
+## T6 — Backfill `sem_lyrics=TRUE` para edições RC existentes
+
+**Arquivo:** `app-editor/backend/app/main.py` (bloco `_run_migrations`)
+
+**Problema descoberto em teste:** edições RC criadas **antes** do T3 (fix de importação) tinham `sem_lyrics=FALSE` no banco. Ao renderizar, o pipeline incluía o track de lyrics na barra inferior — mesmo sendo RC instrumental. O vídeo saía com legenda em estilo BO.
+
+**O que foi feito:** migration de startup corrige `sem_lyrics=TRUE` e `eh_instrumental=TRUE` para todas as edições RC com `sem_lyrics=FALSE`.
+
+```sql
+UPDATE editor_edicoes SET
+    sem_lyrics = TRUE,
+    eh_instrumental = TRUE
+WHERE perfil_id = (SELECT id FROM editor_perfis WHERE sigla = 'RC')
+  AND sem_lyrics = FALSE
+```
+
+**Atenção — vídeos já renderizados:** a migration corrige o banco, mas vídeos que já foram renderizados com lyrics precisam ser **re-renderizados**. O arquivo no R2 já está gravado com o track errado. Solução: reiniciar o projeto via "Limpar Edição" → re-importar, ou acionar novo render via pipeline.
+
+**Critério de feito:**
+- Após o deploy, consulta SQL confirma: todas as edicoes RC têm `sem_lyrics = TRUE`
+- Novo render de projeto RC não inclui track de lyrics
+
+---
+
 ## Arquivos afetados
 
 | Arquivo | Tipo de mudança | Risco |
 |---|---|---|
-| Banco de dados — tabela `perfis`, linha do RC | UPDATE SQL | Baixo — só afeta perfil RC |
+| `app-editor/backend/app/main.py` | migration de startup (backfill overlay_style RC + backfill sem_lyrics RC) | Baixo — try/except isolado, não derruba startup |
 | `app-editor/backend/app/services/legendas.py` | +3 linhas (corpo_fontsize) | Muito baixo — aditivo, não quebra BO |
 | `app-editor/backend/app/routes/importar.py` | +2 linhas (OR condition) | Baixo — aditivo, não quebra BO |
+| `app-portal/components/editor/editing-queue.tsx` | +8 linhas (badge de marca) | Muito baixo — visual apenas |
+
+**Nota:** T1 (SQL manual no banco) foi absorvido pela migration de startup em `main.py` — não requer execução manual.
 
 ## Arquivos que NÃO precisam ser alterados
 
