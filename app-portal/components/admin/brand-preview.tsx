@@ -112,15 +112,15 @@ export function BrandPreview({ perfil }: BrandPreviewProps) {
                 </div>
             )}
 
-            {/* Lyrics Track */}
-            {perfil.lyrics_style && (
+            {/* Lyrics Track — ocultar para perfis sem lyrics (RC) */}
+            {perfil.lyrics_style && perfil.sigla !== 'RC' && (
                 <div style={getStyle(perfil.lyrics_style as StyleConfig)}>
                     {(perfil.lyrics_style as any).text || "Lírica Principal (Lyrics)"}
                 </div>
             )}
 
-            {/* Tradução Track */}
-            {perfil.traducao_style && (
+            {/* Tradução Track — ocultar para perfis sem lyrics (RC) */}
+            {perfil.traducao_style && perfil.sigla !== 'RC' && (
                 <div style={getStyle(perfil.traducao_style as StyleConfig)}>
                     {(perfil.traducao_style as any).text || "Tradução Acompanhamento"}
                 </div>

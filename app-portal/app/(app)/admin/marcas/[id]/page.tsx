@@ -589,7 +589,7 @@ export default function MarcaConfigPage() {
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Intervalo Overlay</Label>
                                 <div className="relative">
-                                    <Input type="number" min={5} max={60} value={formData.overlay_interval_secs || 15} onChange={e => handleChange("overlay_interval_secs", parseInt(e.target.value))} className="bg-background h-8 text-xs pr-6" />
+                                    <Input type="number" min={5} max={60} value={formData.overlay_interval_secs ?? 6} onChange={e => handleChange("overlay_interval_secs", parseInt(e.target.value))} className="bg-background h-8 text-xs pr-6" />
                                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">s</span>
                                 </div>
                                 <p className="text-[10px] text-muted-foreground leading-tight">Referência flexível — AI adensa em momentos de contexto</p>

@@ -104,7 +104,7 @@ def _run_migrations():
         })
         lyrics_style = _json.dumps({
             "fontname": "TeX Gyre Schola",
-            "fontsize": 32,
+            "fontsize": 40,
             "primarycolor": "#E4F042",
             "outlinecolor": "#000000",
             "outline": 0,
@@ -116,7 +116,7 @@ def _run_migrations():
         })
         traducao_style = _json.dumps({
             "fontname": "TeX Gyre Schola",
-            "fontsize": 32,
+            "fontsize": 40,
             "primarycolor": "#FFFFFF",
             "outlinecolor": "#000000",
             "outline": 0,
@@ -150,7 +150,7 @@ def _run_migrations():
                 nome, sigla, slug, ativo, editorial_lang,
                 idiomas_alvo, idioma_preview,
                 overlay_style, lyrics_style, traducao_style,
-                overlay_max_chars, overlay_max_chars_linha,
+                overlay_max_chars, overlay_max_chars_linha, overlay_interval_secs,
                 lyrics_max_chars, traducao_max_chars,
                 video_width, video_height,
                 r2_prefix, cor_primaria, cor_secundaria,
@@ -162,7 +162,7 @@ def _run_migrations():
                 'Best of Opera', 'BO', 'best-of-opera', TRUE, 'pt',
                 :idiomas_alvo, 'pt',
                 :overlay_style, :lyrics_style, :traducao_style,
-                70, 35, 43, 100, 1080, 1920,
+                70, 35, 10, 43, 100, 1080, 1920,
                 'editor', '#1a1a2e', '#e94560',
                 :hashtags, :categorias,
                 :curadoria_categories, :elite_hits, :power_names, :voice_keywords,
@@ -224,20 +224,38 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill font_name e fontname nos estilos (Playfair Display) OK")
 
-        # Backfill: atualizar BO para estilos corretos (brand doc v1)
+        # Backfill: atualizar BO para estilos corretos (brand doc v1) — guarda: só roda se fonte ainda não migrada
         conn.execute(text("""
             UPDATE editor_perfis SET
                 font_name = 'TeX Gyre Schola',
                 overlay_style = :overlay_style,
                 lyrics_style = :lyrics_style,
                 traducao_style = :traducao_style
-            WHERE sigla = 'BO'
+            WHERE sigla = 'BO' AND (font_name IS NULL OR font_name != 'TeX Gyre Schola')
         """), {
             "overlay_style": overlay_style,
             "lyrics_style": lyrics_style,
             "traducao_style": traducao_style,
         })
         logger.info("Migration: backfill BO estilos brand doc v1 OK")
+
+        # Backfill: overlay_interval_secs = 10 para BO (brand doc)
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                overlay_interval_secs = 10
+            WHERE sigla = 'BO' AND overlay_interval_secs != 10
+        """))
+        logger.info("Migration: backfill overlay_interval_secs BO = 10 OK")
+
+        # Backfill: lyrics/traducao fontsize 32 → 40px no BO
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                lyrics_style = jsonb_set(lyrics_style, '{fontsize}', '40'),
+                traducao_style = jsonb_set(traducao_style, '{fontsize}', '40')
+            WHERE sigla = 'BO'
+              AND (lyrics_style->>'fontsize')::int < 40
+        """))
+        logger.info("Migration: backfill lyrics/traducao fontsize BO = 40px OK")
 
         # Seed idempotente do perfil Reels Classics
         rc_overlay_style = _json.dumps({
@@ -294,7 +312,7 @@ def _run_migrations():
                 'Reels Classics', 'RC', 'reels-classics', TRUE, 'pt',
                 :idiomas_alvo, 'pt',
                 :overlay_style, :lyrics_style, :traducao_style,
-                70, 35, 43, 100, 1080, 1920,
+                66, 33, 43, 100, 1080, 1920,
                 'reels-classics', '#0a0a0a', '#c0a060',
                 :font_name
             WHERE NOT EXISTS (
@@ -323,6 +341,15 @@ def _run_migrations():
             "traducao_style": rc_traducao_style,
         })
         logger.info("Migration: backfill Reels Classics font e estilos OK")
+
+        # Backfill: corrigir overlay_max_chars do RC (Content Bible v3.4: 66/33)
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                overlay_max_chars = 66,
+                overlay_max_chars_linha = 33
+            WHERE sigla = 'RC' AND overlay_max_chars = 70
+        """))
+        logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
 
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():

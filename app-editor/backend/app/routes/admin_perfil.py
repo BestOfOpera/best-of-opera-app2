@@ -33,21 +33,21 @@ IDIOMAS_PADRAO = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
 ESTILOS_PADRAO = {
     "overlay": {
-        "fontname": "Playfair Display", "fontsize": 63,
+        "fontname": "TeX Gyre Schola", "fontsize": 44,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
-        "outline": 3, "shadow": 1, "alignment": 2, "marginv": 1296,
-        "bold": True, "italic": False,
+        "outline": 0, "shadow": 0, "alignment": 2, "marginv": 1296,
+        "bold": True, "italic": True,
     },
     "lyrics": {
-        "fontname": "Playfair Display", "fontsize": 45,
-        "primarycolor": "#FFFF64", "outlinecolor": "#000000",
-        "outline": 2, "shadow": 0, "alignment": 2, "marginv": 573,
+        "fontname": "TeX Gyre Schola", "fontsize": 40,
+        "primarycolor": "#E4F042", "outlinecolor": "#000000",
+        "outline": 0, "shadow": 0, "alignment": 2, "marginv": 573,
         "bold": True, "italic": True,
     },
     "traducao": {
-        "fontname": "Playfair Display", "fontsize": 43,
+        "fontname": "TeX Gyre Schola", "fontsize": 40,
         "primarycolor": "#FFFFFF", "outlinecolor": "#000000",
-        "outline": 2, "shadow": 0, "alignment": 8, "marginv": 1353,
+        "outline": 0, "shadow": 0, "alignment": 8, "marginv": 1353,
         "bold": True, "italic": True,
     },
 }
