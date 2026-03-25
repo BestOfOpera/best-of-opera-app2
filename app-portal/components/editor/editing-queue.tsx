@@ -267,9 +267,14 @@ export function EditorEditingQueue() {
               <Globe className="h-5 w-5 text-green-600" />
               Projetos do Redator
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={carregarProjetosRedator} disabled={loadingRedator}>
-              {loadingRedator ? "Carregando..." : "Atualizar"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setProjetosRedator([])} disabled={loadingRedator}>
+                Limpar lista
+              </Button>
+              <Button variant="ghost" size="sm" onClick={carregarProjetosRedator} disabled={loadingRedator}>
+                {loadingRedator ? "Carregando..." : "Atualizar"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {erroRedator && (
