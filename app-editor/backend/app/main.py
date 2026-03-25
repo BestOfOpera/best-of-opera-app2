@@ -385,6 +385,20 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration RC overlay_style SPEC-008: {e}")
 
+    # Migration: corrigir sem_lyrics das edicoes RC existentes (SPEC-008 T3 backfill)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_edicoes SET
+                    sem_lyrics = TRUE,
+                    eh_instrumental = TRUE
+                WHERE perfil_id = (SELECT id FROM editor_perfis WHERE sigla = 'RC')
+                  AND sem_lyrics = FALSE
+            """))
+            logger.info("Migration: backfill sem_lyrics=TRUE para edicoes RC existentes (SPEC-008) OK")
+    except Exception as e:
+        logger.warning(f"Migration sem_lyrics RC backfill SPEC-008: {e}")
+
     # Migration: adicionar colunas de curadoria ao editor_perfis (para tabelas já existentes)
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

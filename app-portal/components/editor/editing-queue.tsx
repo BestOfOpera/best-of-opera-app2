@@ -631,6 +631,14 @@ export function EditorEditingQueue() {
                       {e.eh_instrumental && <Badge variant="secondary">Instrumental</Badge>}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      {selectedBrand && (
+                        <span
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide"
+                          style={{ backgroundColor: selectedBrand.cor_secundaria + "22", color: selectedBrand.cor_secundaria, border: `1px solid ${selectedBrand.cor_secundaria}44` }}
+                        >
+                          {selectedBrand.sigla}
+                        </span>
+                      )}
                       {e.compositor && <span>{e.compositor}</span>}
                       {e.opera && <span>· {e.opera}</span>}
                       {e.categoria && <span>· {e.categoria}</span>}
