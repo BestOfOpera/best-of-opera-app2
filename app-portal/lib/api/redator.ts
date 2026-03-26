@@ -96,8 +96,11 @@ export const redatorApi = {
     const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
     return request<Project[]>(`${BASE()}/projects${qs}`)
   },
-  listR2Available: (brand_slug?: string) => {
-    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
+  listR2Available: (brand_slug?: string, r2_prefix?: string) => {
+    const params = new URLSearchParams()
+    if (brand_slug) params.append("brand_slug", brand_slug)
+    if (r2_prefix) params.append("r2_prefix", r2_prefix)
+    const qs = params.toString() ? `?${params.toString()}` : ""
     return request<R2AvailableItem[]>(`${BASE()}/projects/r2-available${qs}`)
   },
   deleteR2Items: (folders: string[]) =>

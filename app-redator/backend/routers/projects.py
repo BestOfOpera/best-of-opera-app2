@@ -33,12 +33,16 @@ def list_projects(
 @router.get("/r2-available", response_model=List[R2AvailableItem])
 def list_r2_available(
     brand_slug: Optional[str] = Query(None),
+    r2_prefix: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Lista projetos no R2 (video/original.mp4) sem projeto correspondente no Redator."""
+    """Lista projetos no R2 (video/original.mp4) sem projeto correspondente no Redator.
+
+    r2_prefix — prefixo R2 da marca (ex: 'best-of-opera'). Filtra arquivos por marca.
+    """
     try:
         from shared.storage_service import storage
-        keys = storage.list_files("")
+        keys = storage.list_files(r2_prefix or "")
     except Exception:
         return []
 
@@ -52,14 +56,17 @@ def list_r2_available(
 
     result = []
     for key in originals:
-        folder = key[: -len("/video/original.mp4")]
-        if " - " in folder:
-            artist, work = folder.split(" - ", 1)
+        # Remover prefixo da marca do caminho antes de extrair artist/work
+        relative = key.removeprefix(f"{r2_prefix}/") if r2_prefix else key
+        folder_relative = relative[: -len("/video/original.mp4")]
+        full_folder = key[: -len("/video/original.mp4")]
+        if " - " in folder_relative:
+            artist, work = folder_relative.split(" - ", 1)
         else:
-            artist, work = folder, ""
+            artist, work = folder_relative, ""
         artist, work = artist.strip(), work.strip()
         if (artist.lower(), work.lower()) not in existing_set:
-            result.append(R2AvailableItem(folder=folder, artist=artist, work=work))
+            result.append(R2AvailableItem(folder=full_folder, artist=artist, work=work))
 
     return result
 

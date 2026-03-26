@@ -54,7 +54,7 @@ export function RedatorProjectList() {
     setLoading(true)
     Promise.all([
       redatorApi.listProjects(selectedBrand?.slug),
-      redatorApi.listR2Available(selectedBrand?.slug).catch(() => [] as R2AvailableItem[]),
+      redatorApi.listR2Available(selectedBrand?.slug, selectedBrand?.r2_prefix).catch(() => [] as R2AvailableItem[]),
     ]).then(([projs, r2]) => {
       setProjects(projs)
       setR2Items(r2)
