@@ -350,11 +350,15 @@ export function EditorEditingQueue() {
                         </Button>
                       ) : (
                         <Button size="sm" onClick={() => {
-                          setModalIdioma({ projectId: p.id, artist: p.artist, work: p.work, category: p.category })
-                          setIdiomaEscolhido("auto")
-                          setOutroIdioma("")
-                          // RC é instrumental por padrão — pré-selecionar Sem Lyrics
-                          setTemLetraImport(selectedBrand?.sigla === "RC" ? false : null)
+                          if (selectedBrand?.sigla === "RC") {
+                            // RC sem lyrics — importar direto, sem modal de idioma
+                            handleImportar(p.id, "auto")
+                          } else {
+                            setModalIdioma({ projectId: p.id, artist: p.artist, work: p.work, category: p.category })
+                            setIdiomaEscolhido("auto")
+                            setOutroIdioma("")
+                            setTemLetraImport(null)
+                          }
                         }} disabled={importando !== null} className="gap-1.5">
                           {importando === p.id ? (
                             <><Loader2 className="h-3.5 w-3.5 animate-spin" /> ...</>
