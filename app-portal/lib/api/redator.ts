@@ -100,6 +100,11 @@ export const redatorApi = {
     const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
     return request<R2AvailableItem[]>(`${BASE()}/projects/r2-available${qs}`)
   },
+  deleteR2Items: (folders: string[]) =>
+    request<{ deleted: string[] }>(`${BASE()}/projects/r2-available`, {
+      method: "DELETE",
+      body: JSON.stringify({ folders }),
+    }),
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
   createProject: (data: Record<string, string>, brand_slug?: string) => {
     const body = { ...data }

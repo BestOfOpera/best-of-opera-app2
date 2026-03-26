@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -61,6 +62,29 @@ def list_r2_available(
             result.append(R2AvailableItem(folder=folder, artist=artist, work=work))
 
     return result
+
+
+class R2DeleteRequest(BaseModel):
+    folders: List[str]
+
+@router.delete("/r2-available")
+def delete_r2_items(body: R2DeleteRequest):
+    """Deleta pastas selecionadas do R2 (remove video/original.mp4 de cada folder)."""
+    try:
+        from shared.storage_service import storage
+    except Exception:
+        raise HTTPException(500, "Storage não configurado")
+
+    deleted = []
+    for folder in body.folders:
+        key = f"{folder}/video/original.mp4"
+        try:
+            storage.delete(key)
+            deleted.append(folder)
+        except Exception:
+            pass
+
+    return {"deleted": deleted}
 
 
 @router.delete("/by-brand/{brand_slug}")
