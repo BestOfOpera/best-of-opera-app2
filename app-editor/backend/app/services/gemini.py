@@ -42,7 +42,7 @@ def parse_json_response(text: str) -> list:
 def _extract_response_text(response) -> str:
     """Extrai texto da resposta do Gemini, tratando bloqueio por safety filter."""
     try:
-        return response.text
+        text = response.text
     except ValueError:
         # Safety filter bloqueou a resposta
         block_reason = None
@@ -59,6 +59,10 @@ def _extract_response_text(response) -> str:
             f"Motivo: {block_reason or 'desconhecido'}. "
             f"Tente novamente ou ajuste o conteúdo."
         )
+    # Resposta vazia — Gemini às vezes retorna conteúdo vazio sem erro explícito
+    if not text or not text.strip():
+        raise RuntimeError("Gemini retornou resposta vazia — retry")
+    return text
 
 
 def _detect_mime_type(path: str) -> str:
