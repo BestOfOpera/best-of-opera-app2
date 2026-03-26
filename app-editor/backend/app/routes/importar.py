@@ -166,13 +166,16 @@ async def importar_do_redator(
 
     music_lang = idioma or _detect_music_lang(proj, _idiomas_set)
     if music_lang is None:
-        raise HTTPException(
-            422,
-            detail={
-                "idioma_necessario": True,
-                "mensagem": "Não foi possível detectar o idioma. Selecione manualmente.",
-            },
-        )
+        if eh_instrumental:
+            music_lang = proj.get("language") or "und"
+        else:
+            raise HTTPException(
+                422,
+                detail={
+                    "idioma_necessario": True,
+                    "mensagem": "Não foi possível detectar o idioma. Selecione manualmente.",
+                },
+            )
 
     # Idioma editorial: usa perfil.editorial_lang ou fallback "pt"
     editorial_lang = (perfil.editorial_lang if perfil and perfil.editorial_lang else "pt")
