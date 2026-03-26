@@ -115,9 +115,11 @@ class BulkDeleteRequest(BaseModel):
 @router.delete("/bulk")
 def delete_projects_bulk(body: BulkDeleteRequest, db: Session = Depends(get_db)):
     """Deleta múltiplos projetos por ID."""
-    deleted = db.query(Project).filter(Project.id.in_(body.ids)).delete(synchronize_session=False)
+    projects = db.query(Project).filter(Project.id.in_(body.ids)).all()
+    for p in projects:
+        db.delete(p)
     db.commit()
-    return {"deleted": deleted}
+    return {"deleted": len(projects)}
 
 
 @router.delete("/{project_id}")
