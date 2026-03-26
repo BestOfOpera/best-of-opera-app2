@@ -90,9 +90,21 @@ export function RedatorProjectList() {
 
       {r2Items.length > 0 && (
         <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Prontos para o Redator
-          </p>
+          <div className="flex items-center gap-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Prontos para o Redator
+            </p>
+            <button
+              onClick={() => setSelected(
+                selected.size === r2Items.length
+                  ? new Set()
+                  : new Set(r2Items.map(i => i.folder))
+              )}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {selected.size === r2Items.length ? "Desmarcar tudo" : "Selecionar tudo"}
+            </button>
+          </div>
           {r2Items.map((item) => (
             <div key={item.folder} className="flex items-center gap-2">
               <input
