@@ -353,7 +353,8 @@ export function EditorEditingQueue() {
                           setModalIdioma({ projectId: p.id, artist: p.artist, work: p.work, category: p.category })
                           setIdiomaEscolhido("auto")
                           setOutroIdioma("")
-                          setTemLetraImport(null)
+                          // RC é instrumental por padrão — pré-selecionar Sem Lyrics
+                          setTemLetraImport(selectedBrand?.sigla === "RC" ? false : null)
                         }} disabled={importando !== null} className="gap-1.5">
                           {importando === p.id ? (
                             <><Loader2 className="h-3.5 w-3.5 animate-spin" /> ...</>
@@ -534,7 +535,11 @@ export function EditorEditingQueue() {
 
               {modalIdioma && (
                 <div className="flex justify-center">
-                  {["Aria", "Duet", "Chorus"].includes(modalIdioma.category || "") ? (
+                  {selectedBrand?.sigla === "RC" ? (
+                    <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 italic">
+                      💡 Reels Classics: Sem Lyrics pré-selecionado (instrumental por padrão)
+                    </span>
+                  ) : ["Aria", "Duet", "Chorus"].includes(modalIdioma.category || "") ? (
                     <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 italic">
                       💡 Recomendado: Com Lyrics (detectada categoria vocal: {modalIdioma.category})
                     </span>
