@@ -109,6 +109,27 @@ def delete_projects_by_brand(brand_slug: str, db: Session = Depends(get_db)):
     return {"deleted": count}
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: List[int]
+
+@router.delete("/bulk")
+def delete_projects_bulk(body: BulkDeleteRequest, db: Session = Depends(get_db)):
+    """Deleta múltiplos projetos por ID."""
+    deleted = db.query(Project).filter(Project.id.in_(body.ids)).delete(synchronize_session=False)
+    db.commit()
+    return {"deleted": deleted}
+
+
+@router.delete("/{project_id}")
+def delete_project(project_id: int, db: Session = Depends(get_db)):
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    db.delete(project)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/{project_id}", response_model=ProjectOut)
 def get_project(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)

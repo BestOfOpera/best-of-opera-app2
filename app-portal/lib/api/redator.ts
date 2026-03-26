@@ -108,6 +108,10 @@ export const redatorApi = {
       method: "DELETE",
       body: JSON.stringify({ folders }),
     }),
+  deleteProject: (id: number) =>
+    request<{ ok: boolean }>(`${BASE()}/projects/${id}`, { method: "DELETE" }),
+  deleteProjects: (ids: number[]) =>
+    request<{ deleted: number }>(`${BASE()}/projects/bulk`, { method: "DELETE", body: JSON.stringify({ ids }) }),
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
   createProject: (data: Record<string, string>, brand_slug?: string) => {
     const body = { ...data }
