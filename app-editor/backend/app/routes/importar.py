@@ -207,8 +207,7 @@ async def importar_do_redator(
                 "tags": t.get("youtube_tags", ""),
             }
 
-    # RC é sempre instrumental — sem_lyrics independente do parâmetro enviado
-    eh_instrumental_final = eh_instrumental or (perfil is not None and perfil.sigla == "RC")
+    eh_instrumental_final = eh_instrumental
 
     # Criar a edição
     edicao = Edicao(
