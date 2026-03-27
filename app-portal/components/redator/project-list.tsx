@@ -14,9 +14,9 @@ import { toast } from "sonner"
 type View = "em_andamento" | "export_ready" | "r2"
 
 const VIEW_LABELS: Record<View, string> = {
+  r2: "Prontos para o Redator",
   em_andamento: "Em andamento",
   export_ready: "Prontos p/ Exportar",
-  r2: "Prontos para o Redator",
 }
 
 const STATUS_EM_ANDAMENTO = ["input_complete", "generating", "awaiting_approval", "translating"]
@@ -35,7 +35,7 @@ export function RedatorProjectList() {
   const [r2Items, setR2Items] = useState<R2AvailableItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [activeView, setActiveView] = useState<View>("em_andamento")
+  const [activeView, setActiveView] = useState<View>("r2")
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set())
