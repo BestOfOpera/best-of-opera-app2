@@ -52,7 +52,12 @@ export function EditorOverview({ edicaoId }: { edicaoId: number }) {
 
   const handleIniciarPipeline = async () => {
     setIniciando(true)
-    router.push(`/editor/edicao/${edicaoId}/letra`)
+    // Instrumental: pular letra e alinhamento, ir direto para conclusão
+    if (edicao?.sem_lyrics) {
+      router.push(`/editor/edicao/${edicaoId}/conclusao`)
+    } else {
+      router.push(`/editor/edicao/${edicaoId}/letra`)
+    }
   }
 
   if (loading) {
@@ -152,6 +157,12 @@ export function EditorOverview({ edicaoId }: { edicaoId: number }) {
                 <ExternalLink className="h-3.5 w-3.5" />
                 {getYoutubeUrl(edicao.youtube_url, edicao.youtube_video_id)}
               </a>
+            </div>
+          )}
+
+          {edicao.sem_lyrics && (
+            <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded text-sm">
+              Edição instrumental — etapas de letra e alinhamento serão puladas.
             </div>
           )}
 

@@ -108,6 +108,7 @@ class ProjectOut(BaseModel):
     post_approved: bool
     youtube_approved: bool
     translations: List[TranslationOut] = []
+    warnings: List[str] = []
 
     model_config = {"from_attributes": True}
 

@@ -92,6 +92,7 @@ export default function NovaMarcaPage() {
         tom_de_voz_redator: "",
         hashtags_fixas: ["opera", "classicalmusic"],
         categorias_hook: [],
+        sem_lyrics_default: false,
         escopo_conteudo: "",
         overlay_style: {},
         lyrics_style: {},
@@ -125,6 +126,18 @@ export default function NovaMarcaPage() {
         // Validação básica local antes de enviar
         if (!formData.nome || !formData.sigla || !formData.slug || !formData.r2_prefix) {
             toast.error("Por favor, preencha todos os campos obrigatórios (*)")
+            return
+        }
+
+        // Validação de campos de marca obrigatórios (SPEC-009)
+        const REQUIRED_BRAND_FIELDS = [
+            { key: "identity_prompt_redator" as keyof Perfil, label: "Identidade da marca" },
+            { key: "tom_de_voz_redator" as keyof Perfil, label: "Tom de voz" },
+            { key: "escopo_conteudo" as keyof Perfil, label: "Escopo de conteúdo" },
+        ]
+        const missing = REQUIRED_BRAND_FIELDS.filter(f => !(formData[f.key] as string)?.trim())
+        if (missing.length > 0) {
+            toast.error(`Preencha os campos obrigatórios: ${missing.map(f => f.label).join(", ")}`)
             return
         }
 
@@ -217,6 +230,23 @@ export default function NovaMarcaPage() {
                                 />
                             </div>
                         </div>
+                        <div className="flex items-start gap-3 md:col-span-2 p-4 bg-muted/30 rounded-xl border border-border/50">
+                            <input
+                                type="checkbox"
+                                id="sem_lyrics_default"
+                                checked={formData.sem_lyrics_default ?? false}
+                                onChange={(e) => setFormData({...formData, sem_lyrics_default: e.target.checked})}
+                                className="mt-0.5"
+                            />
+                            <div>
+                                <label htmlFor="sem_lyrics_default" className="text-sm font-semibold cursor-pointer">
+                                    Marca instrumental (sem letra por padrão)
+                                </label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Quando ativo, projetos importados desta marca serão automaticamente tratados como instrumentais. O operador pode alterar por projeto na importação.
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </CollapsibleSection>
 
@@ -302,7 +332,7 @@ export default function NovaMarcaPage() {
                 <CollapsibleSection title="Prompts & Editorial" description="Personalidade da marca para a inteligência artificial." icon={Type}>
                     <div className="space-y-5">
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Identidade da Marca — Geração de Conteúdo</Label>
+                            <Label className="font-semibold text-muted-foreground">Identidade da Marca — Geração de Conteúdo <span className="text-red-500">*</span></Label>
                             <p className="text-[11px] text-muted-foreground -mt-1">Injetado diretamente no prompt do Claude ao gerar legendas, post e título. Descreva quem é a marca, o público-alvo e o propósito do canal.</p>
                             <Textarea
                                 value={formData.identity_prompt_redator || ""}
@@ -312,7 +342,7 @@ export default function NovaMarcaPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Tom de Voz — Geração de Conteúdo</Label>
+                            <Label className="font-semibold text-muted-foreground">Tom de Voz — Geração de Conteúdo <span className="text-red-500">*</span></Label>
                             <p className="text-[11px] text-muted-foreground -mt-1">Define o estilo de escrita injetado no prompt do Claude. Use frases curtas e descritivas.</p>
                             <Textarea
                                 value={formData.tom_de_voz_redator || ""}
@@ -322,7 +352,7 @@ export default function NovaMarcaPage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Nota de Escopo de Conteúdo</Label>
+                            <Label className="font-semibold text-muted-foreground">Nota de Escopo de Conteúdo <span className="text-red-500">*</span></Label>
                             <p className="text-[11px] text-muted-foreground -mt-1">Instruções extras sobre o que o conteúdo deve focar ou evitar.</p>
                             <Textarea
                                 value={formData.escopo_conteudo || ""}
@@ -430,11 +460,12 @@ export default function NovaMarcaPage() {
                         </div>
 
                         <div className="md:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6 pt-2">
-                            <StyleTrackConfig 
-                                title="Overlay (Header)" 
+                            <StyleTrackConfig
+                                title="Overlay (Header)"
                                 description="Legendas de contexto exibidas no topo do vídeo"
-                                value={formData.overlay_style || {}} 
-                                onChange={v => handleChange("overlay_style", v)} 
+                                value={formData.overlay_style || {}}
+                                onChange={v => handleChange("overlay_style", v)}
+                                showHookSizes
                             />
                             <StyleTrackConfig 
                                 title="Letra Principal (Lyrics)" 

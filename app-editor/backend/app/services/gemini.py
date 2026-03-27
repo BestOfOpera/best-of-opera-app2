@@ -110,7 +110,7 @@ ATENÇÃO: A cantora pode repetir estrofes inteiras. Cada repetição = segmento
 """
 
     prompt = f"""
-Ouça este áudio de ópera do INÍCIO ao FIM com atenção máxima aos MOMENTOS em que cada frase é cantada.
+Ouça este áudio de música do INÍCIO ao FIM com atenção máxima aos MOMENTOS em que cada frase é cantada.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
@@ -130,10 +130,10 @@ MÉTODO — faça assim:
 4. Se a MESMA frase é cantada novamente mais tarde, crie um NOVO segmento
 5. NÃO pule nenhum trecho cantado, mesmo que seja repetição
 
-IMPORTANTE SOBRE ÓPERA:
+IMPORTANTE SOBRE MÚSICA VOCAL:
 - Cantores repetem estrofes inteiras (com ornamentações)
-- Se "Casta Diva" é cantada em 01:55 e DE NOVO em 03:10, são 2 segmentos
-- O resultado deve ter 30-50 segmentos para uma ária completa
+- Se uma frase é cantada em 01:55 e DE NOVO em 03:10, são 2 segmentos
+- O resultado deve ter 30-50 segmentos para uma música completa
 - Timestamps em MM:SS,mmm (ex: 01:25,300)
 
 REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
@@ -204,7 +204,7 @@ async def transcrever_guiado_completo(
     n_versos = len(versos)
 
     prompt = f"""
-Você é um transcritor profissional de ópera com ouvido absoluto.
+Você é um transcritor profissional de música com ouvido absoluto.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
@@ -221,9 +221,9 @@ TAREFA OBRIGATÓRIA:
 Ouça o áudio do PRIMEIRO ao ÚLTIMO segundo. A letra acima está sendo cantada neste áudio.
 Marque o timestamp EXATO de CADA verso.
 
-REGRA FUNDAMENTAL — REPETIÇÕES EM ÓPERA:
-Em árias de ópera, o cantor frequentemente REPETE a mesma estrofe inteira (com ornamentações).
-Exemplo: "Casta Diva, che inargenti" pode ser cantada uma primeira vez em 01:55 e REPETIDA em 03:10.
+REGRA FUNDAMENTAL — REPETIÇÕES EM MÚSICA:
+Em músicas vocais, o cantor frequentemente REPETE a mesma estrofe inteira (com ornamentações).
+Exemplo: uma frase pode ser cantada uma primeira vez em 01:55 e REPETIDA em 03:10.
 Você DEVE criar segmentos separados para CADA repetição. A letra acima pode ter cada verso uma vez,
 mas no áudio ele pode ser cantado 2 ou 3 vezes. Marque TODAS as ocorrências.
 Espere retornar MAIS segmentos do que versos na letra ({n_versos} versos, mas provavelmente 30-50 segmentos com repetições).
@@ -309,7 +309,7 @@ async def completar_transcricao(
     versos = [v.strip() for v in letra_original.split("\n") if v.strip()]
 
     prompt = f"""
-Você é um transcritor profissional de ópera revisando uma transcrição INCOMPLETA.
+Você é um transcritor profissional de música revisando uma transcrição INCOMPLETA.
 
 CONTEXTO:
 - Artista: {metadados.get("artista", "Desconhecido")}
@@ -394,7 +394,7 @@ async def traduzir_letra(
     }
 
     prompt = f"""
-Traduza a seguinte letra de ópera para {nomes_idiomas.get(idioma_alvo, idioma_alvo)}.
+Traduza a seguinte letra da música para {nomes_idiomas.get(idioma_alvo, idioma_alvo)}.
 
 Música: {metadados.get("musica", "")}
 Compositor: {metadados.get("compositor", "")}
@@ -440,11 +440,11 @@ async def buscar_letra(metadados: dict) -> str:
     model = genai.GenerativeModel("gemini-2.5-pro")
 
     prompt = f"""
-Forneça a letra COMPLETA e ORIGINAL da seguinte música/ária:
+Forneça a letra COMPLETA e ORIGINAL da seguinte música:
 
-Artista/Personagem: {metadados.get("artista", "N/A")}
-Música/Ária: {metadados["musica"]}
-Ópera: {metadados.get("opera", "N/A")}
+Artista: {metadados.get("artista", "N/A")}
+Música: {metadados["musica"]}
+Álbum/Obra: {metadados.get("opera", "N/A")}
 Compositor: {metadados.get("compositor", "N/A")}
 Idioma original: {metadados["idioma"]}
 

@@ -12,14 +12,23 @@ export function CuradoriaDownloads() {
   const { selectedBrand } = useBrand()
   const [downloads, setDownloads] = useState<Download[]>([])
   const [loading, setLoading] = useState(true)
+  const [brands, setBrands] = useState<string[]>([])
+  const [brandFilter, setBrandFilter] = useState<string>("")
+
+  useEffect(() => {
+    curadoriaApi.downloadBrands().then(setBrands).catch(() => {})
+  }, [])
+
+  // Usar filtro explícito ou marca selecionada
+  const effectiveBrand = brandFilter || selectedBrand?.slug
 
   useEffect(() => {
     setLoading(true)
-    curadoriaApi.downloads(selectedBrand?.slug)
+    curadoriaApi.downloads(effectiveBrand)
       .then(data => setDownloads(data.downloads || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [selectedBrand?.slug])
+  }, [effectiveBrand])
 
   if (loading) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
@@ -32,13 +41,25 @@ export function CuradoriaDownloads() {
           </Button>
           <h2 className="text-2xl font-bold">Downloads ({downloads.length})</h2>
         </div>
-        {downloads.length > 0 && (
-          <Button variant="outline" size="sm" asChild className="gap-2">
-            <a href={curadoriaApi.downloadsExportUrl(selectedBrand?.slug)} download>
-              <FileSpreadsheet className="h-4 w-4" /> Export CSV
-            </a>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {brands.length > 0 && (
+            <select
+              value={brandFilter}
+              onChange={e => setBrandFilter(e.target.value)}
+              className="text-sm border rounded-md px-2 py-1.5 bg-background"
+            >
+              <option value="">Todas as marcas</option>
+              {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          )}
+          {downloads.length > 0 && (
+            <Button variant="outline" size="sm" asChild className="gap-2">
+              <a href={curadoriaApi.downloadsExportUrl(effectiveBrand)} download>
+                <FileSpreadsheet className="h-4 w-4" /> Export CSV
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
       {downloads.length === 0 ? (

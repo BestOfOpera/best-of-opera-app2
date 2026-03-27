@@ -83,6 +83,7 @@ class PerfilListItem(BaseModel):
     sigla: str
     slug: str
     ativo: bool
+    sem_lyrics_default: bool = False
     idiomas_alvo: Optional[List[str]] = None
     cor_primaria: str
     cor_secundaria: str
@@ -106,6 +107,7 @@ class PerfilDetalheOut(BaseModel):
     sigla: str
     slug: str
     ativo: bool
+    sem_lyrics_default: bool = False
     identity_prompt: Optional[str] = None
     tom_de_voz: Optional[str] = None
     editorial_lang: str
@@ -182,6 +184,23 @@ def _get_stats(perfil_id: int, db: Session) -> PerfilStats:
         total_edicoes=total, concluidas=concluidas,
         em_andamento=em_andamento, em_erro=em_erro,
     )
+
+
+CAMPOS_OBRIGATORIOS_MARCA = ["identity_prompt_redator", "tom_de_voz_redator", "escopo_conteudo"]
+
+
+def _validar_campos_marca(dados: dict) -> list:
+    """Valida campos obrigatórios de marca. Retorna lista de warnings."""
+    faltando = [c for c in CAMPOS_OBRIGATORIOS_MARCA if not (dados.get(c) or "").strip()]
+    if faltando:
+        raise HTTPException(
+            422,
+            detail=f"Campos obrigatórios não preenchidos: {', '.join(faltando)}"
+        )
+    warnings = []
+    if not (dados.get("custom_post_structure") or "").strip():
+        warnings.append("custom_post_structure não definido — posts usarão estrutura genérica")
+    return warnings
 
 
 def _validar_campos(data: dict) -> None:
@@ -311,6 +330,7 @@ def criar_perfil(body: dict, db: Session = Depends(get_db)):
         body["idiomas_alvo"] = IDIOMAS_PADRAO[:]
 
     _validar_campos(body)
+    marca_warnings = _validar_campos_marca(body)
 
     # Verificar unicidade
     for campo in ["nome", "sigla", "slug"]:
@@ -333,7 +353,9 @@ def criar_perfil(body: dict, db: Session = Depends(get_db)):
     stats = _get_stats(perfil.id, db)
     dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
     dados["stats"] = stats
-    return PerfilDetalheOut(**dados)
+    result = PerfilDetalheOut(**dados).model_dump()
+    result["warnings"] = marca_warnings
+    return result
 
 
 @router.put("/{perfil_id}", response_model=PerfilDetalheOut)
@@ -345,6 +367,7 @@ def atualizar_perfil(perfil_id: int, body: dict, db: Session = Depends(get_db), 
 
     _protegido(perfil, force=force)
     _validar_campos(body)
+    marca_warnings = _validar_campos_marca(body)
 
     for campo, valor in body.items():
         if hasattr(perfil, campo) and campo not in ("id", "created_at"):
@@ -356,7 +379,9 @@ def atualizar_perfil(perfil_id: int, body: dict, db: Session = Depends(get_db), 
     stats = _get_stats(perfil_id, db)
     dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
     dados["stats"] = stats
-    return PerfilDetalheOut(**dados)
+    result = PerfilDetalheOut(**dados).model_dump()
+    result["warnings"] = marca_warnings
+    return result
 
 
 @router.patch("/{perfil_id}", response_model=PerfilDetalheOut)

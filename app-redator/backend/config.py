@@ -24,15 +24,17 @@ def _resolve_editor_url() -> str:
 
 
 EDITOR_API_URL = _resolve_editor_url()
-BRAND_SLUG = os.getenv("BRAND_SLUG", "best-of-opera")
+BRAND_SLUG = os.getenv("BRAND_SLUG")  # sem default — None se não configurado
 
 _brand_config_cache: dict = {}
 _CACHE_TTL = 300
 
 
-def load_brand_config(slug: str = None) -> dict:
-    """Carrega config da marca do editor via API interna. Cache 5min. Fallback hardcoded."""
-    target_slug = slug or BRAND_SLUG
+def load_brand_config(slug: str) -> dict:
+    """Carrega config da marca do editor via API interna. Cache 5min."""
+    if not slug:
+        raise ValueError("slug da marca é obrigatório para carregar configuração")
+    target_slug = slug
     now = time.monotonic()
 
     cached = _brand_config_cache.get(target_slug)

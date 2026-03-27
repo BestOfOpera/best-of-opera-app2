@@ -64,9 +64,13 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
 
+    warnings = []
     try:
         project.overlay_json = generate_overlay(project, brand_config=brand_config)
-        project.post_text = generate_post(project, brand_config=brand_config)
+        post_result = generate_post(project, brand_config=brand_config)
+        project.post_text = post_result["text"]
+        if post_result.get("warning"):
+            warnings.append(post_result["warning"])
         title, tags = generate_youtube(project, brand_config=brand_config)
         project.youtube_title = title
         project.youtube_tags = tags
@@ -81,7 +85,9 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(project)
-    return project
+    out = ProjectOut.model_validate(project)
+    out.warnings = warnings
+    return out
 
 
 @router.post("/{project_id}/regenerate-overlay", response_model=ProjectOut)
@@ -117,13 +123,17 @@ def regenerate_post(
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
-    project.post_text = generate_post(project, body.custom_prompt, brand_config=brand_config)
+    post_result = generate_post(project, body.custom_prompt, brand_config=brand_config)
+    project.post_text = post_result["text"]
     project.post_approved = False
     if project.status == "export_ready":
         project.status = "awaiting_approval"
     db.commit()
     db.refresh(project)
-    return project
+    out = ProjectOut.model_validate(project)
+    if post_result.get("warning"):
+        out.warnings = [post_result["warning"]]
+    return out
 
 
 @router.post("/{project_id}/regenerate-youtube", response_model=ProjectOut)

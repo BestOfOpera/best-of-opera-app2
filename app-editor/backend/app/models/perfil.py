@@ -12,6 +12,7 @@ class Perfil(Base):
     sigla = Column(String(5), nullable=False)                     # "BO"
     slug = Column(String(50), unique=True, nullable=False)        # "best-of-opera"
     ativo = Column(Boolean, default=True)
+    sem_lyrics_default = Column(Boolean, default=False, nullable=False, server_default="false")
 
     # Identidade
     identity_prompt = Column(Text)

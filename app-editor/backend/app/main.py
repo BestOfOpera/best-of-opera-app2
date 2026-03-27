@@ -89,9 +89,9 @@ def _run_migrations():
         # Seed idempotente do perfil Best of Opera
         overlay_style = _json.dumps({
             "fontname": "TeX Gyre Schola",
-            "fontsize": 44,             # corpo
-            "gancho_fontsize": 46,      # 1ª legenda
-            "cta_fontsize": 44,         # última legenda (igual ao corpo)
+            "fontsize": 58,             # corpo
+            "gancho_fontsize": 60,      # 1ª legenda
+            "cta_fontsize": 58,         # última legenda (igual ao corpo)
             "primarycolor": "#FFFFFF",
             "outlinecolor": "#000000",
             "outline": 0,               # sem contorno — texto sobre faixa preta
@@ -104,7 +104,7 @@ def _run_migrations():
         })
         lyrics_style = _json.dumps({
             "fontname": "TeX Gyre Schola",
-            "fontsize": 40,
+            "fontsize": 48,
             "primarycolor": "#E4F042",
             "outlinecolor": "#000000",
             "outline": 0,
@@ -116,7 +116,7 @@ def _run_migrations():
         })
         traducao_style = _json.dumps({
             "fontname": "TeX Gyre Schola",
-            "fontsize": 40,
+            "fontsize": 48,
             "primarycolor": "#FFFFFF",
             "outlinecolor": "#000000",
             "outline": 0,
@@ -257,6 +257,23 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill lyrics/traducao fontsize BO = 40px OK")
 
+        # Backfill: aumentar fontes BO — gancho 60, corpo/cta 58, lyrics/tradução 48
+        conn.execute(text("""
+            UPDATE editor_perfis SET
+                overlay_style = jsonb_set(
+                    jsonb_set(
+                        jsonb_set(overlay_style::jsonb, '{fontsize}', '58'),
+                        '{gancho_fontsize}', '60'
+                    ),
+                    '{cta_fontsize}', '58'
+                )::json,
+                lyrics_style = jsonb_set(lyrics_style::jsonb, '{fontsize}', '48')::json,
+                traducao_style = jsonb_set(traducao_style::jsonb, '{fontsize}', '48')::json
+            WHERE sigla = 'BO'
+              AND (overlay_style->>'gancho_fontsize')::int < 60
+        """))
+        logger.info("Migration: backfill BO fontes maiores (gancho 60, corpo/cta 58, lyrics/trad 48) OK")
+
         # Seed idempotente do perfil Reels Classics
         rc_overlay_style = _json.dumps({
             "fontname": "Inter",
@@ -351,6 +368,12 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
 
+        # SPEC-009: RC é instrumental por padrão
+        conn.execute(text("""
+            UPDATE editor_perfis SET sem_lyrics_default = TRUE
+            WHERE sigla = 'RC' AND sem_lyrics_default = FALSE
+        """))
+        logger.info("Migration: SPEC-009 sem_lyrics_default RC = TRUE OK")
 
     # Migration: corrigir overlay_style do RC (Brand Definition v1.0 / SPEC-008)
     try:
@@ -422,6 +445,7 @@ def _run_migrations():
                 ("custom_post_structure", "TEXT"),
                 ("brand_opening_line", "TEXT"),
                 ("hashtag_count", "INTEGER"),
+                ("sem_lyrics_default", "BOOLEAN NOT NULL DEFAULT FALSE"),
             ]:
                 if col_name not in perfil_cols:
                     conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))

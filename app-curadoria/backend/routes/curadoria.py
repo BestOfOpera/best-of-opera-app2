@@ -449,7 +449,7 @@ async def download_video(
                 dl_path_actual = dl_path
 
             try:
-                db.save_download(video_id, filename, artist, song, youtube_url)
+                db.save_download(video_id, filename, artist, song, youtube_url, brand_slug=brand_slug)
             except Exception as e:
                 logger.warning(f"Failed to save download record: {e}")
 
@@ -574,7 +574,7 @@ async def prepare_video(
                 raise HTTPException(500, "Download falhou: yt-dlp e cobalt.tools falharam. Use upload manual.")
 
             try:
-                db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
+                db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url, brand_slug=brand_slug)
             except Exception as e:
                 logger.warning(f"Failed to save download record: {e}")
 
@@ -637,7 +637,7 @@ async def upload_video_manual(
 
         youtube_url = f"https://www.youtube.com/watch?v={video_id}"
         try:
-            db.save_download(video_id, f"{artist} - {song}.mp4", artist, song, youtube_url)
+            db.save_download(video_id, f"{artist} - {song}.mp4", artist, song, youtube_url, brand_slug=brand_slug)
         except Exception as e:
             logger.warning(f"Failed to save download record: {e}")
 
@@ -718,9 +718,15 @@ async def r2_info(folder: str = Query(...)):
 
 # ─── DOWNLOADS ───
 
+@router.get("/api/downloads/brands")
+async def list_download_brands():
+    """Retorna lista de brand_slugs distintos que têm downloads."""
+    return db.get_download_brands()
+
+
 @router.get("/api/downloads")
-async def list_downloads():
-    return {"downloads": db.get_downloads()}
+async def list_downloads(brand_slug: str = None):
+    return {"downloads": db.get_downloads(brand_slug=brand_slug)}
 
 
 @router.get("/api/downloads/export")

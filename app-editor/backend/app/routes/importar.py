@@ -152,14 +152,12 @@ async def importar_do_redator(
     if not video_id:
         raise HTTPException(400, "Projeto do Redator não tem URL do YouTube válida")
 
-    # Carregar perfil: usa perfil_id informado, ou fallback para "BO"
-    perfil = None
-    if perfil_id:
-        perfil = db.get(Perfil, perfil_id)
-        if not perfil:
-            raise HTTPException(404, f"Perfil #{perfil_id} não encontrado")
-    else:
-        perfil = db.query(Perfil).filter(Perfil.sigla == "BO").first()
+    # Carregar perfil: obrigatório (SPEC-009 — sem fallback BO)
+    if not perfil_id:
+        raise HTTPException(400, "perfil_id é obrigatório para importação")
+    perfil = db.get(Perfil, perfil_id)
+    if not perfil:
+        raise HTTPException(404, f"Perfil #{perfil_id} não encontrado")
 
     # Idiomas do perfil para detecção
     _idiomas_set = set(perfil.idiomas_alvo) if perfil and perfil.idiomas_alvo else None
@@ -210,8 +208,8 @@ async def importar_do_redator(
                 "tags": t.get("youtube_tags", ""),
             }
 
-    # RC é sempre instrumental — sem_lyrics independente do parâmetro
-    eh_instrumental_final = eh_instrumental or (perfil is not None and perfil.sigla == "RC")
+    # Marca instrumental por padrão (sem_lyrics_default) — override por projeto via eh_instrumental
+    eh_instrumental_final = eh_instrumental or (perfil is not None and perfil.sem_lyrics_default)
 
     # Criar a edição
     edicao = Edicao(

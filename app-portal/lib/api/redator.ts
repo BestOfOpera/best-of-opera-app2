@@ -35,6 +35,7 @@ export interface Project {
   post_approved: boolean
   youtube_approved: boolean
   translations: Translation[]
+  warnings?: string[]
 }
 
 export interface Translation {

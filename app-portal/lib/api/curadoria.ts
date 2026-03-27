@@ -195,6 +195,10 @@ export const curadoriaApi = {
     }>
   },
 
+  downloadBrands: () => {
+    return request<string[]>(`${BASE()}/downloads/brands`)
+  },
+
   downloads: (brand_slug?: string) => {
     const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
     return request<{ downloads: Download[] }>(`${BASE()}/downloads${qs}`)

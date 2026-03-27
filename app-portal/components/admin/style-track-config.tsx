@@ -28,9 +28,10 @@ interface StyleTrackConfigProps {
     description?: string
     value: StyleConfig
     onChange: (value: StyleConfig) => void
+    showHookSizes?: boolean
 }
 
-export function StyleTrackConfig({ title, description, value = {}, onChange }: StyleTrackConfigProps) {
+export function StyleTrackConfig({ title, description, value = {}, onChange, showHookSizes = false }: StyleTrackConfigProps) {
     const [showRaw, setShowRaw] = useState(false)
 
     const handleChange = (field: keyof StyleConfig, val: any) => {
@@ -79,6 +80,32 @@ export function StyleTrackConfig({ title, description, value = {}, onChange }: S
                         className="h-9 bg-background font-mono text-sm"
                     />
                 </div>
+
+                {/* Gancho & CTA font sizes (overlay only) */}
+                {showHookSizes && (
+                    <>
+                        <div className="md:col-span-2 space-y-2">
+                            <Label className="text-xs font-semibold text-muted-foreground">Gancho (px)</Label>
+                            <Input
+                                type="number"
+                                value={value.gancho_fontsize !== undefined ? value.gancho_fontsize : ""}
+                                onChange={e => handleChange("gancho_fontsize", parseInt(e.target.value))}
+                                placeholder="60"
+                                className="h-9 bg-background font-mono text-sm"
+                            />
+                        </div>
+                        <div className="md:col-span-2 space-y-2">
+                            <Label className="text-xs font-semibold text-muted-foreground">CTA (px)</Label>
+                            <Input
+                                type="number"
+                                value={value.cta_fontsize !== undefined ? value.cta_fontsize : ""}
+                                onChange={e => handleChange("cta_fontsize", parseInt(e.target.value))}
+                                placeholder="58"
+                                className="h-9 bg-background font-mono text-sm"
+                            />
+                        </div>
+                    </>
+                )}
 
                 {/* Bold & Italic */}
                 <div className="md:col-span-4 flex gap-4 pt-1 items-center">

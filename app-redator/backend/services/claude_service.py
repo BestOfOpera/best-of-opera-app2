@@ -298,7 +298,12 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     return parsed
 
 
-def generate_post(project, custom_prompt: Optional[str] = None, brand_config=None) -> str:
+def generate_post(project, custom_prompt: Optional[str] = None, brand_config=None) -> dict:
+    custom_post = (brand_config or {}).get("custom_post_structure", "")
+    warning = None
+    if not custom_post:
+        warning = "Estrutura de post não configurada para esta marca. Usando estrutura padrão de 5 seções."
+
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
     if custom_prompt:
@@ -307,7 +312,7 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
         prompt = build_post_prompt(project, brand_config=brand_config)
     result = _call_claude(prompt, system=system)
     _check_language_leak(result, lang)
-    return result
+    return {"text": result, "warning": warning}
 
 
 def _strip_markdown_preamble(text: str) -> str:

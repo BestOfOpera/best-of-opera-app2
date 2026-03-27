@@ -155,9 +155,12 @@ def init_db():
                     artist TEXT,
                     song TEXT,
                     youtube_url TEXT,
+                    brand_slug TEXT DEFAULT NULL,
                     downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # Migration: adicionar brand_slug se tabela já existia
+            c.execute("ALTER TABLE downloads ADD COLUMN IF NOT EXISTS brand_slug TEXT DEFAULT NULL")
 
             # Table: category_seeds (V7 seed rotation)
             c.execute("""
@@ -372,25 +375,37 @@ def is_cache_empty() -> bool:
 
 # ─── DOWNLOADS ───
 
-def save_download(video_id: str, filename: str, artist: str, song: str, youtube_url: str):
+def save_download(video_id: str, filename: str, artist: str, song: str, youtube_url: str, brand_slug: str = None):
     with _get_pool().connection() as conn:
         c = conn.cursor()
-        c.execute("INSERT INTO downloads (video_id, filename, artist, song, youtube_url) VALUES (%s,%s,%s,%s,%s)",
-                  (video_id, filename, artist, song, youtube_url))
+        c.execute("INSERT INTO downloads (video_id, filename, artist, song, youtube_url, brand_slug) VALUES (%s,%s,%s,%s,%s,%s)",
+                  (video_id, filename, artist, song, youtube_url, brand_slug))
         conn.commit()
 
 
-def get_downloads() -> List[Dict]:
+def get_downloads(brand_slug: str = None) -> List[Dict]:
     with _get_pool().connection() as conn:
         c = conn.cursor(row_factory=dict_row)
-        c.execute("SELECT * FROM downloads ORDER BY downloaded_at DESC")
+        if brand_slug:
+            c.execute("SELECT * FROM downloads WHERE brand_slug = %s ORDER BY downloaded_at DESC", (brand_slug,))
+        else:
+            c.execute("SELECT * FROM downloads ORDER BY downloaded_at DESC")
         rows = c.fetchall()
     return [
         {"id": r["id"], "video_id": r["video_id"], "filename": r["filename"],
          "artist": r["artist"], "song": r["song"], "youtube_url": r["youtube_url"],
+         "brand_slug": r.get("brand_slug"),
          "downloaded_at": r["downloaded_at"].isoformat() if r["downloaded_at"] else None}
         for r in rows
     ]
+
+
+def get_download_brands() -> List[str]:
+    """Retorna lista de brand_slugs distintos que têm downloads."""
+    with _get_pool().connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT DISTINCT brand_slug FROM downloads WHERE brand_slug IS NOT NULL ORDER BY brand_slug")
+        return [row[0] for row in c.fetchall()]
 
 
 def export_downloads_csv() -> str:

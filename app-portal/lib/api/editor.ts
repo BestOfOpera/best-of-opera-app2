@@ -207,6 +207,7 @@ export interface Perfil {
   sigla: string
   slug: string
   ativo: boolean
+  sem_lyrics_default: boolean
   editorial_lang: string
   identity_prompt: string
   identity_prompt_redator: string

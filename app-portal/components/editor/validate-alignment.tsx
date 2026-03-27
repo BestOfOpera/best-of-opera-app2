@@ -66,6 +66,12 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
       const e = await editorApi.obterEdicao(edicaoId)
       setEdicao(e)
 
+      // Instrumental: redirecionar direto para conclusão
+      if (e.sem_lyrics || e.eh_instrumental) {
+        router.push(`/editor/edicao/${edicaoId}/conclusao`)
+        return
+      }
+
       // Status "erro" — exibir mensagem e parar polling
       if (e.status === "erro") {
         setError(e.erro_msg ? "Erro na transcrição: " + e.erro_msg : "Erro desconhecido na edição")

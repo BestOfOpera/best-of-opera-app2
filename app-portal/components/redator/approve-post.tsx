@@ -85,6 +85,12 @@ export function RedatorApprovePost({ projectId }: { projectId: number }) {
         </div>
       </div>
 
+      {project.warnings && project.warnings.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-2 rounded text-sm">
+          {project.warnings.map((w, i) => <p key={i}>{w}</p>)}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}

@@ -351,8 +351,8 @@ export function EditorEditingQueue() {
                         </Button>
                       ) : (
                         <Button size="sm" onClick={() => {
-                          if (selectedBrand?.sigla === "RC") {
-                            // RC sem lyrics — importar direto, sem modal de idioma
+                          if (selectedBrand?.sem_lyrics_default) {
+                            // Marca instrumental — importar direto, sem modal de idioma
                             handleImportar(p.id, "auto")
                           } else {
                             setModalIdioma({ projectId: p.id, artist: p.artist, work: p.work, category: p.category })
@@ -540,9 +540,9 @@ export function EditorEditingQueue() {
 
               {modalIdioma && (
                 <div className="flex justify-center">
-                  {selectedBrand?.sigla === "RC" ? (
+                  {selectedBrand?.sem_lyrics_default ? (
                     <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 italic">
-                      💡 Reels Classics: Sem Lyrics pré-selecionado (instrumental por padrão)
+                      💡 {selectedBrand.nome}: Sem Lyrics pré-selecionado (instrumental por padrão)
                     </span>
                   ) : ["Aria", "Duet", "Chorus"].includes(modalIdioma.category || "") ? (
                     <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100 italic">
