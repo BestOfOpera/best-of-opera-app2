@@ -110,7 +110,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
   useEffect(() => { load() }, [edicaoId])
 
-  const isProcessing = !!edicao && ["renderizando", "traducao", "preview"].includes(edicao.status)
+  const isProcessing = !!edicao && ["aguardando", "baixando", "corte", "transcricao", "alinhamento", "traducao", "renderizando", "preview"].includes(edicao.status)
   const { isSlowPolling } = useAdaptivePolling(load, isProcessing)
 
   const handleTraduzir = async () => {
@@ -413,6 +413,20 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </div>
       )}
 
+      {/* Banner de processamento para etapas iniciais */}
+      {["aguardando", "baixando", "corte", "transcricao", "alinhamento"].includes(edicao.status) && (
+        <div className="flex items-center gap-3 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm mb-6">
+          <RefreshCw className="h-4 w-4 animate-spin flex-shrink-0" />
+          <span>
+            {edicao.status === "aguardando" && "Aguardando início do pipeline..."}
+            {edicao.status === "baixando" && "Baixando vídeo do YouTube..."}
+            {edicao.status === "corte" && "Cortando vídeo..."}
+            {edicao.status === "transcricao" && "Transcrevendo áudio..."}
+            {edicao.status === "alinhamento" && "Alinhando legenda..."}
+          </span>
+        </div>
+      )}
+
       {/* Botão primário "Baixar Todos" — destaque quando tudo concluído */}
       {todosOk && (
         <div className="flex flex-col items-center gap-2 mb-6">
@@ -705,7 +719,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           </div>
         )}
         {!isConcluido && !isPreviewPronto && !isPreview && edicao.status !== "renderizando" && (
-          <Button size="sm" className="gap-2" onClick={handleRenderizarPreview} disabled={renderizando || traduzindo || edicao.status === "traducao" || sistemaBloqueado}>
+          <Button size="sm" className="gap-2" onClick={handleRenderizarPreview} disabled={renderizando || traduzindo || edicao.status === "traducao" || sistemaBloqueado || ["aguardando", "baixando", "corte", "transcricao", "alinhamento"].includes(edicao.status)}>
             {renderizando || isPreview ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
             {renderizando || isPreview ? "Renderizando preview..." : "Renderizar Preview"}
           </Button>
