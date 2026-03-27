@@ -87,6 +87,7 @@ class PerfilListItem(BaseModel):
     idiomas_alvo: Optional[List[str]] = None
     cor_primaria: str
     cor_secundaria: str
+    r2_prefix: str = ""
     created_at: Optional[Any] = None
     total_edicoes: int = 0
 
@@ -231,9 +232,10 @@ def listar_perfis(db: Session = Depends(get_db)):
         total = db.query(func.count(Edicao.id)).filter(Edicao.perfil_id == p.id).scalar() or 0
         item = PerfilListItem(
             id=p.id, nome=p.nome, sigla=p.sigla, slug=p.slug, ativo=p.ativo,
+            sem_lyrics_default=p.sem_lyrics_default,
             idiomas_alvo=p.idiomas_alvo, cor_primaria=p.cor_primaria,
-            cor_secundaria=p.cor_secundaria, created_at=p.created_at,
-            total_edicoes=total,
+            cor_secundaria=p.cor_secundaria, r2_prefix=p.r2_prefix or "",
+            created_at=p.created_at, total_edicoes=total,
         )
         resultado.append(item)
     return resultado
