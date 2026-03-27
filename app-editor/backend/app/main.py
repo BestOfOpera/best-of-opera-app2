@@ -368,13 +368,6 @@ def _run_migrations():
         """))
         logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
 
-        # SPEC-009: RC é instrumental por padrão
-        conn.execute(text("""
-            UPDATE editor_perfis SET sem_lyrics_default = TRUE
-            WHERE sigla = 'RC' AND sem_lyrics_default = FALSE
-        """))
-        logger.info("Migration: SPEC-009 sem_lyrics_default RC = TRUE OK")
-
     # Migration: corrigir overlay_style do RC (Brand Definition v1.0 / SPEC-008)
     try:
         with engine.begin() as conn:
@@ -451,6 +444,14 @@ def _run_migrations():
                     conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))
                     logger.info(f"Migration: added column editor_perfis.{col_name}")
             logger.info("Migration: editor_perfis curadoria columns OK")
+
+        # SPEC-009: RC é instrumental por padrão (após coluna existir)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET sem_lyrics_default = TRUE
+                WHERE sigla = 'RC' AND sem_lyrics_default = FALSE
+            """))
+            logger.info("Migration: SPEC-009 sem_lyrics_default RC = TRUE OK")
 
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
