@@ -100,8 +100,8 @@ def _strip_json_fences(raw: str) -> str:
 
 
 def detect_metadata_from_text(youtube_url: str, title: str, description: str) -> dict:
-    """Use Claude to extract opera metadata from YouTube title and description."""
-    prompt = f"""You are an opera and classical music expert. Based on the YouTube video title and description below, extract the metadata for this performance.
+    """Use Claude to extract music metadata from YouTube title and description."""
+    prompt = f"""You are a classical music expert (opera, instrumental, orchestral, choral, and all subgenres). Based on the YouTube video title and description below, extract the metadata for this performance.
 
 YouTube Title: {title}
 YouTube Description:
@@ -109,31 +109,31 @@ YouTube Description:
 {"YouTube URL: " + youtube_url if youtube_url else ""}
 
 STEP 1: From the title and description, identify:
-- The EXACT title of the piece/aria being performed
-- ALL performers/artists (singers, musicians — NOT the composer)
+- The EXACT title of the piece being performed
+- ALL performers/artists (singers, musicians, ensembles — NOT the composer)
 
 STEP 2: Determine the performance type:
 - SOLO: One performer
 - DUET: Two performers — you MUST list BOTH names
 - ENSEMBLE/CHORUS: Multiple performers — list ALL names or ensemble name
 
-STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, operas, voice types, biographies. DO NOT leave biographical fields empty if you can determine them.
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments, biographies. DO NOT leave biographical fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
 
-CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece/aria that is EXPLICITLY written in the title or description of the video. If the exact name of the aria or piece is NOT clearly stated in the title or description, return "work" as an EMPTY STRING "". Do NOT guess, infer, or deduce the work name based on melody, performer repertoire, or any other indirect clue. It is better to leave it empty than to guess wrong.
+CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY written in the title or description of the video. If the exact name is NOT clearly stated, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
 
 FORMATTING for multiple artists: separate with " & " for artists, " / " for voice_type, nationality, birth_date, death_date.
 
 Return ONLY a JSON object with these exact keys:
 - "artist": Performer name(s)
-- "work": The EXACT name of the piece/aria (EMPTY STRING if not explicitly in title/description)
+- "work": The EXACT name of the piece (EMPTY STRING if not explicitly in title/description)
 - "composer": The composer's full name
 - "composition_year": Year composed (e.g. "1832")
 - "nationality": Artist nationality/ies separated by " / "
 - "nationality_flag": Flag emoji(s) separated by space
-- "voice_type": Voice type(s) separated by " / "
+- "voice_type": Voice type or instrument(s) separated by " / "
 - "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
 - "death_date": Death date(s) in dd/mm/yyyy or "" if alive, separated by " / "
-- "album_opera": The opera or album this belongs to
+- "album_opera": The parent work, album, or opera this belongs to
 - "confidence": "high" if you identified artist and work clearly, "medium" if work was left empty because not explicitly in title/description
 
 Return the JSON object and nothing else."""
@@ -148,26 +148,26 @@ Return the JSON object and nothing else."""
 
 
 def detect_metadata(youtube_url: str, screenshot_base64: Optional[str] = None, screenshot_media_type: str = "image/png") -> dict:
-    """Use Claude to extract opera metadata from a YouTube screenshot and/or URL."""
-    prompt_text = """Look at this screenshot of a YouTube video page about an opera or classical music performance.
+    """Use Claude to extract music metadata from a YouTube screenshot and/or URL."""
+    prompt_text = """Look at this screenshot of a YouTube video page about a classical music performance (opera, instrumental, orchestral, choral, or any subgenre).
 
 STEP 1: Read CAREFULLY the video title, description, channel name, and ALL visible text. Identify:
-- The EXACT title of the piece/aria being performed (read it precisely from the screenshot, do not guess)
-- ALL performers/artists visible (singers, musicians — NOT the composer)
+- The EXACT title of the piece being performed (read it precisely from the screenshot, do not guess)
+- ALL performers/artists visible (singers, musicians, ensembles — NOT the composer)
 
 STEP 2: Determine the performance type:
-- SOLO: One performer (aria, recital, etc.)
-- DUET: Two performers singing together — you MUST list BOTH names
+- SOLO: One performer (recital, concerto soloist, etc.)
+- DUET: Two performers — you MUST list BOTH names
 - ENSEMBLE/TRIO: Multiple performers — list ALL names
 - CHORUS: A choir — use the choir/ensemble name as artist, conductor if visible
 
-STEP 3: Use YOUR KNOWLEDGE of classical music and opera to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, operas, voice types, biographies. DO NOT leave biographical fields empty if you can determine them.
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments, biographies. DO NOT leave biographical fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
 
-CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece/aria that is EXPLICITLY visible in the screenshot title or description. If the exact name of the aria or piece is NOT clearly stated in the visible text, return "work" as an EMPTY STRING "". Do NOT guess, infer, or deduce the work name based on melody, performer repertoire, or any other indirect clue. It is better to leave it empty than to guess wrong.
+CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY visible in the screenshot title or description. If the exact name is NOT clearly stated in the visible text, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
 
 FORMATTING RULES FOR MULTIPLE ARTISTS:
 - Separate multiple artist names with " & " (e.g. "Nicolai Gedda & Mirella Freni")
-- For voice_type, list each voice type matching each artist, separated by " / " (e.g. "Tenor / Soprano")
+- For voice_type, list each type/instrument matching each artist, separated by " / " (e.g. "Tenor / Soprano" or "Violin / Piano")
 - For nationality, list each nationality separated by " / " (e.g. "Sweden / Italy")
 - For nationality_flag, list each flag separated by " " (e.g. "🇸🇪 🇮🇹")
 - For birth_date and death_date, list each separated by " / " matching artist order
@@ -178,15 +178,15 @@ EXAMPLE for a duet — if you see "Nicolai Gedda & Mirella Freni - Là ci darem 
 
 Return ONLY a JSON object with these exact keys:
 - "artist": Performer name(s) — use " & " for multiple
-- "work": The EXACT name of the piece/aria (EMPTY STRING if not explicitly visible in screenshot)
+- "work": The EXACT name of the piece (EMPTY STRING if not explicitly visible in screenshot)
 - "composer": The composer's full name
 - "composition_year": Year composed (e.g. "1832")
 - "nationality": Artist nationality/ies separated by " / "
 - "nationality_flag": Flag emoji(s) separated by space
-- "voice_type": Voice type(s) separated by " / "
+- "voice_type": Voice type or instrument(s) separated by " / "
 - "birth_date": Birth date(s) in dd/mm/yyyy separated by " / "
 - "death_date": Death date(s) in dd/mm/yyyy separated by " / ", "" if alive
-- "album_opera": The opera or album this belongs to
+- "album_opera": The parent work, album, or opera this belongs to
 - "confidence": "high" if you identified artist and work clearly from screenshot, "medium" if work was left empty because not explicitly visible
 
 Return the JSON object and nothing else."""

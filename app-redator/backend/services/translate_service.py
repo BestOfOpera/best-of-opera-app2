@@ -173,8 +173,9 @@ def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
             result.append(tag)
             continue
         word = tag[1:]
-        # Preserve brand hashtag
-        if word.lower() == "bestofopera":
+        # Preserve brand hashtags (don't translate known brand names)
+        brand_hashtags = {"bestofopera", "reelsclassics"}
+        if word.lower() in brand_hashtags:
             result.append(tag)
             continue
         translated = translate_text(word, target_lang)
