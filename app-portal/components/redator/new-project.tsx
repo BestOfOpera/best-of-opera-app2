@@ -74,10 +74,17 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
 
   useEffect(() => {
     if (!r2Folder) return
+    // Strip r2_prefix da marca (ex: "ReelsClassics/projetos_/") para extrair artist/work
+    const prefix = selectedBrand?.r2_prefix || ""
+    let folderClean = r2Folder
+    if (prefix && folderClean.startsWith(prefix)) {
+      folderClean = folderClean.slice(prefix.length)
+      if (folderClean.startsWith("/")) folderClean = folderClean.slice(1)
+    }
     const sep = " - "
-    const idx = r2Folder.indexOf(sep)
-    const artist = idx >= 0 ? r2Folder.slice(0, idx).trim() : r2Folder.trim()
-    const work = idx >= 0 ? r2Folder.slice(idx + sep.length).trim() : ""
+    const idx = folderClean.indexOf(sep)
+    const artist = idx >= 0 ? folderClean.slice(0, idx).trim() : folderClean.trim()
+    const work = idx >= 0 ? folderClean.slice(idx + sep.length).trim() : ""
     setInterpreters([{ ...emptyInterpreter(), artist }])
     setShared(prev => ({ ...prev, work }))
     setDetected(true)
