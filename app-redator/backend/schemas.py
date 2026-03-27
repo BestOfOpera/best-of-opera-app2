@@ -98,7 +98,7 @@ class ProjectOut(BaseModel):
     cut_start: str
     cut_end: str
     perfil_id: Optional[int] = None
-    brand_slug: str = "best-of-opera"
+    brand_slug: str
     status: str
     overlay_json: Optional[list] = None
     post_text: Optional[str] = None

@@ -63,6 +63,9 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
+    print(f"[generate] project={project_id} brand_slug={brand_slug} "
+          f"identity={brand_config.get('identity_prompt_redator', '')[:60]}... "
+          f"brand_name={brand_config.get('brand_name', 'N/A')}")
 
     warnings = []
     try:

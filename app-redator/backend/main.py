@@ -37,6 +37,8 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE projects ADD COLUMN perfil_id INTEGER"))
         if "brand_slug" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN brand_slug VARCHAR(50) DEFAULT 'best-of-opera'"))
+        # SPEC-009: remover default BO — novos projetos devem sempre ter slug explícito
+        conn.execute(text("ALTER TABLE projects ALTER COLUMN brand_slug DROP DEFAULT"))
 
 
 _run_migrations()
