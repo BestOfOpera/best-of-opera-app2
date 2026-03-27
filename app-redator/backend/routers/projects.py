@@ -48,6 +48,10 @@ def list_r2_available(
 
     originals = [k for k in keys if k.endswith("/video/original.mp4")]
 
+    # Filtrar estritamente por r2_prefix — garantir que só retorne itens da marca
+    if r2_prefix:
+        originals = [k for k in originals if k.startswith(f"{r2_prefix}/")]
+
     existing_q = db.query(Project.artist, Project.work)
     if brand_slug is not None:
         existing_q = existing_q.filter(Project.brand_slug == brand_slug)
