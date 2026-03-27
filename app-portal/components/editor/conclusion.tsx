@@ -76,6 +76,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [baixandoRenders, setBaixandoRenders] = useState<Set<number>>(new Set())
   const [pacoteStatus, setPacoteStatus] = useState<PacoteStatus | null>(null)
   const [error, setError] = useState("")
+  const [autoCorteTriggered, setAutoCorteTriggered] = useState(false)
   const [editandoCorte, setEditandoCorte] = useState(false)
   const [corteInicio, setCorteInicio] = useState("")
   const [corteFim, setCorteFim] = useState("")
@@ -102,13 +103,12 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setRenders(r)
       setFilaStatus(fila)
 
-      // Instrumental preso em "corte": aplicar corte automaticamente
-      if (e.sem_lyrics && e.status === "corte") {
-        try {
-          await editorApi.aplicarCorte(edicaoId)
-        } catch {
-          // Pode falhar se já em andamento — ok, polling vai atualizar
-        }
+      // Instrumental em "corte": aplicar corte automaticamente (uma única vez)
+      if (e.sem_lyrics && e.status === "corte" && !autoCorteTriggered) {
+        setAutoCorteTriggered(true)
+        editorApi.aplicarCorte(edicaoId).catch((err) => {
+          setError("Erro ao aplicar corte: " + (err instanceof Error ? err.message : "Erro"))
+        })
       }
     } catch (err: unknown) {
       setError("Erro ao carregar dados: " + (err instanceof Error ? err.message : "Erro"))
