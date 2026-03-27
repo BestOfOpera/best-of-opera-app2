@@ -36,7 +36,7 @@ POST STRUCTURE (5 sections, separated by blank lines)
 SECTION 1 — OPENING (exactly 1 line)
 ──────────────────────
 [Fun/playful emoji] [Artist Name] — [Work Name]
-Example: "🎭 Maria Callas — Casta Diva"
+Example: "🎭 [Artist] — [Work]"
 
 ──────────────────────
 SECTION 2 — STORYTELLING (3–5 paragraphs)
@@ -45,7 +45,7 @@ This is the soul of the post. It's the only section that will be translated to o
 
 TARGET: 1000–1200 characters in this section alone.
 
-Your mission: make someone who has never watched opera in their life feel like they just discovered something rare and precious.
+Your mission: make someone who has never paid attention to this kind of music feel like they just discovered something rare and precious.
 
 NARRATIVE ARC to follow:
 → Paragraph 1: Drop the reader into a scene or a tension. Don't introduce — IMMERSE.
@@ -108,13 +108,13 @@ Composer: [Composer name]          ← only if composer was provided
 Composition date: [year]           ← only if composition year was provided
 
 EXAMPLE — single artist (Portuguese post):
-🎤 Maria Callas 🇬🇷
-Tipo de voz: Soprano
-Data de nascimento: 02/12/1923
+🎤 [Artist Full Name] [flag emoji]
+Tipo de voz: [voice type]
+Data de nascimento: [dd/mm/yyyy]
 
-🎼 Casta Diva — Norma
-Compositor: Vincenzo Bellini
-Data de composição: 1831
+🎼 [Work Name] — [Album/Opera]
+Compositor: [Composer name]
+Data de composição: [year]
 
 ──────────────────────
 SECTION 4 — SENSORY CTA (1–2 lines)
