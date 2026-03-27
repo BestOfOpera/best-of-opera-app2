@@ -101,6 +101,15 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setSemLyrics(!!e.sem_lyrics)
       setRenders(r)
       setFilaStatus(fila)
+
+      // Instrumental preso em "corte": aplicar corte automaticamente
+      if (e.sem_lyrics && e.status === "corte") {
+        try {
+          await editorApi.aplicarCorte(edicaoId)
+        } catch {
+          // Pode falhar se já em andamento — ok, polling vai atualizar
+        }
+      }
     } catch (err: unknown) {
       setError("Erro ao carregar dados: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
