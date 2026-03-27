@@ -179,6 +179,7 @@ export function EditorEditingQueue() {
       const result = await editorApi.importarDoRedator(projectId, finalIdioma, !temLetraImport, selectedBrand?.id)
       setShowImportar(false)
       setTemLetraImport(null)
+      setModalIdioma(null)
       loadEdicoes()
       toast.success(`Edição importada: ${result.artista} — ${result.musica}`)
     } catch (err: unknown) {
