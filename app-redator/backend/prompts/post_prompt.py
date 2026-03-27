@@ -172,26 +172,16 @@ def build_post_prompt(project, brand_config=None) -> str:
     brand_block = _brand_block(bc)
 
     # 2. Estrutura do post:
-    #    - custom_post_structure preenchido → usa ele
-    #    - brand_block substancial (identity + tom + escopo) → marca define sua estrutura, não injetar default
-    #    - nenhum dos dois → injeta estrutura padrão de 5 seções
-    has_brand_instructions = all([
-        bc.get("identity_prompt_redator", "").strip(),
-        bc.get("tom_de_voz_redator", "").strip(),
-        bc.get("escopo_conteudo", "").strip(),
-    ])
-
+    #    - custom_post_structure preenchido → usa ele (pula estrutura padrão)
+    #    - vazio → injeta estrutura padrão de 5 seções
     if custom_post:
         structure = _custom_structure(custom_post)
-    elif has_brand_instructions:
-        # Marca tem instruções completas — não sobrescrever com estrutura padrão
-        structure = ""
     else:
         hashtags_str = " ".join(hashtags)
         structure = _default_structure(hashtags, hashtags_str, hashtag_count=hashtag_count)
 
-    # 3. Critical rules — genéricas quando marca define estrutura, completas com estrutura padrão
-    if custom_post or has_brand_instructions:
+    # 3. Critical rules — genéricas quando tem custom, completas com estrutura padrão
+    if custom_post:
         critical_rules = """═══════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════
