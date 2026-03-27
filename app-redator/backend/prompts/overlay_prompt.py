@@ -10,12 +10,7 @@ def _field(label: str, value) -> str:
 
 
 def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
-    """Calculate approximate number of subtitles based on cut duration.
-
-    The interval is a flexible reference — the AI should cluster overlays
-    around moments rich in context and space them out during purely musical
-    passages.
-    """
+    """Calculate approximate number of subtitles based on cut duration."""
     try:
         if project.cut_start and project.cut_end:
             start_parts = project.cut_start.split(":")
@@ -41,15 +36,31 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         return "Create approximately 4-6 subtitle entries with consistent spacing of 6 seconds between each subtitle."
 
 
+def _build_overlay_fields(project) -> str:
+    """Monta os campos de input do projeto para overlay."""
+    return (
+        f"{_field('Artist', project.artist)}"
+        f"{_field('Work', project.work)}"
+        f"{_field('Composer', project.composer)}"
+        f"{_field('Category', project.category)}"
+        f"{_field('Hook/angle', build_hook_text(project))}"
+        f"{_field('Highlights', project.highlights)}"
+        f"{_field('Composition year', project.composition_year)}"
+        f"{_field('Nationality', project.nationality)}"
+        f"{_field('Voice type', project.voice_type)}"
+    )
+
+
 def build_overlay_prompt(project, brand_config=None) -> str:
-    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
-    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
-    max_chars_line = (brand_config or {}).get("overlay_max_chars_linha", 35)
-    interval_secs = (brand_config or {}).get("overlay_interval_secs", 6)
-    opening_line = (brand_config or {}).get("brand_opening_line", "")
-    identity = (brand_config or {}).get("identity_prompt_redator", "")
-    tom_de_voz = (brand_config or {}).get("tom_de_voz_redator", "")
-    escopo = (brand_config or {}).get("escopo_conteudo", "")
+    bc = brand_config or {}
+    brand_name = bc.get("brand_name", "")
+    max_chars = bc.get("overlay_max_chars", 70)
+    max_chars_line = bc.get("overlay_max_chars_linha", 35)
+    interval_secs = bc.get("overlay_interval_secs", 6)
+    opening_line = bc.get("brand_opening_line", "")
+    identity = bc.get("identity_prompt_redator", "")
+    tom_de_voz = bc.get("tom_de_voz_redator", "")
+    escopo = bc.get("escopo_conteudo", "")
 
     duration_info = ""
     if project.cut_start and project.cut_end:
@@ -58,6 +69,7 @@ def build_overlay_prompt(project, brand_config=None) -> str:
         duration_info = f"The video duration is {project.original_duration}."
 
     count_info = _calc_subtitle_count(project, interval_secs=interval_secs)
+    fields = _build_overlay_fields(project)
 
     brand_block_parts = []
     if identity:
@@ -67,98 +79,46 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     if escopo:
         brand_block_parts.append(f"**Content Scope:** {escopo}")
 
-    identity_block = ""
+    brand_block = ""
     if brand_block_parts:
-        identity_block = f"""
-
+        brand_block = f"""
 ═══════════════════════════════
-BRAND CUSTOMIZATION
+BRAND INSTRUCTIONS (follow these as PRIMARY rules)
 ═══════════════════════════════
 {chr(10).join(brand_block_parts)}
 """
 
-    default_opening = "a social media channel that captures people who have NEVER watched opera and makes them fall in love with it in under 60 seconds"
-    brand_opening = opening_line if opening_line else default_opening
-
-    return f"""You are a master storyteller and viral content writer for "{brand_name}", {brand_opening}.
+    return f"""You are a master storyteller and viral content writer for "{brand_name}"{f' — {opening_line}' if opening_line else ''}.
 
 Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
 
 Generate overlay subtitles for a video featuring:
-{_field("Artist", project.artist)}{_field("Work", project.work)}{_field("Composer", project.composer)}{_field("Category", project.category)}{_field("Hook/angle", build_hook_text(project))}{_field("Highlights", project.highlights)}{_field("Composition year", project.composition_year)}{_field("Nationality", project.nationality)}{_field("Voice type", project.voice_type)}{duration_info}
+{fields}{duration_info}
 Only use information that was provided above. Do not reference or invent data for fields that were not listed.
-
+{brand_block}
 ═══════════════════════════════
-RETENTION PRINCIPLES (follow all of them)
-═══════════════════════════════
-
-**OPEN LOOPS** — Every subtitle should make the viewer need to watch the next one.
-Bad: "She was a famous soprano"
-Good: "She was banned from 3 opera houses — and became a legend anyway"
-
-**SPECIFICITY CREATES EMOTION** — Vague = forgettable. Specific = unforgettable.
-Bad: "A powerful moment in music history"
-Good: "The night this aria made the audience go completely silent"
-
-**TENSION & RELEASE** — Build toward something. Don't reveal everything at once.
-Use the arc: Curiosity → Tension → Revelation → Emotional payoff
-
-**CONVERSATIONAL, HUMAN VOICE** — Write like you're whispering to a friend, not narrating a documentary.
-Bad: "This composition dates back to 1842"
-Good: "He wrote this in 1842 — and it still breaks people today"
-
-**USE THE FULL CHARACTER LIMIT** — Subtitles should be rich and complete, ideally 50–{max_chars} characters. Short, punchy lines are allowed only for maximum-impact moments (first hook, climax reveal). Never waste a subtitle with a half-sentence when you can say something powerful.
-
-═══════════════════════════════
-STRUCTURE RULES
+TECHNICAL RULES
 ═══════════════════════════════
 
 1. Maximum {max_chars} characters per subtitle.
-2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end.
-3. Subtitles must follow a narrative arc: hook → build → climax → payoff.
-4. FIRST subtitle starts at "00:00" — short, punchy, under 30 characters. Make it impossible to ignore.
-5. FORBIDDEN phrases — never use: "beautiful performance", "amazing voice", "stunning rendition", "incredible talent", "breathtaking", "timeless masterpiece", "legendary performance". These are filler. Be specific instead.
-6. FORBIDDEN jargon — never use: "bel canto", "coloratura", "tessitura", "libretto", "aria" (unless explained), "virtuoso". Write for someone who has never watched opera in their life.
-7. Space subtitles evenly. Gap between one subtitle ending and the next starting: ~1 second.
-8. OVERLAY FORMATTING RULE:
+2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. LAST subtitle must reach close to the video's end.
+3. FIRST subtitle starts at "00:00".
+4. OVERLAY FORMATTING:
    - Maximum {max_chars} characters in total per subtitle.
    - If a subtitle has more than {max_chars_line} characters, split it into 2 lines using \\n.
    - Each line: maximum {max_chars_line} characters.
    - The 2 lines must be BALANCED in length (maximum 30% difference between them).
-   - Use short, impactful phrases.
-   - Examples:
-     "One of the most demanding\\narias in all of opera!" ✅ (25+22 chars, balanced)
-     "A legendary performance!" ✅ (24 chars, 1 line)
-     "Die\\nanspruchsvollste Arie der Oper!" ❌ (3+31 chars, UNBALANCED)
-
-9. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks. If you need a space between words, use a literal space character.
-   WRONG: "nuncasetocam" / "harmoniaé" / "comoum" / "momentosque"
-   CORRECT: "nunca se tocam" / "harmonia é" / "como um" / "momentos que"
-   This is non-negotiable. Verify every word is properly separated before outputting.
+5. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks.
+   WRONG: "nuncasetocam" / "harmoniaé" / "comoum"
+   CORRECT: "nunca se tocam" / "harmonia é" / "como um"
+6. Follow ALL instructions from the Brand Identity, Tone of Voice, and Content Scope sections above for narrative arc, hook style, CTA format, forbidden phrases, and writing rules.
 
 ═══════════════════════════════
-EMOTIONAL TOOLKIT — use these techniques
-═══════════════════════════════
-
-- **The hidden story**: "What most people don't know about this moment is..."
-- **The contrast**: "Critics called it noise. Audiences called it a miracle."
-- **The stakes**: "She had one chance to prove them wrong"
-- **The confession**: "This is the part where people always start crying"
-- **The reframe**: "This isn't just music — it's 4 minutes of pure grief"
-- **The countdown**: "The note that's coming will change how you hear music"
-- **The CTA (Engagement)**: The VERY LAST subtitle MUST be an emotional CTA that feels like a natural continuation of the story — NOT a generic "follow/subscribe" command. Tie the CTA to what the viewer just experienced.
-   GOOD: A CTA that references what the viewer just felt or saw — makes them curious about more.
-   BAD (EN): "Follow for more moments like this" / "Subscribe for more"
-   BAD (PT): "Segue para mais momentos assim" / "Siga para mais conteúdo" / "Se inscreva" — these are GENERIC and BORING in ANY language. Never use them.
-   The CTA should make the viewer FEEL something, not just obey a command.
-   CRITICAL: Create an ORIGINAL CTA every time. Do NOT reuse phrases from these instructions or previous outputs. Never use "47 momentos" or any fixed number of "moments" — invent something fresh that connects to THIS specific video.
-
-{identity_block}═══════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════
 
 Return ONLY a JSON array with objects having "timestamp" (MM:SS format) and "text" fields.
-Example: [{{"timestamp": "00:00", "text": "Nobody believed she could do this"}}, {{"timestamp": "00:06", "text": "Maria Callas, live in Paris — 1958"}}]
+Example: [{{"timestamp": "00:00", "text": "Nobody believed she could do this"}}, {{"timestamp": "00:06", "text": "Maria Callas, live in Paris, 1958"}}]
 
 Write ALL subtitle text in the SAME LANGUAGE as the Hook/angle field. Match the hook's language exactly.{build_language_reinforcement(project)}"""
 

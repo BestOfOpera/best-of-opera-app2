@@ -22,11 +22,12 @@ def _brand_block(brand_config: dict) -> str:
         parts.append(f"**Content Scope:** {escopo}")
     if not parts:
         return ""
-    return "\n\n═══════════════════════════════\nBRAND CUSTOMIZATION\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
+    return "\n\n═══════════════════════════════\nBRAND INSTRUCTIONS\n═══════════════════════════════\n" + "\n".join(parts) + "\n"
 
 
 def build_youtube_prompt(project, brand_config=None) -> str:
-    brand_name = (brand_config or {}).get("brand_name", "Best of Opera")
+    bc = brand_config or {}
+    brand_name = bc.get("brand_name", "")
     fields = ""
     fields += _field("Artist", project.artist)
     fields += _field("Work", project.work)
@@ -36,7 +37,7 @@ def build_youtube_prompt(project, brand_config=None) -> str:
     fields += _field("Voice type", project.voice_type)
     fields = fields.rstrip("\n")
 
-    return f"""You are a YouTube SEO expert for "{brand_name}", a channel sharing short opera clips.
+    return f"""You are a YouTube SEO expert for "{brand_name}", a channel sharing short classical music clips.
 
 Generate a YouTube title and tags for a video featuring:
 {fields}
@@ -51,9 +52,9 @@ TITLE RULES:
 TAGS RULES:
 1. Comma-separated tags
 2. The TOTAL tags string must be under 450 characters
-3. Mix of broad (opera, classical music) and specific (artist name, work name)
+3. Mix of broad (classical music, the specific genre) and specific (artist name, work name)
 4. Include common misspellings of artist/composer names if applicable
-5. Include genre tags, era tags, and voice type tags
+5. Include genre tags, era tags, and instrument/voice type tags
 6. Pack as many relevant tags as possible within the 450-character limit
 
 Return EXACTLY two lines:
@@ -64,7 +65,7 @@ Write the title and tags in the SAME LANGUAGE as the Hook/angle field. Match the
 Only use information that was provided above. If a field (composer, voice type, etc.) was not listed, do not include it in the title or tags.
 
 Nothing else. Do NOT use markdown formatting, headers (#), or labels (Title:, Tags:). Output the raw title on line 1 and raw tags on line 2.
-{_brand_block(brand_config or {})}{build_language_reinforcement(project)}"""
+{_brand_block(bc)}{build_language_reinforcement(project)}"""
 
 
 def build_youtube_prompt_with_custom(project, custom_prompt: str, brand_config=None) -> str:
