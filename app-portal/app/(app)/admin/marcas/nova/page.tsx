@@ -474,7 +474,7 @@ export default function NovaMarcaPage() {
                             </div>
                         </div>
 
-                        <div className="md:col-span-2 grid grid-cols-1 xl:grid-cols-2 gap-6 pt-2">
+                        <div className="md:col-span-2 grid grid-cols-1 gap-6 pt-2">
                             <StyleTrackConfig
                                 title="Overlay (Header)"
                                 description="Legendas de contexto exibidas no topo do vídeo"
@@ -482,20 +482,18 @@ export default function NovaMarcaPage() {
                                 onChange={v => handleChange("overlay_style", v)}
                                 showHookSizes
                             />
-                            <StyleTrackConfig 
-                                title="Letra Principal (Lyrics)" 
+                            <StyleTrackConfig
+                                title="Letra Principal (Lyrics)"
                                 description="Letras cantadas em destaque no meio/inferior"
-                                value={formData.lyrics_style || {}} 
-                                onChange={v => handleChange("lyrics_style", v)} 
+                                value={formData.lyrics_style || {}}
+                                onChange={v => handleChange("lyrics_style", v)}
                             />
-                            <div className="xl:col-span-2">
-                                <StyleTrackConfig 
-                                    title="Tradução (Translation)" 
-                                    description="Tradução de acompanhamento"
-                                    value={formData.traducao_style || {}} 
-                                    onChange={v => handleChange("traducao_style", v)} 
-                                />
-                            </div>
+                            <StyleTrackConfig
+                                title="Tradução (Translation)"
+                                description="Tradução de acompanhamento"
+                                value={formData.traducao_style || {}}
+                                onChange={v => handleChange("traducao_style", v)}
+                            />
                         </div>
                     </div>
                 </CollapsibleSection>
