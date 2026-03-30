@@ -411,12 +411,13 @@ def atualizar_perfil_parcial(perfil_id: int, body: dict, db: Session = Depends(g
 
 
 @router.post("/{perfil_id}/traduzir-cta", response_model=PerfilDetalheOut)
-def traduzir_cta(perfil_id: int, db: Session = Depends(get_db)):
+def traduzir_cta(perfil_id: int, db: Session = Depends(get_db), force: bool = False):
     """Traduz o CTA em PT para todos os idiomas_alvo da marca.
     Não sobrescreve traduções marcadas como manual=True."""
     perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
     if not perfil:
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    _protegido(perfil, force=force)
 
     cta_data = perfil.overlay_cta or {}
     pt_entry = cta_data.get("pt")
