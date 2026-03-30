@@ -111,7 +111,8 @@ TECHNICAL RULES
 5. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks.
    WRONG: "nuncasetocam" / "harmoniaé" / "comoum"
    CORRECT: "nunca se tocam" / "harmonia é" / "como um"
-6. Follow ALL instructions from the Brand Identity, Tone of Voice, and Content Scope sections above for narrative arc, hook style, CTA format, forbidden phrases, and writing rules.
+6. Follow ALL instructions from the Brand Identity, Tone of Voice, and Content Scope sections above for narrative arc, hook style, forbidden phrases, and writing rules.
+7. Do NOT generate a CTA (call-to-action) subtitle. The system adds the CTA automatically. Your LAST subtitle must be the final NARRATIVE subtitle.
 
 ═══════════════════════════════
 OUTPUT FORMAT

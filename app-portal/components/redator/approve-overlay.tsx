@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Check, RefreshCw, Trash2, Plus, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 import { redatorApi, type Project } from "@/lib/api/redator"
 
 export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
@@ -106,27 +108,40 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
       <Card>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
-            {overlay.map((entry, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="text-xs font-medium text-muted-foreground tabular-nums w-8">{i + 1}</span>
-                <Input
-                  value={entry.timestamp}
-                  onChange={(e) => updateEntry(i, "timestamp", e.target.value)}
-                  className="w-20 font-mono text-xs"
-                />
-                <Input
-                  value={entry.text}
-                  onChange={(e) => updateEntry(i, "text", e.target.value)}
-                  className="flex-1 text-sm"
-                />
-                <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                  {entry.text.length}/70
-                </span>
-                <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-destructive" onClick={() => removeEntry(i)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
+            {overlay.map((entry, i) => {
+              const isCta = (entry as any)._is_cta === true
+              return (
+                <div key={i} className={cn("flex items-center gap-3 px-4 py-2.5", isCta && "bg-muted/30")}>
+                  <span className="text-xs font-medium text-muted-foreground tabular-nums w-8">
+                    {isCta ? "CTA" : i + 1}
+                  </span>
+                  <Input
+                    value={entry.timestamp}
+                    onChange={(e) => updateEntry(i, "timestamp", e.target.value)}
+                    className="w-20 font-mono text-xs"
+                    disabled={isCta}
+                  />
+                  <Input
+                    value={entry.text}
+                    onChange={(e) => updateEntry(i, "text", e.target.value)}
+                    className={cn("flex-1 text-sm", isCta && "text-muted-foreground")}
+                    disabled={isCta}
+                  />
+                  {isCta ? (
+                    <Badge variant="secondary" className="text-[9px] shrink-0">Fixo</Badge>
+                  ) : (
+                    <>
+                      <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                        {entry.text.length}/70
+                      </span>
+                      <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-destructive" onClick={() => removeEntry(i)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )
+            })}
           </div>
           <div className="px-4 py-2 border-t">
             <Button variant="ghost" size="sm" onClick={addEntry}>

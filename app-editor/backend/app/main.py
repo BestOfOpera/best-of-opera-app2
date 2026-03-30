@@ -439,6 +439,7 @@ def _run_migrations():
                 ("brand_opening_line", "TEXT"),
                 ("hashtag_count", "INTEGER"),
                 ("sem_lyrics_default", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("overlay_cta", "JSON"),
             ]:
                 if col_name not in perfil_cols:
                     conn.execute(text(f"ALTER TABLE editor_perfis ADD COLUMN {col_name} {col_type}"))
@@ -452,6 +453,33 @@ def _run_migrations():
                 WHERE sigla = 'RC' AND sem_lyrics_default = FALSE
             """))
             logger.info("Migration: SPEC-009 sem_lyrics_default RC = TRUE OK")
+
+        # SPEC-010: Seed CTA fixo para BO e RC (se campo vazio)
+        with engine.begin() as conn:
+            # BO CTA
+            conn.execute(text("""
+                UPDATE editor_perfis
+                SET overlay_cta = :cta
+                WHERE sigla = 'BO' AND (overlay_cta IS NULL OR overlay_cta::text = '{}')
+            """), {"cta": _json.dumps({
+                "pt": {"text": "Siga para mais Best of Opera! \U0001f3b6", "manual": True},
+                "en": {"text": "Follow for more Best of Opera! \U0001f3b6", "manual": True},
+            })})
+            # RC CTA (traduções manuais do Content Bible v3.4 §5.2)
+            conn.execute(text("""
+                UPDATE editor_perfis
+                SET overlay_cta = :cta
+                WHERE sigla = 'RC' AND (overlay_cta IS NULL OR overlay_cta::text = '{}')
+            """), {"cta": _json.dumps({
+                "pt": {"text": "Siga, o melhor da m\u00fasica cl\u00e1ssica, diariamente no seu feed. \u2764\ufe0f", "manual": True},
+                "en": {"text": "Follow for the best of classical music, daily on your feed. \u2764\ufe0f", "manual": True},
+                "es": {"text": "Sigue, lo mejor de la m\u00fasica cl\u00e1sica, a diario en tu feed. \u2764\ufe0f", "manual": True},
+                "de": {"text": "Folge uns f\u00fcr die beste klassische Musik, t\u00e4glich in deinem Feed. \u2764\ufe0f", "manual": True},
+                "fr": {"text": "Suis-nous pour le meilleur de la musique classique. \u2764\ufe0f", "manual": True},
+                "it": {"text": "Seguici per il meglio della musica classica, ogni giorno nel tuo feed. \u2764\ufe0f", "manual": True},
+                "pl": {"text": "Obserwuj nas, najlepsza muzyka klasyczna codziennie na Twoim feedzie. \u2764\ufe0f", "manual": True},
+            })})
+            logger.info("SPEC-010: Seed overlay_cta BO e RC OK")
 
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():

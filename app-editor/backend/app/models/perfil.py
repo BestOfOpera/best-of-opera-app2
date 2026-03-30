@@ -66,6 +66,7 @@ class Perfil(Base):
     logo_url = Column(String(500))
     font_name = Column(String(100))
     font_file_r2_key = Column(String(200))
+    overlay_cta = Column(JSON, default=dict)  # {"pt": {"text": "...", "manual": true}, ...}
 
     # Visual
     cor_primaria = Column(String(10), default="#1a1a2e")

@@ -214,10 +214,19 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def translate_overlay_json(overlay_json: list, target_lang: str) -> list:
-    """Translate the text field of each overlay subtitle."""
+def translate_overlay_json(overlay_json: list, target_lang: str, brand_cta: dict = None) -> list:
+    """Translate the text field of each overlay subtitle.
+
+    Se a legenda for CTA (_is_cta=True) e brand_cta tiver tradução
+    para target_lang, usa o texto fixo em vez de traduzir via Google.
+    """
     result = []
     for entry in overlay_json:
+        if entry.get("_is_cta") and brand_cta:
+            cta_entry = brand_cta.get(target_lang) or brand_cta.get("pt")
+            if cta_entry and cta_entry.get("text"):
+                result.append({"timestamp": entry["timestamp"], "text": cta_entry["text"], "_is_cta": True})
+                continue
         translated_text = translate_text(entry.get("text", ""), target_lang)
         result.append({"timestamp": entry["timestamp"], "text": translated_text})
     return result

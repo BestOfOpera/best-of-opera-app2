@@ -235,6 +235,7 @@ export interface Perfil {
   logo_url: string
   font_name: string
   font_file_r2_key: string | null
+  overlay_cta: Record<string, { text: string; manual: boolean }> | null
   // Curadoria
   curadoria_categories?: Record<string, any>
   elite_hits?: any[]
@@ -424,6 +425,7 @@ export const editorApi = {
   criarPerfil: (data: Partial<Perfil>) => request<Perfil>(`${BASE()}/admin/perfis`, { method: "POST", body: JSON.stringify(data) }),
   atualizarPerfil: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PUT", body: JSON.stringify(data) }),
   atualizarPerfilParcial: (id: number, data: Partial<Perfil>, force = false) => request<Perfil>(`${BASE()}/admin/perfis/${id}${force ? "?force=true" : ""}`, { method: "PATCH", body: JSON.stringify(data) }),
+  traduzirCta: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/traduzir-cta`, { method: "POST" }),
   duplicarPerfil: (id: number) => request<Perfil>(`${BASE()}/admin/perfis/${id}/duplicar`, { method: "POST" }),
   resetarEdicoesPerfil: (id: number, force = false) =>
     request<{ deleted: number; r2_files_deleted: number }>(`${BASE()}/admin/perfis/${id}/edicoes${force ? "?force=true" : ""}`, { method: "DELETE", timeout: 120000 }),

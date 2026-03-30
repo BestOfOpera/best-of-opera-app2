@@ -292,6 +292,24 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
             except (ValueError, IndexError, KeyError):
                 pass
 
+    # Anexar CTA fixo da marca como última legenda (SPEC-010)
+    cta_data = (brand_config or {}).get("overlay_cta", {})
+    editorial_lang = (brand_config or {}).get("editorial_lang", "pt")
+    cta_entry = cta_data.get(editorial_lang) or cta_data.get("pt")
+    if cta_entry and cta_entry.get("text", "").strip():
+        cta_secs = 0
+        cta_interval = (brand_config or {}).get("overlay_interval_secs", 6)
+        if parsed:
+            try:
+                last_parts = parsed[-1]["timestamp"].split(":")
+                last_secs = int(last_parts[0]) * 60 + int(last_parts[1])
+                cta_secs = last_secs + cta_interval
+            except (ValueError, IndexError):
+                pass
+        cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
+        parsed.append({"timestamp": cta_ts, "text": cta_entry["text"], "_is_cta": True})
+        print(f"[generate_overlay] CTA anexado: '{cta_entry['text'][:50]}' @ {cta_ts}")
+
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
     _check_language_leak(all_text, lang)

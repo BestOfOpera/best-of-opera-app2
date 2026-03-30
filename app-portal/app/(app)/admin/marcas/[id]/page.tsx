@@ -83,6 +83,7 @@ export default function MarcaConfigPage() {
     const [resetting, setResetting] = useState(false)
 
     const [formData, setFormData] = useState<Partial<Perfil>>({})
+    const [ctaTranslating, setCtaTranslating] = useState(false)
 
     useEffect(() => {
         if (id) loadPerfil()
@@ -581,6 +582,71 @@ export default function MarcaConfigPage() {
                                 })}
                             </div>
                         </div>
+                    </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="CTA do Overlay" description="Texto fixo exibido como última legenda em todos os vídeos desta marca." icon={Type}>
+                    <div className="space-y-5">
+                        <div className="space-y-2">
+                            <Label className="font-semibold text-muted-foreground">Texto base (PT-BR)</Label>
+                            <p className="text-[11px] text-muted-foreground -mt-1">
+                                Será traduzido automaticamente para os idiomas da marca. Traduções editadas manualmente não são sobrescritas.
+                            </p>
+                            <Input
+                                value={(formData.overlay_cta as any)?.pt?.text || ""}
+                                onChange={e => {
+                                    const cta = { ...(formData.overlay_cta || {}), pt: { text: e.target.value, manual: true } }
+                                    handleChange("overlay_cta", cta)
+                                }}
+                                className="bg-background text-sm"
+                                placeholder="Ex: Siga para mais Best of Opera! 🎶"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                type="button" variant="secondary" size="sm"
+                                disabled={ctaTranslating || !(formData.overlay_cta as any)?.pt?.text?.trim()}
+                                onClick={async () => {
+                                    setCtaTranslating(true)
+                                    try {
+                                        await editorApi.atualizarPerfil(formData.id!, { overlay_cta: formData.overlay_cta } as any)
+                                        const updated = await editorApi.traduzirCta(formData.id!)
+                                        setFormData(prev => ({ ...prev, overlay_cta: updated.overlay_cta }))
+                                        toast.success("CTA traduzido para todos os idiomas!")
+                                    } catch (err: any) {
+                                        toast.error(extractErrorMessage(err))
+                                    } finally {
+                                        setCtaTranslating(false)
+                                    }
+                                }}
+                            >
+                                {ctaTranslating ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Globe className="mr-2 h-3.5 w-3.5" />}
+                                {ctaTranslating ? "Traduzindo..." : "Traduzir automaticamente"}
+                            </Button>
+                        </div>
+                        {formData.idiomas_alvo?.filter((l: string) => l !== "pt").map((lang: string) => {
+                            const entry = (formData.overlay_cta as any)?.[lang]
+                            return (
+                                <div key={lang} className="flex items-center gap-3">
+                                    <Badge variant="outline" className="w-10 justify-center uppercase text-[10px] font-bold shrink-0">{lang}</Badge>
+                                    <Input
+                                        value={entry?.text || ""}
+                                        onChange={e => {
+                                            const cta = {
+                                                ...(formData.overlay_cta || {}),
+                                                [lang]: { text: e.target.value, manual: true }
+                                            }
+                                            handleChange("overlay_cta", cta)
+                                        }}
+                                        className="flex-1 bg-background text-sm"
+                                        placeholder={`CTA em ${lang.toUpperCase()}`}
+                                    />
+                                    {entry?.manual && (
+                                        <Badge variant="secondary" className="text-[9px] shrink-0">editado</Badge>
+                                    )}
+                                </div>
+                            )
+                        })}
                     </div>
                 </CollapsibleSection>
 

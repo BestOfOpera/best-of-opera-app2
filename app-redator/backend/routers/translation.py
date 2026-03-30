@@ -13,6 +13,7 @@ from backend.services.translate_service import (
     translate_tags,
 )
 from backend.services.export_service import save_texts_to_r2
+from backend.config import load_brand_config
 from pydantic import BaseModel
 from typing import Optional
 import logging
@@ -53,6 +54,14 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
         source_lang = "pt"
         target_langs = get_target_languages(source_lang)
 
+        # Carregar CTA fixo da marca para substituir na tradução (SPEC-010)
+        brand_cta = {}
+        try:
+            bc = load_brand_config(project.brand_slug)
+            brand_cta = bc.get("overlay_cta", {})
+        except Exception:
+            pass
+
         for lang in target_langs:
             # For the source language, copy original content instead of translating
             if lang == source_lang:
@@ -62,7 +71,7 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
                 translated_tags = project.youtube_tags
             else:
                 translated_overlay = (
-                    translate_overlay_json(project.overlay_json, lang)
+                    translate_overlay_json(project.overlay_json, lang, brand_cta=brand_cta)
                     if project.overlay_json
                     else None
                 )
@@ -122,8 +131,16 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
         Translation.project_id == project_id, Translation.language == lang
     ).delete()
 
+    # Carregar CTA fixo da marca (SPEC-010)
+    brand_cta = {}
+    try:
+        bc = load_brand_config(project.brand_slug)
+        brand_cta = bc.get("overlay_cta", {})
+    except Exception:
+        pass
+
     translated_overlay = (
-        translate_overlay_json(project.overlay_json, lang)
+        translate_overlay_json(project.overlay_json, lang, brand_cta=brand_cta)
         if project.overlay_json
         else None
     )

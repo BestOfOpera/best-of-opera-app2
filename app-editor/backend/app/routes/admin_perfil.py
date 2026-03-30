@@ -139,6 +139,7 @@ class PerfilDetalheOut(BaseModel):
     logo_url: Optional[str] = None
     font_name: Optional[str] = None
     font_file_r2_key: Optional[str] = None
+    overlay_cta: Optional[Dict[str, Any]] = None
     # Curadoria
     curadoria_categories: Optional[Dict[str, Any]] = None
     elite_hits: Optional[List[Any]] = None
@@ -400,6 +401,61 @@ def atualizar_perfil_parcial(perfil_id: int, body: dict, db: Session = Depends(g
         if hasattr(perfil, campo) and campo not in ("id", "created_at"):
             setattr(perfil, campo, valor)
 
+    db.commit()
+    db.refresh(perfil)
+
+    stats = _get_stats(perfil_id, db)
+    dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
+    dados["stats"] = stats
+    return PerfilDetalheOut(**dados)
+
+
+@router.post("/{perfil_id}/traduzir-cta", response_model=PerfilDetalheOut)
+def traduzir_cta(perfil_id: int, db: Session = Depends(get_db)):
+    """Traduz o CTA em PT para todos os idiomas_alvo da marca.
+    Não sobrescreve traduções marcadas como manual=True."""
+    perfil = db.query(Perfil).filter(Perfil.id == perfil_id).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+    cta_data = perfil.overlay_cta or {}
+    pt_entry = cta_data.get("pt")
+    if not pt_entry or not pt_entry.get("text", "").strip():
+        raise HTTPException(status_code=400, detail="CTA em português não preenchido")
+
+    pt_text = pt_entry["text"]
+    idiomas = perfil.idiomas_alvo or ["en", "pt", "es", "de", "fr", "it", "pl"]
+
+    import html as _html
+    import urllib.request
+    from urllib.parse import urlencode
+
+    api_key = os.getenv("GOOGLE_TRANSLATE_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GOOGLE_TRANSLATE_API_KEY não configurada")
+
+    for lang in idiomas:
+        if lang == "pt":
+            continue
+        existing = cta_data.get(lang, {})
+        if existing.get("manual"):
+            continue
+        try:
+            params = urlencode({
+                "q": pt_text, "target": lang, "format": "text", "key": api_key,
+            })
+            url = f"https://translation.googleapis.com/language/translate/v2?{params}"
+            req = urllib.request.Request(url, method="POST")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode())
+            translated = _html.unescape(data["data"]["translations"][0]["translatedText"])
+            cta_data[lang] = {"text": translated, "manual": False}
+        except Exception as exc:
+            logger.warning(f"Erro ao traduzir CTA para {lang}: {exc}")
+            continue
+
+    cta_data["pt"] = {"text": pt_text, "manual": True}
+    perfil.overlay_cta = cta_data
     db.commit()
     db.refresh(perfil)
 
