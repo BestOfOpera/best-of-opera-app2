@@ -30,9 +30,8 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         max_count = count + 2
         return (
             f"The video is {duration_secs} seconds long. "
-            f"Target around {count} NARRATIVE subtitle entries ({min_count}-{max_count} is acceptable). "
-            f"The system will add a CTA after your last subtitle, so leave ~15 seconds of space at the end. "
-            f"Your last subtitle should appear no later than {duration_secs - 15} seconds into the video."
+            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable). "
+            f"Space subtitles evenly across the video. The system adds a CTA at the end automatically."
         )
     except (ValueError, IndexError):
         return "Create approximately 4-6 subtitle entries with consistent spacing of 6 seconds between each subtitle."

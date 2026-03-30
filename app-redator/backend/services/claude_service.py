@@ -315,26 +315,17 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
             except (ValueError, IndexError):
                 pass
 
-        # Timestamp mínimo: logo após última legenda narrativa (sem gap extra)
-        last_narrative_secs = 0
-        if parsed:
+        # CTA: começa 1 intervalo antes do fim do vídeo
+        if vid_duration > 0:
+            cta_secs = vid_duration - cta_interval
+        elif parsed:
             try:
                 last_parts = parsed[-1]["timestamp"].split(":")
-                last_narrative_secs = int(last_parts[0]) * 60 + int(last_parts[1])
+                cta_secs = int(last_parts[0]) * 60 + int(last_parts[1]) + cta_interval
             except (ValueError, IndexError):
-                pass
-
-        # CTA ideal: ~15s antes do fim (ou 20% da duração, mínimo 5s)
-        if vid_duration > 0:
-            cta_duration = min(15, int(vid_duration * 0.2))
-            cta_duration = max(cta_duration, 5)
-            cta_secs = vid_duration - cta_duration
-            # Garantir que CTA vem depois da última legenda narrativa
-            cta_secs = max(cta_secs, last_narrative_secs + cta_interval)
-            # Nunca ultrapassar o fim do vídeo (mínimo 3s de exibição)
-            cta_secs = min(cta_secs, vid_duration - 3)
+                cta_secs = 0
         else:
-            cta_secs = last_narrative_secs + cta_interval
+            cta_secs = 0
 
         cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
         parsed.append({"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True})
