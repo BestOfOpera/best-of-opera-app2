@@ -293,20 +293,51 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
                 pass
 
     # Anexar CTA fixo da marca como última legenda (SPEC-010)
+    # O CTA deve ter tempo de tela (~15s ou 20% do vídeo, conforme Content Bible).
+    # Timestamp = max(última_legenda + intervalo, fim_do_vídeo - duração_cta)
     cta_text = (brand_config or {}).get("overlay_cta", "") or ""
     if isinstance(cta_text, str) and cta_text.strip():
-        cta_secs = 0
         cta_interval = (brand_config or {}).get("overlay_interval_secs", 6)
+
+        # Calcular duração do vídeo
+        vid_duration = 0
+        if project.cut_start and project.cut_end:
+            try:
+                s = project.cut_start.split(":")
+                e = project.cut_end.split(":")
+                vid_duration = (int(e[0]) * 60 + int(e[1])) - (int(s[0]) * 60 + int(s[1]))
+            except (ValueError, IndexError):
+                pass
+        elif project.original_duration:
+            try:
+                p = project.original_duration.split(":")
+                vid_duration = int(p[0]) * 60 + int(p[1])
+            except (ValueError, IndexError):
+                pass
+
+        # Timestamp mínimo: após última legenda narrativa
+        min_cta_secs = 0
         if parsed:
             try:
                 last_parts = parsed[-1]["timestamp"].split(":")
-                last_secs = int(last_parts[0]) * 60 + int(last_parts[1])
-                cta_secs = last_secs + cta_interval
+                min_cta_secs = int(last_parts[0]) * 60 + int(last_parts[1]) + cta_interval
             except (ValueError, IndexError):
                 pass
+
+        # CTA ideal: ~15s antes do fim (ou 20% da duração)
+        if vid_duration > 0:
+            cta_duration = min(15, int(vid_duration * 0.2))
+            cta_duration = max(cta_duration, 5)  # mínimo 5s de CTA
+            ideal_cta_secs = vid_duration - cta_duration
+            cta_secs = max(min_cta_secs, ideal_cta_secs)
+            # Nunca ultrapassar o fim do vídeo
+            cta_secs = min(cta_secs, vid_duration - 3)
+        else:
+            cta_secs = min_cta_secs
+
         cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
         parsed.append({"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True})
-        print(f"[generate_overlay] CTA anexado: '{cta_text.strip()[:50]}' @ {cta_ts}")
+        print(f"[generate_overlay] CTA anexado: '{cta_text.strip()[:50]}' @ {cta_ts} (video={vid_duration}s)")
 
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
