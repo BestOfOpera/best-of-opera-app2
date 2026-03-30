@@ -609,7 +609,7 @@ export default function MarcaConfigPage() {
                                 onClick={async () => {
                                     setCtaTranslating(true)
                                     try {
-                                        await editorApi.atualizarPerfil(formData.id!, { overlay_cta: formData.overlay_cta } as any, true)
+                                        await editorApi.atualizarPerfilParcial(formData.id!, { overlay_cta: formData.overlay_cta } as any, true)
                                         const updated = await editorApi.traduzirCta(formData.id!, true)
                                         setFormData(prev => ({ ...prev, overlay_cta: updated.overlay_cta }))
                                         toast.success("CTA traduzido para todos os idiomas!")
