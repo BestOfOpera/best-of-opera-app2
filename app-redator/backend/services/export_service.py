@@ -5,20 +5,31 @@ import zipfile
 from backend.models import Project
 from backend.services.srt_service import generate_srt
 from shared.storage_service import storage, project_base, lang_prefix
+from backend.config import load_brand_config
 
 
 def save_texts_to_r2(project: Project):
     """Salva todos os textos do projeto no R2.
 
-    Estrutura: {Artista} - {Musica}/{Artista} - {Musica} - {IDIOMA}/post.txt, subtitles.srt, youtube.txt
+    Estrutura: {r2_prefix}/{Artista} - {Musica}/{Artista} - {Musica} - {IDIOMA}/post.txt, subtitles.srt, youtube.txt
     O Editor busca esses arquivos para montar o pacote final.
     """
     base = project_base(project.artist, project.work)
 
+    # Carregar r2_prefix da marca para alinhar com o path que o Editor espera
+    r2_prefix = ""
+    try:
+        bc = load_brand_config(project.brand_slug)
+        r2_prefix = bc.get("r2_prefix", "")
+    except Exception:
+        pass
+
     # Traduções (inclui PT como cópia do original)
     for t in project.translations:
+        lp = lang_prefix(base, t.language)
+        full_prefix = f"{r2_prefix}/{lp}" if r2_prefix else lp
         _save_language_to_r2(
-            prefix=lang_prefix(base, t.language),
+            prefix=full_prefix,
             overlay_json=t.overlay_json,
             post_text=t.post_text,
             youtube_title=t.youtube_title,
