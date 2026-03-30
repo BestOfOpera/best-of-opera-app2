@@ -417,25 +417,17 @@ export default function NovaMarcaPage() {
                 </CollapsibleSection>
 
                 <CollapsibleSection title="CTA do Overlay" description="Texto fixo exibido como última legenda em todos os vídeos desta marca." icon={Type}>
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label className="font-semibold text-muted-foreground">Texto base (PT-BR)</Label>
-                            <p className="text-[11px] text-muted-foreground -mt-1">
-                                Após criar a marca, use a página de edição para traduzir automaticamente para os outros idiomas.
-                            </p>
-                            <Input
-                                value={(formData.overlay_cta as any)?.pt?.text || ""}
-                                onChange={e => {
-                                    const cta = { ...(formData.overlay_cta || {}), pt: { text: e.target.value, manual: true } }
-                                    handleChange("overlay_cta", cta)
-                                }}
-                                className="bg-background text-sm"
-                                placeholder="Ex: Siga para mais Best of Opera! 🎶"
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/50">
-                            Salve a marca primeiro. Na página de edição, use o botão "Traduzir automaticamente" para gerar as traduções por idioma.
+                    <div className="space-y-2">
+                        <Label className="font-semibold text-muted-foreground">Texto do CTA (PT-BR)</Label>
+                        <p className="text-[11px] text-muted-foreground -mt-1">
+                            Aparece como última legenda do overlay. Traduzido automaticamente junto com as outras legendas para cada idioma.
                         </p>
+                        <Input
+                            value={formData.overlay_cta as string || ""}
+                            onChange={e => handleChange("overlay_cta", e.target.value)}
+                            className="bg-background text-sm"
+                            placeholder="Ex: Siga para mais Best of Opera! 🎶"
+                        />
                     </div>
                 </CollapsibleSection>
 

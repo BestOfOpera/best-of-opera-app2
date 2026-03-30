@@ -45,5 +45,5 @@ def build_redator_config(perfil: Perfil) -> dict:
         "brand_opening_line": perfil.brand_opening_line or "",
         "hashtag_count": perfil.hashtag_count or 4,
         "r2_prefix": perfil.r2_prefix or "",
-        "overlay_cta": perfil.overlay_cta or {},
+        "overlay_cta": perfil.overlay_cta or "",
     }
