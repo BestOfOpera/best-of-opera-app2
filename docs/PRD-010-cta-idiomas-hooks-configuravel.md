@@ -2,7 +2,7 @@
 
 **Data:** 30/03/2026
 **Sessão:** Diagnóstico de CTA ausente no overlay + análise de gaps restantes na separação multi-brand
-**Status:** EM PLANEJAMENTO
+**Status:** EM EXECUÇÃO
 **Continuação de:** PRD-009 (isolamento de marcas)
 
 ---
@@ -186,14 +186,35 @@ overlay_cta = Column(JSON, default=dict)
 
 ---
 
+### BLOCO 5 — Pacote ZIP: incluir posts traduzidos
+
+**Objetivo:** Ao gerar o pacote ZIP para download, incluir arquivos de post/legenda/metadados junto com os vídeos.
+
+**Problema reportado:**
+- O ZIP contém apenas os vídeos renderizados por idioma
+- Os arquivos `post.txt`, `subtitles.srt` e `youtube.txt` não estão sendo incluídos
+- O redator salva esses arquivos no R2 via `save_texts_to_r2()`, mas o `_pacote_task` pode não estar conseguindo buscá-los
+
+**Investigação necessária:**
+- Verificar se `save_texts_to_r2()` está salvando nos paths corretos
+- Verificar se `_pacote_task` está buscando nos paths corretos (pode haver mismatch de `r2_prefix`)
+- Verificar logs do pacote para erros silenciosos ao baixar metadados do R2
+
+**Arquivos relevantes:**
+- `app-redator/backend/services/export_service.py` — salva textos no R2
+- `app-editor/backend/app/routes/pipeline.py` — `_pacote_task` (~linha 2413)
+
+---
+
 ## 4. Ordem de execução
 
 | Ordem | Bloco | Descrição | Impacto |
 |---|---|---|---|
-| 1º | BLOCO 1 | CTA fixo por marca | Resolve o problema reportado |
-| 2º | BLOCO 2 | Idiomas dinâmicos | Tradução correta por marca |
-| 3º | BLOCO 3 | Detecção de idioma | Geração no idioma certo |
-| 4º | BLOCO 4 | Hooks no admin | Operabilidade sem deploy |
+| 1º | BLOCO 1 | CTA fixo por marca | ✅ Concluído (simplificado para texto PT-BR) |
+| 2º | BLOCO 5 | Pacote ZIP com metadados | Operadores precisam dos posts traduzidos |
+| 3º | BLOCO 2 | Idiomas dinâmicos | Tradução correta por marca |
+| 4º | BLOCO 3 | Detecção de idioma | Geração no idioma certo |
+| 5º | BLOCO 4 | Hooks no admin | Operabilidade sem deploy |
 
 Cada bloco gera um SPEC próprio ou seção dentro de um SPEC único. Executar e validar um antes de iniciar o próximo.
 
@@ -220,7 +241,7 @@ Cada bloco gera um SPEC próprio ou seção dentro de um SPEC único. Executar e
 | `tom_de_voz_redator` | ✅ Preenchido | ✅ Preenchido | ✅ Sim — injetado no prompt |
 | `escopo_conteudo` | ✅ Preenchido | ✅ Preenchido | ✅ Sim — injetado no prompt |
 | `custom_post_structure` | ⚠️ Verificar | ⚠️ Verificar | ✅ Sim — se vazio, usa fallback 5 seções |
-| `overlay_cta` | ❌ Não existe | ❌ Não existe | ❌ Campo a criar (BLOCO 1) |
+| `overlay_cta` | ✅ Preenchido | ✅ Preenchido | ✅ Sim — texto PT-BR, injetado no overlay e traduzido junto |
 | `hook_categories_redator` | ❌ NULL | ❌ NULL | ⚠️ Fallback para HOOK_CATEGORIES hardcoded |
 | `idiomas_alvo` | ✅ 7 idiomas | ✅ 7 idiomas | ⚠️ Não consultado pela tradução |
 | `editorial_lang` | ✅ "pt" | ✅ "pt" | ⚠️ Não consultado pelo hook_helper |

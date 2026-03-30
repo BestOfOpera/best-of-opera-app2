@@ -2,7 +2,7 @@
 
 **Data:** 30/03/2026
 **Baseado em:** PRD-010
-**Status:** PENDENTE
+**Status:** EM EXECUÇÃO
 
 ---
 
@@ -714,30 +714,44 @@ def _load_hook_categories():
 
 ---
 
+## BLOCO 5 — Pacote ZIP: incluir posts traduzidos (a investigar)
+
+**Objetivo:** Pacote ZIP de download deve incluir arquivos de metadados (post.txt, subtitles.srt, youtube.txt) junto com os vídeos.
+
+**Problema:** ZIP contém apenas vídeos. Metadados não estão sendo incluídos.
+
+**Investigação necessária — não implementar sem diagnóstico:**
+- Verificar paths do R2 onde `save_texts_to_r2()` salva vs. onde `_pacote_task` busca
+- Verificar logs da geração do pacote para erros silenciosos
+- Pode ser mismatch de `r2_prefix` entre redator e editor
+
+---
+
 ## Checklist geral
 
-| # | Tarefa | Bloco | Critério |
-|---|--------|-------|----------|
-| T1 | Campo `overlay_cta` no model | 1 | Model Python |
-| T2 | Migration + seed BO/RC | 1 | Coluna no banco, CTAs preenchidos |
-| T3 | Schema + redator-config | 1 | API retorna campo |
-| T4 | Endpoint traduzir CTA | 1 | POST traduz e salva |
-| T5 | Tipo Perfil no frontend | 1 | TypeScript + método API |
-| T6 | Seção CTA na edição de marca | 1 | UI funcional |
-| T7 | Seção CTA na criação de marca | 1 | UI funcional |
-| T8 | Remover CTA do prompt overlay | 1 | Claude não gera CTA |
-| T9 | Anexar CTA no generate_overlay | 1 | CTA sempre presente |
-| T10 | CTA fixo no translate_overlay | 1 | CTA do idioma alvo |
-| T11 | Passar brand_cta nas traduções | 1 | Tradução usa CTA fixo |
-| T11b | UI aprovação com label CTA | 1 | CTA visível e não-editável |
-| T12 | Remover ALL_LANGUAGES | 2 | get_target_languages aceita lista |
-| T13 | Passar idiomas_alvo na tradução | 2 | Traduz só idiomas da marca |
-| T14 | idiomas_alvo no redator-config | 2 | Campo disponível |
-| T15 | detect_hook_language usar marca | 3 | Respeita editorial_lang |
-| T16 | Passar brand_config nas chamadas | 3 | Todas as funções passam |
-| T17 | Tabela app_config | 4 | Model existe |
-| T18 | Migration + seed hooks | 4 | Categorias no banco |
-| T19 | CRUD hook categories | 4 | API funcional |
-| T20 | Endpoint público hooks | 4 | Sem auth, para redator/frontend |
-| T21 | hook_helper carregar do banco | 4 | Categorias dinâmicas |
-| T22 | Frontend carregar do API | 4 | Sem hardcoded |
+| # | Tarefa | Bloco | Status |
+|---|--------|-------|--------|
+| T1 | Campo `overlay_cta` no model | 1 | ✅ Concluído (simplificado para Text) |
+| T2 | Migration + seed BO/RC | 1 | ✅ Concluído |
+| T3 | Schema + redator-config | 1 | ✅ Concluído |
+| T4 | ~~Endpoint traduzir CTA~~ | 1 | ❌ Removido (simplificação) |
+| T5 | Tipo Perfil no frontend | 1 | ✅ Concluído |
+| T6 | Seção CTA na edição de marca | 1 | ✅ Concluído (campo simples) |
+| T7 | Seção CTA na criação de marca | 1 | ✅ Concluído (campo simples) |
+| T8 | Remover CTA do prompt overlay | 1 | ✅ Concluído |
+| T9 | Anexar CTA no generate_overlay | 1 | ✅ Concluído |
+| T10 | ~~CTA fixo no translate_overlay~~ | 1 | ❌ Removido (CTA traduzido junto) |
+| T11 | ~~Passar brand_cta nas traduções~~ | 1 | ❌ Removido (simplificação) |
+| T11b | UI aprovação com label CTA | 1 | ✅ Concluído |
+| T12 | Remover ALL_LANGUAGES | 2 | Pendente |
+| T13 | Passar idiomas_alvo na tradução | 2 | Pendente |
+| T14 | idiomas_alvo no redator-config | 2 | Pendente |
+| T15 | detect_hook_language usar marca | 3 | Pendente |
+| T16 | Passar brand_config nas chamadas | 3 | Pendente |
+| T17 | Tabela app_config | 4 | Pendente |
+| T18 | Migration + seed hooks | 4 | Pendente |
+| T19 | CRUD hook categories | 4 | Pendente |
+| T20 | Endpoint público hooks | 4 | Pendente |
+| T21 | hook_helper carregar do banco | 4 | Pendente |
+| T22 | Frontend carregar do API | 4 | Pendente |
+| T23 | Investigar pacote ZIP sem metadados | 5 | Pendente |
