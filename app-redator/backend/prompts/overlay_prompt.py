@@ -29,11 +29,15 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         max_count = count + 2
         return (
             f"The video is {duration_secs} seconds long. "
-            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable). "
-            f"Space subtitles evenly across the video."
+            f"Target around {count} subtitle entries ({min_count}-{max_count} is acceptable), "
+            f"using ~{interval_secs}s as a flexible reference interval. "
+            f"IMPORTANT: This interval is a GUIDE, not a rigid rule. "
+            f"Cluster subtitles closer together during context-rich moments "
+            f"(introductions, revelations, emotional peaks) and space them further apart "
+            f"during purely musical passages where the performance speaks for itself."
         )
     except (ValueError, IndexError):
-        return "Create approximately 4-6 subtitle entries with consistent spacing of 6 seconds between each subtitle."
+        return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
 
 
 def _build_overlay_fields(project) -> str:
@@ -101,7 +105,7 @@ TECHNICAL RULES
 ═══════════════════════════════
 
 1. Maximum {max_chars} characters per subtitle.
-2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. LAST subtitle must reach close to the video's end.
+2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
 3. FIRST subtitle starts at "00:00".
 4. OVERLAY FORMATTING:
    - Maximum {max_chars} characters in total per subtitle.
