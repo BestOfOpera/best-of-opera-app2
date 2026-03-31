@@ -353,12 +353,36 @@ def gerar_ass(
     # Cada overlay dura até o próximo; último até o fim do corte
     overlay_filtrado = [seg for seg in overlay if seg.get("text")]
 
+    logger.info(
+        f"[legendas] OVERLAY DIAGNÓSTICO: "
+        f"{len(overlay)} segs recebidos, {len(overlay_filtrado)} após filtro texto, "
+        f"duracao_total_ms={duracao_total_ms}, sem_lyrics={sem_lyrics}"
+    )
+    for idx, seg in enumerate(overlay_filtrado):
+        logger.info(
+            f"[legendas]   seg[{idx}]: text='{seg.get('text', '')[:50]}' "
+            f"timestamp={seg.get('timestamp')} start={seg.get('start')} end={seg.get('end')}"
+        )
+
     # Bug B: Garantir ordenação temporal antes de processar os overlays
     def _get_start_ms(s):
         k = "start" if "start" in s else ("timestamp" if "timestamp" in s else "start")
         return seg_to_ms(s.get(k, 0))
 
-    overlay_filtrado.sort(key=_get_start_ms)
+    # Separar CTA (flag _is_cta) para garantir que seja sempre o último,
+    # independente do timestamp (fix: CTA aparecia antes da última narrativa)
+    cta_seg = None
+    overlay_sem_cta = []
+    for seg in overlay_filtrado:
+        if seg.get("_is_cta"):
+            cta_seg = seg
+        else:
+            overlay_sem_cta.append(seg)
+
+    overlay_sem_cta.sort(key=_get_start_ms)
+    if cta_seg:
+        overlay_sem_cta.append(cta_seg)
+    overlay_filtrado = overlay_sem_cta
 
     # Detectar caso degenerado: todos os timestamps iguais (ex: todos zerados)
     overlay_starts = [_get_start_ms(s) for s in overlay_filtrado]
@@ -422,6 +446,14 @@ def gerar_ass(
         event.text = "{\\q2}" + fs_tag + texto
         event.style = "Overlay"
         subs.events.append(event)
+
+        # Log CTA (último overlay) para diagnóstico
+        if i == len(overlay_filtrado) - 1:
+            logger.info(
+                f"[legendas] CTA DIAGNÓSTICO: "
+                f"text='{texto_original[:60]}' start={event.start}ms end={event.end}ms "
+                f"duracao={event.end - event.start}ms fs_tag='{fs_tag}'"
+            )
 
     if sem_lyrics:
         logger.info("[legendas] sem_lyrics=True: omitindo tracks de lyrics e tradução")

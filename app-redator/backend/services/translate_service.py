@@ -219,7 +219,10 @@ def translate_overlay_json(overlay_json: list, target_lang: str) -> list:
     result = []
     for entry in overlay_json:
         translated_text = translate_text(entry.get("text", ""), target_lang)
-        result.append({"timestamp": entry["timestamp"], "text": translated_text})
+        item = {"timestamp": entry["timestamp"], "text": translated_text}
+        if entry.get("_is_cta"):
+            item["_is_cta"] = True
+        result.append(item)
     return result
 
 
