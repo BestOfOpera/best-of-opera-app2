@@ -24,7 +24,8 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         else:
             return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
 
-        count = max(3, round(duration_secs / interval_secs))
+        # -1 para reservar espaço para o CTA (injetado automaticamente pelo sistema)
+        count = max(3, round(duration_secs / interval_secs) - 1)
         min_count = max(3, count - 2)
         max_count = count + 2
         return (
@@ -34,7 +35,8 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
             f"IMPORTANT: This interval is a GUIDE, not a rigid rule. "
             f"Cluster subtitles closer together during context-rich moments "
             f"(introductions, revelations, emotional peaks) and space them further apart "
-            f"during purely musical passages where the performance speaks for itself."
+            f"during purely musical passages where the performance speaks for itself. "
+            f"The system adds a CTA at the end automatically."
         )
     except (ValueError, IndexError):
         return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
@@ -115,7 +117,8 @@ TECHNICAL RULES
 5. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks.
    WRONG: "nuncasetocam" / "harmoniaé" / "comoum"
    CORRECT: "nunca se tocam" / "harmonia é" / "como um"
-6. Follow ALL instructions from the Brand Identity, Tone of Voice, and Content Scope sections above for narrative arc, hook style, CTA format, forbidden phrases, and writing rules.
+6. Follow ALL instructions from the Brand Identity, Tone of Voice, and Content Scope sections above for narrative arc, hook style, forbidden phrases, and writing rules.
+7. Do NOT generate a CTA (call-to-action) subtitle. The system adds the CTA automatically. Your LAST subtitle must be the final NARRATIVE subtitle.
 
 ═══════════════════════════════
 OUTPUT FORMAT
