@@ -185,14 +185,56 @@ def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
     return " ".join(result)
 
 
+def _translate_post_fallback(post_text: str, target_lang: str) -> str:
+    """Fallback para posts sem bloco de créditos (ex: RC).
+
+    Estrutura esperada: intro (1ª linha) + storytelling + CTA + hashtags.
+    Traduz tudo exceto a intro line e preserva hashtags com tradução individual.
+    """
+    lines = post_text.split("\n")
+
+    # Separar intro (primeira linha não-vazia)
+    intro_end = 0
+    for i, line in enumerate(lines):
+        if line.strip():
+            intro_end = i + 1
+            break
+
+    intro = "\n".join(lines[:intro_end])
+    rest = "\n".join(lines[intro_end:])
+
+    # Separar hashtags (última linha que começa com #)
+    paragraphs = rest.split("\n\n")
+    hashtags = ""
+    for i in range(len(paragraphs) - 1, -1, -1):
+        if paragraphs[i].strip().startswith("#"):
+            hashtags = paragraphs.pop(i).strip()
+            break
+
+    # O que sobra é storytelling + CTA — traduzir bloco inteiro
+    body = "\n\n".join(paragraphs).strip()
+    translated_body = translate_text(body, target_lang) if body else ""
+    translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
+
+    parts = [intro, translated_body]
+    if translated_hashtags:
+        parts.append(translated_hashtags)
+
+    return "\n\n".join(p for p in parts if p.strip())
+
+
 def translate_post_text(post_text: str, target_lang: str) -> str:
     """Translate Section 2 (storytelling), CTA (Section 4), and hashtags (Section 5).
 
     Credit labels in Section 3 are translated via hardcoded mappings.
+    If the post has no credit block (e.g. RC brand), falls back to translating
+    the entire storytelling body (everything between intro line and CTA/hashtags).
     """
     before, section2, after = extract_post_section2(post_text)
     if not section2:
-        return post_text
+        # Fallback: post sem bloco de créditos (ex: RC).
+        # Traduzir tudo exceto a primeira linha (intro com emojis) e hashtags.
+        return _translate_post_fallback(post_text, target_lang)
 
     translated_section2 = translate_text(section2, target_lang)
 
