@@ -381,6 +381,24 @@ def gerar_ass(
 
     overlay_sem_cta.sort(key=_get_start_ms)
     if cta_seg:
+        # Garantir que CTA comece DEPOIS da última narrativa.
+        # Se CTA tem timestamp <= última narrativa, ajustar para 2s depois.
+        # Sem isso, overlays anteriores estendem end até a última narrativa,
+        # sobrepondo visualmente com o CTA que começa antes.
+        if overlay_sem_cta:
+            last_narrative_ms = _get_start_ms(overlay_sem_cta[-1])
+            cta_ms = _get_start_ms(cta_seg)
+            if cta_ms <= last_narrative_ms:
+                new_cta_s = (last_narrative_ms + 2000) / 1000
+                cta_seg = dict(cta_seg)  # não mutar original
+                if "timestamp" in cta_seg:
+                    cta_seg["timestamp"] = seconds_to_timestamp(new_cta_s)
+                if "start" in cta_seg:
+                    cta_seg["start"] = seconds_to_timestamp(new_cta_s)
+                logger.info(
+                    f"[legendas] CTA timestamp ajustado: {cta_ms}ms → {last_narrative_ms + 2000}ms "
+                    f"(última narrativa em {last_narrative_ms}ms)"
+                )
         overlay_sem_cta.append(cta_seg)
     overlay_filtrado = overlay_sem_cta
 
