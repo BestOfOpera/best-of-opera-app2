@@ -84,6 +84,9 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         project.status = "input_complete"
         db.commit()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Generation failed: {e}")
 
     db.commit()
@@ -105,7 +108,12 @@ def regenerate_overlay(
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
-    project.overlay_json = generate_overlay(project, body.custom_prompt, brand_config=brand_config)
+    try:
+        project.overlay_json = generate_overlay(project, body.custom_prompt, brand_config=brand_config)
+    except Exception as e:
+        if "overloaded" in str(e).lower() or "529" in str(e):
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise
     project.overlay_approved = False
     if project.status == "export_ready":
         project.status = "awaiting_approval"
@@ -126,7 +134,12 @@ def regenerate_post(
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
-    post_result = generate_post(project, body.custom_prompt, brand_config=brand_config)
+    try:
+        post_result = generate_post(project, body.custom_prompt, brand_config=brand_config)
+    except Exception as e:
+        if "overloaded" in str(e).lower() or "529" in str(e):
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise
     project.post_text = post_result["text"]
     project.post_approved = False
     if project.status == "export_ready":
@@ -151,7 +164,12 @@ def regenerate_youtube(
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido. Recrie o projeto selecionando uma marca.")
     brand_config = load_brand_config(brand_slug)
-    title, tags = generate_youtube(project, body.custom_prompt, brand_config=brand_config)
+    try:
+        title, tags = generate_youtube(project, body.custom_prompt, brand_config=brand_config)
+    except Exception as e:
+        if "overloaded" in str(e).lower() or "529" in str(e):
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise
     project.youtube_title = title
     project.youtube_tags = tags
     project.youtube_approved = False
