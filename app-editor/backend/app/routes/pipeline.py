@@ -1628,6 +1628,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             artista_val = edicao.artista
             musica_val = edicao.musica
             sem_lyrics_val = bool(edicao.sem_lyrics)
+            duracao_corte_ms = int((edicao.duracao_corte_sec or edicao.duracao_total_sec or 0) * 1000)
             r2_base_val = _get_r2_base(edicao)
 
             # Extrair campos do perfil antes de fechar a sessão
@@ -1848,6 +1849,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         sem_lyrics=sem_lyrics_val,
                         perfil=perfil_data,
                         image_top_px=_image_top_px,
+                        duracao_video_ms=duracao_corte_ms,
                     )
 
                     ass_path = str(output_dir / f"legendas_{idioma}.ass")

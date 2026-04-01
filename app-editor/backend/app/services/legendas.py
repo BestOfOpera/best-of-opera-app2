@@ -272,6 +272,7 @@ def gerar_ass(
     sem_lyrics: bool = False,
     perfil=None,
     image_top_px: Optional[int] = None,
+    duracao_video_ms: Optional[int] = None,
 ) -> pysubs2.SSAFile:
     """Gera arquivo ASS com até 3 tracks.
 
@@ -348,6 +349,10 @@ def gerar_ass(
         end_ms = seg_to_ms(seg.get("end", 0))
         if end_ms > duracao_total_ms:
             duracao_total_ms = end_ms
+
+    # Fallback: se lyrics vazios (instrumental), usar duração real do vídeo
+    if duracao_total_ms == 0 and duracao_video_ms:
+        duracao_total_ms = duracao_video_ms
 
     # Track 1: Overlay (com word wrap e timing contínuo)
     # Cada overlay dura até o próximo; último até o fim do corte
