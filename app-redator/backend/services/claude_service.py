@@ -246,15 +246,13 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
                 pass
 
         if duration_secs > 10:  # Only validate if we have a reasonable duration
-            # Usar cta_interval como margem (CTA ocupa os últimos N segundos)
-            _cta_margin = (brand_config or {}).get("overlay_interval_secs", 6)
             last_leg = parsed[-1]
             try:
                 ts_parts = last_leg["timestamp"].split(":")
                 ts_secs = int(ts_parts[0]) * 60 + int(ts_parts[1])
-                limit = duration_secs - _cta_margin - 2  # última narrativa deve terminar 2s antes do CTA
+                limit = duration_secs - 5
                 if ts_secs > limit:
-                    new_ts = max(0, limit)
+                    new_ts = max(0, duration_secs - 8)
                     # Ensure new timestamp is after the second-to-last subtitle
                     if len(parsed) >= 2:
                         prev_parts = parsed[-2]["timestamp"].split(":")
@@ -263,7 +261,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
                     mins = new_ts // 60
                     secs = new_ts % 60
                     last_leg["timestamp"] = f"{mins:02d}:{secs:02d}"
-                    print(f"[generate_overlay] Adjusted last subtitle timestamp to {last_leg['timestamp']} (duration: {duration_secs}s, cta_margin: {_cta_margin}s)")
+                    print(f"[generate_overlay] Adjusted last subtitle timestamp to {last_leg['timestamp']} (duration: {duration_secs}s)")
             except (ValueError, IndexError, KeyError):
                 pass
 
@@ -288,37 +286,25 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
             except (ValueError, IndexError):
                 pass
 
-        # CTA: começa 1 intervalo antes do fim do vídeo
-        if vid_duration > 0:
-            cta_secs = vid_duration - cta_interval
-        elif parsed:
+        # CTA: posicionar DEPOIS da última legenda narrativa.
+        # Usa última legenda + cta_interval, limitado por vid_duration se disponível.
+        last_narrative_secs = 0
+        if parsed:
             try:
-                last_parts = parsed[-1]["timestamp"].split(":")
-                cta_secs = int(last_parts[0]) * 60 + int(last_parts[1]) + cta_interval
+                lp = parsed[-1]["timestamp"].split(":")
+                last_narrative_secs = int(lp[0]) * 60 + int(lp[1])
             except (ValueError, IndexError):
-                cta_secs = 0
-        else:
-            cta_secs = 0
-
-        cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
-
-        # Garantir que nenhuma legenda narrativa tenha timestamp >= CTA
-        # (senão, após ordenação, a narrativa aparece depois do CTA)
-        for leg in parsed:
-            if leg.get("_is_cta"):
-                continue
-            try:
-                lp = leg["timestamp"].split(":")
-                leg_secs = int(lp[0]) * 60 + int(lp[1])
-                if leg_secs >= cta_secs:
-                    new_leg_secs = max(0, cta_secs - 2)
-                    leg["timestamp"] = f"{new_leg_secs // 60:02d}:{new_leg_secs % 60:02d}"
-                    print(f"[generate_overlay] Legenda narrativa recuada de {leg_secs}s para {new_leg_secs}s (antes do CTA @ {cta_secs}s)")
-            except (ValueError, IndexError, KeyError):
                 pass
 
+        # CTA começa cta_interval segundos após a última narrativa
+        cta_secs = last_narrative_secs + cta_interval
+        # Se temos duração do vídeo, garantir que o CTA não ultrapasse
+        if vid_duration > 0:
+            cta_secs = min(cta_secs, max(last_narrative_secs + 2, vid_duration - 2))
+
+        cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
         parsed.append({"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True})
-        print(f"[generate_overlay] CTA anexado: '{cta_text.strip()[:50]}' @ {cta_ts} (video={vid_duration}s)")
+        print(f"[generate_overlay] CTA anexado: '{cta_text.strip()[:50]}' @ {cta_ts} (last_narrative={last_narrative_secs}s, video={vid_duration}s)")
 
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
