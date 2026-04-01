@@ -107,7 +107,7 @@ TECHNICAL RULES
 ═══════════════════════════════
 
 1. Maximum {max_chars} characters per subtitle.
-2. {count_info} Cover the ENTIRE video — no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. LAST subtitle must reach close to the video's end. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
+2. {count_info} Cover the video with no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. Your LAST narrative subtitle should end at around 80% of the video duration — leave the final ~20% free for the CTA that the system adds automatically. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
 3. FIRST subtitle starts at "00:00".
 4. OVERLAY FORMATTING:
    - Maximum {max_chars} characters in total per subtitle.
