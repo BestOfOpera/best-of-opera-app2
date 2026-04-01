@@ -226,85 +226,92 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
 
-    # Validation: Last subtitle timing (ERR-054)
-    if parsed:
-        duration_secs = 0
-        if project.cut_start and project.cut_end:
-            try:
-                s_parts = project.cut_start.split(":")
-                e_parts = project.cut_end.split(":")
-                s_total = int(s_parts[0]) * 60 + int(s_parts[1])
-                e_total = int(e_parts[0]) * 60 + int(e_parts[1])
-                duration_secs = e_total - s_total
-            except (ValueError, IndexError):
-                pass
-        elif project.original_duration:
-            try:
-                parts = project.original_duration.split(":")
-                duration_secs = int(parts[0]) * 60 + int(parts[1])
-            except (ValueError, IndexError):
-                pass
+    # --- Validação de timestamps + CTA fixo ---
+    # Claude gera timestamps flexíveis. Este script CORRIGE problemas sem
+    # forçar intervalos iguais. Limites vêm do perfil da marca (brand_config).
+    bc = brand_config or {}
+    interval_secs = bc.get("overlay_interval_secs", 6)
+    min_gap = max(2, interval_secs - 2)   # BO(10)→8s, RC(6)→4s
+    max_gap = interval_secs + 2           # BO(10)→12s, RC(6)→8s
 
-        if duration_secs > 10:  # Only validate if we have a reasonable duration
-            last_leg = parsed[-1]
-            try:
-                ts_parts = last_leg["timestamp"].split(":")
-                ts_secs = int(ts_parts[0]) * 60 + int(ts_parts[1])
-                limit = duration_secs - 5
-                if ts_secs > limit:
-                    new_ts = max(0, duration_secs - 8)
-                    # Ensure new timestamp is after the second-to-last subtitle
-                    if len(parsed) >= 2:
-                        prev_parts = parsed[-2]["timestamp"].split(":")
-                        prev_secs = int(prev_parts[0]) * 60 + int(prev_parts[1])
-                        new_ts = max(new_ts, prev_secs + 1)
-                    mins = new_ts // 60
-                    secs = new_ts % 60
-                    last_leg["timestamp"] = f"{mins:02d}:{secs:02d}"
-                    print(f"[generate_overlay] Adjusted last subtitle timestamp to {last_leg['timestamp']} (duration: {duration_secs}s)")
-            except (ValueError, IndexError, KeyError):
-                pass
+    def _ts_to_secs(ts: str) -> int:
+        try:
+            p = ts.split(":")
+            return int(p[0]) * 60 + int(p[1])
+        except (ValueError, IndexError):
+            return 0
+
+    def _secs_to_ts(s: int) -> str:
+        s = max(0, s)
+        return f"{s // 60:02d}:{s % 60:02d}"
+
+    # Calcular duração do vídeo
+    vid_duration = 0
+    if project.cut_start and project.cut_end:
+        try:
+            s_parts = project.cut_start.split(":")
+            e_parts = project.cut_end.split(":")
+            vid_duration = (int(e_parts[0]) * 60 + int(e_parts[1])) - (int(s_parts[0]) * 60 + int(s_parts[1]))
+        except (ValueError, IndexError):
+            pass
+    elif project.original_duration:
+        try:
+            parts = project.original_duration.split(":")
+            vid_duration = int(parts[0]) * 60 + int(parts[1])
+        except (ValueError, IndexError):
+            pass
+
+    # Posição fixa do CTA: duração - intervalo
+    cta_secs = max(0, vid_duration - interval_secs) if vid_duration > 0 else 0
+    narrative_ceiling = max(0, cta_secs - 2) if cta_secs > 0 else 0
+
+    if parsed and vid_duration > 10:
+        # 1. Ordenar por timestamp (corrige timestamps fora de ordem do Claude)
+        parsed.sort(key=lambda e: _ts_to_secs(e.get("timestamp", "00:00")))
+
+        # 2. Corrigir: ordem crescente, min/max gap, teto antes do CTA
+        prev_secs = 0
+        for i, entry in enumerate(parsed):
+            ts = _ts_to_secs(entry["timestamp"])
+
+            if i == 0:
+                # Primeira legenda sempre em 00:00
+                ts = 0
+            else:
+                gap = ts - prev_secs
+
+                # Garantir gap mínimo entre legendas
+                if gap < min_gap:
+                    ts = prev_secs + min_gap
+
+                # Garantir gap máximo entre legendas
+                if gap > max_gap:
+                    ts = prev_secs + max_gap
+
+            # Garantir que não ultrapasse o teto (espaço reservado pro CTA)
+            if narrative_ceiling > 0 and ts > narrative_ceiling:
+                ts = max(prev_secs + 1, narrative_ceiling)
+
+            entry["timestamp"] = _secs_to_ts(ts)
+            prev_secs = ts
+
+        print(f"[generate_overlay] Timestamps validados: {len(parsed)} legendas, "
+              f"interval={interval_secs}s, min_gap={min_gap}s, max_gap={max_gap}s, "
+              f"ceiling={narrative_ceiling}s, cta_pos={cta_secs}s, video={vid_duration}s")
 
     # Anexar CTA fixo da marca como última legenda (SPEC-010)
-    cta_text = (brand_config or {}).get("overlay_cta", "") or ""
+    # Posição fixa: vid_duration - interval (garante tempo de tela)
+    cta_text = bc.get("overlay_cta", "") or ""
     if isinstance(cta_text, str) and cta_text.strip():
-        cta_interval = (brand_config or {}).get("overlay_interval_secs", 6)
-
-        # Calcular duração do vídeo
-        vid_duration = 0
-        if project.cut_start and project.cut_end:
-            try:
-                s = project.cut_start.split(":")
-                e = project.cut_end.split(":")
-                vid_duration = (int(e[0]) * 60 + int(e[1])) - (int(s[0]) * 60 + int(s[1]))
-            except (ValueError, IndexError):
-                pass
-        elif project.original_duration:
-            try:
-                p = project.original_duration.split(":")
-                vid_duration = int(p[0]) * 60 + int(p[1])
-            except (ValueError, IndexError):
-                pass
-
-        # CTA: posicionar DEPOIS da última legenda narrativa.
-        # Usa última legenda + cta_interval, limitado por vid_duration se disponível.
-        last_narrative_secs = 0
-        if parsed:
-            try:
-                lp = parsed[-1]["timestamp"].split(":")
-                last_narrative_secs = int(lp[0]) * 60 + int(lp[1])
-            except (ValueError, IndexError):
-                pass
-
-        # CTA começa cta_interval segundos após a última narrativa
-        cta_secs = last_narrative_secs + cta_interval
-        # Se temos duração do vídeo, garantir que o CTA não ultrapasse
         if vid_duration > 0:
-            cta_secs = min(cta_secs, max(last_narrative_secs + 2, vid_duration - 2))
-
-        cta_ts = f"{cta_secs // 60:02d}:{cta_secs % 60:02d}"
+            cta_ts = _secs_to_ts(cta_secs)
+        elif parsed:
+            # Fallback sem duração: após última narrativa + intervalo
+            cta_ts = _secs_to_ts(_ts_to_secs(parsed[-1]["timestamp"]) + interval_secs)
+        else:
+            cta_ts = "00:00"
         parsed.append({"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True})
-        print(f"[generate_overlay] CTA anexado: '{cta_text.strip()[:50]}' @ {cta_ts} (last_narrative={last_narrative_secs}s, video={vid_duration}s)")
+        print(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} (video={vid_duration}s)")
 
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
