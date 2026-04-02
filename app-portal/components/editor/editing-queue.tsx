@@ -145,8 +145,14 @@ export function EditorEditingQueue() {
       // Se ZIP de overlays foi fornecido, fazer upload após criação
       if (zipFile && novaEdicao?.id) {
         try {
-          const uploadResult = await editorApi.uploadOverlays(novaEdicao.id, zipFile)
-          toast.success(`Overlays carregados: ${uploadResult.idiomas?.join(", ")} (${uploadResult.total_segmentos} segmentos)`)
+          const uploadResult = await editorApi.uploadOverlays(novaEdicao.id, zipFile) as { status: string; salvos?: string[]; erros?: Record<string, string>; total_segmentos?: number }
+          if (uploadResult.status === "parcial") {
+            const salvosStr = uploadResult.salvos?.join(", ") || ""
+            const errosStr = Object.entries(uploadResult.erros || {}).map(([k, v]) => `${k}: ${v}`).join("; ")
+            toast.warning(`Overlays parciais: salvos [${salvosStr}]. Erros: ${errosStr}`)
+          } else {
+            toast.success(`Overlays carregados: ${uploadResult.salvos?.join(", ")} (${uploadResult.total_segmentos} segmentos)`)
+          }
         } catch (zipErr: unknown) {
           const zipMsg = extractErrorMessage(zipErr)
           toast.error(`Edição criada, mas erro no upload de overlays: ${zipMsg}`)

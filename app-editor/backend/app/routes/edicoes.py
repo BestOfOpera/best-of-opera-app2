@@ -191,7 +191,8 @@ async def upload_overlays(
     namelist = zf.namelist()
     logger.info(f"[upload-overlays] edicao={edicao_id}: ZIP namelist={namelist}")
 
-    idiomas_processados = []
+    salvos = []
+    erros = {}
     total_segmentos = 0
     _IDIOMA_RE = re.compile(r"^[a-z]{2}$")
 
@@ -209,64 +210,71 @@ async def upload_overlays(
             logger.warning(f"[upload-overlays] Ignorando {name}: idioma '{idioma}' não é código de 2 letras")
             continue
 
+        # Processar cada JSON independentemente — erro em um não bloqueia os outros
         try:
             raw = zf.read(name)
             segmentos = json.loads(raw)
-        except (json.JSONDecodeError, Exception) as e:
-            logger.error(f"[upload-overlays] edicao={edicao_id}: JSON inválido em {name}: {e}")
-            raise HTTPException(400, f"JSON inválido em '{name}': {e}")
 
-        if not isinstance(segmentos, list):
-            logger.error(f"[upload-overlays] edicao={edicao_id}: {name} não é array, é {type(segmentos).__name__}")
-            raise HTTPException(400, f"'{name}': esperado array JSON, recebeu {type(segmentos).__name__}")
+            if not isinstance(segmentos, list):
+                raise ValueError(f"esperado array JSON, recebeu {type(segmentos).__name__}")
 
-        # Validar e normalizar segmentos
-        for idx, seg in enumerate(segmentos):
-            if not isinstance(seg, dict) or not seg.get("text"):
-                logger.error(f"[upload-overlays] edicao={edicao_id}: {name}[{idx}] sem campo 'text': {seg}")
-                raise HTTPException(400, f"'{name}' item {idx}: deve ter campo 'text' não vazio")
-            # Derivar _is_cta de type=="cta"
-            seg_type = seg.pop("type", "corpo")
-            if seg_type == "cta":
-                seg["_is_cta"] = True
+            # Validar e normalizar segmentos
+            for idx, seg in enumerate(segmentos):
+                if not isinstance(seg, dict) or not seg.get("text"):
+                    raise ValueError(f"item {idx}: deve ter campo 'text' não vazio")
+                # Derivar _is_cta de type=="cta"
+                seg_type = seg.pop("type", "corpo")
+                if seg_type == "cta":
+                    seg["_is_cta"] = True
 
-        # Upsert: atualizar se já existe overlay para este (edicao_id, idioma)
-        existing = db.query(Overlay).filter(
-            Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
-        ).first()
-        if existing:
-            existing.segmentos_original = segmentos
-            existing.segmentos_reindexado = None  # reset — será recalculado no corte
-            logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: ATUALIZADO {len(segmentos)} segmentos")
-        else:
-            db.add(Overlay(
-                edicao_id=edicao_id,
-                idioma=idioma,
-                segmentos_original=segmentos,
-            ))
-            logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: CRIADO {len(segmentos)} segmentos")
+            # Upsert: atualizar se já existe overlay para este (edicao_id, idioma)
+            existing = db.query(Overlay).filter(
+                Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
+            ).first()
+            if existing:
+                existing.segmentos_original = segmentos
+                existing.segmentos_reindexado = None
+                logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: ATUALIZADO {len(segmentos)} segmentos")
+            else:
+                db.add(Overlay(
+                    edicao_id=edicao_id,
+                    idioma=idioma,
+                    segmentos_original=segmentos,
+                ))
+                logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: CRIADO {len(segmentos)} segmentos")
 
-        idiomas_processados.append(idioma)
-        total_segmentos += len(segmentos)
+            salvos.append(idioma)
+            total_segmentos += len(segmentos)
 
-    if not idiomas_processados:
+        except (json.JSONDecodeError, ValueError, Exception) as e:
+            erro_msg = str(e)
+            erros[idioma] = erro_msg
+            logger.warning(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: IGNORADO — {erro_msg}")
+            continue
+
+    if not salvos:
         logger.error(
             f"[upload-overlays] edicao={edicao_id}: nenhum JSON válido no ZIP. "
-            f"namelist={namelist}, filename='{file.filename}'"
+            f"namelist={namelist}, erros={erros}"
         )
         raise HTTPException(
             400,
-            f"ZIP não contém nenhum arquivo JSON de idioma válido (ex: pt.json). "
-            f"Arquivos encontrados: {namelist}"
+            {
+                "erro": "Nenhum JSON válido no ZIP",
+                "detalhes": erros,
+                "arquivos": namelist,
+            },
         )
 
     db.commit()
+    status = "parcial" if erros else "ok"
     logger.info(
-        f"[upload-overlays] edicao={edicao_id}: SUCESSO "
-        f"idiomas={idiomas_processados} total={total_segmentos}"
+        f"[upload-overlays] edicao={edicao_id}: {status.upper()} "
+        f"salvos={salvos} erros={erros} total={total_segmentos}"
     )
     return {
-        "status": "ok",
-        "idiomas": idiomas_processados,
+        "status": status,
+        "salvos": salvos,
+        "erros": erros,
         "total_segmentos": total_segmentos,
     }

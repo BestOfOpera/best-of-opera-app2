@@ -289,7 +289,7 @@ export const editorApi = {
   uploadOverlays: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<{ status: string; idiomas: string[]; total_segmentos: number }>(`${BASE()}/edicoes/${id}/upload-overlays`, form)
+    return requestFormData<{ status: string; salvos: string[]; erros: Record<string, string>; total_segmentos: number }>(`${BASE()}/edicoes/${id}/upload-overlays`, form)
   },
   statusVideo: (id: number) =>
     request<{ status: string; video_completo: boolean; audio_completo: boolean; duracao_total: number | null }>(`${BASE()}/edicoes/${id}/video/status`),
