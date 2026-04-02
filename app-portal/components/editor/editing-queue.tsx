@@ -135,7 +135,9 @@ export function EditorEditingQueue() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.youtube_url || !form.artista || !form.musica || !form.idioma) return
+    if (!form.youtube_url) return
+    // Vocal: artista, musica e idioma obrigatórios
+    if (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma)) return
     setSaving(true)
     try {
       const novaEdicao = await editorApi.criarEdicao({
@@ -403,64 +405,17 @@ export function EditorEditingQueue() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Label>URL do YouTube *</Label>
-                  <Input
-                    value={form.youtube_url}
-                    onChange={e => handleUrlChange(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    required
-                  />
-                  {form.youtube_video_id && (
-                    <span className="text-xs text-muted-foreground mt-1">ID: {form.youtube_video_id}</span>
-                  )}
-                </div>
-                <div>
-                  <Label>Artista *</Label>
-                  <Input value={form.artista} onChange={e => setForm(f => ({ ...f, artista: e.target.value }))} required />
-                </div>
-                <div>
-                  <Label>Música *</Label>
-                  <Input value={form.musica} onChange={e => setForm(f => ({ ...f, musica: e.target.value }))} required />
-                </div>
-                <div>
-                  <Label>Compositor</Label>
-                  <Input value={form.compositor} onChange={e => setForm(f => ({ ...f, compositor: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>Ópera</Label>
-                  <Input value={form.opera} onChange={e => setForm(f => ({ ...f, opera: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>Idioma *</Label>
-                  <Select value={form.idioma} onValueChange={v => setForm(f => ({ ...f, idioma: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="it">Italiano</SelectItem>
-                      <SelectItem value="de">Alemão</SelectItem>
-                      <SelectItem value="fr">Francês</SelectItem>
-                      <SelectItem value="en">Inglês</SelectItem>
-                      <SelectItem value="es">Espanhol</SelectItem>
-                      <SelectItem value="pt">Português</SelectItem>
-                      <SelectItem value="ru">Russo</SelectItem>
-                      <SelectItem value="cs">Tcheco</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Categoria</Label>
-                  <Select value={form.categoria} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
-                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Aria">Ária</SelectItem>
-                      <SelectItem value="Duet">Dueto</SelectItem>
-                      <SelectItem value="Chorus">Coro</SelectItem>
-                      <SelectItem value="Overture">Abertura</SelectItem>
-                      <SelectItem value="Other">Outro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="col-span-2">
+                <Label>URL do YouTube *</Label>
+                <Input
+                  value={form.youtube_url}
+                  onChange={e => handleUrlChange(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  required
+                />
+                {form.youtube_video_id && (
+                  <span className="text-xs text-muted-foreground mt-1">ID: {form.youtube_video_id}</span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Checkbox
@@ -470,6 +425,55 @@ export function EditorEditingQueue() {
                 />
                 <Label htmlFor="instrumental" className="text-sm">Instrumental (sem letra)</Label>
               </div>
+              {!form.eh_instrumental && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Artista *</Label>
+                    <Input value={form.artista} onChange={e => setForm(f => ({ ...f, artista: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <Label>Música *</Label>
+                    <Input value={form.musica} onChange={e => setForm(f => ({ ...f, musica: e.target.value }))} required />
+                  </div>
+                  <div>
+                    <Label>Compositor</Label>
+                    <Input value={form.compositor} onChange={e => setForm(f => ({ ...f, compositor: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Ópera</Label>
+                    <Input value={form.opera} onChange={e => setForm(f => ({ ...f, opera: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Idioma *</Label>
+                    <Select value={form.idioma} onValueChange={v => setForm(f => ({ ...f, idioma: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="it">Italiano</SelectItem>
+                        <SelectItem value="de">Alemão</SelectItem>
+                        <SelectItem value="fr">Francês</SelectItem>
+                        <SelectItem value="en">Inglês</SelectItem>
+                        <SelectItem value="es">Espanhol</SelectItem>
+                        <SelectItem value="pt">Português</SelectItem>
+                        <SelectItem value="ru">Russo</SelectItem>
+                        <SelectItem value="cs">Tcheco</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Categoria</Label>
+                    <Select value={form.categoria} onValueChange={v => setForm(f => ({ ...f, categoria: v }))}>
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Aria">Ária</SelectItem>
+                        <SelectItem value="Duet">Dueto</SelectItem>
+                        <SelectItem value="Chorus">Coro</SelectItem>
+                        <SelectItem value="Overture">Abertura</SelectItem>
+                        <SelectItem value="Other">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               {/* Upload de overlays manual — disponível para qualquer tipo de edição */}
               <div className="space-y-1">
                 <Label className="text-sm">Overlays (ZIP) <span className="text-muted-foreground text-xs">(opcional)</span></Label>
@@ -484,7 +488,7 @@ export function EditorEditingQueue() {
                 </p>
               </div>
               <div className="flex gap-3">
-                <Button type="submit" disabled={saving || !form.youtube_url || !form.artista || !form.musica || !form.idioma}>
+                <Button type="submit" disabled={saving || !form.youtube_url || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
                   {saving ? "Criando..." : "Criar Edição"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>

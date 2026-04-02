@@ -96,12 +96,12 @@ class PerfilOut(BaseModel):
 class EdicaoCreate(BaseModel):
     youtube_url: str
     youtube_video_id: str
-    artista: str
-    musica: str
+    artista: Optional[str] = None
+    musica: Optional[str] = None
     compositor: Optional[str] = None
     opera: Optional[str] = None
     categoria: Optional[str] = None
-    idioma: str
+    idioma: Optional[str] = None
     eh_instrumental: bool = False
     perfil_id: Optional[int] = None
     # Overlay em JSON (lista de segmentos por idioma)

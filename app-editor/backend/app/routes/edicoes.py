@@ -40,15 +40,27 @@ def listar_edicoes(
 
 @router.post("/edicoes", response_model=EdicaoOut)
 def criar_edicao(data: EdicaoCreate, db: Session = Depends(get_db)):
+    # Vocal: artista, musica e idioma são obrigatórios (necessários para busca de letra)
+    if not data.eh_instrumental:
+        if not data.artista or not data.musica:
+            raise HTTPException(400, "Artista e música são obrigatórios para edição vocal")
+        if not data.idioma:
+            raise HTTPException(400, "Idioma é obrigatório para edição vocal (necessário para transcrição)")
+
+    # Instrumental: defaults para campos opcionais
+    artista = data.artista or "Instrumental"
+    musica = data.musica or data.youtube_url
+    idioma = data.idioma or "und"
+
     edicao = Edicao(
         youtube_url=data.youtube_url,
         youtube_video_id=data.youtube_video_id,
-        artista=data.artista,
-        musica=data.musica,
+        artista=artista,
+        musica=musica,
         compositor=data.compositor,
         opera=data.opera,
         categoria=data.categoria,
-        idioma=data.idioma,
+        idioma=idioma,
         eh_instrumental=data.eh_instrumental,
         sem_lyrics=data.eh_instrumental,
         perfil_id=data.perfil_id,
