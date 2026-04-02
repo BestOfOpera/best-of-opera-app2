@@ -71,6 +71,7 @@ export function EditorEditingQueue() {
   const [form, setForm] = useState({
     youtube_url: "", youtube_video_id: "", artista: "", musica: "",
     compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false,
+    usar_video_inteiro: true, corte_inicio: "", corte_fim: "",
   })
   const [saving, setSaving] = useState(false)
   const [zipFile, setZipFile] = useState<File | null>(null)
@@ -144,6 +145,15 @@ export function EditorEditingQueue() {
         ...form,
         perfil_id: selectedBrand?.id
       } as unknown as Partial<Edicao>)
+      // Se timestamps de corte foram definidos, salvar na edição via PATCH
+      if (novaEdicao?.id && form.eh_instrumental && !form.usar_video_inteiro && form.corte_inicio && form.corte_fim) {
+        try {
+          await editorApi.atualizarEdicao(novaEdicao.id, {
+            janela_inicio_sec: parseFloat(form.corte_inicio),
+            janela_fim_sec: parseFloat(form.corte_fim),
+          } as Partial<Edicao>)
+        } catch { /* timestamps opcionais, não bloquear */ }
+      }
       // Se ZIP de overlays foi fornecido, fazer upload após criação
       if (zipFile && novaEdicao?.id) {
         try {
@@ -161,7 +171,7 @@ export function EditorEditingQueue() {
         }
       }
       setShowForm(false)
-      setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false })
+      setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false, usar_video_inteiro: true, corte_inicio: "", corte_fim: "" })
       setZipFile(null)
       toast.success("Edição criada com sucesso!")
       loadEdicoes()
@@ -454,8 +464,15 @@ export function EditorEditingQueue() {
                         <SelectItem value="en">Inglês</SelectItem>
                         <SelectItem value="es">Espanhol</SelectItem>
                         <SelectItem value="pt">Português</SelectItem>
+                        <SelectItem value="pl">Polonês</SelectItem>
                         <SelectItem value="ru">Russo</SelectItem>
                         <SelectItem value="cs">Tcheco</SelectItem>
+                        <SelectItem value="ja">Japonês</SelectItem>
+                        <SelectItem value="ko">Coreano</SelectItem>
+                        <SelectItem value="zh">Chinês</SelectItem>
+                        <SelectItem value="ar">Árabe</SelectItem>
+                        <SelectItem value="hi">Hindi</SelectItem>
+                        <SelectItem value="la">Latim</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -487,6 +504,47 @@ export function EditorEditingQueue() {
                   ZIP com JSONs por idioma (pt.json, en.json...). Sobrescreve overlays existentes.
                 </p>
               </div>
+              {/* Opções de corte para instrumental */}
+              {form.eh_instrumental && (
+                <div className="space-y-2 rounded-md border p-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="usar_video_inteiro"
+                      checked={form.usar_video_inteiro}
+                      onCheckedChange={(checked) => setForm(f => ({ ...f, usar_video_inteiro: !!checked }))}
+                    />
+                    <Label htmlFor="usar_video_inteiro" className="text-sm">Usar vídeo inteiro</Label>
+                  </div>
+                  {!form.usar_video_inteiro && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Início (segundos)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="0"
+                          value={form.corte_inicio}
+                          onChange={e => setForm(f => ({ ...f, corte_inicio: e.target.value }))}
+                          className="text-sm"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Fim (segundos)</Label>
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          placeholder="60"
+                          value={form.corte_fim}
+                          onChange={e => setForm(f => ({ ...f, corte_fim: e.target.value }))}
+                          className="text-sm"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex gap-3">
                 <Button type="submit" disabled={saving || !form.youtube_url || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
                   {saving ? "Criando..." : "Criar Edição"}
