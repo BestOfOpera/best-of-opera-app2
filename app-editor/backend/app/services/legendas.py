@@ -163,6 +163,8 @@ def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2
 def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
     """Garante overlay com max 2 linhas equilibradas, max_por_linha chars cada."""
     texto = texto.strip()
+    # Converter newlines Python para quebras ASS antes de qualquer lógica
+    texto = texto.replace("\n", "\\N")
     if len(texto) <= max_por_linha:
         return texto
     # Se já tem quebra manual (\N, newline ou \n literal dois chars), verificar cada linha
@@ -506,8 +508,9 @@ def gerar_ass(
                     "line_spacing": overlay_estilo.get("cta_line_spacing", 12),
                 },
             }
-            # video_top fixo v1 (cenário "padrão" 1080x1920 com aspect 4:3)
-            _VIDEO_TOP = 576
+            # video_top dinâmico: usa image_top_px (calculado por probar_video + calcular_image_top)
+            # Fallback 555 = (1920-810)//2 para crop 4:3 de input 16:9 padrão
+            _VIDEO_TOP = image_top_px if image_top_px is not None else 555
 
             # Determinar tipo do evento
             is_cta = seg.get("_is_cta", False) or (i == len(overlay_filtrado) - 1 and cta_seg is not None and seg is cta_seg)

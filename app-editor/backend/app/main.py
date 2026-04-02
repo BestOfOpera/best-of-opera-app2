@@ -449,6 +449,47 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v3 RC overlay_style: {e}")
 
+    # Migration v4: RC — fontsizes maiores para melhor legibilidade em mobile
+    # Valores revisados após teste visual em produção (fontsizes anteriores pequenos demais).
+    # video_top agora é dinâmico (image_top_px), não precisa de marginv fixo na migration.
+    try:
+        with engine.begin() as conn:
+            import json as _json4
+            rc_overlay_v4 = _json4.dumps({
+                "fontsize": 56,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 64,
+                "corpo_fontsize": 56,
+                "cta_fontsize": 52,
+                "gap_overlay_px": 18,
+                "gancho_gap": 18,
+                "corpo_gap": 20,
+                "cta_gap": 22,
+                "gancho_line_spacing": 12,
+                "corpo_line_spacing": 11,
+                "cta_line_spacing": 13,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 407,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = :overlay_style
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'gancho_fontsize')::int != 64
+            """), {
+                "overlay_style": rc_overlay_v4,
+            })
+            logger.info("Migration v4: RC fontsizes maiores (64/56/52) OK")
+    except Exception as e:
+        logger.warning(f"Migration v4 RC fontsizes: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:
