@@ -1855,13 +1855,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 if sem_legendas:
                     # Sem legendas: só crop+escalar/pad (+logo se houver)
                     if _logo_path:
-                        _logo_esc = _logo_path.replace("\\", "/").replace(":", "\\:")
-                        # Logo: escalar para ~1/6 da largura, centro-direita do vídeo
-                        _logo_w = round(vw * 0.167)
-                        _image_top_logo = _image_top_px if '_image_top_px' in dir() else 555
-                        _video_h = vh - 2 * _image_top_logo
-                        _logo_x = vw - _logo_w - round(vw * 0.019)
-                        _logo_y = _image_top_logo + _video_h // 2  # centro do vídeo
+                        # Logo: 150px largura, terço superior direito da área do vídeo
+                        _logo_w = 150
+                        _logo_x = vw - _logo_w - 20  # 910 para 1080px
+                        _img_top = _image_top_px if '_image_top_px' in dir() else 555
+                        _vid_h = vh - 2 * _img_top
+                        _logo_y = _img_top + _vid_h // 3  # terço superior
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
@@ -1911,11 +1910,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     _fontsdir = _get_fontsdir()
 
                     if _logo_path:
-                        # Com logo: usar filter_complex (2 inputs)
-                        _logo_w = round(vw * 0.167)
-                        _video_h = vh - 2 * (_image_top_px or 555)
-                        _logo_x = vw - _logo_w - round(vw * 0.019)
-                        _logo_y = (_image_top_px or 555) + _video_h // 2
+                        # Com logo: 150px, terço superior direito
+                        _logo_w = 150
+                        _logo_x = vw - _logo_w - 20
+                        _img_top = _image_top_px or 555
+                        _vid_h = vh - 2 * _img_top
+                        _logo_y = _img_top + _vid_h // 3
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf},'
