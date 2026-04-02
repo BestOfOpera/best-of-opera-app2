@@ -1,6 +1,10 @@
 """CRUD de edições."""
+import io
+import json
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+import re
+import zipfile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -134,3 +138,92 @@ def remover_edicao(edicao_id: int, db: Session = Depends(get_db)):
     db.delete(edicao)
     db.commit()
     return {"ok": True, "r2_files_deleted": r2_deleted}
+
+
+@router.post("/edicoes/{edicao_id}/upload-overlays")
+async def upload_overlays(
+    edicao_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload de arquivo ZIP contendo overlays por idioma.
+
+    Formato esperado do ZIP:
+      pt.json, en.json, es.json, ...
+    Cada JSON é um array de segmentos:
+      [{"text": "...", "start": 0.0, "end": 3.0, "type": "corpo"}, ...]
+    Campo 'type' aceita: "gancho", "corpo" (default), "cta".
+    Se type=="cta", seta _is_cta=True (usado por legendas.py para posicionamento).
+    """
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(400, "Arquivo deve ser um .zip")
+
+    content = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(content))
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "Arquivo ZIP inválido")
+
+    idiomas_processados = []
+    total_segmentos = 0
+    _IDIOMA_RE = re.compile(r"^[a-z]{2}$")
+
+    for name in zf.namelist():
+        if not name.lower().endswith(".json"):
+            continue
+        # Extrair idioma do nome do arquivo (ex: "pt.json" → "pt")
+        basename = name.rsplit("/", 1)[-1]  # suporta subpastas no ZIP
+        idioma = basename.replace(".json", "").lower().strip()
+        if not _IDIOMA_RE.match(idioma):
+            logger.warning(f"[upload-overlays] Ignorando {name}: idioma '{idioma}' inválido")
+            continue
+
+        try:
+            raw = zf.read(name)
+            segmentos = json.loads(raw)
+        except (json.JSONDecodeError, Exception) as e:
+            raise HTTPException(400, f"JSON inválido em {name}: {e}")
+
+        if not isinstance(segmentos, list):
+            raise HTTPException(400, f"{name}: esperado array JSON, recebeu {type(segmentos).__name__}")
+
+        # Validar e normalizar segmentos
+        for seg in segmentos:
+            if not isinstance(seg, dict) or not seg.get("text"):
+                raise HTTPException(400, f"{name}: cada item deve ter campo 'text' não vazio")
+            # Derivar _is_cta de type=="cta"
+            seg_type = seg.pop("type", "corpo")
+            if seg_type == "cta":
+                seg["_is_cta"] = True
+
+        # Upsert: atualizar se já existe overlay para este (edicao_id, idioma)
+        existing = db.query(Overlay).filter(
+            Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
+        ).first()
+        if existing:
+            existing.segmentos_original = segmentos
+            existing.segmentos_reindexado = None  # reset — será recalculado no corte
+        else:
+            db.add(Overlay(
+                edicao_id=edicao_id,
+                idioma=idioma,
+                segmentos_original=segmentos,
+            ))
+
+        idiomas_processados.append(idioma)
+        total_segmentos += len(segmentos)
+        logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: {len(segmentos)} segmentos")
+
+    if not idiomas_processados:
+        raise HTTPException(400, "ZIP não contém nenhum arquivo JSON de idioma válido (ex: pt.json)")
+
+    db.commit()
+    return {
+        "status": "ok",
+        "idiomas": idiomas_processados,
+        "total_segmentos": total_segmentos,
+    }

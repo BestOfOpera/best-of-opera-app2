@@ -36,6 +36,18 @@ def calcular_image_top(src_w: int, src_h: int,
     return pad_y
 
 
+async def probar_duracao(video_path: str) -> float:
+    """Retorna duração do vídeo em segundos via ffprobe."""
+    process = await asyncio.create_subprocess_shell(
+        f'ffprobe -v error -show_entries format=duration '
+        f'-of csv=p=0 "{video_path}"',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, _ = await process.communicate()
+    return float(stdout.decode().strip())
+
+
 async def run_ffmpeg(cmd: str):
     """Executa comando FFmpeg assíncrono."""
     process = await asyncio.create_subprocess_shell(

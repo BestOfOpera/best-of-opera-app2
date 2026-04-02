@@ -150,6 +150,7 @@ def _get_perfil_r2_prefix(edicao, db=None):
 class CorteParams(BaseModel):
     janela_inicio: Optional[float] = None
     janela_fim: Optional[float] = None
+    usar_video_inteiro: bool = False
 
 
 _STATUS_PERMITIDOS_DOWNLOAD = {"aguardando", "baixando", "letra", "erro"}
@@ -1131,16 +1132,34 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
         raise HTTPException(404, "Edição não encontrada")
 
     overlays = db.query(Overlay).filter(Overlay.edicao_id == edicao_id).all()
-    if not overlays:
-        raise HTTPException(400, "Nenhum overlay encontrado. Adicione overlays primeiro.")
 
-    if body and body.janela_inicio is not None and body.janela_fim is not None:
+    if body and body.usar_video_inteiro:
+        # Modo vídeo inteiro: não precisa de overlays para definir janela.
+        # Usa duração total do vídeo (campo no model ou probe via ffprobe).
+        video_key = edicao.arquivo_video_completo
+        if not video_key or not storage.exists(video_key):
+            raise HTTPException(409, "Vídeo não encontrado no R2. Faça upload primeiro.")
+        dur = edicao.duracao_total_sec
+        if not dur:
+            local_video = storage.ensure_local(video_key)
+            from app.services.ffmpeg_service import probar_duracao
+            dur = await probar_duracao(local_video)
+            edicao.duracao_total_sec = dur
+        janela = {
+            "janela_inicio_sec": 0.0,
+            "janela_fim_sec": dur,
+            "duracao_corte_sec": dur,
+        }
+        logger.info(f"[{edicao_id}] usar_video_inteiro: janela 0 → {dur}s")
+    elif body and body.janela_inicio is not None and body.janela_fim is not None:
         janela = {
             "janela_inicio_sec": body.janela_inicio,
             "janela_fim_sec": body.janela_fim,
             "duracao_corte_sec": body.janela_fim - body.janela_inicio,
         }
     else:
+        if not overlays:
+            raise HTTPException(400, "Nenhum overlay encontrado. Adicione overlays primeiro.")
         corte_inicio_ov = edicao.corte_original_inicio
         corte_fim_ov = edicao.corte_original_fim
         if not corte_inicio_ov or not corte_fim_ov:
