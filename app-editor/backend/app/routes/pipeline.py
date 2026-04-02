@@ -1855,11 +1855,10 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 if sem_legendas:
                     # Sem legendas: só crop+escalar/pad (+logo se houver)
                     if _logo_path:
-                        # Logo: 150px largura, ~15% da altura do vídeo (y=670 para 1080x1920)
+                        # Logo: 150px largura, posição fixa (870, 530) para 1080x1920
                         _logo_w = 150
-                        _logo_x = vw - _logo_w - 20  # 910 para 1080px
-                        _img_top = _image_top_px if '_image_top_px' in dir() else 555
-                        _logo_y = _img_top + round((vh - 2 * _img_top) * 0.142)  # ~15% da área do vídeo → y≈670
+                        _logo_x = 870
+                        _logo_y = 530
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
@@ -1909,11 +1908,10 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     _fontsdir = _get_fontsdir()
 
                     if _logo_path:
-                        # Com logo: 150px, ~15% da altura do vídeo
+                        # Com logo: 150px, posição fixa (870, 530)
                         _logo_w = 150
-                        _logo_x = vw - _logo_w - 20
-                        _img_top = _image_top_px or 555
-                        _logo_y = _img_top + round((vh - 2 * _img_top) * 0.15)
+                        _logo_x = 870
+                        _logo_y = 530
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf},'
