@@ -1858,7 +1858,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         # Logo: 150px largura, posição fixa (870, 530) para 1080x1920
                         _logo_w = 150
                         _logo_x = 870
-                        _logo_y = 565
+                        _logo_y = 580
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
@@ -1911,7 +1911,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         # Com logo: 150px, posição fixa (870, 530)
                         _logo_w = 150
                         _logo_x = 870
-                        _logo_y = 565
+                        _logo_y = 580
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
                             f'-filter_complex "[0:v]{_base_vf},'
