@@ -1668,12 +1668,14 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 video_width_val = perfil.video_width or 1080
                 video_height_val = perfil.video_height or 1920
                 font_file_r2_key_val = perfil.font_file_r2_key or None
+                logo_url_val = perfil.logo_url or None
             else:
                 perfil_data = None
                 r2_prefix_val = "editor"
                 video_width_val = 1080
                 video_height_val = 1920
                 font_file_r2_key_val = None
+                logo_url_val = None
             # Persistir r2_base se não estava setado
             if not edicao.r2_base and r2_base_val:
                 edicao.r2_base = r2_base_val
@@ -1836,16 +1838,45 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 # Crop lateral para vídeos widescreen (>4:3): brand doc exige imagem em 40-65% da tela
                 _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
+                _base_vf = f"{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black"
+
+                # Logo/watermark: buscar do perfil se configurado
+                _logo_path = None
+                if logo_url_val:
+                    from app.services.font_service import get_fontsdir as _get_fontsdir_logo
+                    _fontsdir_logo = _get_fontsdir_logo()
+                    _logo_candidate = _Path(_fontsdir_logo) / logo_url_val
+                    if _logo_candidate.exists():
+                        _logo_path = str(_logo_candidate)
+                        logger.info(f"[{edicao_id}] Logo encontrada: {_logo_path}")
+                    else:
+                        logger.warning(f"[{edicao_id}] Logo não encontrada: {_logo_candidate}")
 
                 if sem_legendas:
-                    # Sem legendas: só crop+escalar/pad, sem ASS
-                    cmd = (
-                        f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
-                        f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black" '
-                        f'-c:v libx264 -preset medium -crf 23 '
-                        f'-c:a aac -b:a 128k "{output_video}"'
-                    )
+                    # Sem legendas: só crop+escalar/pad (+logo se houver)
+                    if _logo_path:
+                        _logo_esc = _logo_path.replace("\\", "/").replace(":", "\\:")
+                        # Logo: escalar para ~1/6 da largura, centro-direita do vídeo
+                        _logo_w = round(vw * 0.167)
+                        _image_top_logo = _image_top_px if '_image_top_px' in dir() else 555
+                        _video_h = vh - 2 * _image_top_logo
+                        _logo_x = vw - _logo_w - round(vw * 0.019)
+                        _logo_y = _image_top_logo + _video_h // 2  # centro do vídeo
+                        cmd = (
+                            f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
+                            f'-filter_complex "[0:v]{_base_vf}[bg];'
+                            f'[1:v]scale={_logo_w}:-1[wm];'
+                            f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
+                            f'-map 0:a -c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
+                        )
+                    else:
+                        cmd = (
+                            f'ffmpeg -y -i "{local_video}" '
+                            f'-vf "{_base_vf}" '
+                            f'-c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
+                        )
                 else:
                     # Calcular posição real da imagem para marginv dinâmico (T5)
                     # Usa dimensões pós-crop (effective width = min(src_w, src_h * 4/3))
@@ -1878,15 +1909,31 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     ass_escaped = ass_path.replace("\\", "/").replace(":", "\\:")
                     from app.services.font_service import get_fontsdir as _get_fontsdir
                     _fontsdir = _get_fontsdir()
-                    _ass_filter = f"ass='{ass_escaped}':fontsdir={_fontsdir}"
-                    cmd = (
-                        f'ffmpeg -y -i "{local_video}" '
-                        f'-vf "{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,'
-                        f'pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black,'
-                        f'{_ass_filter}" '
-                        f'-c:v libx264 -preset medium -crf 23 '
-                        f'-c:a aac -b:a 128k "{output_video}"'
-                    )
+
+                    if _logo_path:
+                        # Com logo: usar filter_complex (2 inputs)
+                        _logo_w = round(vw * 0.167)
+                        _video_h = vh - 2 * (_image_top_px or 555)
+                        _logo_x = vw - _logo_w - round(vw * 0.019)
+                        _logo_y = (_image_top_px or 555) + _video_h // 2
+                        cmd = (
+                            f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
+                            f'-filter_complex "[0:v]{_base_vf},'
+                            f"ass='{ass_escaped}':fontsdir={_fontsdir}[bg];"
+                            f'[1:v]scale={_logo_w}:-1[wm];'
+                            f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
+                            f'-map 0:a -c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
+                        )
+                    else:
+                        # Sem logo: -vf simples (caminho original)
+                        _ass_filter = f"ass='{ass_escaped}':fontsdir={_fontsdir}"
+                        cmd = (
+                            f'ffmpeg -y -i "{local_video}" '
+                            f'-vf "{_base_vf},{_ass_filter}" '
+                            f'-c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
+                        )
                 processo = await asyncio.create_subprocess_shell(
                     cmd,
                     stdout=asyncio.subprocess.PIPE,
