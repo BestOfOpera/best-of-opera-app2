@@ -695,7 +695,7 @@ async def r2_info(folder: str = Query(...)):
         "video_id": video_id,
         "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
         "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
-        "title": "",
+        "title": db.get_cached_video_title(video_id) or "",
         "description": "",
         "category": db.get_cached_video_category(video_id) or "",
     }
@@ -711,7 +711,7 @@ async def r2_info(folder: str = Query(...)):
                 items = data.get("items", [])
                 if items:
                     snippet = items[0].get("snippet", {})
-                    result["title"] = snippet.get("title", "")
+                    result["title"] = snippet.get("title", "") or result["title"]
                     result["description"] = snippet.get("description", "")
         except Exception:
             pass

@@ -852,6 +852,25 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration BO fontsize/CTA: {e}")
 
+    # Migration: BO overlay fontsize 42→44 (compensar ausência de outline na barra preta)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(overlay_style::jsonb,
+                                '{fontsize}', '44'),
+                            '{gancho_fontsize}', '44'),
+                        '{cta_fontsize}', '44'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'fontsize')::int = 42
+            """))
+            logger.info("Migration: BO overlay fontsize 42→44 OK")
+    except Exception as e:
+        logger.warning(f"Migration BO overlay fontsize: {e}")
+
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

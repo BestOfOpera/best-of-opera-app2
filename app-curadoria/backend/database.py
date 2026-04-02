@@ -262,6 +262,18 @@ def get_cached_video_category(video_id: str) -> Optional[str]:
         return row[0] if row else None
 
 
+def get_cached_video_title(video_id: str) -> Optional[str]:
+    """Retorna o title de um vídeo em cached_videos, ou None."""
+    with _get_pool().connection() as conn:
+        c = conn.cursor()
+        c.execute(
+            "SELECT title FROM cached_videos WHERE video_id = %s AND title IS NOT NULL AND title != '' LIMIT 1",
+            (video_id,),
+        )
+        row = c.fetchone()
+        return row[0] if row else None
+
+
 # ─── PLAYLIST ───
 
 def save_playlist_videos(videos: List[Dict], brand_slug: str = "best-of-opera"):

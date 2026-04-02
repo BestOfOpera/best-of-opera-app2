@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import re
 from typing import Optional
 import anthropic
 
@@ -348,6 +349,25 @@ def generate_hooks(project, brand_config=None) -> list:
     return result
 
 
+# Padrões de engajamento genérico que o LLM insiste em gerar (pre-compilados)
+_ENGAGEMENT_BAIT_PATTERNS = [
+    re.compile(r'.*🔥.*❄️.*', re.IGNORECASE),
+    re.compile(r'.*❄️.*🔥.*', re.IGNORECASE),
+    re.compile(r'.*isso (te )?dá.*\?', re.IGNORECASE),
+    re.compile(r'.*does this (give|make).*\?', re.IGNORECASE),
+    re.compile(r'.*conta nos comentários.*', re.IGNORECASE),
+    re.compile(r'.*tell us in the comments.*', re.IGNORECASE),
+]
+
+
+def _sanitize_post(text: str) -> str:
+    """Remove padrões de engajamento genérico que o LLM insiste em gerar."""
+    lines = text.split('\n')
+    cleaned = [line for line in lines if not any(p.search(line) for p in _ENGAGEMENT_BAIT_PATTERNS)]
+    result = re.sub(r'\n{3,}', '\n\n', '\n'.join(cleaned))
+    return result.strip()
+
+
 def generate_post(project, custom_prompt: Optional[str] = None, brand_config=None) -> dict:
     custom_post = (brand_config or {}).get("custom_post_structure", "")
     warning = None
@@ -362,6 +382,7 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
         prompt = build_post_prompt(project, brand_config=brand_config)
     result = _call_claude(prompt, system=system)
     _check_language_leak(result, lang)
+    result = _sanitize_post(result)
     return {"text": result, "warning": warning}
 
 
