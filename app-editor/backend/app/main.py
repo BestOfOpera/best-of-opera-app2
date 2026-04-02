@@ -490,6 +490,76 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v4 RC fontsizes: {e}")
 
+    # Migration v5: RC — fontsizes ajustados + lyrics/tradução + pre_formatted overlays
+    # Overlays pré-formatados do ZIP: sistema não trunca/reformata.
+    # Lyrics: Poppins Bold Italic 46px amarelo com outline 3px.
+    # Tradução: Poppins Bold 42px branco com outline 3px.
+    # Cores em formato #RRGGBB (convertido internamente por hex_to_ssa_color).
+    try:
+        with engine.begin() as conn:
+            import json as _json5
+            rc_overlay_v5 = _json5.dumps({
+                "fontsize": 54,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 60,
+                "corpo_fontsize": 54,
+                "cta_fontsize": 50,
+                "gap_overlay_px": 14,
+                "gancho_gap": 14,
+                "corpo_gap": 16,
+                "cta_gap": 18,
+                "gancho_line_spacing": 11,
+                "corpo_line_spacing": 10,
+                "cta_line_spacing": 12,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 418,
+                "overlay_pre_formatted": True,
+            })
+            rc_lyrics_v5 = _json5.dumps({
+                "fontname": "Poppins",
+                "fontsize": 46,
+                "primarycolor": "#FFFF00",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": True,
+                "alignment": 2,
+            })
+            rc_traducao_v5 = _json5.dumps({
+                "fontname": "Poppins",
+                "fontsize": 42,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": False,
+                "alignment": 8,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = :overlay_style,
+                    lyrics_style = :lyrics_style,
+                    traducao_style = :traducao_style
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'gancho_fontsize')::int != 60
+            """), {
+                "overlay_style": rc_overlay_v5,
+                "lyrics_style": rc_lyrics_v5,
+                "traducao_style": rc_traducao_v5,
+            })
+            logger.info("Migration v5: RC fontsizes ajustados + lyrics/tradução Poppins + pre_formatted OK")
+    except Exception as e:
+        logger.warning(f"Migration v5 RC: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:

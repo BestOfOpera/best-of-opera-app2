@@ -74,11 +74,17 @@ def _estilos_do_perfil(perfil) -> dict:
         if perfil_style and isinstance(perfil_style, dict):
             merged.update(perfil_style)  # sobrescreve com valores do perfil
         estilos[track] = merged
-    # font_name do perfil é a fonte-verdade — override nos estilos
+    # font_name do perfil é o default global — override APENAS em tracks
+    # que não definem fontname explícito no JSON de estilo.
+    # Se lyrics_style ou traducao_style já trazem fontname (ex: "Poppins"),
+    # o font_name do perfil (ex: "Inter Display") NÃO sobrescreve.
     font_override = getattr(perfil, "font_name", None)
     if font_override:
-        for track in estilos.values():
-            track["fontname"] = font_override
+        for track_name, track_style in estilos.items():
+            perfil_style_json = getattr(perfil, _TRACK_ATTRS[track_name], None)
+            # Só sobrescrever se o JSON do track NÃO tem fontname explícito
+            if not (perfil_style_json and isinstance(perfil_style_json, dict) and "fontname" in perfil_style_json):
+                track_style["fontname"] = font_override
     return estilos
 
 
@@ -160,11 +166,14 @@ def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2
     return "\\N".join(linhas)
 
 
-def _formatar_overlay(texto: str, max_por_linha: int = 30) -> str:
-    """Garante overlay com max 2 linhas equilibradas, max_por_linha chars cada."""
+def _formatar_overlay(texto: str, max_por_linha: int = 30, pre_formatted: bool = False) -> str:
+    """Garante overlay com max 2 linhas equilibradas, max_por_linha chars cada.
+    Se pre_formatted=True, apenas converte \\n→\\\\N sem truncar ou reformatar."""
     texto = texto.strip()
     # Converter newlines Python para quebras ASS antes de qualquer lógica
     texto = texto.replace("\n", "\\N")
+    if pre_formatted:
+        return texto
     if len(texto) <= max_por_linha:
         return texto
     # Se já tem quebra manual (\N, newline ou \n literal dois chars), verificar cada linha
@@ -462,7 +471,8 @@ def gerar_ass(
 
         texto = seg["text"]
         texto_original = texto
-        texto = _formatar_overlay(texto, overlay_max_linha)
+        _pre_fmt = estilos.get("overlay", {}).get("overlay_pre_formatted", False)
+        texto = _formatar_overlay(texto, overlay_max_linha, pre_formatted=_pre_fmt)
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
 
