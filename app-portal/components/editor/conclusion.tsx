@@ -104,9 +104,10 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setFilaStatus(fila)
 
       // Instrumental em "corte": aplicar corte automaticamente (uma única vez)
+      // usar_video_inteiro=true: usa duração total do vídeo em vez de janela do overlay
       if (e.sem_lyrics && e.status === "corte" && !autoCorteTriggered) {
         setAutoCorteTriggered(true)
-        editorApi.aplicarCorte(edicaoId).catch((err) => {
+        editorApi.aplicarCorte(edicaoId, { usar_video_inteiro: true }).catch((err) => {
           setError("Erro ao aplicar corte: " + (err instanceof Error ? err.message : "Erro"))
         })
       }
