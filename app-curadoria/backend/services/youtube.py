@@ -57,19 +57,19 @@ def classify_category(title: str, description: str = "") -> str:
         "sanctus", "agnus dei", "gloria", "kyrie", "credo",
         "salve regina", "panis angelicus",
     ]):
-        return "Música Sacra"
+        return "Sacred Music"
     if any(w in text for w in ["duet", "dueto", "duetto"]):
-        return "Dueto"
+        return "Duet"
     if any(w in text for w in ["choir", "chorus", "coro", "choral"]):
-        return "Coro"
+        return "Chorus"
     if any(w in text for w in ["ensemble", "trio", "quartet", "quintet", "quarteto", "quinteto"]):
         return "Ensemble"
     if any(w in text for w in ["lied", "lieder", "mélodie", "melodie", "art song", "chanson"]):
-        return "Lied/Canção"
+        return "Art Song"
     if any(w in text for w in ["aria", "ária", "cavatina", "romanza", "cabaletta"]):
-        return "Ária"
+        return "Aria"
     if any(w in text for w in ["opera", "ópera", "opéra"]):
-        return "Ária"
+        return "Aria"
     if any(w in text for w in ["crossover", "musical", "broadway", "west end"]):
         return "Crossover"
     return "Vocal"

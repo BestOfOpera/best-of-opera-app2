@@ -7,7 +7,7 @@ from backend.database import get_db
 from backend.models import Project
 from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse  # noqa: F401
 from backend.config import load_brand_config
-from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, detect_metadata, detect_metadata_from_text
+from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, generate_hooks, detect_metadata, detect_metadata_from_text
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
 
@@ -178,3 +178,26 @@ def regenerate_youtube(
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.post("/{project_id}/generate-hooks")
+def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """Gera 5 hooks específicos ao vídeo para o operador escolher.
+    Retorna JSON array sem alterar o Project."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido.")
+    brand_config = load_brand_config(brand_slug)
+
+    try:
+        hooks = generate_hooks(project, brand_config=brand_config)
+        return {"hooks": hooks}
+    except Exception as e:
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Hook generation failed: {e}")

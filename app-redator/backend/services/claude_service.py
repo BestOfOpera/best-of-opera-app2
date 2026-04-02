@@ -231,8 +231,6 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     # forçar intervalos iguais. Limites vêm do perfil da marca (brand_config).
     bc = brand_config or {}
     interval_secs = bc.get("overlay_interval_secs", 6)
-    min_gap = max(2, interval_secs - 2)   # BO(10)→8s, RC(6)→4s
-    max_gap = interval_secs + 2           # BO(10)→12s, RC(6)→8s
 
     def _ts_to_secs(ts: str) -> int:
         try:
@@ -265,38 +263,39 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     cta_secs = max(0, vid_duration - interval_secs) if vid_duration > 0 else 0
     narrative_ceiling = max(0, cta_secs - 2) if cta_secs > 0 else 0
 
+    def _calcular_duracao_leitura(text: str) -> float:
+        """Duração de exibição baseada no tempo de leitura.
+        Viés para leitura lenta (público contemplativo).
+        Range: 6.0s a 10.0s.
+        - Texto curto (1-4 palavras): 6-7s
+        - Texto médio (5-8 palavras): 7-9s
+        - Texto longo (9+ palavras): 9-10s
+        """
+        palavras = len(text.split())
+        duracao = (palavras * 0.5) + 5.0
+        return max(6.0, min(10.0, duracao))
+
     if parsed and vid_duration > 10:
-        # 1. Ordenar por timestamp (corrige timestamps fora de ordem do Claude)
-        parsed.sort(key=lambda e: _ts_to_secs(e.get("timestamp", "00:00")))
-
-        # 2. Corrigir: ordem crescente, min/max gap, teto antes do CTA
-        prev_secs = 0
+        # Timing variável por tempo de leitura (substitui banda fixa min/max gap)
+        current_ts = 0.0
+        prev_ts = 0.0
         for i, entry in enumerate(parsed):
-            ts = _ts_to_secs(entry["timestamp"])
-
             if i == 0:
                 # Primeira legenda sempre em 00:00
-                ts = 0
+                current_ts = 0.0
             else:
-                gap = ts - prev_secs
+                # Duração baseada no texto da legenda ANTERIOR
+                duracao = _calcular_duracao_leitura(parsed[i - 1].get("text", ""))
+                current_ts += duracao
 
-                # Garantir gap mínimo entre legendas
-                if gap < min_gap:
-                    ts = prev_secs + min_gap
+            # Respeitar ceiling narrativo (espaço reservado pro CTA)
+            if narrative_ceiling > 0 and current_ts > narrative_ceiling:
+                current_ts = max(prev_ts + 1, narrative_ceiling)
 
-                # Garantir gap máximo entre legendas
-                if gap > max_gap:
-                    ts = prev_secs + max_gap
+            entry["timestamp"] = _secs_to_ts(int(round(current_ts)))
+            prev_ts = current_ts
 
-            # Garantir que não ultrapasse o teto (espaço reservado pro CTA)
-            if narrative_ceiling > 0 and ts > narrative_ceiling:
-                ts = max(prev_secs + 1, narrative_ceiling)
-
-            entry["timestamp"] = _secs_to_ts(ts)
-            prev_secs = ts
-
-        print(f"[generate_overlay] Timestamps validados: {len(parsed)} legendas, "
-              f"interval={interval_secs}s, min_gap={min_gap}s, max_gap={max_gap}s, "
+        print(f"[generate_overlay] Timestamps por leitura: {len(parsed)} legendas, "
               f"ceiling={narrative_ceiling}s, cta_pos={cta_secs}s, video={vid_duration}s")
 
     # Anexar CTA fixo da marca como última legenda (SPEC-010)
@@ -317,6 +316,36 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     all_text = " ".join(item.get("text", "") for item in parsed)
     _check_language_leak(all_text, lang)
     return parsed
+
+
+def generate_hooks(project, brand_config=None) -> list:
+    """Gera 5 hooks específicos ao vídeo para o operador escolher."""
+    from backend.prompts.hook_prompt import build_hook_generation_prompt
+
+    lang = detect_hook_language(project)
+    system = _build_language_system_prompt(lang)
+    prompt = build_hook_generation_prompt(project, brand_config=brand_config)
+    raw = _call_claude(prompt, system=system)
+    parsed = json.loads(_strip_json_fences(raw))
+
+    if not isinstance(parsed, list):
+        raise ValueError(f"Expected JSON array, got {type(parsed).__name__}")
+
+    # Validar e limpar cada hook
+    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
+    result = []
+    for item in parsed[:5]:
+        hook_text = item.get("hook", "").strip()
+        if len(hook_text) > max_chars:
+            # Truncar no último espaço antes do limite
+            hook_text = hook_text[:max_chars].rsplit(" ", 1)[0]
+        result.append({
+            "angle": item.get("angle", ""),
+            "hook": hook_text,
+            "thread": item.get("thread", ""),
+        })
+
+    return result
 
 
 def generate_post(project, custom_prompt: Optional[str] = None, brand_config=None) -> dict:

@@ -14,7 +14,7 @@ import { curadoriaApi } from "@/lib/api/curadoria"
 import { BrandSelector } from "@/components/brand-selector"
 import { useBrand } from "@/lib/brand-context"
 
-const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Overture", "Recitative", "Ensemble", "Ballet", "Intermezzo", "Other"]
+const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Sacred Music", "Art Song", "Ensemble", "Crossover", "Vocal", "Overture", "Recitative", "Ballet", "Intermezzo", "Other"]
 
 const HOOK_CATEGORIES = [
   { key: "curiosidade_musica", label: "Curiosidade Sobre a Musica", emoji: "🎵", desc: "Origem, contexto ou fato surpreendente sobre a musica" },

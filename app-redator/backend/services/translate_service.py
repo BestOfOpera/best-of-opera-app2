@@ -73,6 +73,14 @@ def extract_post_section2(post_text: str) -> tuple:
         "tipo di voce:", "data di nascita:", "compositore:", "data di composizione:",
         "typ głosu:", "data urodzenia:", "kompozytor:", "data kompozycji:",
         "fecha de nacimiento:", "fecha de composición:",
+        # Novos labels (Correção 2 / INV-3)
+        "nationality:", "nacionalidade:", "nacionalidad:", "nationalität:", "nationalité:", "nazionalità:", "narodowość:",
+        "date of death:", "data de falecimento:", "fecha de fallecimiento:", "todesdatum:", "date de décès:", "data di morte:", "data śmierci:",
+        "type:", "tipo:", "typ:",
+        "artistic director:", "diretor artístico:", "director artístico:", "künstlerischer leiter:", "directeur artistique:", "direttore artistico:", "dyrektor artystyczny:",
+        "from:", "de:", "aus:", "da:", "z:",
+        "libretto/text:", "libreto/texto:", "livret/texte:", "libretto/testo:", "libretto/tekst:",
+        "original language:", "idioma original:", "originalsprache:", "langue originale:", "lingua originale:", "język oryginalny:",
     )
     section2_end = None
     if section2_start is not None:
@@ -93,20 +101,62 @@ def extract_post_section2(post_text: str) -> tuple:
 
 
 CREDIT_LABELS = {
-    "en": {"Tipo de voz": "Voice type", "Data de nascimento": "Date of Birth", "Compositor": "Composer", "Data de composição": "Composition date",
-           "Voice type": "Voice type", "Date of Birth": "Date of Birth", "Composer": "Composer", "Composition date": "Composition date"},
-    "pt": {"Voice type": "Tipo de voz", "Date of Birth": "Data de nascimento", "Composer": "Compositor", "Composition date": "Data de composição",
-           "Tipo de voz": "Tipo de voz", "Data de nascimento": "Data de nascimento", "Compositor": "Compositor", "Data de composição": "Data de composição"},
-    "es": {"Voice type": "Tipo de voz", "Date of Birth": "Fecha de nacimiento", "Composer": "Compositor", "Composition date": "Fecha de composición",
-           "Tipo de voz": "Tipo de voz", "Data de nascimento": "Fecha de nacimiento", "Compositor": "Compositor", "Data de composição": "Fecha de composición"},
-    "de": {"Voice type": "Stimmtyp", "Date of Birth": "Geburtsdatum", "Composer": "Komponist", "Composition date": "Kompositionsdatum",
-           "Tipo de voz": "Stimmtyp", "Data de nascimento": "Geburtsdatum", "Compositor": "Komponist", "Data de composição": "Kompositionsdatum"},
-    "fr": {"Voice type": "Type de voix", "Date of Birth": "Date de naissance", "Composer": "Compositeur", "Composition date": "Date de composition",
-           "Tipo de voz": "Type de voix", "Data de nascimento": "Date de naissance", "Compositor": "Compositeur", "Data de composição": "Date de composition"},
-    "it": {"Voice type": "Tipo di voce", "Date of Birth": "Data di nascita", "Composer": "Compositore", "Composition date": "Data di composizione",
-           "Tipo de voz": "Tipo di voce", "Data de nascimento": "Data di nascita", "Compositor": "Compositore", "Data de composição": "Data di composizione"},
-    "pl": {"Voice type": "Typ głosu", "Date of Birth": "Data urodzenia", "Composer": "Kompozytor", "Composition date": "Data kompozycji",
-           "Tipo de voz": "Typ głosu", "Data de nascimento": "Data urodzenia", "Compositor": "Kompozytor", "Data de composição": "Data kompozycji"},
+    "en": {
+        "Tipo de voz": "Voice type", "Data de nascimento": "Date of Birth", "Compositor": "Composer", "Data de composição": "Composition date",
+        "Voice type": "Voice type", "Date of Birth": "Date of Birth", "Composer": "Composer", "Composition date": "Composition date",
+        "Nacionalidade": "Nationality", "Data de falecimento": "Date of Death", "Tipo": "Type",
+        "Diretor artístico": "Artistic Director", "De": "From", "Libreto/Texto": "Libretto/Text", "Idioma original": "Original language",
+        "Nationality": "Nationality", "Date of Death": "Date of Death", "Type": "Type",
+        "Artistic Director": "Artistic Director", "From": "From", "Libretto/Text": "Libretto/Text", "Original language": "Original language",
+    },
+    "pt": {
+        "Voice type": "Tipo de voz", "Date of Birth": "Data de nascimento", "Composer": "Compositor", "Composition date": "Data de composição",
+        "Tipo de voz": "Tipo de voz", "Data de nascimento": "Data de nascimento", "Compositor": "Compositor", "Data de composição": "Data de composição",
+        "Nationality": "Nacionalidade", "Date of Death": "Data de falecimento", "Type": "Tipo",
+        "Artistic Director": "Diretor artístico", "From": "De", "Libretto/Text": "Libreto/Texto", "Original language": "Idioma original",
+        "Nacionalidade": "Nacionalidade", "Data de falecimento": "Data de falecimento", "Tipo": "Tipo",
+        "Diretor artístico": "Diretor artístico", "De": "De", "Libreto/Texto": "Libreto/Texto", "Idioma original": "Idioma original",
+    },
+    "es": {
+        "Voice type": "Tipo de voz", "Date of Birth": "Fecha de nacimiento", "Composer": "Compositor", "Composition date": "Fecha de composición",
+        "Tipo de voz": "Tipo de voz", "Data de nascimento": "Fecha de nacimiento", "Compositor": "Compositor", "Data de composição": "Fecha de composición",
+        "Nationality": "Nacionalidad", "Date of Death": "Fecha de fallecimiento", "Type": "Tipo",
+        "Artistic Director": "Director artístico", "From": "De", "Libretto/Text": "Libreto/Texto", "Original language": "Idioma original",
+        "Nacionalidade": "Nacionalidad", "Data de falecimento": "Fecha de fallecimiento", "Tipo": "Tipo",
+        "Diretor artístico": "Director artístico", "De": "De", "Libreto/Texto": "Libreto/Texto", "Idioma original": "Idioma original",
+    },
+    "de": {
+        "Voice type": "Stimmtyp", "Date of Birth": "Geburtsdatum", "Composer": "Komponist", "Composition date": "Kompositionsdatum",
+        "Tipo de voz": "Stimmtyp", "Data de nascimento": "Geburtsdatum", "Compositor": "Komponist", "Data de composição": "Kompositionsdatum",
+        "Nationality": "Nationalität", "Date of Death": "Todesdatum", "Type": "Typ",
+        "Artistic Director": "Künstlerischer Leiter", "From": "Aus", "Libretto/Text": "Libretto/Text", "Original language": "Originalsprache",
+        "Nacionalidade": "Nationalität", "Data de falecimento": "Todesdatum", "Tipo": "Typ",
+        "Diretor artístico": "Künstlerischer Leiter", "De": "Aus", "Libreto/Texto": "Libretto/Text", "Idioma original": "Originalsprache",
+    },
+    "fr": {
+        "Voice type": "Type de voix", "Date of Birth": "Date de naissance", "Composer": "Compositeur", "Composition date": "Date de composition",
+        "Tipo de voz": "Type de voix", "Data de nascimento": "Date de naissance", "Compositor": "Compositeur", "Data de composição": "Date de composition",
+        "Nationality": "Nationalité", "Date of Death": "Date de décès", "Type": "Type",
+        "Artistic Director": "Directeur artistique", "From": "De", "Libretto/Text": "Livret/Texte", "Original language": "Langue originale",
+        "Nacionalidade": "Nationalité", "Data de falecimento": "Date de décès", "Tipo": "Type",
+        "Diretor artístico": "Directeur artistique", "De": "De", "Libreto/Texto": "Livret/Texte", "Idioma original": "Langue originale",
+    },
+    "it": {
+        "Voice type": "Tipo di voce", "Date of Birth": "Data di nascita", "Composer": "Compositore", "Composition date": "Data di composizione",
+        "Tipo de voz": "Tipo di voce", "Data de nascimento": "Data di nascita", "Compositor": "Compositore", "Data de composição": "Data di composizione",
+        "Nationality": "Nazionalità", "Date of Death": "Data di morte", "Type": "Tipo",
+        "Artistic Director": "Direttore artistico", "From": "Da", "Libretto/Text": "Libretto/Testo", "Original language": "Lingua originale",
+        "Nacionalidade": "Nazionalità", "Data de falecimento": "Data di morte", "Tipo": "Tipo",
+        "Diretor artístico": "Direttore artistico", "De": "Da", "Libreto/Texto": "Libretto/Testo", "Idioma original": "Lingua originale",
+    },
+    "pl": {
+        "Voice type": "Typ głosu", "Date of Birth": "Data urodzenia", "Composer": "Kompozytor", "Composition date": "Data kompozycji",
+        "Tipo de voz": "Typ głosu", "Data de nascimento": "Data urodzenia", "Compositor": "Kompozytor", "Data de composição": "Data kompozycji",
+        "Nationality": "Narodowość", "Date of Death": "Data śmierci", "Type": "Typ",
+        "Artistic Director": "Dyrektor artystyczny", "From": "Z", "Libretto/Text": "Libretto/Tekst", "Original language": "Język oryginalny",
+        "Nacionalidade": "Narodowość", "Data de falecimento": "Data śmierci", "Tipo": "Typ",
+        "Diretor artístico": "Dyrektor artystyczny", "De": "Z", "Libreto/Texto": "Libretto/Tekst", "Idioma original": "Język oryginalny",
+    },
 }
 
 
@@ -149,6 +199,14 @@ def _split_credits_cta_hashtags(after_text: str) -> tuple[str, str, str]:
         "tipo di voce:", "data di nascita:", "compositore:", "data di composizione:",
         "typ głosu:", "data urodzenia:", "kompozytor:", "data kompozycji:",
         "fecha de nacimiento:", "fecha de composición:",
+        # Novos labels (Correção 2 / INV-3)
+        "nationality:", "nacionalidade:", "nacionalidad:", "nationalität:", "nationalité:", "nazionalità:", "narodowość:",
+        "date of death:", "data de falecimento:", "fecha de fallecimiento:", "todesdatum:", "date de décès:", "data di morte:", "data śmierci:",
+        "type:", "tipo:", "typ:",
+        "artistic director:", "diretor artístico:", "director artístico:", "künstlerischer leiter:", "directeur artistique:", "direttore artistico:", "dyrektor artystyczny:",
+        "from:", "de:", "aus:", "da:", "z:",
+        "libretto/text:", "libreto/texto:", "livret/texte:", "libretto/testo:", "libretto/tekst:",
+        "original language:", "idioma original:", "originalsprache:", "langue originale:", "lingua originale:", "język oryginalny:",
     ]
 
     cta = ""

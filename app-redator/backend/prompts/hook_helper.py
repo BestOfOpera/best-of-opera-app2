@@ -2,10 +2,23 @@ from backend.config import HOOK_CATEGORIES
 
 
 def build_hook_text(project, brand_config=None) -> str:
-    """Monta o texto do hook combinando categoria + complemento do usuário."""
+    """Monta o texto do hook combinando categoria + complemento do usuário.
+
+    Prioridade:
+    1. Se project.hook contém um hook concreto (gerado por LLM ou escrito pelo usuário),
+       retorna o texto direto — é o valor usado como Hook/angle no overlay prompt.
+    2. Se project.hook está vazio e hook_category é uma categoria pré-definida,
+       monta instrução genérica da categoria (fallback para projetos sem hooks gerados).
+    """
     cat_key = getattr(project, "hook_category", "") or ""
     hook = getattr(project, "hook", "") or ""
 
+    # Se o hook contém texto concreto E não é uma categoria predefinida (ou é "prefiro_escrever"),
+    # retornar direto — é um hook específico já gerado/escolhido
+    if hook.strip() and (not cat_key or cat_key == "prefiro_escrever"):
+        return hook.strip()
+
+    # Se hook tem texto E categoria: hook é complemento da categoria
     # Usar categorias da marca se disponível, senão fallback global
     categories = HOOK_CATEGORIES
     if brand_config and brand_config.get("hook_categories_redator"):
