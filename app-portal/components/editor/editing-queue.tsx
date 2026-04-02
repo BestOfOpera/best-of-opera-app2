@@ -73,6 +73,7 @@ export function EditorEditingQueue() {
     compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false,
   })
   const [saving, setSaving] = useState(false)
+  const [zipFile, setZipFile] = useState<File | null>(null)
 
   const [showImportar, setShowImportar] = useState(false)
   const [projetosRedator, setProjetosRedator] = useState<RedatorProject[]>([])
@@ -137,12 +138,23 @@ export function EditorEditingQueue() {
     if (!form.youtube_url || !form.artista || !form.musica || !form.idioma) return
     setSaving(true)
     try {
-      await editorApi.criarEdicao({ 
-        ...form, 
-        perfil_id: selectedBrand?.id 
+      const novaEdicao = await editorApi.criarEdicao({
+        ...form,
+        perfil_id: selectedBrand?.id
       } as unknown as Partial<Edicao>)
+      // Se ZIP de overlays foi fornecido, fazer upload após criação
+      if (zipFile && novaEdicao?.id) {
+        try {
+          const uploadResult = await editorApi.uploadOverlays(novaEdicao.id, zipFile)
+          toast.success(`Overlays carregados: ${uploadResult.idiomas?.join(", ")} (${uploadResult.total_segmentos} segmentos)`)
+        } catch (zipErr: unknown) {
+          const zipMsg = extractErrorMessage(zipErr)
+          toast.error(`Edição criada, mas erro no upload de overlays: ${zipMsg}`)
+        }
+      }
       setShowForm(false)
       setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false })
+      setZipFile(null)
       toast.success("Edição criada com sucesso!")
       loadEdicoes()
     } catch (err: unknown) {
@@ -451,6 +463,19 @@ export function EditorEditingQueue() {
                   onCheckedChange={(checked) => setForm(f => ({ ...f, eh_instrumental: !!checked }))}
                 />
                 <Label htmlFor="instrumental" className="text-sm">Instrumental (sem letra)</Label>
+              </div>
+              {/* Upload de overlays manual — disponível para qualquer tipo de edição */}
+              <div className="space-y-1">
+                <Label className="text-sm">Overlays (ZIP) <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+                <Input
+                  type="file"
+                  accept=".zip"
+                  onChange={(e) => setZipFile(e.target.files?.[0] || null)}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  ZIP com JSONs por idioma (pt.json, en.json...). Sobrescreve overlays existentes.
+                </p>
               </div>
               <div className="flex gap-3">
                 <Button type="submit" disabled={saving || !form.youtube_url || !form.artista || !form.musica || !form.idioma}>
