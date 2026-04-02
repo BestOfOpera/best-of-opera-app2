@@ -695,6 +695,35 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v7 RC: {e}")
 
+    # Migration: BO overlay gap reduzido (30→8px) para legendas mais próximas da imagem
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        COALESCE(overlay_style::jsonb, '{}'),
+                        '{gap_overlay_px}', '8'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'gap_overlay_px')::int != 8
+            """))
+            logger.info("Migration: BO gap_overlay_px 30→8 OK")
+    except Exception as e:
+        logger.warning(f"Migration BO gap: {e}")
+
+    # Migration: BO logo watermark
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    logo_url = 'logo_bo.png'
+                WHERE sigla = 'BO'
+                  AND (logo_url IS NULL OR logo_url = '')
+            """))
+            logger.info("Migration: BO logo_url = 'logo_bo.png' OK")
+    except Exception as e:
+        logger.warning(f"Migration BO logo: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:
