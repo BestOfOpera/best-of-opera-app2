@@ -871,6 +871,33 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration BO overlay fontsize: {e}")
 
+    # Migration: BO overlay fontsize 44→46 + lyrics cor #FFD700→#F0FF00
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(overlay_style::jsonb,
+                                '{fontsize}', '46'),
+                            '{gancho_fontsize}', '46'),
+                        '{cta_fontsize}', '46'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'fontsize')::int = 44
+            """))
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style = jsonb_set(lyrics_style::jsonb,
+                        '{primarycolor}', '"#F0FF00"'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND lyrics_style->>'primarycolor' = '#FFD700'
+            """))
+            logger.info("Migration: BO overlay 44→46 + lyrics cor #F0FF00 OK")
+    except Exception as e:
+        logger.warning(f"Migration BO overlay46/lyrics cor: {e}")
+
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

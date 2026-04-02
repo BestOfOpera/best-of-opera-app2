@@ -359,12 +359,26 @@ _ENGAGEMENT_BAIT_PATTERNS = [
     re.compile(r'.*tell us in the comments.*', re.IGNORECASE),
 ]
 
+# Separadores markdown que o LLM adiciona entre seções
+_MARKDOWN_SEPARATORS = frozenset(('---', '___', '***', '—', '——', '———'))
+
 
 def _sanitize_post(text: str) -> str:
-    """Remove padrões de engajamento genérico que o LLM insiste em gerar."""
+    """Remove padrões de engajamento genérico e artefatos de formatação do LLM."""
     lines = text.split('\n')
-    cleaned = [line for line in lines if not any(p.search(line) for p in _ENGAGEMENT_BAIT_PATTERNS)]
+    cleaned = []
+    for line in lines:
+        # Remover separadores markdown
+        if line.strip() in _MARKDOWN_SEPARATORS:
+            continue
+        # Remover linhas de engajamento genérico
+        if any(p.search(line) for p in _ENGAGEMENT_BAIT_PATTERNS):
+            continue
+        cleaned.append(line)
     result = re.sub(r'\n{3,}', '\n\n', '\n'.join(cleaned))
+    # Corrigir emoji do header: 🎵→🎶 (prompt diz 🎶 fixo, LLM às vezes usa 🎵)
+    if result and result[0] == '🎵':
+        result = '🎶' + result[1:]
     return result.strip()
 
 
