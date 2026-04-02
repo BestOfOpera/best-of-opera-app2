@@ -307,9 +307,17 @@ def gerar_ass(
         estilos = dict(estilos)
 
         # Overlay: posiciona acima da imagem
-        overlay_gap = estilos.get("overlay", {}).get("gap_overlay_px", 28)
-        estilos["overlay"] = dict(estilos["overlay"])
-        estilos["overlay"]["marginv"] = frame_h - (image_top_px - overlay_gap)
+        overlay_alignment = estilos.get("overlay", {}).get("alignment", 2)
+        if overlay_alignment >= 7:
+            # Top alignment (7/8/9): perfil define marginv fixo (pré-calculado).
+            # NÃO recalcular — valores como gancho_marginv/corpo_marginv/cta_marginv
+            # são aplicados via inline \pos tags por evento.
+            estilos["overlay"] = dict(estilos["overlay"])
+        else:
+            # Bottom alignment (1/2/3): calcular dinamicamente
+            overlay_gap = estilos.get("overlay", {}).get("gap_overlay_px", 28)
+            estilos["overlay"] = dict(estilos["overlay"])
+            estilos["overlay"]["marginv"] = frame_h - (image_top_px - overlay_gap)
 
         # Lyrics: posiciona abaixo da imagem (na barra preta inferior)
         # image_top_px == pad_y == altura da barra preta (topo e base são iguais)
@@ -338,6 +346,9 @@ def gerar_ass(
         style.marginv = config["marginv"]
         style.bold = config.get("bold", False)
         style.italic = config.get("italic", False)
+        style.spacing = config.get("spacing", 0)
+        style.marginl = config.get("marginl", 0)
+        style.marginr = config.get("marginr", 0)
         subs.styles[nome.capitalize()] = style
 
     # Corrigir timestamps antes de gerar
@@ -453,12 +464,14 @@ def gerar_ass(
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")
 
-        # Tags de tamanho por posição: gancho (1ª legenda) / corpo (meio) / CTA (última legenda)
+        # Tags de tamanho e posição por sub-estilo: gancho (1ª) / corpo (meio) / CTA (última)
         overlay_estilo = estilos.get("overlay", {})
         gancho_fs = overlay_estilo.get("gancho_fontsize")
         corpo_fs = overlay_estilo.get("corpo_fontsize")
         cta_fs = overlay_estilo.get("cta_fontsize")
+
         fs_tag = ""
+        pos_tag = ""
         if gancho_fs and i == 0:
             fs_tag = f"{{\\fs{gancho_fs}}}"
         elif cta_fs and i == len(overlay_filtrado) - 1:
@@ -466,7 +479,61 @@ def gerar_ass(
         elif corpo_fs:
             fs_tag = f"{{\\fs{corpo_fs}}}"
 
-        event.text = "{\\q2}" + fs_tag + texto
+        # Posicionamento dinâmico por sub-estilo para perfis top-aligned (alignment >= 7)
+        # Calcula \pos(X,Y) por evento baseado no número real de linhas do texto.
+        # Ativado quando o perfil define gancho_gap/corpo_gap/cta_gap no overlay_style.
+        overlay_alignment = estilos.get("overlay", {}).get("alignment", 2)
+        _has_dynamic_pos = overlay_alignment >= 7 and any(
+            overlay_estilo.get(k) is not None
+            for k in ("gancho_gap", "corpo_gap", "cta_gap")
+        )
+        if _has_dynamic_pos:
+            # Configuração por sub-estilo
+            _substyle = {
+                "gancho": {
+                    "fontsize": overlay_estilo.get("gancho_fontsize", overlay_estilo.get("fontsize", 48)),
+                    "gap": overlay_estilo.get("gancho_gap", overlay_estilo.get("gap_overlay_px", 15)),
+                    "line_spacing": overlay_estilo.get("gancho_line_spacing", 10),
+                },
+                "corpo": {
+                    "fontsize": overlay_estilo.get("corpo_fontsize", overlay_estilo.get("fontsize", 48)),
+                    "gap": overlay_estilo.get("corpo_gap", overlay_estilo.get("gap_overlay_px", 18)),
+                    "line_spacing": overlay_estilo.get("corpo_line_spacing", 9),
+                },
+                "cta": {
+                    "fontsize": overlay_estilo.get("cta_fontsize", overlay_estilo.get("fontsize", 44)),
+                    "gap": overlay_estilo.get("cta_gap", overlay_estilo.get("gap_overlay_px", 20)),
+                    "line_spacing": overlay_estilo.get("cta_line_spacing", 12),
+                },
+            }
+            # video_top fixo v1 (cenário "padrão" 1080x1920 com aspect 4:3)
+            _VIDEO_TOP = 576
+
+            # Determinar tipo do evento
+            is_cta = seg.get("_is_cta", False) or (i == len(overlay_filtrado) - 1 and cta_seg is not None and seg is cta_seg)
+            is_gancho = (i == 0 and not is_cta)
+            if is_cta:
+                cfg = _substyle["cta"]
+            elif is_gancho:
+                cfg = _substyle["gancho"]
+            else:
+                cfg = _substyle["corpo"]
+
+            # Contar linhas reais do texto formatado (\\N é quebra ASS)
+            num_lines = texto.count("\\N") + 1
+
+            # Calcular altura do bloco de texto
+            line_h = round(cfg["fontsize"] * 0.926)  # cap-height ratio
+            block_h = line_h * num_lines + cfg["line_spacing"] * (num_lines - 1)
+
+            # Y = video_top - gap - block_h (borda inferior do bloco acima do vídeo)
+            pos_y = _VIDEO_TOP - cfg["gap"] - block_h
+
+            _play_res_x = int(subs.info.get("PlayResX", "1080"))
+            _center_x = _play_res_x // 2
+            pos_tag = f"{{\\an8\\pos({_center_x},{pos_y})}}"
+
+        event.text = "{\\q2}" + pos_tag + fs_tag + texto
         event.style = "Overlay"
         subs.events.append(event)
 

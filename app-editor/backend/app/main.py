@@ -401,6 +401,54 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration RC overlay_style SPEC-008: {e}")
 
+    # Migration v3: Atualizar perfil Reels Classics com valores auditados (Inter Display Bold)
+    # Valores finais validados: fontsize 54/48/44, alignment 8 (top), outline 0, shadow 0.
+    # MarginV calculado DINAMICAMENTE por evento baseado no número de linhas do texto.
+    # Campos gancho_gap/corpo_gap/cta_gap + line_spacing controlam o posicionamento.
+    # lyrics_style e traducao_style ficam vazios em v1 (RC usa defaults do sistema para vocal).
+    try:
+        with engine.begin() as conn:
+            import json as _json3
+            rc_overlay_v3 = _json3.dumps({
+                "fontsize": 48,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 54,
+                "corpo_fontsize": 48,
+                "cta_fontsize": 44,
+                "gap_overlay_px": 15,
+                "gancho_gap": 15,
+                "corpo_gap": 18,
+                "cta_gap": 20,
+                "gancho_line_spacing": 10,
+                "corpo_line_spacing": 9,
+                "cta_line_spacing": 12,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 453,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    font_name = :font_name,
+                    overlay_style = :overlay_style,
+                    lyrics_style = :empty_json,
+                    traducao_style = :empty_json
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'gancho_gap') IS NULL
+            """), {
+                "font_name": "Inter Display",
+                "overlay_style": rc_overlay_v3,
+                "empty_json": "{}",
+            })
+            logger.info("Migration v3: RC overlay_style Inter Display Bold (valores auditados) OK")
+    except Exception as e:
+        logger.warning(f"Migration v3 RC overlay_style: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:
