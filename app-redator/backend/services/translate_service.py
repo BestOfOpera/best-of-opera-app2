@@ -1,5 +1,6 @@
 from __future__ import annotations
 import html
+import re
 import requests
 from typing import List
 
@@ -170,6 +171,30 @@ def _translate_credit_labels(section3_and_rest: str, target_lang: str) -> str:
     return section3_and_rest
 
 
+_FLAG_RE = re.compile(r"[\U0001F1E0-\U0001F1FF]{2}")
+
+
+def _translate_credit_values(credits: str, target_lang: str) -> str:
+    """Traduz apenas os VALORES das linhas de crédito (após o ':').
+
+    Pula linhas que contêm emoji de bandeira — são nomes próprios/entidades.
+    """
+    lines = credits.split("\n")
+    result: list[str] = []
+    for line in lines:
+        if ":" not in line or _FLAG_RE.search(line):
+            result.append(line)
+            continue
+        label, value = line.split(":", 1)
+        value_stripped = value.strip()
+        if not value_stripped:
+            result.append(line)
+            continue
+        translated_value = translate_text(value_stripped, target_lang)
+        result.append(f"{label}: {translated_value}")
+    return "\n".join(result)
+
+
 def _split_credits_cta_hashtags(after_text: str) -> tuple[str, str, str]:
     """Split after-Section2 text into (credits, cta, hashtags).
 
@@ -299,8 +324,9 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
     # Split after into credits, CTA, and hashtags
     credits, cta, hashtags = _split_credits_cta_hashtags(after)
 
-    # Translate each part
-    translated_credits = _translate_credit_labels(credits, target_lang)
+    # Translate each part: labels via hardcoded map, values via Google Translate
+    label_translated = _translate_credit_labels(credits, target_lang)
+    translated_credits = _translate_credit_values(label_translated, target_lang)
     translated_cta = translate_text(cta, target_lang) if cta else ""
     translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
 

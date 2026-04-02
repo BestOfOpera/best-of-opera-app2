@@ -825,6 +825,33 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration BO Georgia: {e}")
 
+    # Migration: BO fontsize reduzido (Georgia x-height maior) + CTA sem emoji
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(overlay_style::jsonb,
+                                '{fontsize}', '42'),
+                            '{gancho_fontsize}', '42'),
+                        '{cta_fontsize}', '42'
+                    )::json,
+                    lyrics_style = jsonb_set(lyrics_style::jsonb, '{fontsize}', '42')::json,
+                    traducao_style = jsonb_set(traducao_style::jsonb, '{fontsize}', '40')::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'fontsize')::int > 42
+            """))
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_cta = 'Siga para mais Best of Opera!'
+                WHERE sigla = 'BO'
+                  AND overlay_cta LIKE '%🎶%'
+            """))
+            logger.info("Migration: BO fontsize reduzido + CTA sem emoji OK")
+    except Exception as e:
+        logger.warning(f"Migration BO fontsize/CTA: {e}")
+
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

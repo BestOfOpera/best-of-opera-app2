@@ -68,6 +68,7 @@ export interface R2Info {
   thumbnail_url: string
   title: string
   description: string
+  category?: string
 }
 
 export const curadoriaApi = {

@@ -697,6 +697,7 @@ async def r2_info(folder: str = Query(...)):
         "thumbnail_url": f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
         "title": "",
         "description": "",
+        "category": db.get_cached_video_category(video_id) or "",
     }
 
     if YOUTUBE_API_KEY:

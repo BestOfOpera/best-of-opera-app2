@@ -253,6 +253,15 @@ def get_cached_videos(category: str, hide_posted: bool = True, brand_slug: str =
     ]
 
 
+def get_cached_video_category(video_id: str) -> Optional[str]:
+    """Retorna a category de um vídeo em cached_videos, ou None."""
+    with _get_pool().connection() as conn:
+        c = conn.cursor()
+        c.execute("SELECT category FROM cached_videos WHERE video_id = %s LIMIT 1", (video_id,))
+        row = c.fetchone()
+        return row[0] if row else None
+
+
 # ─── PLAYLIST ───
 
 def save_playlist_videos(videos: List[Dict], brand_slug: str = "best-of-opera"):

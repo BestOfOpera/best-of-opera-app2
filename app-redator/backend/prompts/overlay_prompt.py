@@ -42,15 +42,56 @@ def _calc_subtitle_count(project, interval_secs: int = 15) -> str:
         return "Create approximately 4-6 subtitle entries. Use the interval as a flexible guide — cluster subtitles around context-rich moments and space them out during purely musical passages."
 
 
+def _extract_narrative(post_text: str, max_chars: int = 500) -> str:
+    """Extrai parágrafos narrativos do post (Section 2), sem ficha técnica/hashtags.
+
+    Retorna texto truncado em max_chars.
+    """
+    if not post_text or not post_text.strip():
+        return ""
+    lines = post_text.split("\n")
+    # Pular primeira linha (emoji intro)
+    start = None
+    for i, line in enumerate(lines):
+        if line.strip():
+            start = i + 1
+            break
+    if start is None:
+        return ""
+    # Coletar até encontrar linha com label de créditos (emoji + ":" pattern)
+    narrative_lines = []
+    for line in lines[start:]:
+        stripped = line.strip().lower()
+        if any(stripped.startswith(m) for m in (
+            "voice type:", "tipo de voz:", "nationality:", "nacionalidade:",
+            "composer:", "compositor:", "date of birth:", "data de nascimento:",
+            "#",
+        )):
+            break
+        # Parar se linha começa com emoji seguido de label (padrão ficha técnica)
+        if len(stripped) > 2 and stripped[0] not in "abcdefghijklmnopqrstuvwxyz\"'" and ":" in stripped[:40]:
+            break
+        narrative_lines.append(line)
+    narrative = "\n".join(narrative_lines).strip()
+    if len(narrative) > max_chars:
+        narrative = narrative[:max_chars].rsplit(" ", 1)[0] + "..."
+    return narrative
+
+
 def _build_overlay_fields(project) -> str:
     """Monta os campos de input do projeto para overlay."""
+    highlights = getattr(project, "highlights", "") or ""
+    # Fallback: se highlights vazio, usar narrativa do post gerado
+    if not highlights.strip():
+        post_text = getattr(project, "post_text", "") or ""
+        highlights = _extract_narrative(post_text)
     return (
         f"{_field('Artist', project.artist)}"
         f"{_field('Work', project.work)}"
         f"{_field('Composer', project.composer)}"
         f"{_field('Category', project.category)}"
         f"{_field('Hook/angle', build_hook_text(project))}"
-        f"{_field('Highlights', project.highlights)}"
+        f"{_field('Highlights', highlights)}"
         f"{_field('Composition year', project.composition_year)}"
         f"{_field('Nationality', project.nationality)}"
         f"{_field('Voice type', project.voice_type)}"

@@ -96,6 +96,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
       setThumbnailUrl(info.thumbnail_url)
       setYtTitle(info.title || "")
       setYtDescription(info.description || "")
+      if (info.category) setCategory(info.category)
       // Auto-detect metadata from YouTube title + description
       if (info.title) {
         setDetecting(true)

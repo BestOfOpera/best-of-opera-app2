@@ -124,16 +124,12 @@ Portuguese labels: Nacionalidade, Tipo de voz, Data de nascimento, Data de falec
 ──────────────────────
 SECTION 4 — ENGAGEMENT QUESTION (1 line)
 ──────────────────────
-Write a thought-provoking question naturally connected to the story you just told. It should feel like the final thought of a conversation, not a marketing prompt. End with a single emoji.
+Write a thought-provoking question naturally connected to the story you just told. It should feel like the final thought of a conversation, not a marketing prompt. Your question MUST reference a specific detail from the story. NEVER use fire/ice, hot/cold, chills, or any binary emoji question. End with a single emoji.
 
 Good examples:
 "What do you hear in her silence that most covers miss? 🕯️"
 "How does it feel knowing this voice no longer exists? 🎙️"
 "Which surprises you more: how the melody was born or how the Oscar was won? 🎬"
-
-Bad examples (too generic):
-"What do you think? 🤔"
-"Does this give you chills? 🔥"
 
 ──────────────────────
 SECTION 5 — HASHTAGS (exactly 1 line)
