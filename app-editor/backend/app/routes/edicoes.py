@@ -155,46 +155,76 @@ async def upload_overlays(
     Campo 'type' aceita: "gancho", "corpo" (default), "cta".
     Se type=="cta", seta _is_cta=True (usado por legendas.py para posicionamento).
     """
+    logger.info(
+        f"[upload-overlays] Recebido: edicao_id={edicao_id} "
+        f"filename='{file.filename}' content_type='{file.content_type}' "
+        f"size_header={file.size}"
+    )
+
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    if not file.filename or not file.filename.lower().endswith(".zip"):
-        raise HTTPException(400, "Arquivo deve ser um .zip")
-
+    # Ler conteúdo do arquivo e validar pelo CONTEÚDO (não pelo filename,
+    # que pode variar entre browsers/OS)
     content = await file.read()
+    if not content:
+        logger.error(f"[upload-overlays] edicao={edicao_id}: arquivo vazio (0 bytes)")
+        raise HTTPException(400, "Arquivo vazio")
+
+    logger.info(f"[upload-overlays] edicao={edicao_id}: {len(content)} bytes lidos")
+
     try:
         zf = zipfile.ZipFile(io.BytesIO(content))
     except zipfile.BadZipFile:
-        raise HTTPException(400, "Arquivo ZIP inválido")
+        logger.error(
+            f"[upload-overlays] edicao={edicao_id}: ZIP inválido "
+            f"(filename='{file.filename}', {len(content)} bytes, "
+            f"primeiros bytes={content[:20]!r})"
+        )
+        raise HTTPException(
+            400,
+            f"Arquivo ZIP inválido (filename='{file.filename}', {len(content)} bytes). "
+            f"Verifique se o arquivo é um .zip válido."
+        )
+
+    namelist = zf.namelist()
+    logger.info(f"[upload-overlays] edicao={edicao_id}: ZIP namelist={namelist}")
 
     idiomas_processados = []
     total_segmentos = 0
     _IDIOMA_RE = re.compile(r"^[a-z]{2}$")
 
-    for name in zf.namelist():
+    for name in namelist:
         if not name.lower().endswith(".json"):
+            continue
+        # Ignorar metadata do macOS
+        if name.startswith("__MACOSX") or "/." in name:
+            logger.info(f"[upload-overlays] Ignorando metadata: {name}")
             continue
         # Extrair idioma do nome do arquivo (ex: "pt.json" → "pt")
         basename = name.rsplit("/", 1)[-1]  # suporta subpastas no ZIP
         idioma = basename.replace(".json", "").lower().strip()
         if not _IDIOMA_RE.match(idioma):
-            logger.warning(f"[upload-overlays] Ignorando {name}: idioma '{idioma}' inválido")
+            logger.warning(f"[upload-overlays] Ignorando {name}: idioma '{idioma}' não é código de 2 letras")
             continue
 
         try:
             raw = zf.read(name)
             segmentos = json.loads(raw)
         except (json.JSONDecodeError, Exception) as e:
-            raise HTTPException(400, f"JSON inválido em {name}: {e}")
+            logger.error(f"[upload-overlays] edicao={edicao_id}: JSON inválido em {name}: {e}")
+            raise HTTPException(400, f"JSON inválido em '{name}': {e}")
 
         if not isinstance(segmentos, list):
-            raise HTTPException(400, f"{name}: esperado array JSON, recebeu {type(segmentos).__name__}")
+            logger.error(f"[upload-overlays] edicao={edicao_id}: {name} não é array, é {type(segmentos).__name__}")
+            raise HTTPException(400, f"'{name}': esperado array JSON, recebeu {type(segmentos).__name__}")
 
         # Validar e normalizar segmentos
-        for seg in segmentos:
+        for idx, seg in enumerate(segmentos):
             if not isinstance(seg, dict) or not seg.get("text"):
-                raise HTTPException(400, f"{name}: cada item deve ter campo 'text' não vazio")
+                logger.error(f"[upload-overlays] edicao={edicao_id}: {name}[{idx}] sem campo 'text': {seg}")
+                raise HTTPException(400, f"'{name}' item {idx}: deve ter campo 'text' não vazio")
             # Derivar _is_cta de type=="cta"
             seg_type = seg.pop("type", "corpo")
             if seg_type == "cta":
@@ -207,21 +237,34 @@ async def upload_overlays(
         if existing:
             existing.segmentos_original = segmentos
             existing.segmentos_reindexado = None  # reset — será recalculado no corte
+            logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: ATUALIZADO {len(segmentos)} segmentos")
         else:
             db.add(Overlay(
                 edicao_id=edicao_id,
                 idioma=idioma,
                 segmentos_original=segmentos,
             ))
+            logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: CRIADO {len(segmentos)} segmentos")
 
         idiomas_processados.append(idioma)
         total_segmentos += len(segmentos)
-        logger.info(f"[upload-overlays] edicao={edicao_id} idioma={idioma}: {len(segmentos)} segmentos")
 
     if not idiomas_processados:
-        raise HTTPException(400, "ZIP não contém nenhum arquivo JSON de idioma válido (ex: pt.json)")
+        logger.error(
+            f"[upload-overlays] edicao={edicao_id}: nenhum JSON válido no ZIP. "
+            f"namelist={namelist}, filename='{file.filename}'"
+        )
+        raise HTTPException(
+            400,
+            f"ZIP não contém nenhum arquivo JSON de idioma válido (ex: pt.json). "
+            f"Arquivos encontrados: {namelist}"
+        )
 
     db.commit()
+    logger.info(
+        f"[upload-overlays] edicao={edicao_id}: SUCESSO "
+        f"idiomas={idiomas_processados} total={total_segmentos}"
+    )
     return {
         "status": "ok",
         "idiomas": idiomas_processados,
