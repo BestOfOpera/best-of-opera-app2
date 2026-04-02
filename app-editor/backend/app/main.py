@@ -627,6 +627,74 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v6 RC: {e}")
 
+    # Migration v7: RC — tradução idêntica a lyrics (fontsize 48), corpo 52px
+    # Tradução: cópia exata de lyrics_style, apenas primarycolor diferente (#FFFFFF vs #FFFF00)
+    # Guard: traducao fontsize != 48 (valor definitivo)
+    try:
+        with engine.begin() as conn:
+            import json as _json7
+            rc_overlay_v7 = _json7.dumps({
+                "fontsize": 52,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 56,
+                "corpo_fontsize": 52,
+                "cta_fontsize": 48,
+                "gap_overlay_px": 12,
+                "gancho_gap": 12,
+                "corpo_gap": 14,
+                "cta_gap": 16,
+                "gancho_line_spacing": 6,
+                "corpo_line_spacing": 5,
+                "cta_line_spacing": 6,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 418,
+                "overlay_pre_formatted": True,
+            })
+            rc_lyrics_v7 = _json7.dumps({
+                "fontname": "Poppins",
+                "fontsize": 48,
+                "primarycolor": "#FFFF00",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": True,
+                "alignment": 2,
+            })
+            rc_traducao_v7 = _json7.dumps({
+                "fontname": "Poppins",
+                "fontsize": 48,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": True,
+                "alignment": 8,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = :overlay_style,
+                    lyrics_style = :lyrics_style,
+                    traducao_style = :traducao_style
+                WHERE sigla = 'RC'
+                  AND (traducao_style->>'fontsize')::int != 48
+            """), {
+                "overlay_style": rc_overlay_v7,
+                "lyrics_style": rc_lyrics_v7,
+                "traducao_style": rc_traducao_v7,
+            })
+            logger.info("Migration v7: RC traducao=lyrics (fs48), corpo 52px OK")
+    except Exception as e:
+        logger.warning(f"Migration v7 RC: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:
