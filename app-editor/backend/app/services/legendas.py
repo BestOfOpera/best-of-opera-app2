@@ -472,6 +472,11 @@ def gerar_ass(
         texto = seg["text"]
         texto_original = texto
         _pre_fmt = estilos.get("overlay", {}).get("overlay_pre_formatted", False)
+        if i == 0:
+            logger.info(
+                f"[legendas] OVERLAY CONFIG: pre_formatted={_pre_fmt} "
+                f"max_linha={overlay_max_linha} alignment={estilos.get('overlay', {}).get('alignment')}"
+            )
         texto = _formatar_overlay(texto, overlay_max_linha, pre_formatted=_pre_fmt)
         if texto != texto_original:
             logger.info(f"[legendas] Overlay formatado: {len(texto_original)}→{len(texto)} chars")

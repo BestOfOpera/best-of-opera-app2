@@ -560,6 +560,73 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v5 RC: {e}")
 
+    # Migration v6: RC — ajuste fino definitivo (gaps, fontsize, lyrics italic, cores HEX)
+    # Guard: gancho_gap != 12 (valor definitivo desta migration)
+    try:
+        with engine.begin() as conn:
+            import json as _json6
+            rc_overlay_v6 = _json6.dumps({
+                "fontsize": 50,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 56,
+                "corpo_fontsize": 50,
+                "cta_fontsize": 48,
+                "gap_overlay_px": 12,
+                "gancho_gap": 12,
+                "corpo_gap": 14,
+                "cta_gap": 16,
+                "gancho_line_spacing": 6,
+                "corpo_line_spacing": 5,
+                "cta_line_spacing": 6,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 418,
+                "overlay_pre_formatted": True,
+            })
+            rc_lyrics_v6 = _json6.dumps({
+                "fontname": "Poppins",
+                "fontsize": 48,
+                "primarycolor": "#FFFF00",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": True,
+                "alignment": 2,
+            })
+            rc_traducao_v6 = _json6.dumps({
+                "fontname": "Poppins",
+                "fontsize": 44,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 3,
+                "shadow": 0,
+                "bold": True,
+                "italic": True,
+                "alignment": 8,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = :overlay_style,
+                    lyrics_style = :lyrics_style,
+                    traducao_style = :traducao_style
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'gancho_gap')::int != 12
+            """), {
+                "overlay_style": rc_overlay_v6,
+                "lyrics_style": rc_lyrics_v6,
+                "traducao_style": rc_traducao_v6,
+            })
+            logger.info("Migration v6: RC ajuste definitivo (gaps/fontsize/lyrics italic/pre_formatted) OK")
+    except Exception as e:
+        logger.warning(f"Migration v6 RC: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:
