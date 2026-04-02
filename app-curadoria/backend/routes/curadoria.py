@@ -13,7 +13,7 @@ from config import (
     YOUTUBE_API_KEY, APP_PASSWORD, PLAYLIST_ID, BRAND_SLUG,
     ANTI_SPAM, PROJECTS_DIR, load_brand_config,
 )
-from services.youtube import yt_search, yt_playlist, extract_artist_song, parse_iso_dur
+from services.youtube import yt_search, yt_playlist, extract_artist_song, parse_iso_dur, classify_category
 from services.scoring import calc_score_v7, _process_v7, _rescore_cached, is_posted
 from services.download import (
     manager, download_semaphore, sanitize_filename,
@@ -258,13 +258,14 @@ async def add_manual_video(
                         defn = det.get("definition", "sd")
                         views = int(stat.get("viewCount", 0))
 
+                        _cat = classify_category(title)
                         video_data = {
                             "video_id": video_id,
                             "url": f"https://www.youtube.com/watch?v={video_id}",
                             "title": title, "artist": artist, "song": song or title,
                             "channel": sn.get("channelTitle", ""), "year": yr, "published": pub,
                             "duration": dur, "views": views, "hd": defn in ("hd", "4k"),
-                            "thumbnail": thumb, "category": "Manual",
+                            "thumbnail": thumb, "category": _cat,
                         }
 
                         try:
@@ -273,7 +274,7 @@ async def add_manual_video(
                             pass
 
                         _cfg = load_brand_config(brand_slug)
-                        sc = calc_score_v7(video_data, "Manual", _cfg)
+                        sc = calc_score_v7(video_data, _cat, _cfg)
                         p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                         return {**video_data, "score": sc, "posted": p}
         except Exception as e:
@@ -290,15 +291,16 @@ async def add_manual_video(
                 data = r.json()
                 title = data.get("title", "YouTube Video")
                 artist, song = extract_artist_song(title)
+                _cat = classify_category(title)
                 video_data = {
                     "video_id": video_id,
                     "url": f"https://www.youtube.com/watch?v={video_id}",
                     "title": title, "artist": artist, "song": song or title,
                     "channel": data.get("author_name", "Unknown"), "year": 0, "published": "",
                     "duration": 0, "views": 0, "hd": False,
-                    "thumbnail": data.get("thumbnail_url", ""), "category": "Manual",
+                    "thumbnail": data.get("thumbnail_url", ""), "category": _cat,
                 }
-                sc = calc_score_v7(video_data, "Manual", load_brand_config(brand_slug))
+                sc = calc_score_v7(video_data, _cat, load_brand_config(brand_slug))
                 p = is_posted(video_data.get("artist", ""), video_data.get("song", ""))
                 return {**video_data, "score": sc, "posted": p}
     except Exception as e:

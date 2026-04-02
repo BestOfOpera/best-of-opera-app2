@@ -237,4 +237,7 @@ def recortar_lyrics_na_janela(
                 "start": seconds_to_timestamp(novo_inicio),
                 "end": seconds_to_timestamp(novo_fim),
             })
-    return normalizar_segmentos(dentro)
+    resultado = normalizar_segmentos(dentro)
+    for i, seg in enumerate(resultado):
+        seg["index"] = i + 1
+    return resultado

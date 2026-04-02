@@ -35,24 +35,28 @@ POST STRUCTURE (5 sections, separated by blank lines)
 ──────────────────────
 SECTION 1 — OPENING (exactly 1 line)
 ──────────────────────
-[Fun/playful emoji] [Artist Name] — [Work Name]
-Example: "🎭 [Artist] — [Work]"
+🎶 [Work Name] — [Artist Name(s)]
+
+The emoji 🎶 is FIXED. The em dash (—) separates Work from Artist. This is the ONLY place where the em dash (—) is allowed in the entire post.
+Example: "🎶 Nessun dorma — Luciano Pavarotti"
 
 ──────────────────────
 SECTION 2 — STORYTELLING (3–5 paragraphs)
 ──────────────────────
 This is the soul of the post. It's the only section that will be translated to other languages.
 
-TARGET: 1000–1200 characters in this section alone.
+TARGET: 1000–1200 characters in this section alone. 4–6 sentences per paragraph, grounded in verifiable facts.
 
-Your mission: make someone who has never paid attention to this kind of music feel like they just discovered something rare and precious.
+Your mission: make someone who has never paid attention to this kind of music feel like they just discovered something rare and precious. Write like someone telling a story, NOT like Instagram copy.
 
 NARRATIVE ARC to follow:
-→ Paragraph 1: Drop the reader into a scene or a tension. Don't introduce — IMMERSE.
+→ Paragraph 1: Drop the reader into a scene or a tension. Don't introduce. IMMERSE.
 → Paragraph 2: Build the backstory. Who is this person? What was at stake? What did the world not know yet?
 → Paragraph 3: The turning point. The moment this performance or this voice became something else entirely.
 → Paragraph 4: The emotional truth. What does this music ACTUALLY feel like? What does it do to a listener?
 → Paragraph 5 (optional): The legacy, the mystery, or the open question that lingers.
+
+EMOJI RULE: EVERY paragraph MUST begin with a themed emoji that is DIFFERENT from all other paragraphs. Choose from: 🔍 🕊️ 🎭 🌟 🎬 ✝️ 🗝️ 🌍 ✨ 🎪 🏛️ 💫 🌊 🕯️. Each emoji may appear only ONCE in the entire post.
 
 WRITING PRINCIPLES:
 
@@ -72,60 +76,69 @@ Good: "There's a note around the 1:40 mark that sounds like something breaking o
 Bad: "This aria is about loss."
 Good: "He wrote this the year his daughter died. You can hear it in every bar."
 
-**Use strategic emojis** at the start of some paragraphs (not every one) to create visual breathing room and rhythm.
-
-FORBIDDEN — never write these phrases:
+FORBIDDEN WORDS AND PHRASES — never write any of these:
 "beautiful performance", "amazing voice", "stunning rendition", "incredible talent",
 "breathtaking", "timeless masterpiece", "legendary performance", "moved to tears",
-"one of the greatest", "truly remarkable", "unforgettable experience".
+"one of the greatest", "truly remarkable", "unforgettable experience",
+"dive into", "journey", "uncover", "fascinating", "spectacular",
+"iconic" (as empty adjective), "timeless" (as empty adjective),
+"incredible", "legendary", "unforgettable", "masterpiece" (without a concrete fact backing it).
 These are empty. Replace them with a SPECIFIC detail that earns the emotion.
 
-──────────────────────
-SECTION 3 — CREDITS (exact format, labels in the SAME LANGUAGE as the post)
-──────────────────────
-CRITICAL RULE: Only include a credit line if the data was provided in the input above. If a field (voice type, birth date, death date, composer, composition year, album/opera) was NOT listed in the input or is empty, OMIT that line entirely. Never show a label with an empty value, a placeholder, or "unknown". Just skip the line.
+FORBIDDEN PUNCTUATION in Section 2: The em dash (—) is PROHIBITED in storytelling paragraphs. Use periods, commas, colons, or semicolons instead. The em dash is reserved exclusively for the Section 1 header.
 
-For EACH artist (if multiple artists separated by " & ", create a block for EACH):
-
-If post is in Portuguese:
-[Fun emoji] [Artist Full Name] [flag emoji]
-Tipo de voz: [voice type]          ← only if voice type was provided
-Data de nascimento: [dd/mm/yyyy]   ← only if birth date was provided
-
-Then the work:
-[Fun emoji] [Work Name] — [Album or Opera name]   ← omit " — [Album or Opera name]" if not provided
-Compositor: [Composer name]        ← only if composer was provided
-Data de composição: [year]         ← only if composition year was provided
-
-If post is in English:
-[Fun emoji] [Artist Full Name] [flag emoji]
-Voice type: [voice type]           ← only if voice type was provided
-Date of Birth: [dd/mm/yyyy]       ← only if birth date was provided
-
-Then the work:
-[Fun emoji] [Work Name] — [Album or Opera name]   ← omit " — [Album or Opera name]" if not provided
-Composer: [Composer name]          ← only if composer was provided
-Composition date: [year]           ← only if composition year was provided
-
-EXAMPLE — single artist (Portuguese post):
-🎤 [Artist Full Name] [flag emoji]
-Tipo de voz: [voice type]
-Data de nascimento: [dd/mm/yyyy]
-
-🎼 [Work Name] — [Album/Opera]
-Compositor: [Composer name]
-Data de composição: [year]
+FORBIDDEN PATTERN: Generic sentences that could apply to any video. Every sentence must be specific to THIS artist, THIS work, THIS moment.
 
 ──────────────────────
-SECTION 4 — SENSORY CTA (1–2 lines)
+SECTION 3 — CREDITS (exact format below)
 ──────────────────────
-A short, playful call-to-action using contrasting emojis that invites the audience to react.
-Example: "Does this give you 🔥 or ❄️? Tell us below!"
+CRITICAL RULE: Only include a credit line if the data was provided in the input above OR if you can determine it with certainty from the artist/work/composer names. If you cannot determine a field with confidence, OMIT that line entirely. Never show a label with an empty value, a placeholder, or "unknown". Just skip the line.
+
+Credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language).
+
+ARTIST BLOCK(S) — create one 🎤 block for EACH performer:
+If the input contains multiple artists (separated by " & " or similar), create a SEPARATE 🎤 block for each one with their individual details. If the video features both a soloist AND an ensemble/choir, create blocks for both.
+
+For a solo artist:
+🎤 [Artist Full Name] [country flag emoji]
+Nationality: [Country name]           ← include if known from input or inferable from artist name
+Voice type: [voice classification]     ← only if voice type was provided
+Date of Birth: [DD/MM/YYYY]           ← only if birth date was provided
+Date of Death: [DD/MM/YYYY]           ← ONLY if the artist is deceased AND death date was provided
+
+For a choir or ensemble:
+🎤 [Ensemble Name] [country flag emoji]
+Type: [Mixed choir / Chamber ensemble / etc.]
+Artistic Director: [Name]             ← only if known
+
+WORK BLOCK — exactly one 🎼 block:
+🎼 [Work Name]
+From: [Opera or larger work name]     ← ONLY if this is an excerpt from a larger work (aria from opera, movement from requiem, etc.). Omit if the work is standalone.
+Composer: [Composer name] [country flag emoji]   ← include flag if inferable from composer name
+Composition date: [Year or c. Year]   ← only if composition year was provided
+Libretto/Text: [Librettist name or text source]  ← include if inferable from the opera/work (e.g., "Piave" for La Traviata, "Da Ponte" for Don Giovanni). Omit if unknown.
+Original language: [Language]         ← include if inferable from the work (e.g., Italian for Verdi, German for Wagner). Omit if uncertain.
+
+Portuguese labels: Nacionalidade, Tipo de voz, Data de nascimento, Data de falecimento, Tipo, Diretor artístico, De, Compositor, Data de composição, Libreto/Texto, Idioma original.
+
+──────────────────────
+SECTION 4 — ENGAGEMENT QUESTION (1 line)
+──────────────────────
+Write a thought-provoking question naturally connected to the story you just told. It should feel like the final thought of a conversation, not a marketing prompt. End with a single emoji.
+
+Good examples:
+"What do you hear in her silence that most covers miss? 🕯️"
+"How does it feel knowing this voice no longer exists? 🎙️"
+"Which surprises you more: how the melody was born or how the Oscar was won? 🎬"
+
+Bad examples (too generic):
+"What do you think? 🤔"
+"Does this give you chills? 🔥"
 
 ──────────────────────
 SECTION 5 — HASHTAGS (exactly 1 line)
 ──────────────────────
-Exactly {hashtag_count} hashtags. You MUST include ALL of these: {hashtags_str}.{"" if len(hashtags) >= hashtag_count else f" Add {hashtag_count - len(hashtags)} more relevant ones."}
+Exactly {hashtag_count} hashtags. #BestOfOpera MUST be first. Format: #BestOfOpera #[VoiceType] #[Composer] #[RelevantTopic].{" You MUST also include: " + hashtags_str + "." if len(hashtags) > 1 else ""}{" Add " + str(hashtag_count - len(hashtags)) + " more relevant ones." if len(hashtags) < hashtag_count else ""}
 """
 
 
@@ -197,8 +210,11 @@ CRITICAL RULES
 
 - TOTAL post: 1600–1800 characters. NON-NEGOTIABLE. Count carefully. Under 1600? Deepen the story with another specific detail or scene. Over 1800? Cut adjectives and summaries, never cut specificity.
 - Blank line between every section.
-- Section 3 credit labels MUST be in the SAME LANGUAGE as the rest of the post (matching the Hook/angle language). Portuguese post → Portuguese labels (Tipo de voz, Data de nascimento, Compositor, Data de composição). English post → English labels (Voice type, Date of Birth, Composer, Composition date).
-- MISSING DATA: If any field was NOT provided in the input, do NOT include it anywhere in the post. Do not invent data, use placeholders, or leave labels empty. In Section 2 storytelling, do not write sentences that reference missing information. In Section 3 credits, omit the entire line. The post must read naturally with only the available information.
+- Section 1 header: 🎶 emoji is FIXED, order is Work — Artist. The em dash (—) is ONLY allowed here.
+- Section 2 paragraphs: EVERY paragraph starts with a UNIQUE themed emoji. No em dashes (—) anywhere in the storytelling.
+- Section 3 credits: use EXACTLY the format specified (🎤 for artists, 🎼 for work). Labels in the SAME LANGUAGE as the post. Portuguese post → Portuguese labels. English post → English labels.
+- Section 3 inferable fields: For Nationality, Composer flag, Libretto/Text, and Original language, you MAY infer the value from well-known facts about the artist or work. Only include if you are confident. If uncertain, omit the line.
+- MISSING DATA: If any field was NOT provided in the input AND you cannot infer it with confidence, do NOT include it. Do not invent data, use placeholders, or leave labels empty. In Section 2, do not reference missing information. In Section 3, omit the entire line. The post must read naturally with only the available information.
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
 - Return ONLY the post text. No explanations, no commentary, no preamble."""
 

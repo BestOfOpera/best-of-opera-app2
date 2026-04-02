@@ -19,16 +19,60 @@ def extract_artist_song(title: str) -> tuple:
         r"\s*[\(\[](?:Official|Live|HD|4K|Lyrics|Audio|Video|Concert|Performance|Full).*?[\)\]]",
         "", title, flags=re.I
     ).strip()
-    for p in [
-        r"^(.+?)\s*[-\u2013\u2014]\s*[\"'](.+?)[\"']",
-        r"^(.+?)\s*[-\u2013\u2014]\s*(.+?)$",
-        r"^(.+?)\s*[:|]\s*(.+?)$",
-        r"^(.+?)\s+(?:sings?|performs?)\s+(.+?)$",
-    ]:
+    # Each entry: (regex, group_order)
+    #   "artist_song" → group(1)=artist, group(2)=song
+    #   "song_artist" → group(1)=song, group(2)=artist
+    #   "3part"       → group(3)=artist, group(1)-group(2)=song
+    patterns = [
+        (r"^(.+?)\s*[-\u2013\u2014]\s*(.+?)\s*[-\u2013\u2014]\s*([^-\u2013\u2014]+)$", "3part"),
+        (r"^(.+?)\s*[-\u2013\u2014]\s*[\"'](.+?)[\"']", "artist_song"),
+        (r"^(.+?)\s*[-\u2013\u2014]\s*(.+?)$", "artist_song"),
+        (r"^(.+?)\s*[:|]\s*(.+?)$", "artist_song"),
+        (r'^[\"\'"]?(.+?)[\"\'"]?\s+by\s+(.+?)$', "song_artist"),
+        (r"^(.+?)\s*\(([^)]+)\)\s*$", "song_artist"),
+        (r"^(.+?)\s+(?:sings?|performs?)\s+(.+?)$", "artist_song"),
+    ]
+    for p, order in patterns:
         m = re.match(p, clean, re.I)
         if m:
-            return m.group(1).strip(), m.group(2).strip()
+            groups = m.groups()
+            if order == "3part":
+                return groups[2].strip(), f"{groups[0].strip()} - {groups[1].strip()}"
+            if order == "song_artist":
+                return groups[1].strip(), groups[0].strip()
+            return groups[0].strip(), groups[1].strip()
     return clean, ""
+
+
+def classify_category(title: str, description: str = "") -> str:
+    """Classifica categoria musical a partir do título e descrição.
+    Heurístico editável, sem LLM. Retorna categoria ou 'Vocal' como fallback.
+    ORDEM IMPORTA: categorias mais específicas primeiro (Música Sacra antes de Coro,
+    porque obras sacras frequentemente envolvem coro)."""
+    text = f"{title} {description}".lower()
+    # Música Sacra ANTES de Coro (obras sacras frequentemente têm "choir" no título)
+    if any(w in text for w in [
+        "requiem", "mass", "missa", "sacred", "psalm", "hymn",
+        "ave maria", "stabat mater", "magnificat", "te deum",
+        "sanctus", "agnus dei", "gloria", "kyrie", "credo",
+        "salve regina", "panis angelicus",
+    ]):
+        return "Música Sacra"
+    if any(w in text for w in ["duet", "dueto", "duetto"]):
+        return "Dueto"
+    if any(w in text for w in ["choir", "chorus", "coro", "choral"]):
+        return "Coro"
+    if any(w in text for w in ["ensemble", "trio", "quartet", "quintet", "quarteto", "quinteto"]):
+        return "Ensemble"
+    if any(w in text for w in ["lied", "lieder", "mélodie", "melodie", "art song", "chanson"]):
+        return "Lied/Canção"
+    if any(w in text for w in ["aria", "ária", "cavatina", "romanza", "cabaletta"]):
+        return "Ária"
+    if any(w in text for w in ["opera", "ópera", "opéra"]):
+        return "Ária"
+    if any(w in text for w in ["crossover", "musical", "broadway", "west end"]):
+        return "Crossover"
+    return "Vocal"
 
 
 async def yt_search(query: str, max_results: int = 25, api_key: str = "") -> list:

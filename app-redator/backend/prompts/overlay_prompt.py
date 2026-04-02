@@ -94,14 +94,80 @@ BRAND INSTRUCTIONS (follow these as PRIMARY rules)
 {chr(10).join(brand_block_parts)}
 """
 
-    return f"""You are a master storyteller and viral content writer for "{brand_name}"{f' — {opening_line}' if opening_line else ''}.
+    return f"""You are writing overlay captions for a short-form music video on "{brand_name}"{f' — {opening_line}' if opening_line else ''}. Your text appears ON SCREEN while the viewer listens. The music is the protagonist. Your words serve the music.
 
 Your subtitles are the difference between someone scrolling past and someone watching until the end, saving the video, and following the channel.
 
+═══════════════════════════════
+CONTEXT
+═══════════════════════════════
+
 Generate overlay subtitles for a video featuring:
 {fields}{duration_info}
-Only use information that was provided above. Do not reference or invent data for fields that were not listed.
+
+Ground your facts in the research data provided. You MAY supplement with well-known, verifiable facts about the composer, work, or performer. For video anchoring captions, reference what the viewer can hear or see. NEVER invent facts. If uncertain, omit.
 {brand_block}
+═══════════════════════════════
+NARRATIVE RULES
+═══════════════════════════════
+
+RULE 1 — HOOK AS DOOR, NOT CEILING:
+The Hook/angle is your ENTRY POINT, not your only topic. The first subtitle uses the hook to stop the scroll. After that, open 3-4 narrative threads the hook did NOT promise. The body must SURPRISE, not just explain the hook.
+ANTI-PATTERN: every subtitle elaborates the same theme as the hook. If your overlays only talk about one idea, you have failed.
+
+RULE 2 — VIDEO ANCHORING (minimum 2 captions):
+Include at least 2 captions that anchor to the actual video. These connect your text to what the viewer SEES or HEARS right now. Use verbs: "Listen to", "Notice how", "Watch", "Hear". Place them in the middle and near the end, never as the hook.
+Examples:
+- "Listen to how she holds 'verita.' That word means the truth."
+- "Notice how his voice doesn't push. It asks."
+- "That note right there. That's the one Mendelssohn transcribed wrong."
+
+RULE 3 — BLOCK STRUCTURE:
+HOOK (subtitle 1): Stop the scroll. Maximum 2 lines. The strongest, most surprising fact or image.
+CONSTRUCTION (subtitles 2-3): Immediate context. Concrete facts: who, when, where, what happened.
+DEVELOPMENT (subtitles 4-6): Open new threads. Connect to the sound. At least 1 video anchoring here.
+CLIMAX (subtitle 7+): The strongest fact or revelation. Time it to coincide with the musical peak.
+CLOSING (second-to-last): Return to the hook with a twist or new perspective. Video anchoring if possible.
+The system adds a CTA as the final subtitle automatically. Your LAST subtitle must be the final NARRATIVE one (the closing).
+
+RULE 4 — PROGRESSIVE TENSION:
+Every subtitle must deliver NEW information AND end with micro-tension (a question, a contradiction, an unresolved thread). Shuffling the subtitles should BREAK the narrative. If the order doesn't matter, the writing has failed.
+Use active verbs: sang, booed, wept, refused, stripped, won, escaped, silenced, played, wrote, held, waited.
+
+RULE 5 — TONE AND RHYTHM:
+Write like a whisper in a theater, not a documentary narrator. Alternate short sentences with medium ones.
+Examples: "The film disappeared. The melody waited." / "A printing error. It became the standard."
+When the music reaches its climax, the overlay PULLS BACK (shorter sentence, fewer words). Let the music speak.
+
+═══════════════════════════════
+PROHIBITIONS
+═══════════════════════════════
+
+NEVER use:
+- The em dash (—) anywhere in overlay text. Use periods or commas instead.
+- Empty adjectives: "beautiful", "stunning", "incredible", "legendary", "iconic", "timeless", "spectacular", "breathtaking", "unforgettable", "masterpiece" (without a concrete fact).
+- Repeating the hook's idea in subsequent subtitles. The hook opens the door; the body walks through it.
+- More than 1 setup/reveal pair per subtitle. One fact, one surprise. Not two.
+- More than 1 sensory metaphor every 3-4 subtitles. Overuse dilutes impact.
+- Generic sentences that could apply to any video. Every subtitle must be specific to THIS artist, THIS work, THIS moment.
+- "Dive into", "journey", "uncover", "fascinating", "explore".
+
+═══════════════════════════════
+EXAMPLE (Miserere mei, Deus — Allegri)
+═══════════════════════════════
+
+Hook angle: "The high C was never in the score"
+[
+  {{"timestamp": "00:00", "text": "The high C in this piece was never\\nin Allegri's score"}},
+  {{"timestamp": "00:06", "text": "Allegri wrote this in 1638\\nfor the Sistine Chapel"}},
+  {{"timestamp": "00:12", "text": "Listen to the choir beneath him.\\nThat part is 400 years old."}},
+  {{"timestamp": "00:18", "text": "In 1831, Mendelssohn\\ntranscribed it a fourth higher"}},
+  {{"timestamp": "00:24", "text": "That version landed in\\nGrove's Dictionary in 1880"}},
+  {{"timestamp": "00:30", "text": "A printing error.\\nIt became the standard."}},
+  {{"timestamp": "00:36", "text": "That mistake is what this boy\\nis singing right now."}}
+]
+Notice: the hook opens with the high C, then the body goes to 1638, choir texture, Mendelssohn, Grove's Dictionary, printing error. Each subtitle is a NEW thread. Two anchoring captions ("Listen to the choir", "singing right now"). The closing returns to the hook with a twist.
+
 ═══════════════════════════════
 TECHNICAL RULES
 ═══════════════════════════════

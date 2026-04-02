@@ -567,27 +567,26 @@ def gerar_ass(
         logger.info("[legendas] sem_lyrics=True: omitindo tracks de lyrics e tradução")
         return subs
 
-    # Preparar mapa de traduções por index (para sincronizar lyrics ↔ tradução)
+    # Preparar lista de traduções por POSIÇÃO (match sequencial, não por index)
     precisa_traducao = idioma_versao != idioma_musica and traducao
-    traducao_por_index = {}
+    traducao_list = list(traducao) if precisa_traducao else []
+
     if precisa_traducao:
-        for seg in traducao:
-            idx = seg.get("index")
-            if idx is not None and seg.get("traducao"):
-                traducao_por_index[idx] = seg
+        logger.info(
+            f"[legendas] Tradução: {len(traducao_list)} segs para {len(lyrics)} lyrics "
+            f"(idioma_versao={idioma_versao}, idioma_musica={idioma_musica})"
+        )
 
-    # Tracks 2 e 3: Lyrics + Tradução (sincronizados)
-    # Regra: se a versão precisa de tradução, lyrics SÓ aparece quando
-    # tiver tradução correspondente. Nunca lyrics sem tradução.
-    for seg in lyrics:
+    # Tracks 2 e 3: Lyrics + Tradução (sincronizados por posição sequencial)
+    lyrics_renderizados = 0
+    lyrics_pulados = 0
+    for i, seg in enumerate(lyrics):
         text = seg.get("texto_final", seg.get("text", ""))
+        idx = seg.get("index", i + 1)
+
         if not text:
-            continue
-
-        idx = seg.get("index")
-
-        # Se precisa tradução mas não tem para este segmento, pular
-        if precisa_traducao and idx not in traducao_por_index:
+            logger.info(f"[legendas] Lyrics seg pos={i} idx={idx} pulado: texto vazio")
+            lyrics_pulados += 1
             continue
 
         # Lyrics
@@ -596,10 +595,23 @@ def gerar_ass(
 
         # ERR-055: Filtrar segmentos com duração <= 0
         if end_ms <= start_ms:
-            logger.warning(f"[legendas] Segmento de lyrics descartado (duração zero ou negativa) em idx={idx}: {start_ms} - {end_ms}")
+            logger.warning(
+                f"[legendas] Lyrics seg pos={i} idx={idx} pulado: "
+                f"duração zero ou negativa (start={start_ms}ms end={end_ms}ms)"
+            )
+            lyrics_pulados += 1
             continue
 
-        logger.info(f"[legendas] Lyrics segment: idx={idx} {start_ms} - {end_ms} '{text[:30]}...'")
+        # Se precisa tradução mas não tem para esta posição, pular
+        if precisa_traducao and i >= len(traducao_list):
+            logger.warning(
+                f"[legendas] Lyrics seg pos={i} idx={idx} pulado: "
+                f"sem tradução na posição {i} (traducao tem {len(traducao_list)} segs)"
+            )
+            lyrics_pulados += 1
+            continue
+
+        logger.info(f"[legendas] Lyrics segment: pos={i} idx={idx} {start_ms}-{end_ms}ms '{text[:30]}...'")
 
         event = pysubs2.SSAEvent()
         event.start = start_ms
@@ -612,20 +624,26 @@ def gerar_ass(
         event.text = "{\\q2}" + texto
         event.style = "Lyrics"
         subs.events.append(event)
+        lyrics_renderizados += 1
 
-        # Tradução (mesmo timing que lyrics)
-        if precisa_traducao and idx in traducao_por_index:
-            trad_seg = traducao_por_index[idx]
-            event_trad = pysubs2.SSAEvent()
-            event_trad.start = event.start
-            event_trad.end = event.end
-            texto_trad = trad_seg["traducao"]
-            texto_trad_original = texto_trad
-            texto_trad = _truncar_texto(texto_trad, traducao_max)
-            if texto_trad != texto_trad_original:
-                logger.warning(f"[legendas] Tradução truncado: '{texto_trad_original[:50]}' ({len(texto_trad_original)}→{len(texto_trad)})")
-            event_trad.text = texto_trad
-            event_trad.style = "Traducao"
-            subs.events.append(event_trad)
+        # Tradução (mesmo timing que lyrics, match por posição)
+        if precisa_traducao and i < len(traducao_list):
+            trad_seg = traducao_list[i]
+            texto_trad = trad_seg.get("traducao", "")
+            if texto_trad:
+                event_trad = pysubs2.SSAEvent()
+                event_trad.start = event.start
+                event_trad.end = event.end
+                texto_trad_original = texto_trad
+                texto_trad = _truncar_texto(texto_trad, traducao_max)
+                if texto_trad != texto_trad_original:
+                    logger.warning(f"[legendas] Tradução truncado: '{texto_trad_original[:50]}' ({len(texto_trad_original)}→{len(texto_trad)})")
+                event_trad.text = texto_trad
+                event_trad.style = "Traducao"
+                subs.events.append(event_trad)
+            else:
+                logger.warning(f"[legendas] Tradução vazia na posição {i} para lyrics idx={idx}")
+
+    logger.info(f"[legendas] Lyrics totais: {lyrics_renderizados} renderizados, {lyrics_pulados} pulados de {len(lyrics)}")
 
     return subs
