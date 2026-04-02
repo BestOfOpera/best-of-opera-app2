@@ -797,6 +797,34 @@ def _run_migrations():
             """))
             logger.info("SPEC-010: Seed overlay_cta BO e RC OK")
 
+    # Migration: BO tipografia → Georgia Bold Italic + lyrics gold
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        overlay_style::jsonb,
+                        '{fontname}', '"Georgia"'
+                    )::json,
+                    lyrics_style = jsonb_set(
+                        jsonb_set(
+                            lyrics_style::jsonb,
+                            '{fontname}', '"Georgia"'
+                        ),
+                        '{primarycolor}', '"#FFD700"'
+                    )::json,
+                    traducao_style = jsonb_set(
+                        traducao_style::jsonb,
+                        '{fontname}', '"Georgia"'
+                    )::json,
+                    font_name = 'Georgia'
+                WHERE sigla = 'BO'
+                  AND overlay_style->>'fontname' != 'Georgia'
+            """))
+            logger.info("Migration: BO tipografia Georgia Bold Italic + lyrics gold OK")
+    except Exception as e:
+        logger.warning(f"Migration BO Georgia: {e}")
+
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:
