@@ -830,7 +830,14 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
     prompt = build_rc_hook_prompt(metadata, project.research_data or {})
     _rc_logger.info(f"[RC Hooks] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    result = _call_claude_json(prompt, max_tokens=2000, temperature=0.7)
+    result = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
+
+    # Se o JSON veio como lista (fallback de extração por brackets),
+    # wrappear no formato esperado
+    if isinstance(result, list):
+        print(f"[RC Hooks] Resultado veio como lista, convertendo para dict", flush=True)
+        result = {"ganchos": result, "descartados_e_motivos": []}
+
     n_ganchos = len(result.get("ganchos", []))
     _rc_logger.info(f"[RC Hooks] Completo, {n_ganchos} ganchos gerados")
     project.hooks_json = result
@@ -858,7 +865,7 @@ def generate_overlay_rc(project, brand_config=None) -> list:
     )
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    response = _call_claude_json(prompt, max_tokens=3000, temperature=0.5)
+    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.5)
     overlay_json = _process_overlay_rc(response, project)
     _rc_logger.info(f"[RC Overlay] Completo, {len(overlay_json)} legendas")
 
@@ -877,7 +884,7 @@ def generate_post_rc(project, brand_config=None) -> str:
     )
     _rc_logger.info(f"[RC Post] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    response = _call_claude_json(prompt, max_tokens=2500, temperature=0.5)
+    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.5)
     post_text = _format_post_rc(response)
     post_text = _sanitize_rc(post_text)
     _rc_logger.info(f"[RC Post] Completo, {len(post_text)} chars texto final")
