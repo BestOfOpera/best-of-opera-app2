@@ -936,7 +936,8 @@ def _validate_overlay_rc(overlay_json: list):
 
 
 def _format_post_rc(response: dict) -> str:
-    """Monta post_text formatado a partir do JSON do LLM."""
+    """Monta post_text formatado a partir do JSON do LLM.
+    Formato Instagram: \\n simples entre todas as linhas, • como separador visual."""
     h1 = response.get("header_linha1", "")
     h2 = response.get("header_linha2", "")
     h3 = response.get("header_linha3", "")
@@ -946,32 +947,29 @@ def _format_post_rc(response: dict) -> str:
     cta = response.get("cta", "👉 Siga, o melhor da música clássica, diariamente no seu feed.")
     hashtags = response.get("hashtags", [])
 
-    # Montar blocos semânticos separados por \n\n
-    # (compatível com _translate_post_fallback que faz split("\n\n"))
-
-    # Bloco 1: Header (linhas internas com \n simples)
-    header_lines = [h1, h2]
+    lines = [h1]
+    if h2:
+        lines.append(h2)
     if h3:
-        header_lines.append(h3)
-    header_block = "\n".join(header_lines)
-
-    blocks = [header_block]
-
+        lines.append(h3)
     if p1:
-        blocks.append("•\n" + p1)
+        lines.append("•")
+        lines.append(p1)
     if p2:
-        blocks.append("•\n" + p2)
+        lines.append("•")
+        lines.append(p2)
     if p3:
-        blocks.append("•\n" + p3)
+        lines.append("•")
+        lines.append(p3)
+    lines.append("•")
+    lines.append(cta)
+    lines.append("•")
+    lines.append("•")
+    lines.append("•")
+    if hashtags:
+        lines.append(" ".join(hashtags))
 
-    # Bloco CTA
-    blocks.append("•\n" + cta)
-
-    # Bloco separadores finais + hashtags
-    hashtag_str = " ".join(hashtags) if hashtags else ""
-    blocks.append("•\n•\n•\n" + hashtag_str)
-
-    return "\n\n".join(blocks)
+    return "\n".join(lines)
 
 
 # ── RC Generation Functions ──────────────────────────────

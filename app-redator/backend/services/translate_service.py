@@ -290,92 +290,118 @@ def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
     return " ".join(result)
 
 
+def _translate_header_rc(header_lines: list, target_lang: str) -> list:
+    """Traduz seletivamente o header RC.
+    L1: [emojis] Compositor – Obra → NÃO traduzir (nomes próprios)
+    L2: Artista – instrumento [emoji] → traduzir APENAS instrumento
+    L3: Orquestra – Regente → NÃO traduzir (nomes próprios)
+    """
+    if not header_lines or target_lang == "pt":
+        return list(header_lines)
+
+    result = list(header_lines)
+
+    if len(result) >= 2:
+        line2 = result[1]
+        if " – " in line2:
+            parts = line2.split(" – ", 1)
+            artist_name = parts[0].strip()
+            instrument_part = parts[1].strip()
+
+            # Separar emoji final se houver
+            emoji_suffix = ""
+            clean_instrument = instrument_part
+            if instrument_part:
+                last_char = instrument_part[-1]
+                if ord(last_char) > 8000:
+                    emoji_suffix = " " + last_char
+                    clean_instrument = instrument_part[:-1].strip()
+                elif len(instrument_part) >= 2 and ord(instrument_part[-2]) > 8000:
+                    emoji_suffix = " " + instrument_part[-2:]
+                    clean_instrument = instrument_part[:-2].strip()
+
+            if clean_instrument:
+                translated_instrument = translate_text(clean_instrument, target_lang)
+                if translated_instrument:
+                    result[1] = f"{artist_name} – {translated_instrument.strip()}{emoji_suffix}"
+
+    return result
+
+
 def _translate_post_fallback(post_text: str, target_lang: str) -> str:
     """Fallback para posts sem bloco de créditos (ex: RC).
 
-    Estrutura esperada (blocos separados por \\n\\n):
-      header (h1\\nh2[\\nh3]) → •\\np1 → •\\np2 → •\\np3 → •\\n👉CTA → •\\n•\\n•\\n#hashtags
-
-    Header é preservado sem tradução (contém nomes/emojis).
-    CTA RC é substituído pelo fixo do idioma.
-    Hashtags são traduzidas individualmente.
-    Parágrafos são traduzidos em bloco.
+    Formato: \\n simples entre todas as linhas, • como delimitador de blocos.
+    Estrutura: header, •, p1, •, p2, •, p3, •, CTA, •, •, •, hashtags
     """
-    blocos = post_text.split("\n\n")
-    if not blocos:
+    if not post_text or not post_text.strip():
         return post_text
 
-    # Bloco 0 = header (h1\nh2[\nh3]) — preservar sem traduzir
-    intro = blocos[0]
-    rest_blocos = blocos[1:] if len(blocos) > 1 else []
+    lines = post_text.split("\n")
 
-    # Separar hashtags: procurar bloco cuja ÚLTIMA linha começa com #
-    hashtags = ""
-    for i in range(len(rest_blocos) - 1, -1, -1):
-        linhas_bloco = rest_blocos[i].strip().split("\n")
-        ultima_linha = linhas_bloco[-1].strip() if linhas_bloco else ""
-        if ultima_linha.startswith("#"):
-            hashtags = ultima_linha
-            # Manter o restante do bloco (os • separadores) se houver
-            resto = "\n".join(linhas_bloco[:-1]).strip()
-            if resto:
-                rest_blocos[i] = resto
-            else:
-                rest_blocos.pop(i)
-            break
+    # Encontrar índices de todas as linhas que são apenas "•"
+    bullet_indices = [i for i, line in enumerate(lines) if line.strip() == "•"]
 
-    # Separar CTA RC (bloco que contém 👉) e filtrar blocos só-bullet
-    cta_block = ""
-    story_blocos = []
-    for bloco in rest_blocos:
-        if "👉" in bloco:
-            cta_block = bloco
-        elif bloco.replace("•", "").replace("\n", "").strip():
-            # Só adicionar se tem conteúdo além de • e whitespace
-            story_blocos.append(bloco)
+    if len(bullet_indices) < 4:
+        # Formato não reconhecido — fallback: traduzir tudo
+        return translate_text(post_text, target_lang)
 
-    # Strip • prefix de cada parágrafo antes de traduzir
-    clean_paragraphs = []
-    for para in story_blocos:
-        if para.startswith("•\n"):
-            clean_paragraphs.append(para[2:])
-        elif para.startswith("•"):
-            clean_paragraphs.append(para[1:].lstrip("\n"))
+    # Header: tudo ANTES do primeiro •
+    header_lines = lines[:bullet_indices[0]]
+
+    # Parágrafos: conteúdo entre pares de • consecutivos
+    paragraphs = []
+    for i in range(len(bullet_indices) - 1):
+        start = bullet_indices[i] + 1
+        end = bullet_indices[i + 1]
+        block = "\n".join(lines[start:end]).strip()
+        if block:
+            paragraphs.append(block)
+
+    # Hashtags: tudo APÓS o último •
+    last_bullet = bullet_indices[-1]
+    hashtag_lines = lines[last_bullet + 1:]
+    hashtags_text = "\n".join(hashtag_lines).strip()
+
+    # Classificar: CTA (contém 👉) vs storytelling
+    cta_text = ""
+    story_paragraphs = []
+    for para in paragraphs:
+        if "👉" in para:
+            cta_text = para
         else:
-            clean_paragraphs.append(para)
+            story_paragraphs.append(para)
 
-    # Traduzir storytelling (parágrafos limpos, sem •)
-    body = "\n\n".join(p.strip() for p in clean_paragraphs if p.strip())
-    translated_body = translate_text(body, target_lang) if body else ""
+    # Traduzir seletivamente
+    translated_header = _translate_header_rc(header_lines, target_lang)
 
-    # Re-adicionar • a cada parágrafo traduzido
-    if translated_body:
-        translated_paras = translated_body.split("\n\n")
-        translated_body = "\n\n".join(
-            "•\n" + p.strip() for p in translated_paras if p.strip()
-        )
+    translated_paragraphs = []
+    for para in story_paragraphs:
+        translated = translate_text(para, target_lang)
+        if translated and translated.strip():
+            translated_paragraphs.append(translated.strip())
 
-    # CTA: usar versão fixa se RC (detectado por 👉), senão ignorar
-    if cta_block:
-        translated_cta = RC_POST_CTA.get(target_lang, RC_POST_CTA["en"])
-    else:
-        translated_cta = ""
+    translated_cta = RC_POST_CTA.get(target_lang, RC_POST_CTA.get("en", cta_text))
 
-    translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
+    translated_hashtags = _translate_hashtags(hashtags_text, target_lang) if hashtags_text else ""
 
-    # Reassemblar: intro → •\np1 → •\np2 → •\np3 → •\nCTA → •\n•\n•\n#hashtags
-    parts = [intro]
-    if translated_body:
-        parts.append(translated_body)
-    if translated_cta:
-        parts.append("•\n" + translated_cta)
-    separator = "•\n•\n•"
+    # Reassemblar com \n simples e • como separadores
+    result_lines = list(translated_header)
+
+    for para in translated_paragraphs:
+        result_lines.append("•")
+        result_lines.append(para)
+
+    result_lines.append("•")
+    result_lines.append(translated_cta)
+
+    result_lines.append("•")
+    result_lines.append("•")
+    result_lines.append("•")
     if translated_hashtags:
-        parts.append(separator + "\n" + translated_hashtags)
-    else:
-        parts.append(separator)
+        result_lines.append(translated_hashtags)
 
-    return "\n\n".join(p for p in parts if p.strip())
+    return "\n".join(result_lines)
 
 
 def translate_post_text(post_text: str, target_lang: str) -> str:
