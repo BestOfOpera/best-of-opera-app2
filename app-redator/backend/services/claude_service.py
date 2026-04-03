@@ -122,6 +122,8 @@ STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (co
 
 CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY written in the title or description of the video. If the exact name is NOT clearly stated, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
 
+CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY include if you are certain of the EXACT date. If you know only the year, use "01/01/YYYY". If uncertain about the date entirely, return an empty string "". NEVER guess or approximate dates.
+
 FORMATTING for multiple artists: separate with " & " for artists, " / " for voice_type, nationality, birth_date, death_date.
 
 Return ONLY a JSON object with these exact keys:
@@ -165,6 +167,8 @@ STEP 2: Determine the performance type:
 STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments, biographies. DO NOT leave biographical fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
 
 CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY visible in the screenshot title or description. If the exact name is NOT clearly stated in the visible text, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
+
+CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY include if you are certain of the EXACT date. If you know only the year, use "01/01/YYYY". If uncertain about the date entirely, return an empty string "". NEVER guess or approximate dates.
 
 FORMATTING RULES FOR MULTIPLE ARTISTS:
 - Separate multiple artist names with " & " (e.g. "Nicolai Gedda & Mirella Freni")
@@ -267,14 +271,14 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     def _calcular_duracao_leitura(text: str) -> float:
         """Duração de exibição baseada no tempo de leitura.
         Viés para leitura lenta (público contemplativo).
-        Range: 6.0s a 10.0s.
-        - Texto curto (1-4 palavras): 6-7s
-        - Texto médio (5-8 palavras): 7-9s
-        - Texto longo (9+ palavras): 9-10s
+        Range: 6.0s a 8.0s.
+        - Texto curto (1-4 palavras): 6.0-5.9s → 6.0s (clamp)
+        - Texto médio (5-8 palavras): 6.3-7.3s
+        - Texto longo (10+ palavras): 8.0s (clamp)
         """
         palavras = len(text.split())
-        duracao = (palavras * 0.5) + 5.0
-        return max(6.0, min(10.0, duracao))
+        duracao = (palavras * 0.35) + 4.5
+        return max(6.0, min(8.0, duracao))
 
     if parsed and vid_duration > 10:
         # Timing variável por tempo de leitura (substitui banda fixa min/max gap)
@@ -310,8 +314,11 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
             cta_ts = _secs_to_ts(_ts_to_secs(parsed[-1]["timestamp"]) + interval_secs)
         else:
             cta_ts = "00:00"
-        parsed.append({"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True})
-        print(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} (video={vid_duration}s)")
+        cta_entry = {"timestamp": cta_ts, "text": cta_text.strip(), "_is_cta": True}
+        if vid_duration > 0:
+            cta_entry["end"] = _secs_to_ts(vid_duration)
+        parsed.append(cta_entry)
+        print(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} end={cta_entry.get('end', 'auto')} (video={vid_duration}s)")
 
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)

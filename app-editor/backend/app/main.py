@@ -898,6 +898,41 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration BO overlay46/lyrics cor: {e}")
 
+    # Migration: BO gap 8→10, overlay 46→48, tradução 40→42
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(overlay_style::jsonb,
+                        '{gap_overlay_px}', '10'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'gap_overlay_px')::int = 8
+            """))
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        jsonb_set(
+                            jsonb_set(overlay_style::jsonb,
+                                '{fontsize}', '48'),
+                            '{gancho_fontsize}', '48'),
+                        '{cta_fontsize}', '48'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'fontsize')::int = 46
+            """))
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    traducao_style = jsonb_set(traducao_style::jsonb,
+                        '{fontsize}', '42'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (traducao_style->>'fontsize')::int = 40
+            """))
+            logger.info("Migration: BO gap 10, overlay 48, tradução 42 OK")
+    except Exception as e:
+        logger.warning(f"Migration BO gap/overlay48/trad42: {e}")
+
     # Migration: remover colunas obsoletas de editor_perfis
     if "editor_perfis" in insp.get_table_names():
         with engine.begin() as conn:

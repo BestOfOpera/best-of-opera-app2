@@ -69,11 +69,12 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
 
     warnings = []
     try:
-        project.overlay_json = generate_overlay(project, brand_config=brand_config)
+        # Post PRIMEIRO: fornece material narrativo para o overlay via fallback
         post_result = generate_post(project, brand_config=brand_config)
         project.post_text = post_result["text"]
         if post_result.get("warning"):
             warnings.append(post_result["warning"])
+        project.overlay_json = generate_overlay(project, brand_config=brand_config)
         title, tags = generate_youtube(project, brand_config=brand_config)
         project.youtube_title = title
         project.youtube_tags = tags
