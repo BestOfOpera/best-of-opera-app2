@@ -118,11 +118,11 @@ STEP 2: Determine the performance type:
 - DUET: Two performers — you MUST list BOTH names
 - ENSEMBLE/CHORUS: Multiple performers — list ALL names or ensemble name
 
-STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments, biographies. DO NOT leave biographical fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments. DO NOT leave these fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
 
 CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY written in the title or description of the video. If the exact name is NOT clearly stated, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
 
-CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY include if you are certain of the EXACT date. If you know only the year, use "01/01/YYYY". If uncertain about the date entirely, return an empty string "". NEVER guess or approximate dates.
+CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY fill if the EXACT date appears explicitly in the YouTube title or description text above. If the date is NOT written in the input text, return an empty string "". Do NOT use your training knowledge for dates — they may be outdated or wrong. If you know only the year from the text, use "01/01/YYYY".
 
 FORMATTING for multiple artists: separate with " & " for artists, " / " for voice_type, nationality, birth_date, death_date.
 
@@ -164,11 +164,11 @@ STEP 2: Determine the performance type:
 - ENSEMBLE/TRIO: Multiple performers — list ALL names
 - CHORUS: A choir — use the choir/ensemble name as artist, conductor if visible
 
-STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, birth_date, death_date, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments, biographies. DO NOT leave biographical fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in biographical fields (composer, voice_type, nationality, composition_year, album_opera). You are an expert — you know composers, works, voice types, instruments. DO NOT leave these fields empty if you can determine them. Note: voice_type may be an instrument (e.g. "Piano", "Violin", "Guitar") for instrumental performances.
 
 CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY visible in the screenshot title or description. If the exact name is NOT clearly stated in the visible text, return "work" as an EMPTY STRING "". Do NOT guess or infer. It is better to leave it empty than to guess wrong.
 
-CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY include if you are certain of the EXACT date. If you know only the year, use "01/01/YYYY". If uncertain about the date entirely, return an empty string "". NEVER guess or approximate dates.
+CRITICAL RULE FOR DATES: For birth_date and death_date, ONLY fill if the EXACT date appears explicitly in the visible text (title or description). If the date is NOT written in the visible text, return an empty string "". Do NOT use your training knowledge for dates — they may be outdated or wrong. If you know only the year from the text, use "01/01/YYYY".
 
 FORMATTING RULES FOR MULTIPLE ARTISTS:
 - Separate multiple artist names with " & " (e.g. "Nicolai Gedda & Mirella Freni")
@@ -271,14 +271,15 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     def _calcular_duracao_leitura(text: str) -> float:
         """Duração de exibição baseada no tempo de leitura.
         Viés para leitura lenta (público contemplativo).
-        Range: 6.0s a 8.0s.
-        - Texto curto (1-4 palavras): 6.0-5.9s → 6.0s (clamp)
-        - Texto médio (5-8 palavras): 6.3-7.3s
-        - Texto longo (10+ palavras): 8.0s (clamp)
+        Range: 5.0s a 8.0s.
+        - Texto curto (2 palavras): 4.7 → 5.0s (clamp)
+        - Texto médio (5 palavras): 5.75s
+        - Texto longo (8 palavras): 6.8s
+        - Texto longo (10+ palavras): 7.5-8.0s (clamp)
         """
         palavras = len(text.split())
-        duracao = (palavras * 0.35) + 4.5
-        return max(6.0, min(8.0, duracao))
+        duracao = (palavras * 0.35) + 4.0
+        return max(5.0, min(8.0, duracao))
 
     if parsed and vid_duration > 10:
         # Timing variável por tempo de leitura (substitui banda fixa min/max gap)

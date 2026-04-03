@@ -118,6 +118,19 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     count_info = _calc_subtitle_count(project, interval_secs=interval_secs)
     fields = _build_overlay_fields(project)
 
+    # Research data: narrativa do post para fatos concretos no gancho
+    research_block = ""
+    post_text = getattr(project, "post_text", "") or ""
+    if post_text.strip():
+        narrative = _extract_narrative(post_text, max_chars=300)
+        if narrative:
+            research_block = f"""
+RESEARCH DATA (use for specific facts in your HOOK):
+{narrative}
+
+HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks like 'this will give you chills', 'you won't believe this', or 'what's about to happen will...' are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
+"""
+
     brand_block_parts = []
     if identity:
         brand_block_parts.append(f"**Brand Identity:** {identity}")
@@ -147,7 +160,7 @@ Generate overlay subtitles for a video featuring:
 {fields}{duration_info}
 
 Ground your facts in the research data provided. You MAY supplement with well-known, verifiable facts about the composer, work, or performer. For video anchoring captions, reference what the viewer can hear or see. NEVER invent facts. If uncertain, omit.
-{brand_block}
+{research_block}{brand_block}
 ═══════════════════════════════
 NARRATIVE RULES
 ═══════════════════════════════
