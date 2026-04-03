@@ -72,11 +72,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(projects.router)
+app.include_router(export.router)       # ANTES de projects — rotas literais (/export-config) primeiro
+app.include_router(projects.router)     # catch-all /{project_id} depois
 app.include_router(generation.router)
 app.include_router(approval.router)
 app.include_router(translation.router)
-app.include_router(export.router)
 app.include_router(health.router)
 
 # Serve frontend in production

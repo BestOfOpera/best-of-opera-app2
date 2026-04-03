@@ -293,43 +293,69 @@ def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
 def _translate_post_fallback(post_text: str, target_lang: str) -> str:
     """Fallback para posts sem bloco de créditos (ex: RC).
 
-    Estrutura esperada: intro (1ª linha) + storytelling + CTA + hashtags.
-    Traduz tudo exceto a intro line e preserva hashtags com tradução individual.
+    Estrutura esperada (blocos separados por \\n\\n):
+      header (h1\\nh2[\\nh3]) → •\\np1 → •\\np2 → •\\np3 → •\\n👉CTA → •\\n•\\n•\\n#hashtags
+
+    Header é preservado sem tradução (contém nomes/emojis).
+    CTA RC é substituído pelo fixo do idioma.
+    Hashtags são traduzidas individualmente.
+    Parágrafos são traduzidos em bloco.
     """
-    lines = post_text.split("\n")
+    blocos = post_text.split("\n\n")
+    if not blocos:
+        return post_text
 
-    # Separar intro (primeira linha não-vazia)
-    intro_end = 0
-    for i, line in enumerate(lines):
-        if line.strip():
-            intro_end = i + 1
-            break
+    # Bloco 0 = header (h1\nh2[\nh3]) — preservar sem traduzir
+    intro = blocos[0]
+    rest_blocos = blocos[1:] if len(blocos) > 1 else []
 
-    intro = "\n".join(lines[:intro_end])
-    rest = "\n".join(lines[intro_end:])
-
-    # Separar hashtags (última linha que começa com #)
-    paragraphs = rest.split("\n\n")
+    # Separar hashtags: procurar bloco cuja ÚLTIMA linha começa com #
     hashtags = ""
-    for i in range(len(paragraphs) - 1, -1, -1):
-        if paragraphs[i].strip().startswith("#"):
-            hashtags = paragraphs.pop(i).strip()
+    for i in range(len(rest_blocos) - 1, -1, -1):
+        linhas_bloco = rest_blocos[i].strip().split("\n")
+        ultima_linha = linhas_bloco[-1].strip() if linhas_bloco else ""
+        if ultima_linha.startswith("#"):
+            hashtags = ultima_linha
+            # Manter o restante do bloco (os • separadores) se houver
+            resto = "\n".join(linhas_bloco[:-1]).strip()
+            if resto:
+                rest_blocos[i] = resto
+            else:
+                rest_blocos.pop(i)
             break
 
-    # Separar CTA RC (bloco que contém 👉) do storytelling
+    # Separar CTA RC (bloco que contém 👉) e filtrar blocos só-bullet
     cta_block = ""
-    story_paragraphs = []
-    for para in paragraphs:
-        if "👉" in para:
-            cta_block = para
-        else:
-            story_paragraphs.append(para)
+    story_blocos = []
+    for bloco in rest_blocos:
+        if "👉" in bloco:
+            cta_block = bloco
+        elif bloco.replace("•", "").replace("\n", "").strip():
+            # Só adicionar se tem conteúdo além de • e whitespace
+            story_blocos.append(bloco)
 
-    # Traduzir storytelling
-    body = "\n\n".join(story_paragraphs).strip()
+    # Strip • prefix de cada parágrafo antes de traduzir
+    clean_paragraphs = []
+    for para in story_blocos:
+        if para.startswith("•\n"):
+            clean_paragraphs.append(para[2:])
+        elif para.startswith("•"):
+            clean_paragraphs.append(para[1:].lstrip("\n"))
+        else:
+            clean_paragraphs.append(para)
+
+    # Traduzir storytelling (parágrafos limpos, sem •)
+    body = "\n\n".join(p.strip() for p in clean_paragraphs if p.strip())
     translated_body = translate_text(body, target_lang) if body else ""
 
-    # CTA: usar versão fixa se RC (detectado por 👉), senão traduzir normalmente
+    # Re-adicionar • a cada parágrafo traduzido
+    if translated_body:
+        translated_paras = translated_body.split("\n\n")
+        translated_body = "\n\n".join(
+            "•\n" + p.strip() for p in translated_paras if p.strip()
+        )
+
+    # CTA: usar versão fixa se RC (detectado por 👉), senão ignorar
     if cta_block:
         translated_cta = RC_POST_CTA.get(target_lang, RC_POST_CTA["en"])
     else:
@@ -337,11 +363,17 @@ def _translate_post_fallback(post_text: str, target_lang: str) -> str:
 
     translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
 
-    parts = [intro, translated_body]
+    # Reassemblar: intro → •\np1 → •\np2 → •\np3 → •\nCTA → •\n•\n•\n#hashtags
+    parts = [intro]
+    if translated_body:
+        parts.append(translated_body)
     if translated_cta:
         parts.append("•\n" + translated_cta)
+    separator = "•\n•\n•"
     if translated_hashtags:
-        parts.append(translated_hashtags)
+        parts.append(separator + "\n" + translated_hashtags)
+    else:
+        parts.append(separator)
 
     return "\n\n".join(p for p in parts if p.strip())
 
