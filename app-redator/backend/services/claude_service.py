@@ -815,7 +815,7 @@ def generate_research_rc(project, brand_config=None) -> dict:
     print(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)", flush=True)
     _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    result = _call_claude_json(prompt, max_tokens=4000, temperature=0.7)
+    result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
     _rc_logger.info(f"[RC Research] Completo, {len(json.dumps(result))} chars resultado")
     project.research_data = result
     return result
