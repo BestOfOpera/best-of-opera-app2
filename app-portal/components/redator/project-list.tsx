@@ -22,10 +22,14 @@ const VIEW_LABELS: Record<View, string> = {
 const STATUS_EM_ANDAMENTO = ["input_complete", "generating", "awaiting_approval", "translating"]
 
 function nextStepLink(p: Project): string {
-  if (p.status === "input_complete" || p.status === "generating") return `/redator/projeto/${p.id}/overlay`
+  const isRC = p.brand_slug === "reels-classics"
+  if (p.status === "input_complete" || p.status === "generating") {
+    return isRC ? `/redator/projeto/${p.id}/hooks` : `/redator/projeto/${p.id}/overlay`
+  }
   if (!p.overlay_approved) return `/redator/projeto/${p.id}/overlay`
   if (!p.post_approved) return `/redator/projeto/${p.id}/post`
-  if (!p.youtube_approved) return `/redator/projeto/${p.id}/youtube`
+  if (!isRC && !p.youtube_approved) return `/redator/projeto/${p.id}/youtube`
+  if (isRC && !p.automation_approved) return `/redator/projeto/${p.id}/automation`
   return `/redator/projeto/${p.id}/exportar`
 }
 

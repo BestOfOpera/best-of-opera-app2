@@ -35,8 +35,13 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(404, "Project not found")
 
-    if not (project.overlay_approved and project.post_approved and project.youtube_approved):
-        raise HTTPException(400, "Overlay, post, and YouTube must be approved before translation")
+    is_rc = getattr(project, 'brand_slug', '') == "reels-classics"
+    if is_rc:
+        if not (project.overlay_approved and project.post_approved):
+            raise HTTPException(400, "Overlay and post must be approved before translation")
+    else:
+        if not (project.overlay_approved and project.post_approved and project.youtube_approved):
+            raise HTTPException(400, "Overlay, post, and YouTube must be approved before translation")
 
     project.status = "translating"
     db.commit()
