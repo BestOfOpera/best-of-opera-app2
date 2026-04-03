@@ -65,19 +65,57 @@ PROCESSAR = reação na cabeça (calcular número, absorver trivia, entender ref
 
 Se a reação é PROCESSAR, o gancho falhou. Descarte ou reformule.
 
-GANCHOS QUE FAZEM PROCESSAR (eliminar):
-- Números/estatísticas: "1.8 bilhão de vezes por dia" → cérebro calcula
-- Trivia: "Aquele toque do Nokia? Saiu dessa peça" → "ah, legal" e rola
-- Superlativos verificáveis: "A peça mais difícil já escrita" → dado, não emoção
-- Informação técnica: "Chopin, Noturno Op. 9 No. 2" → nenhuma provocação
+GANCHOS QUE FUNCIONAM (dados reais de vídeos com alta retenção):
 
-GANCHOS QUE FAZEM SENTIR (manter):
-- Paradoxo emocional: "Como algo tão sombrio pode ser tão bonito?"
-- Hipérbole visual: "Por 30s ela esqueceu que era humana…"
-- Conexão universal: "Quando a magia da Disney encontra a música clássica:"
-- Promessa de revelação: "Bach compôs mais de mil obras. Nesta, alcançou a perfeição:"
-- Urgência pessoal: "Você precisa ouvir essa melodia pelo menos uma vez na vida!"
-- Provocação: "É por isso que ela é chamada de a melhor violinista do mundo!"
+"Como algo tão sombrio\\npode ser tão bonito?"
+→ PARADOXO EMOCIONAL. Duas qualidades opostas na mesma frase.
+  O cérebro PRECISA resolver a contradição. Impossível ignorar.
+  Não menciona compositor, peça, ou dado. Pura emoção.
+
+"Por 30s ela esqueceu\\nque era humana…"
+→ HIPÉRBOLE VISUAL. Imagem impossível que cria curiosidade.
+  "Quem? O que aconteceu? Por quê?" Três perguntas em 1 segundo.
+  As reticências (…) prometem que a resposta vem a seguir.
+
+"Quando a magia da Disney\\nencontra a música clássica:"
+→ CONEXÃO DE DOIS MUNDOS. Todos conhecem Disney. Poucos conhecem
+  clássica. A colisão cria curiosidade: "como assim, juntos?"
+  Os dois pontos OBRIGAM a continuar assistindo.
+
+"Bach compôs mais de mil obras.\\nNesta, alcançou a perfeição:"
+→ ESCALA + FILTRO. Mil obras é impressionante. Mas uma entre mil
+  é especial. "Qual? Por quê?" Os dois pontos prometem resposta.
+
+"Você precisa ouvir essa melodia\\npelo menos uma vez na vida!"
+→ URGÊNCIA PESSOAL. Não fala da música. Fala de VOCÊ.
+  Cria sensação de que perder é uma falha pessoal.
+
+"É por isso que ela é chamada de\\na melhor violinista do mundo!"
+→ PROVOCAÇÃO + PROMESSA. "É por isso" implica que o vídeo
+  vai PROVAR. O espectador quer ver a prova.
+
+GANCHOS QUE NUNCA FUNCIONAM (dados reais de vídeos com baixa retenção):
+
+"1,8 bilhão de vezes por dia. E quase ninguém sabe o nome do compositor."
+→ FAZ PENSAR: "1,8 bilhão, hmm, interessante." E rola.
+  Números fazem o cérebro CALCULAR, não SENTIR.
+
+"A peça tem 4 minutos. O mundo só conhece 3 segundos."
+→ FAZ CALCULAR: "4 minutos, 3 segundos, ah, curioso." E rola.
+
+"O som mais ouvido da história foi composto por um homem que quase ficou cego."
+→ DOIS DADOS empilhados. Nenhuma emoção. O espectador processa
+  informação em vez de sentir algo.
+
+"Você já ouviu esta música 1.000 vezes. Nunca soube que era violão clássico."
+→ TRIVIA de reconhecimento. "Ah, legal, não sabia." E rola.
+  Curiosidade satisfeita em 1 segundo. Não precisa assistir.
+
+A DIFERENÇA É SIMPLES:
+- Ganchos BOM: o espectador SENTE algo no corpo (arrepio, curiosidade, "como assim?!")
+  e PRECISA assistir o vídeo para resolver.
+- Ganchos RUIM: o espectador PENSA "interessante" na cabeça
+  e pode rolar sem perder nada.
 
 PASSO 4 — APLICAR O FILTRO DA ESPECIFICIDADE
 Para cada candidato que passou no Passo 3, pergunte: "Este gancho funcionaria para OUTRO vídeo se eu trocasse compositor/peça?"

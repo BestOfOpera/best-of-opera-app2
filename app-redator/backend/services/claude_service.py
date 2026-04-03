@@ -747,6 +747,58 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
+def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) -> str:
+    """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
+    Se o LLM não gerou \\n, adiciona word-wrap inteligente."""
+    if tipo == "cta":
+        return texto  # CTA é fixo, não tocar
+
+    max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
+
+    linhas = texto.split("\\n")
+
+    # Verificar se TODAS as linhas já estão OK
+    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+    if todas_ok and len(linhas) <= max_linhas:
+        return texto  # Já está bom, não mexer
+
+    # Precisa re-wrap: juntar tudo e quebrar novamente
+    texto_junto = " ".join(l.strip() for l in linhas)
+
+    novas_linhas = []
+    linha_atual = ""
+    palavras = texto_junto.split()
+    truncado = False
+
+    for idx, palavra in enumerate(palavras):
+        teste = (linha_atual + " " + palavra).strip()
+        if len(teste) <= max_chars_linha:
+            linha_atual = teste
+        else:
+            if linha_atual:
+                novas_linhas.append(linha_atual)
+            # Se já atingiu max de linhas, truncar e avisar
+            if len(novas_linhas) >= max_linhas:
+                resto = " ".join(palavras[idx:])
+                print(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'", flush=True)
+                truncado = True
+                break
+            linha_atual = palavra
+
+    if not truncado and linha_atual:
+        novas_linhas.append(linha_atual)
+
+    # Garantir max_linhas
+    novas_linhas = novas_linhas[:max_linhas]
+
+    resultado = "\\n".join(novas_linhas)
+
+    if resultado != texto:
+        print(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas", flush=True)
+
+    return resultado
+
+
 def _process_overlay_rc(response: dict, project) -> list:
     """Converte output do LLM em overlay_json compatível com o editor.
     Calcula timestamps deterministicamente. Aplica sanitização."""
@@ -764,6 +816,7 @@ def _process_overlay_rc(response: dict, project) -> list:
         tipo = leg.get("tipo", "corpo")
 
         texto = _sanitize_rc(texto)
+        texto = _enforce_line_breaks_rc(texto, tipo)
 
         if not texto:
             continue
@@ -796,6 +849,44 @@ def _process_overlay_rc(response: dict, project) -> list:
         timestamp_sec += dur
 
     return overlay_json
+
+
+def _validate_overlay_rc(overlay_json: list):
+    """Valida qualidade do overlay e loga warnings. Não bloqueia."""
+    narrativas = [item for item in overlay_json if not item.get("_is_cta")]
+
+    # 1. Verificar overflow residual
+    for i, item in enumerate(overlay_json):
+        texto = item.get("text", "")
+        for j, linha in enumerate(texto.split("\\n")):
+            if len(linha) > 40:
+                print(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)", flush=True)
+
+    # 2. Anti-repetição (palavras compartilhadas entre legendas)
+    stop_words = {"a", "o", "e", "de", "da", "do", "em", "que", "um", "uma", "no", "na", "com", "por", "para", "se", "não", "é"}
+    palavras_por_legenda = []
+    for item in narrativas:
+        palavras = set(item.get("text", "").lower().split()) - stop_words
+        palavras_por_legenda.append(palavras)
+
+    for i in range(len(palavras_por_legenda)):
+        for j in range(i + 1, len(palavras_por_legenda)):
+            if not palavras_por_legenda[i] or not palavras_por_legenda[j]:
+                continue
+            compartilhadas = palavras_por_legenda[i] & palavras_por_legenda[j]
+            menor = min(len(palavras_por_legenda[i]), len(palavras_por_legenda[j]))
+            if menor > 0 and len(compartilhadas) / menor > 0.6:
+                print(f"[RC WARN] Legendas {i+1} e {j+1} compartilham >60% palavras (possível repetição)", flush=True)
+
+    # 3. Verificar se CTA existe
+    tem_cta = any(item.get("_is_cta") for item in overlay_json)
+    if not tem_cta:
+        print("[RC WARN] Overlay sem CTA!", flush=True)
+
+    # 4. Contar legendas
+    n = len(narrativas)
+    if n < 5:
+        print(f"[RC WARN] Apenas {n} legendas narrativas (esperado ≥8)", flush=True)
 
 
 def _format_post_rc(response: dict) -> str:
@@ -856,7 +947,7 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
     prompt = build_rc_hook_prompt(metadata, project.research_data or {})
     _rc_logger.info(f"[RC Hooks] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    result = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
+    result = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
 
     # Se o JSON veio como lista (fallback de extração por brackets),
     # wrappear no formato esperado
@@ -891,8 +982,9 @@ def generate_overlay_rc(project, brand_config=None) -> list:
     )
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.5)
+    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
     overlay_json = _process_overlay_rc(response, project)
+    _validate_overlay_rc(overlay_json)
     _rc_logger.info(f"[RC Overlay] Completo, {len(overlay_json)} legendas")
 
     project.overlay_json = overlay_json
@@ -910,7 +1002,7 @@ def generate_post_rc(project, brand_config=None) -> str:
     )
     _rc_logger.info(f"[RC Post] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
-    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.5)
+    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
     post_text = _format_post_rc(response)
     post_text = _sanitize_rc(post_text)
     _rc_logger.info(f"[RC Post] Completo, {len(post_text)} chars texto final")

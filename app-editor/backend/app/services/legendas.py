@@ -173,6 +173,13 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30, pre_formatted: bool =
     # Converter newlines Python para quebras ASS antes de qualquer lógica
     texto = texto.replace("\n", "\\N")
     if pre_formatted:
+        # Diagnóstico: detectar se texto chegou sem quebras adequadas
+        for line in texto.split('\\N'):
+            if len(line.strip()) > 40:
+                import logging
+                logging.getLogger("rc_editor").warning(
+                    f"[RC EDITOR WARN] Linha com {len(line.strip())} chars no overlay pre_formatted: {line.strip()[:50]}..."
+                )
         return texto
     if len(texto) <= max_por_linha:
         return texto
