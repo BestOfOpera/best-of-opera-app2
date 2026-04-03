@@ -587,18 +587,39 @@ import time as _time
 _rc_logger = logging.getLogger("rc_pipeline")
 
 
+def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, temperature: float) -> str:
+    """Chama client.messages.create com retry para 529/overloaded. Retorna raw text."""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"[RC _call_claude_api] Tentativa {attempt+1}/{max_retries}, {len(prompt)} chars", flush=True)
+            start = _time.time()
+            message = client.messages.create(
+                model=MODEL, max_tokens=max_tokens, temperature=temperature,
+                system=system, messages=[{"role": "user", "content": prompt}],
+            )
+            raw = message.content[0].text.strip()
+            elapsed = _time.time() - start
+            print(f"[RC _call_claude_api] Resposta: {len(raw)} chars em {elapsed:.1f}s", flush=True)
+            return raw
+        except Exception as api_error:
+            error_str = str(api_error)
+            if ("529" in error_str or "overloaded" in error_str.lower()) and attempt < max_retries - 1:
+                wait = (attempt + 1) * 10  # 10s, 20s, 30s
+                print(f"[RC _call_claude_api] API overloaded, aguardando {wait}s antes de retry...", flush=True)
+                _time.sleep(wait)
+                continue
+            else:
+                raise
+    raise RuntimeError("Unreachable")
+
+
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
-    """Chama Claude e parseia resposta JSON. Limpeza agressiva antes de retry."""
+    """Chama Claude e parseia resposta JSON. Retry para 529 + limpeza agressiva."""
     print(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}", flush=True)
     system = "Return RAW JSON only. Rules: 1) First character must be { or [. 2) Last character must be } or ]. 3) No ```json fences. 4) No text before or after the JSON. 5) Keep string values concise (1-2 sentences max per field)."
-    start = _time.time()
-    message = client.messages.create(
-        model=MODEL, max_tokens=max_tokens, temperature=temperature,
-        system=system, messages=[{"role": "user", "content": prompt}],
-    )
-    raw = message.content[0].text.strip()
-    elapsed = _time.time() - start
-    print(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s", flush=True)
+
+    raw = _call_claude_api_with_retry(system, prompt, max_tokens, temperature)
 
     # Tentativa 1: parse direto com strip_json_fences
     cleaned = _strip_json_fences(raw)
@@ -632,17 +653,12 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
         except json.JSONDecodeError:
             pass
 
-    # Tentativa 4: retry com nova chamada ao Claude (último recurso)
+    # Tentativa 4: retry com nova chamada ao Claude (último recurso para JSON inválido)
     print(f"[RC _call_claude_json] Limpeza falhou. Fazendo retry com nova chamada...", flush=True)
-    start2 = _time.time()
-    message2 = client.messages.create(
-        model=MODEL, max_tokens=max_tokens, temperature=temperature,
-        system=system + " CRITICAL: Your previous response was not valid JSON. Return ONLY the JSON object, nothing else.",
-        messages=[{"role": "user", "content": prompt}],
+    raw2 = _call_claude_api_with_retry(
+        system + " CRITICAL: Your previous response was not valid JSON. Return ONLY the JSON object, nothing else.",
+        prompt, max_tokens, temperature,
     )
-    raw2 = message2.content[0].text.strip()
-    elapsed2 = _time.time() - start2
-    print(f"[RC _call_claude_json] Retry: {len(raw2)} chars em {elapsed2:.1f}s", flush=True)
 
     cleaned2 = _strip_json_fences(raw2)
     try:
