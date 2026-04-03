@@ -578,9 +578,8 @@ _rc_logger = logging.getLogger("rc_pipeline")
 
 
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
-    """Chama Claude e parseia resposta JSON. Retry 1x se JSON inválido."""
+    """Chama Claude e parseia resposta JSON. Limpeza agressiva antes de retry."""
     print(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}", flush=True)
-    _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
     system = "Respond in valid JSON only. No markdown fences, no preamble, no explanation outside the JSON."
     start = _time.time()
     message = client.messages.create(
@@ -590,28 +589,67 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
     raw = message.content[0].text.strip()
     elapsed = _time.time() - start
     print(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s", flush=True)
-    _rc_logger.info(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s")
+
+    # Tentativa 1: parse direto com strip_json_fences
+    cleaned = _strip_json_fences(raw)
     try:
-        return json.loads(_strip_json_fences(raw))
+        return json.loads(cleaned)
     except json.JSONDecodeError:
-        _rc_logger.warning(f"[RC _call_claude_json] JSON inválido na 1a tentativa, retry...")
-        # Retry 1x
-        start2 = _time.time()
-        message2 = client.messages.create(
-            model=MODEL, max_tokens=max_tokens, temperature=temperature,
-            system=system + " Your previous response was not valid JSON. Try again.",
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw2 = message2.content[0].text.strip()
-        _rc_logger.info(f"[RC _call_claude_json] Retry: {len(raw2)} chars em {_time.time()-start2:.1f}s")
+        print(f"[RC _call_claude_json] JSON inválido. Primeiros 200: {raw[:200]}", flush=True)
+        print(f"[RC _call_claude_json] JSON inválido. Últimos 200: {raw[-200:]}", flush=True)
+
+    # Tentativa 2: extrair JSON por braces (limpeza agressiva, sem nova chamada)
+    first_brace = raw.find('{')
+    last_brace = raw.rfind('}')
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        extracted = raw[first_brace:last_brace + 1]
         try:
-            return json.loads(_strip_json_fences(raw2))
-        except json.JSONDecodeError as e:
-            _rc_logger.error(f"[RC _call_claude_json] Falha após 2 tentativas. Últimos 200 chars: {raw2[-200:]}")
-            raise ValueError(
-                f"Claude retornou JSON inválido após 2 tentativas. "
-                f"Últimos 500 chars: {raw2[-500:]}"
-            ) from e
+            result = json.loads(extracted)
+            print(f"[RC _call_claude_json] JSON extraído por braces OK", flush=True)
+            return result
+        except json.JSONDecodeError:
+            pass
+
+    # Tentativa 3: extrair por brackets (caso seja array)
+    first_bracket = raw.find('[')
+    last_bracket = raw.rfind(']')
+    if first_bracket != -1 and last_bracket != -1 and last_bracket > first_bracket:
+        extracted = raw[first_bracket:last_bracket + 1]
+        try:
+            result = json.loads(extracted)
+            print(f"[RC _call_claude_json] JSON extraído por brackets OK", flush=True)
+            return result
+        except json.JSONDecodeError:
+            pass
+
+    # Tentativa 4: retry com nova chamada ao Claude (último recurso)
+    print(f"[RC _call_claude_json] Limpeza falhou. Fazendo retry com nova chamada...", flush=True)
+    start2 = _time.time()
+    message2 = client.messages.create(
+        model=MODEL, max_tokens=max_tokens, temperature=temperature,
+        system=system + " CRITICAL: Your previous response was not valid JSON. Return ONLY the JSON object, nothing else.",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw2 = message2.content[0].text.strip()
+    elapsed2 = _time.time() - start2
+    print(f"[RC _call_claude_json] Retry: {len(raw2)} chars em {elapsed2:.1f}s", flush=True)
+
+    cleaned2 = _strip_json_fences(raw2)
+    try:
+        return json.loads(cleaned2)
+    except json.JSONDecodeError:
+        # Última tentativa: braces no retry também
+        fb = raw2.find('{')
+        lb = raw2.rfind('}')
+        if fb != -1 and lb != -1 and lb > fb:
+            try:
+                return json.loads(raw2[fb:lb + 1])
+            except json.JSONDecodeError:
+                pass
+        raise ValueError(
+            f"Claude retornou JSON inválido após 2 tentativas. "
+            f"Últimos 500 chars: {raw2[-500:]}"
+        )
 
 
 def _extract_rc_metadata(project) -> dict:
