@@ -579,6 +579,7 @@ _rc_logger = logging.getLogger("rc_pipeline")
 
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
     """Chama Claude e parseia resposta JSON. Retry 1x se JSON inválido."""
+    print(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}", flush=True)
     _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
     system = "Respond in valid JSON only. No markdown fences, no preamble, no explanation outside the JSON."
     start = _time.time()
@@ -588,6 +589,7 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
     )
     raw = message.content[0].text.strip()
     elapsed = _time.time() - start
+    print(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s", flush=True)
     _rc_logger.info(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s")
     try:
         return json.loads(_strip_json_fences(raw))
@@ -768,9 +770,11 @@ def generate_research_rc(project, brand_config=None) -> dict:
     """Gera pesquisa profunda para RC. Salva em project.research_data."""
     from backend.prompts.rc_research_prompt import build_rc_research_prompt
 
+    print(f"[RC Research] Iniciando para project {project.id}", flush=True)
     _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_research_prompt(metadata)
+    print(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)", flush=True)
     _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=4000, temperature=0.7)

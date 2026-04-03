@@ -230,12 +230,13 @@ def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
 @router.post("/{project_id}/generate-research-rc")
 def generate_research_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
     """RC: pesquisa aprofundada sobre a obra/artista."""
+    print(f"[PRINT TEST] generate-research-rc CHAMADO para project_id={project_id}", flush=True)
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
     if getattr(project, 'brand_slug', '') != "reels-classics":
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
-    logger.info(f"[RC Endpoint] generate-research-rc project={project_id} artist='{project.artist}' work='{project.work}'")
+    print(f"[PRINT TEST] generate-research-rc brand_slug={project.brand_slug} artist='{project.artist}'", flush=True)
     try:
         result = generate_research_rc(project)
         db.commit()
@@ -256,6 +257,7 @@ def generate_research_rc_endpoint(project_id: int, db: Session = Depends(get_db)
 @router.post("/{project_id}/generate-hooks-rc")
 def generate_hooks_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
     """RC: gera hooks baseados na pesquisa."""
+    print(f"[PRINT TEST] generate-hooks-rc CHAMADO para project_id={project_id}", flush=True)
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
@@ -263,7 +265,7 @@ def generate_hooks_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.research_data:
         raise HTTPException(400, "Gere a pesquisa primeiro (generate-research-rc)")
-    logger.info(f"[RC Endpoint] generate-hooks-rc project={project_id}")
+    print(f"[PRINT TEST] generate-hooks-rc pré-condições OK, chamando geração...", flush=True)
     try:
         result = generate_hooks_rc(project)
         db.commit()
@@ -319,7 +321,7 @@ def generate_overlay_rc_endpoint(project_id: int, db: Session = Depends(get_db))
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.selected_hook:
         raise HTTPException(400, "Selecione um gancho primeiro (select-hook)")
-    logger.info(f"[RC Endpoint] generate-overlay-rc project={project_id} hook='{(project.selected_hook or '')[:50]}'")
+    print(f"[PRINT TEST] generate-overlay-rc CHAMADO project_id={project_id}", flush=True)
     try:
         result = generate_overlay_rc(project)
         db.commit()
@@ -347,7 +349,7 @@ def generate_post_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.overlay_json:
         raise HTTPException(400, "Gere o overlay primeiro (generate-overlay-rc)")
-    logger.info(f"[RC Endpoint] generate-post-rc project={project_id}")
+    print(f"[PRINT TEST] generate-post-rc CHAMADO project_id={project_id}", flush=True)
     try:
         result = generate_post_rc(project)
         db.commit()
@@ -375,7 +377,7 @@ def generate_automation_rc_endpoint(project_id: int, db: Session = Depends(get_d
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.post_text:
         raise HTTPException(400, "Gere a descrição primeiro (generate-post-rc)")
-    logger.info(f"[RC Endpoint] generate-automation-rc project={project_id}")
+    print(f"[PRINT TEST] generate-automation-rc CHAMADO project_id={project_id}", flush=True)
     try:
         result = generate_automation_rc(project)
         db.commit()
