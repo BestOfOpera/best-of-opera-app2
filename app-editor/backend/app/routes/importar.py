@@ -146,6 +146,11 @@ async def importar_do_redator(
 
     proj = resp.json()
 
+    # [DIAG] Dados do redator
+    print(f"[DIAG CUT EDITOR] cut_start: [{proj.get('cut_start', 'KEY_NOT_FOUND')}]", flush=True)
+    print(f"[DIAG CUT EDITOR] cut_end: [{proj.get('cut_end', 'KEY_NOT_FOUND')}]", flush=True)
+    print(f"[DIAG PERFIL EDITOR] perfil_id recebido: [{perfil_id}] tipo: {type(perfil_id)}", flush=True)
+
     # Extrair dados básicos
     youtube_url = proj.get("youtube_url", "")
     video_id = _extract_video_id(youtube_url)
@@ -158,6 +163,12 @@ async def importar_do_redator(
     perfil = db.get(Perfil, perfil_id)
     if not perfil:
         raise HTTPException(404, f"Perfil #{perfil_id} não encontrado")
+    # [DIAG]
+    print(f"[DIAG PERFIL EDITOR] Perfil carregado: id={perfil.id} sigla={getattr(perfil, 'sigla', '?')} slug={getattr(perfil, 'slug', '?')}", flush=True)
+    print(f"[DIAG PERFIL EDITOR] font_name={getattr(perfil, 'font_name', 'N/A')}", flush=True)
+    _ov_style = getattr(perfil, 'overlay_style', {}) or {}
+    print(f"[DIAG PERFIL EDITOR] overlay_pre_formatted={_ov_style.get('overlay_pre_formatted', 'N/A')}", flush=True)
+    print(f"[DIAG PERFIL EDITOR] gancho_fs={_ov_style.get('gancho_fontsize', 'N/A')} corpo_fs={_ov_style.get('corpo_fontsize', 'N/A')} cta_fs={_ov_style.get('cta_fontsize', 'N/A')}", flush=True)
 
     # Idiomas do perfil para detecção
     _idiomas_set = set(perfil.idiomas_alvo) if perfil and perfil.idiomas_alvo else None
@@ -230,6 +241,8 @@ async def importar_do_redator(
     )
     db.add(edicao)
     db.flush()
+    # [DIAG]
+    print(f"[DIAG CUT EDITOR] Edição {edicao.id} criada: corte_inicio=[{edicao.corte_original_inicio}] corte_fim=[{edicao.corte_original_fim}]", flush=True)
 
     # Salvar overlays (congelados — texto imutável a partir daqui)
     for idioma, segmentos in overlays.items():

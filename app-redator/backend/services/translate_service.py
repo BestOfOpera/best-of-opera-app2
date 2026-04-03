@@ -296,6 +296,11 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
     L2: Artista – instrumento [emoji] → traduzir APENAS instrumento
     L3: Orquestra – Regente → NÃO traduzir (nomes próprios)
     """
+    # [DIAG]
+    print(f"[DIAG HEADER TRAD] Chamada com {len(header_lines)} linhas, lang={target_lang}", flush=True)
+    for i, line in enumerate(header_lines):
+        print(f"[DIAG HEADER TRAD] L{i}: [{line}]", flush=True)
+
     if not header_lines or target_lang == "pt":
         return list(header_lines)
 
@@ -303,6 +308,11 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
 
     if len(result) >= 2:
         line2 = result[1]
+        # [DIAG]
+        print(f"[DIAG HEADER TRAD] Tentando split de: [{line2}]", flush=True)
+        print(f"[DIAG HEADER TRAD] ' – ' in line2: {' – ' in line2}", flush=True)
+        print(f"[DIAG HEADER TRAD] ', ' in line2: {', ' in line2}", flush=True)
+        print(f"[DIAG HEADER TRAD] ' - ' in line2: {' - ' in line2}", flush=True)
         if " – " in line2:
             parts = line2.split(" – ", 1)
             artist_name = parts[0].strip()
@@ -324,6 +334,9 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
                 translated_instrument = translate_text(clean_instrument, target_lang)
                 if translated_instrument:
                     result[1] = f"{artist_name} – {translated_instrument.strip()}{emoji_suffix}"
+        else:
+            # [DIAG]
+            print(f"[DIAG HEADER TRAD] NENHUM separador ' – ' encontrado — L2 NÃO será traduzida", flush=True)
 
     return result
 

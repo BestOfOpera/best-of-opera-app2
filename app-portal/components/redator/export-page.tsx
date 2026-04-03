@@ -80,6 +80,10 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
 
       const selectedBrandElement = document.querySelector('[data-brand-id]') as HTMLElement
       const perfilId = selectedBrandElement?.dataset.brandId ? parseInt(selectedBrandElement.dataset.brandId) : undefined
+      // [DIAG]
+      console.log("[DIAG PERFIL] selectedBrandElement:", selectedBrandElement)
+      console.log("[DIAG PERFIL] data-brand-id:", selectedBrandElement?.dataset.brandId)
+      console.log("[DIAG PERFIL] perfilId sendo enviado:", perfilId)
 
       const edicao = await editorApi.importarDoRedator(projectId, undefined, undefined, perfilId)
       router.push(`/editor/edicao/${edicao.id}/letra`)

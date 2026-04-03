@@ -12,10 +12,14 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 @router.post("", response_model=ProjectOut)
 def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
+    # [DIAG] Verificar cut_start/cut_end recebidos
+    print(f"[DIAG CUT BACKEND] cut_start: [{getattr(data, 'cut_start', 'ATTR_NOT_FOUND')}]", flush=True)
+    print(f"[DIAG CUT BACKEND] cut_end: [{getattr(data, 'cut_end', 'ATTR_NOT_FOUND')}]", flush=True)
     project = Project(**data.model_dump(), status="input_complete")
     db.add(project)
     db.commit()
     db.refresh(project)
+    print(f"[DIAG CUT BACKEND] Projeto {project.id} salvo: cut_start=[{project.cut_start}] cut_end=[{project.cut_end}]", flush=True)
     return project
 
 

@@ -1162,8 +1162,12 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             raise HTTPException(400, "Nenhum overlay encontrado. Adicione overlays primeiro.")
         corte_inicio_ov = edicao.corte_original_inicio
         corte_fim_ov = edicao.corte_original_fim
+        # [DIAG]
+        print(f"[DIAG CUT PIPELINE] corte_original_inicio=[{corte_inicio_ov}] corte_original_fim=[{corte_fim_ov}]", flush=True)
         if not corte_inicio_ov or not corte_fim_ov:
+            print(f"[DIAG CUT PIPELINE] Campos vazios/None — chamando fallback _buscar_corte_do_redator", flush=True)
             corte_inicio_ov, corte_fim_ov = await _buscar_corte_do_redator(edicao)
+            print(f"[DIAG CUT PIPELINE] Fallback retornou: inicio=[{corte_inicio_ov}] fim=[{corte_fim_ov}]", flush=True)
             if corte_inicio_ov and corte_fim_ov:
                 edicao.corte_original_inicio = corte_inicio_ov
                 edicao.corte_original_fim = corte_fim_ov
@@ -1178,6 +1182,8 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     edicao.janela_inicio_sec = janela["janela_inicio_sec"]
     edicao.janela_fim_sec = janela["janela_fim_sec"]
     edicao.duracao_corte_sec = janela["duracao_corte_sec"]
+    # [DIAG]
+    print(f"[DIAG CUT PIPELINE] janela: inicio={janela['janela_inicio_sec']}s fim={janela['janela_fim_sec']}s duracao={janela['duracao_corte_sec']}s", flush=True)
 
     # Overlays do Redator têm timestamps clip-relativos (começam em "00:00").
     # Apenas normalizar o formato — NÃO subtrair janela_inicio (isso zeraria tudo).

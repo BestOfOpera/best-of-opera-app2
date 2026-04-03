@@ -302,6 +302,12 @@ def gerar_ass(
     """
     if perfil is not None:
         estilos = _estilos_do_perfil(perfil)
+        # [DIAG]
+        _ov = estilos.get("overlay", {})
+        print(f"[DIAG ASS] Perfil sigla: {getattr(perfil, 'sigla', 'N/A')}", flush=True)
+        print(f"[DIAG ASS] pre_formatted: {_ov.get('overlay_pre_formatted', 'N/A')}", flush=True)
+        print(f"[DIAG ASS] fontname: {_ov.get('fontname', 'N/A')}", flush=True)
+        print(f"[DIAG ASS] gancho_fs: {_ov.get('gancho_fontsize', 'N/A')} corpo_fs: {_ov.get('corpo_fontsize', 'N/A')} cta_fs: {_ov.get('cta_fontsize', 'N/A')}", flush=True)
         overlay_max_linha = perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA
         lyrics_max = perfil.lyrics_max_chars or LYRICS_MAX_CHARS
         traducao_max = perfil.traducao_max_chars or TRADUCAO_MAX_CHARS
