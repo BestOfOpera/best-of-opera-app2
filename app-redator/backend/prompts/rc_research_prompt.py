@@ -221,9 +221,23 @@ OBRIGATÓRIO:
 - Mínimo 2 cadeias de 6+ eventos na Etapa 7.
 - Marcar [INCERTO] em qualquer informação da qual não tenha certeza absoluta.
 - Cada cadeia de eventos deve gerar uma HISTÓRIA que um leigo seguiria com interesse.
+
+CONCISÃO OBRIGATÓRIA:
+- Cada campo do JSON deve ter NO MÁXIMO 2 frases.
+- Fatos surpreendentes: 1 frase por fato, sem contexto extenso.
+- Cadeias de eventos: 1 frase curta por evento.
+- O JSON inteiro deve ter NO MÁXIMO 4000 tokens (~16000 caracteres).
+- Se precisar escolher entre completude e concisão, escolha CONCISÃO.
+- NUNCA incluir parágrafos dentro de campos do JSON.
+  ERRADO: "situacao_pessoal": "Chopin estava em Paris desde 1831, onde havia se estabelecido após fugir da Polônia durante a revolução. Vivia numa situação financeiramente estável graças às aulas..."
+  CERTO: "situacao_pessoal": "Em Paris desde 1831, fugido da revolução polonesa. Financeiramente estável dando aulas para aristocratas."
 </constraints>
 
 <format>
+TAMANHO: O JSON completo deve ter no máximo 16000 caracteres.
+Priorize fatos com potencial_emocional "alto". Se o JSON estiver
+ficando grande, corte fatos com potencial "baixo" e "medio".
+
 Responda em JSON válido, seguindo EXATAMENTE esta estrutura:
 
 ```json

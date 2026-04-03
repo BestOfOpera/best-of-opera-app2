@@ -91,12 +91,22 @@ def _call_claude(prompt: str, system: str | None = None) -> str:
 
 
 def _strip_json_fences(raw: str) -> str:
-    """Remove markdown code fences from JSON response."""
+    """Remove markdown code fences and preamble/postamble from JSON response."""
     text = raw.strip()
+    # Remove opening fence (```json, ```JSON, ``` etc.)
     if text.startswith("```"):
-        text = text.split("\n", 1)[1]
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        # Remove closing fence
         if "```" in text:
             text = text[: text.rfind("```")]
+    text = text.strip()
+    # If still not starting with { or [, find the first JSON start
+    if text and text[0] not in ('{', '['):
+        first_brace = text.find('{')
+        first_bracket = text.find('[')
+        starts = [i for i in (first_brace, first_bracket) if i != -1]
+        if starts:
+            text = text[min(starts):]
     return text.strip()
 
 
@@ -580,7 +590,7 @@ _rc_logger = logging.getLogger("rc_pipeline")
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
     """Chama Claude e parseia resposta JSON. Limpeza agressiva antes de retry."""
     print(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}", flush=True)
-    system = "Respond in valid JSON only. No markdown fences, no preamble, no explanation outside the JSON."
+    system = "Return RAW JSON only. Rules: 1) First character must be { or [. 2) Last character must be } or ]. 3) No ```json fences. 4) No text before or after the JSON. 5) Keep string values concise (1-2 sentences max per field)."
     start = _time.time()
     message = client.messages.create(
         model=MODEL, max_tokens=max_tokens, temperature=temperature,
