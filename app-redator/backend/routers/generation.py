@@ -1,10 +1,13 @@
 import base64
+import logging
 from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project
+
+logger = logging.getLogger("rc_pipeline")
 from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse, SelectHookRequest  # noqa: F401
 from backend.config import load_brand_config
 from backend.services.claude_service import (
@@ -27,40 +30,44 @@ class DetectFromTextRequest(BaseModel):
 
 @router.post("/detect-metadata-text", response_model=DetectMetadataResponse)
 async def detect_metadata_text_endpoint(body: DetectFromTextRequest):
+    logger.info(f"[Detect Text] brand_slug='{body.brand_slug}' title='{body.title[:80]}' url='{body.youtube_url[:60]}'")
     try:
         if body.brand_slug == "reels-classics":
+            logger.info("[Detect Text] Usando prompt RC")
             result = detect_metadata_from_text_rc(body.youtube_url, body.title, body.description)
         else:
+            logger.info("[Detect Text] Usando prompt BO")
             result = detect_metadata_from_text(body.youtube_url, body.title, body.description)
+        logger.info(f"[Detect Text] Resultado: {list(result.keys())}")
         return DetectMetadataResponse(**result)
     except Exception as e:
-        print(f"[detect-metadata-text] ERROR: {e}")
+        logger.error(f"[Detect Text] ERROR: {e}")
         raise HTTPException(500, f"Detection failed: {e}")
 
 
 @router.post("/detect-metadata", response_model=DetectMetadataResponse)
 async def detect_metadata_endpoint(
-    screenshot: UploadFile = File(...),
+    file: UploadFile = File(...),
     youtube_url: str = Form(""),
     brand_slug: str = Form(""),
 ):
     try:
-        image_bytes = await screenshot.read()
+        image_bytes = await file.read()
         if not image_bytes:
             raise HTTPException(400, "Empty screenshot file")
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-        media_type = screenshot.content_type or "image/png"
-        print(f"[detect-metadata] file={screenshot.filename} size={len(image_bytes)} type={media_type} url={youtube_url} brand={brand_slug}")
+        media_type = file.content_type or "image/png"
+        logger.info(f"[Detect Screenshot] file={file.filename} size={len(image_bytes)} type={media_type} url='{youtube_url[:60]}' brand='{brand_slug}'")
         if brand_slug == "reels-classics":
             result = detect_metadata_rc(youtube_url, image_b64, media_type)
         else:
             result = detect_metadata(youtube_url, image_b64, media_type)
-        print(f"[detect-metadata] result={result}")
+        logger.info(f"[Detect Screenshot] Resultado: {list(result.keys())}")
         return DetectMetadataResponse(**result)
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[detect-metadata] ERROR: {e}")
+        logger.error(f"[Detect Screenshot] ERROR: {e}")
         raise HTTPException(500, f"Detection failed: {e}")
 
 
@@ -228,15 +235,19 @@ def generate_research_rc_endpoint(project_id: int, db: Session = Depends(get_db)
         raise HTTPException(404, "Project not found")
     if getattr(project, 'brand_slug', '') != "reels-classics":
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    logger.info(f"[RC Endpoint] generate-research-rc project={project_id} artist='{project.artist}' work='{project.work}'")
     try:
         result = generate_research_rc(project)
         db.commit()
+        logger.info(f"[RC Endpoint] generate-research-rc OK project={project_id}")
         return {"status": "research_complete", "research_data": result}
     except ValueError as e:
+        logger.error(f"[RC Endpoint] generate-research-rc ValueError project={project_id}: {e}")
         raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
     except Exception as e:
         db.rollback()
         error_str = str(e)
+        logger.error(f"[RC Endpoint] generate-research-rc ERRO project={project_id}: {error_str}")
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Erro na geração RC: {error_str}")
@@ -252,15 +263,19 @@ def generate_hooks_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.research_data:
         raise HTTPException(400, "Gere a pesquisa primeiro (generate-research-rc)")
+    logger.info(f"[RC Endpoint] generate-hooks-rc project={project_id}")
     try:
         result = generate_hooks_rc(project)
         db.commit()
+        logger.info(f"[RC Endpoint] generate-hooks-rc OK project={project_id}")
         return {"status": "hooks_complete", "hooks_json": result}
     except ValueError as e:
+        logger.error(f"[RC Endpoint] generate-hooks-rc ValueError project={project_id}: {e}")
         raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
     except Exception as e:
         db.rollback()
         error_str = str(e)
+        logger.error(f"[RC Endpoint] generate-hooks-rc ERRO project={project_id}: {error_str}")
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Erro na geração RC: {error_str}")
@@ -304,15 +319,19 @@ def generate_overlay_rc_endpoint(project_id: int, db: Session = Depends(get_db))
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.selected_hook:
         raise HTTPException(400, "Selecione um gancho primeiro (select-hook)")
+    logger.info(f"[RC Endpoint] generate-overlay-rc project={project_id} hook='{(project.selected_hook or '')[:50]}'")
     try:
         result = generate_overlay_rc(project)
         db.commit()
+        logger.info(f"[RC Endpoint] generate-overlay-rc OK project={project_id} legendas={len(result)}")
         return {"status": "overlay_complete", "overlay_json": result}
     except ValueError as e:
+        logger.error(f"[RC Endpoint] generate-overlay-rc ValueError project={project_id}: {e}")
         raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
     except Exception as e:
         db.rollback()
         error_str = str(e)
+        logger.error(f"[RC Endpoint] generate-overlay-rc ERRO project={project_id}: {error_str}")
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Erro na geração RC: {error_str}")
@@ -328,15 +347,19 @@ def generate_post_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.overlay_json:
         raise HTTPException(400, "Gere o overlay primeiro (generate-overlay-rc)")
+    logger.info(f"[RC Endpoint] generate-post-rc project={project_id}")
     try:
         result = generate_post_rc(project)
         db.commit()
+        logger.info(f"[RC Endpoint] generate-post-rc OK project={project_id} len={len(result)}")
         return {"status": "post_complete", "post_text": result}
     except ValueError as e:
+        logger.error(f"[RC Endpoint] generate-post-rc ValueError project={project_id}: {e}")
         raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
     except Exception as e:
         db.rollback()
         error_str = str(e)
+        logger.error(f"[RC Endpoint] generate-post-rc ERRO project={project_id}: {error_str}")
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Erro na geração RC: {error_str}")
@@ -352,15 +375,19 @@ def generate_automation_rc_endpoint(project_id: int, db: Session = Depends(get_d
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.post_text:
         raise HTTPException(400, "Gere a descrição primeiro (generate-post-rc)")
+    logger.info(f"[RC Endpoint] generate-automation-rc project={project_id}")
     try:
         result = generate_automation_rc(project)
         db.commit()
+        logger.info(f"[RC Endpoint] generate-automation-rc OK project={project_id}")
         return {"status": "automation_complete", "automation_json": result}
     except ValueError as e:
+        logger.error(f"[RC Endpoint] generate-automation-rc ValueError project={project_id}: {e}")
         raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
     except Exception as e:
         db.rollback()
         error_str = str(e)
+        logger.error(f"[RC Endpoint] generate-automation-rc ERRO project={project_id}: {error_str}")
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Erro na geração RC: {error_str}")

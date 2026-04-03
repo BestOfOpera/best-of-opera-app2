@@ -571,28 +571,41 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
 # RC (Reels Classics) — Funções de geração
 # ═══════════════════════════════════════════════════════════════
 
+import logging
+import time as _time
+
+_rc_logger = logging.getLogger("rc_pipeline")
+
 
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
     """Chama Claude e parseia resposta JSON. Retry 1x se JSON inválido."""
+    _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
     system = "Respond in valid JSON only. No markdown fences, no preamble, no explanation outside the JSON."
+    start = _time.time()
     message = client.messages.create(
         model=MODEL, max_tokens=max_tokens, temperature=temperature,
         system=system, messages=[{"role": "user", "content": prompt}],
     )
     raw = message.content[0].text.strip()
+    elapsed = _time.time() - start
+    _rc_logger.info(f"[RC _call_claude_json] Resposta: {len(raw)} chars em {elapsed:.1f}s")
     try:
         return json.loads(_strip_json_fences(raw))
     except json.JSONDecodeError:
+        _rc_logger.warning(f"[RC _call_claude_json] JSON inválido na 1a tentativa, retry...")
         # Retry 1x
+        start2 = _time.time()
         message2 = client.messages.create(
             model=MODEL, max_tokens=max_tokens, temperature=temperature,
             system=system + " Your previous response was not valid JSON. Try again.",
             messages=[{"role": "user", "content": prompt}],
         )
         raw2 = message2.content[0].text.strip()
+        _rc_logger.info(f"[RC _call_claude_json] Retry: {len(raw2)} chars em {_time.time()-start2:.1f}s")
         try:
             return json.loads(_strip_json_fences(raw2))
         except json.JSONDecodeError as e:
+            _rc_logger.error(f"[RC _call_claude_json] Falha após 2 tentativas. Últimos 200 chars: {raw2[-200:]}")
             raise ValueError(
                 f"Claude retornou JSON inválido após 2 tentativas. "
                 f"Últimos 500 chars: {raw2[-500:]}"
@@ -755,10 +768,13 @@ def generate_research_rc(project, brand_config=None) -> dict:
     """Gera pesquisa profunda para RC. Salva em project.research_data."""
     from backend.prompts.rc_research_prompt import build_rc_research_prompt
 
+    _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_research_prompt(metadata)
+    _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=4000, temperature=0.7)
+    _rc_logger.info(f"[RC Research] Completo, {len(json.dumps(result))} chars resultado")
     project.research_data = result
     return result
 
@@ -767,10 +783,14 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
     """Gera ganchos para RC usando pesquisa como base. Salva em project.hooks_json."""
     from backend.prompts.rc_hook_prompt import build_rc_hook_prompt
 
+    _rc_logger.info(f"[RC Hooks] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_hook_prompt(metadata, project.research_data or {})
+    _rc_logger.info(f"[RC Hooks] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=2000, temperature=0.7)
+    n_ganchos = len(result.get("ganchos", []))
+    _rc_logger.info(f"[RC Hooks] Completo, {n_ganchos} ganchos gerados")
     project.hooks_json = result
     return result
 
@@ -779,6 +799,7 @@ def generate_overlay_rc(project, brand_config=None) -> list:
     """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json."""
     from backend.prompts.rc_overlay_prompt import build_rc_overlay_prompt
 
+    _rc_logger.info(f"[RC Overlay] Iniciando para project {project.id}, hook='{(project.selected_hook or '')[:50]}'")
     metadata = _extract_rc_metadata(project)
 
     # Buscar fio narrativo do hook selecionado
@@ -793,9 +814,11 @@ def generate_overlay_rc(project, brand_config=None) -> list:
         metadata, project.research_data or {},
         project.selected_hook or "", hook_fio
     )
+    _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     response = _call_claude_json(prompt, max_tokens=3000, temperature=0.5)
     overlay_json = _process_overlay_rc(response, project)
+    _rc_logger.info(f"[RC Overlay] Completo, {len(overlay_json)} legendas")
 
     project.overlay_json = overlay_json
     return overlay_json
@@ -805,14 +828,17 @@ def generate_post_rc(project, brand_config=None) -> str:
     """Gera descrição Instagram para RC. Salva em project.post_text."""
     from backend.prompts.rc_post_prompt import build_rc_post_prompt
 
+    _rc_logger.info(f"[RC Post] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_post_prompt(
         metadata, project.research_data or {}, project.overlay_json or []
     )
+    _rc_logger.info(f"[RC Post] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     response = _call_claude_json(prompt, max_tokens=2500, temperature=0.5)
     post_text = _format_post_rc(response)
     post_text = _sanitize_rc(post_text)
+    _rc_logger.info(f"[RC Post] Completo, {len(post_text)} chars texto final")
 
     project.post_text = post_text
     return post_text
@@ -822,11 +848,14 @@ def generate_automation_rc(project, brand_config=None) -> dict:
     """Gera automação para RC. Salva em project.automation_json."""
     from backend.prompts.rc_automation_prompt import build_rc_automation_prompt
 
+    _rc_logger.info(f"[RC Automation] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_automation_prompt(
         metadata, project.overlay_json or [], project.post_text or ""
     )
+    _rc_logger.info(f"[RC Automation] Prompt: {len(prompt)} chars")
 
     result = _call_claude_json(prompt, max_tokens=1000, temperature=0.5)
+    _rc_logger.info(f"[RC Automation] Completo")
     project.automation_json = result
     return result
