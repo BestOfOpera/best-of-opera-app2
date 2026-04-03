@@ -176,7 +176,7 @@ export const redatorApi = {
 
   // RC (Reels Classics) endpoints
   generateResearchRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-rc`, { method: "POST", timeout: 120000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-rc`, { method: "POST", timeout: 180000 }),
   generateHooksRC: (id: number) =>
     request<Record<string, any>>(`${BASE()}/projects/${id}/generate-hooks-rc`, { method: "POST", timeout: 120000 }),
   selectHook: (id: number, body: { hook_index?: number; custom_hook?: string }) =>
