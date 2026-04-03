@@ -848,6 +848,52 @@ def _process_overlay_rc(response: dict, project) -> list:
         # Gap ZERO
         timestamp_sec += dur
 
+    # ═══ CAP DE TIMESTAMPS CONTRA DURAÇÃO DO VÍDEO ═══
+    if overlay_json and duracao_video > 0:
+        narrativas = [item for item in overlay_json if not item.get("_is_cta")]
+        cta_items = [item for item in overlay_json if item.get("_is_cta")]
+
+        if narrativas and cta_items:
+            cta_inicio_ideal = duracao_video - cta_duracao
+
+            # Converter timestamp do último narrativo para segundos
+            ultimo_ts = narrativas[-1]["timestamp"]
+            u_parts = ultimo_ts.split(":")
+            ultimo_sec = int(u_parts[0]) * 60 + int(u_parts[1]) if len(u_parts) == 2 else 0
+
+            # Estimar duração da última legenda narrativa
+            ultimo_dur = 5.0
+            if len(narrativas) >= 2:
+                pen_ts = narrativas[-2]["timestamp"]
+                p_parts = pen_ts.split(":")
+                pen_sec = int(p_parts[0]) * 60 + int(p_parts[1]) if len(p_parts) == 2 else 0
+                ultimo_dur = ultimo_sec - pen_sec
+
+            fim_narrativo = ultimo_sec + ultimo_dur
+
+            # Se as narrativas ultrapassam o espaço disponível, comprimir
+            if fim_narrativo > cta_inicio_ideal and len(narrativas) > 3:
+                print(f"[RC Timestamps] Comprimindo: narrativas terminam em {fim_narrativo:.0f}s, CTA deveria começar em {cta_inicio_ideal:.0f}s", flush=True)
+
+                dur_por_legenda = cta_inicio_ideal / len(narrativas)
+                dur_por_legenda = max(4.0, min(7.0, dur_por_legenda))
+
+                ts = 0.0
+                for item in narrativas:
+                    mins = int(ts // 60)
+                    secs = int(ts % 60)
+                    item["timestamp"] = f"{mins:02d}:{secs:02d}"
+                    ts += dur_por_legenda
+
+            # Posicionar CTA SEMPRE dentro da janela
+            cta_sec = max(0, duracao_video - cta_duracao)
+            cta_mins = int(cta_sec // 60)
+            cta_secs = int(cta_sec % 60)
+            for cta_item in cta_items:
+                cta_item["timestamp"] = f"{cta_mins:02d}:{cta_secs:02d}"
+
+            print(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)", flush=True)
+
     return overlay_json
 
 
@@ -900,23 +946,32 @@ def _format_post_rc(response: dict) -> str:
     cta = response.get("cta", "👉 Siga, o melhor da música clássica, diariamente no seu feed.")
     hashtags = response.get("hashtags", [])
 
-    lines = [h1, h2]
-    if h3:
-        lines.append(h3)
-    lines.append("•")
-    lines.append(p1)
-    lines.append("•")
-    lines.append(p2)
-    lines.append("•")
-    lines.append(p3)
-    lines.append("•")
-    lines.append(cta)
-    lines.append("•")
-    lines.append("•")
-    lines.append("•")
-    lines.append(" ".join(hashtags))
+    # Montar blocos semânticos separados por \n\n
+    # (compatível com _translate_post_fallback que faz split("\n\n"))
 
-    return "\n".join(lines)
+    # Bloco 1: Header (linhas internas com \n simples)
+    header_lines = [h1, h2]
+    if h3:
+        header_lines.append(h3)
+    header_block = "\n".join(header_lines)
+
+    blocks = [header_block]
+
+    if p1:
+        blocks.append("•\n" + p1)
+    if p2:
+        blocks.append("•\n" + p2)
+    if p3:
+        blocks.append("•\n" + p3)
+
+    # Bloco CTA
+    blocks.append("•\n" + cta)
+
+    # Bloco separadores finais + hashtags
+    hashtag_str = " ".join(hashtags) if hashtags else ""
+    blocks.append("•\n•\n•\n" + hashtag_str)
+
+    return "\n\n".join(blocks)
 
 
 # ── RC Generation Functions ──────────────────────────────

@@ -8,7 +8,7 @@ from backend.config import GOOGLE_TRANSLATE_API_KEY
 
 ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
-# CTAs fixos para RC (Reels Classics) por idioma
+# CTAs fixos para RC (Reels Classics) por idioma — overlay (com \n para legendas)
 RC_CTA = {
     "pt": "Siga, o melhor da música clássica,\ndiariamente no seu feed. ❤️",
     "en": "Follow for the best of classical music,\ndaily on your feed. ❤️",
@@ -17,6 +17,17 @@ RC_CTA = {
     "fr": "Suis-nous pour le meilleur\nde la musique classique. ❤️",
     "it": "Seguici per il meglio della musica classica,\nogni giorno nel tuo feed. ❤️",
     "pl": "Obserwuj nas, najlepsza muzyka klasyczna\ncodziennie na Twoim feedzie. ❤️",
+}
+
+# CTAs fixos para RC posts (com 👉, sem \n de legenda)
+RC_POST_CTA = {
+    "pt": "👉 Siga, o melhor da música clássica, diariamente no seu feed.",
+    "en": "👉 Follow for the best of classical music, daily on your feed.",
+    "es": "👉 Sigue, lo mejor de la música clásica, a diario en tu feed.",
+    "de": "👉 Folge uns für die beste klassische Musik, täglich in deinem Feed.",
+    "fr": "👉 Suis-nous pour le meilleur de la musique classique.",
+    "it": "👉 Seguici per il meglio della musica classica, ogni giorno nel tuo feed.",
+    "pl": "👉 Obserwuj nas, najlepsza muzyka klasyczna codziennie na Twoim feedzie.",
 }
 
 TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
@@ -305,12 +316,30 @@ def _translate_post_fallback(post_text: str, target_lang: str) -> str:
             hashtags = paragraphs.pop(i).strip()
             break
 
-    # O que sobra é storytelling + CTA — traduzir bloco inteiro
-    body = "\n\n".join(paragraphs).strip()
+    # Separar CTA RC (bloco que contém 👉) do storytelling
+    cta_block = ""
+    story_paragraphs = []
+    for para in paragraphs:
+        if "👉" in para:
+            cta_block = para
+        else:
+            story_paragraphs.append(para)
+
+    # Traduzir storytelling
+    body = "\n\n".join(story_paragraphs).strip()
     translated_body = translate_text(body, target_lang) if body else ""
+
+    # CTA: usar versão fixa se RC (detectado por 👉), senão traduzir normalmente
+    if cta_block:
+        translated_cta = RC_POST_CTA.get(target_lang, RC_POST_CTA["en"])
+    else:
+        translated_cta = ""
+
     translated_hashtags = _translate_hashtags(hashtags, target_lang) if hashtags else ""
 
     parts = [intro, translated_body]
+    if translated_cta:
+        parts.append("•\n" + translated_cta)
     if translated_hashtags:
         parts.append(translated_hashtags)
 
