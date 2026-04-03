@@ -62,7 +62,7 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
                 translated_tags = project.youtube_tags
             else:
                 translated_overlay = (
-                    translate_overlay_json(project.overlay_json, lang)
+                    translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug)
                     if project.overlay_json
                     else None
                 )
@@ -123,7 +123,7 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
     ).delete()
 
     translated_overlay = (
-        translate_overlay_json(project.overlay_json, lang)
+        translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug)
         if project.overlay_json
         else None
     )

@@ -29,13 +29,22 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
     }).finally(() => setLoading(false))
   }, [projectId])
 
+  const isRC = project?.brand_slug === "reels-classics"
+
   const handleRegenerate = async () => {
     setRegenerating(true)
     setError("")
     try {
-      const p = await redatorApi.regenerateOverlay(projectId, customPrompt || undefined)
-      setProject(p)
-      setOverlay(p.overlay_json || [])
+      if (isRC) {
+        await redatorApi.generateOverlayRC(projectId)
+        const p = await redatorApi.getProject(projectId)
+        setProject(p)
+        setOverlay(p.overlay_json || [])
+      } else {
+        const p = await redatorApi.regenerateOverlay(projectId, customPrompt || undefined)
+        setProject(p)
+        setOverlay(p.overlay_json || [])
+      }
       setCustomPrompt("")
       setShowPrompt(false)
     } catch (err: any) {
@@ -57,12 +66,20 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
     setError("")
     try {
       await redatorApi.approveOverlay(projectId, overlay)
-      router.push(`/redator/projeto/${projectId}/post`)
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setSaving(false)
+      return
     }
+    if (isRC) {
+      try {
+        await redatorApi.generatePostRC(projectId)
+      } catch (e: any) {
+        // Overlay aprovado mas descrição falhou — redirecionar mesmo assim
+      }
+    }
+    router.push(`/redator/projeto/${projectId}/post`)
+    setSaving(false)
   }
 
   if (loading || !project) {
@@ -155,7 +172,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
       <Button className="w-full" onClick={handleApprove} disabled={saving || overlay.length === 0}>
         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         <Check className="mr-2 h-4 w-4" />
-        {saving ? "Salvando..." : "Aprovar e Continuar para o Post"}
+        {saving ? (isRC ? "Gerando descricao..." : "Salvando...") : (isRC ? "Aprovar e Gerar Descricao" : "Aprovar e Continuar para o Post")}
       </Button>
     </div>
   )

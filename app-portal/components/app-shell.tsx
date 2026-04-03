@@ -23,9 +23,11 @@ const breadcrumbMap: Record<string, string[]> = {
 function deriveBreadcrumb(pathname: string): string[] {
   if (breadcrumbMap[pathname]) return breadcrumbMap[pathname]
   if (pathname.startsWith("/redator/projeto/")) {
+    if (pathname.endsWith("/hooks")) return ["Redator", "Selecionar Gancho"]
     if (pathname.endsWith("/overlay")) return ["Redator", "Aprovar Overlay"]
     if (pathname.endsWith("/post")) return ["Redator", "Aprovar Post"]
     if (pathname.endsWith("/youtube")) return ["Redator", "Aprovar YouTube"]
+    if (pathname.endsWith("/automation")) return ["Redator", "Aprovar Automacao"]
     if (pathname.endsWith("/exportar")) return ["Redator", "Exportar"]
     return ["Redator", "Projeto"]
   }

@@ -1,6 +1,6 @@
 import datetime
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class DetectMetadataResponse(BaseModel):
@@ -38,6 +38,9 @@ class ProjectCreate(BaseModel):
     cut_end: str = ""
     perfil_id: Optional[int] = None
     brand_slug: str
+    instrument_formation: Optional[str] = None
+    orchestra: Optional[str] = None
+    conductor: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -61,6 +64,9 @@ class ProjectUpdate(BaseModel):
     cut_end: Optional[str] = None
     perfil_id: Optional[int] = None
     brand_slug: Optional[str] = None
+    instrument_formation: Optional[str] = None
+    orchestra: Optional[str] = None
+    conductor: Optional[str] = None
 
 
 class TranslationOut(BaseModel):
@@ -107,6 +113,15 @@ class ProjectOut(BaseModel):
     overlay_approved: bool
     post_approved: bool
     youtube_approved: bool
+    # RC (Reels Classics)
+    research_data: Optional[dict] = None
+    hooks_json: Optional[dict] = None
+    selected_hook: Optional[str] = None
+    automation_json: Optional[dict] = None
+    automation_approved: bool = False
+    instrument_formation: Optional[str] = None
+    orchestra: Optional[str] = None
+    conductor: Optional[str] = None
     translations: List[TranslationOut] = []
     warnings: List[str] = []
 
@@ -134,3 +149,14 @@ class ApprovePostRequest(BaseModel):
 class ApproveYoutubeRequest(BaseModel):
     youtube_title: str
     youtube_tags: str
+
+
+class SelectHookRequest(BaseModel):
+    hook_index: Optional[int] = None
+    custom_hook: Optional[str] = None
+
+    @model_validator(mode='after')
+    def at_least_one(self):
+        if self.hook_index is None and not self.custom_hook:
+            raise ValueError("hook_index ou custom_hook é obrigatório")
+        return self

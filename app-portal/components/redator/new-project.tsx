@@ -15,6 +15,7 @@ import { BrandSelector } from "@/components/brand-selector"
 import { useBrand } from "@/lib/brand-context"
 
 const CATEGORIES = ["", "Aria", "Duet", "Chorus", "Sacred Music", "Art Song", "Ensemble", "Crossover", "Vocal", "Overture", "Recitative", "Ballet", "Intermezzo", "Other"]
+const RC_CATEGORIES = ["", "Orchestral", "Chamber", "Piano Solo", "Strings", "Winds", "Choral/Sacred", "Ballet", "Contemporary", "Crossover", "Opera", "Other"]
 
 const HOOK_CATEGORIES = [
   { key: "curiosidade_musica", label: "Curiosidade Sobre a Musica", emoji: "🎵", desc: "Origem, contexto ou fato surpreendente sobre a musica" },
@@ -57,6 +58,11 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
   const [cutStart, setCutStart] = useState("")
   const [cutEnd, setCutEnd] = useState("")
   const { selectedBrand } = useBrand()
+  const isRC = selectedBrand?.slug === "reels-classics"
+
+  const [instrumentFormation, setInstrumentFormation] = useState("")
+  const [orchestra, setOrchestra] = useState("")
+  const [conductor, setConductor] = useState("")
 
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState("")
@@ -204,7 +210,9 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
 
   const isValidMMSS = (v: string) => /^\d{2}:\d{2}$/.test(v)
   const hookValid = hookCategory === "prefiro_escrever" ? hook.trim().length > 0 : hookCategory.length > 0
-  const stepAComplete = hookValid && !!category && isValidMMSS(cutStart) && isValidMMSS(cutEnd)
+  const stepAComplete = isRC
+    ? (!!category && isValidMMSS(cutStart) && isValidMMSS(cutEnd))
+    : (hookValid && !!category && isValidMMSS(cutStart) && isValidMMSS(cutEnd))
   const canSubmit = stepAComplete && detected && !!interpreters[0]?.artist && !!shared.work && !!shared.composer && !!selectedBrand
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,7 +227,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
     try {
       const joinField = (key: keyof Interpreter) =>
         interpreters.map(i => i[key]).filter(Boolean).join(key === "artist" ? " & " : " / ")
-      const project = await redatorApi.createProject({
+      const projectData: Record<string, string> = {
         youtube_url: youtubeUrl, hook, hook_category: hookCategory,
         category, cut_start: cutStart, cut_end: cutEnd,
         artist: joinField("artist"), work: shared.work, composer: shared.composer,
@@ -227,9 +235,34 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         nationality_flag: joinField("nationality_flag"), voice_type: joinField("voice_type"),
         birth_date: joinField("birth_date"), death_date: joinField("death_date"),
         album_opera: shared.album_opera,
-      }, selectedBrand?.slug)
-      await redatorApi.generate(project.id)
-      router.push(`/redator/projeto/${project.id}/overlay`)
+      }
+      if (isRC) {
+        if (instrumentFormation) projectData.instrument_formation = instrumentFormation
+        if (orchestra) projectData.orchestra = orchestra
+        if (conductor) projectData.conductor = conductor
+      }
+      const project = await redatorApi.createProject(projectData, selectedBrand?.slug)
+
+      if (isRC) {
+        try {
+          await redatorApi.generateResearchRC(project.id)
+        } catch (e: any) {
+          setError(`Erro na pesquisa: ${e.message}. Tente novamente.`)
+          setLoading(false)
+          return
+        }
+        try {
+          await redatorApi.generateHooksRC(project.id)
+        } catch (e: any) {
+          setError(`Pesquisa OK, mas erro ao gerar ganchos: ${e.message}. Tente novamente.`)
+          setLoading(false)
+          return
+        }
+        router.push(`/redator/projeto/${project.id}/hooks`)
+      } else {
+        await redatorApi.generate(project.id)
+        router.push(`/redator/projeto/${project.id}/overlay`)
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -305,46 +338,48 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label>Categoria do Gancho *</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {HOOK_CATEGORIES.map((hc) => (
-                  <button
-                    key={hc.key}
-                    type="button"
-                    onClick={() => {
-                      setHookCategory(hc.key)
-                      if (hc.key !== "prefiro_escrever" && hookCategory === "prefiro_escrever") setHook("")
-                    }}
-                    className={cn(
-                      "flex items-start gap-2.5 rounded-lg border p-3 text-left transition-all",
-                      hookCategory === hc.key
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                        : "border-border bg-card hover:bg-muted/30"
-                    )}
-                  >
-                    <span className="text-lg leading-none">{hc.emoji}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-foreground">{hc.label}</p>
-                      <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{hc.desc}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {!isRC && (
+              <div className="space-y-2">
+                <Label>Categoria do Gancho *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {HOOK_CATEGORIES.map((hc) => (
+                    <button
+                      key={hc.key}
+                      type="button"
+                      onClick={() => {
+                        setHookCategory(hc.key)
+                        if (hc.key !== "prefiro_escrever" && hookCategory === "prefiro_escrever") setHook("")
+                      }}
+                      className={cn(
+                        "flex items-start gap-2.5 rounded-lg border p-3 text-left transition-all",
+                        hookCategory === hc.key
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "border-border bg-card hover:bg-muted/30"
+                      )}
+                    >
+                      <span className="text-lg leading-none">{hc.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-foreground">{hc.label}</p>
+                        <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{hc.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
 
-              {hookCategory && hookCategory !== "prefiro_escrever" && (
-                <div className="mt-3 space-y-1.5">
-                  <Label className="text-xs">Complemento (opcional)</Label>
-                  <Textarea value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Quer acrescentar algo ao prompt?" className="min-h-[60px]" />
-                </div>
-              )}
-              {hookCategory === "prefiro_escrever" && (
-                <div className="mt-3 space-y-1.5">
-                  <Label className="text-xs">Seu gancho *</Label>
-                  <Textarea value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Escreva seu angulo criativo..." className="min-h-[80px]" />
-                </div>
-              )}
-            </div>
+                {hookCategory && hookCategory !== "prefiro_escrever" && (
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="text-xs">Complemento (opcional)</Label>
+                    <Textarea value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Quer acrescentar algo ao prompt?" className="min-h-[60px]" />
+                  </div>
+                )}
+                {hookCategory === "prefiro_escrever" && (
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="text-xs">Seu gancho *</Label>
+                    <Textarea value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Escreva seu angulo criativo..." className="min-h-[80px]" />
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
@@ -354,7 +389,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                   onChange={(e) => setCategory(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors"
                 >
-                  {CATEGORIES.map((c) => (
+                  {(isRC ? RC_CATEGORIES : CATEGORIES).map((c) => (
                     <option key={c} value={c}>{c || "— Selecionar —"}</option>
                   ))}
                 </select>
@@ -413,7 +448,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                       )}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Artista *</Label>
+                          <Label className="text-xs">{isRC ? "Interprete(s) *" : "Artista *"}</Label>
                           <Input value={interp.artist} onChange={(e) => setInterpreterField(index, "artist", e.target.value)} />
                         </div>
                         <div className="space-y-1">
@@ -424,18 +459,24 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                           <Label className="text-xs">Bandeira</Label>
                           <Input value={interp.nationality_flag} onChange={(e) => setInterpreterField(index, "nationality_flag", e.target.value)} className="text-xl" />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Tipo de Voz</Label>
-                          <Input value={interp.voice_type} onChange={(e) => setInterpreterField(index, "voice_type", e.target.value)} />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Nascimento</Label>
-                          <Input value={interp.birth_date} onChange={(e) => setInterpreterField(index, "birth_date", e.target.value)} placeholder="dd/mm/yyyy" />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Falecimento</Label>
-                          <Input value={interp.death_date} onChange={(e) => setInterpreterField(index, "death_date", e.target.value)} placeholder="Vazio se vivo" />
-                        </div>
+                        {!isRC && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Tipo de Voz</Label>
+                            <Input value={interp.voice_type} onChange={(e) => setInterpreterField(index, "voice_type", e.target.value)} />
+                          </div>
+                        )}
+                        {!isRC && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Nascimento</Label>
+                            <Input value={interp.birth_date} onChange={(e) => setInterpreterField(index, "birth_date", e.target.value)} placeholder="dd/mm/yyyy" />
+                          </div>
+                        )}
+                        {!isRC && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Falecimento</Label>
+                            <Input value={interp.death_date} onChange={(e) => setInterpreterField(index, "death_date", e.target.value)} placeholder="Vazio se vivo" />
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -471,6 +512,24 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
                       <Label className="text-xs">Album / Opera</Label>
                       <Input value={shared.album_opera} onChange={(e) => setSharedField("album_opera", e.target.value)} />
                     </div>
+                    {isRC && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Instrumento / Formacao *</Label>
+                        <Input value={instrumentFormation} onChange={(e) => setInstrumentFormation(e.target.value)} placeholder="Piano solo, Quarteto de cordas, Orquestra sinfonica..." />
+                      </div>
+                    )}
+                    {isRC && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Orquestra / Ensemble</Label>
+                        <Input value={orchestra} onChange={(e) => setOrchestra(e.target.value)} placeholder="Opcional" />
+                      </div>
+                    )}
+                    {isRC && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Regente</Label>
+                        <Input value={conductor} onChange={(e) => setConductor(e.target.value)} placeholder="Opcional" />
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -481,7 +540,9 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         <div className="pt-4 border-t">
           <Button type="submit" className="w-full" size="lg" disabled={loading || !canSubmit}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {loading ? "Criando & Gerando Conteúdo..." : "Próximo: Gerar Conteúdo"}
+            {loading
+              ? (isRC ? "Pesquisando e gerando ganchos..." : "Criando & Gerando Conteúdo...")
+              : (isRC ? "Próximo: Pesquisar e Gerar Ganchos" : "Próximo: Gerar Conteúdo")}
           </Button>
           {!detected && !loading && !r2Folder && (
             <p className="mt-3 text-center text-sm font-medium text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
@@ -490,7 +551,7 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
           )}
           {detected && !canSubmit && !loading && (() => {
             const missing: string[] = []
-            if (!hookValid) missing.push("Categoria do Gancho")
+            if (!isRC && !hookValid) missing.push("Categoria do Gancho")
             if (!category) missing.push("Categoria")
             if (!isValidMMSS(cutStart)) missing.push("Inicio do Corte (MM:SS)")
             if (!isValidMMSS(cutEnd)) missing.push("Fim do Corte (MM:SS)")

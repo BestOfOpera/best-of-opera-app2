@@ -34,6 +34,16 @@ export interface Project {
   overlay_approved: boolean
   post_approved: boolean
   youtube_approved: boolean
+  brand_slug: string
+  // RC (Reels Classics)
+  research_data: Record<string, any> | null
+  hooks_json: { ganchos: Array<{ texto: string; angulo: string; tipo: string; fio_narrativo?: string; rank?: number }> } | null
+  selected_hook: string | null
+  automation_json: Record<string, any> | null
+  automation_approved: boolean
+  instrument_formation: string | null
+  orchestra: string | null
+  conductor: string | null
   translations: Translation[]
   warnings?: string[]
 }
@@ -158,6 +168,25 @@ export const redatorApi = {
       method: "PUT",
       body: JSON.stringify({ youtube_title: title, youtube_tags: tags }),
     }),
+
+  // RC (Reels Classics) endpoints
+  generateResearchRC: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-rc`, { method: "POST", timeout: 90000 }),
+  generateHooksRC: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-hooks-rc`, { method: "POST", timeout: 90000 }),
+  selectHook: (id: number, body: { hook_index?: number; custom_hook?: string }) =>
+    request<Project>(`${BASE()}/projects/${id}/select-hook`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  generateOverlayRC: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-overlay-rc`, { method: "POST", timeout: 90000 }),
+  generatePostRC: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-post-rc`, { method: "POST", timeout: 90000 }),
+  generateAutomationRC: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-automation-rc`, { method: "POST", timeout: 90000 }),
+  approveAutomation: (id: number) =>
+    request<Project>(`${BASE()}/projects/${id}/approve-automation`, { method: "PUT" }),
 
   translate: (id: number) =>
     request<Project>(`${BASE()}/projects/${id}/translate`, { method: "POST", timeout: 180000 }),

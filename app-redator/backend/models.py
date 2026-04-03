@@ -59,6 +59,16 @@ class Project(Base):
     post_approved: Mapped[bool] = mapped_column(Boolean, default=False)
     youtube_approved: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # RC (Reels Classics)
+    research_data: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    hooks_json: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    selected_hook: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    automation_json: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    automation_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    instrument_formation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    orchestra: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    conductor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     translations: Mapped[list["Translation"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

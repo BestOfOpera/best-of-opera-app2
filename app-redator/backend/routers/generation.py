@@ -5,9 +5,14 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import Project
-from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse  # noqa: F401
+from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataResponse, SelectHookRequest  # noqa: F401
 from backend.config import load_brand_config
-from backend.services.claude_service import generate_overlay, generate_post, generate_youtube, generate_hooks, detect_metadata, detect_metadata_from_text
+from backend.services.claude_service import (
+    generate_overlay, generate_post, generate_youtube, generate_hooks,
+    detect_metadata, detect_metadata_from_text,
+    generate_research_rc, generate_hooks_rc,
+    generate_overlay_rc, generate_post_rc, generate_automation_rc,
+)
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
 
@@ -202,3 +207,167 @@ def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Hook generation failed: {e}")
+
+
+# ── RC (Reels Classics) endpoints ──────────────────────────────
+
+@router.post("/{project_id}/generate-research-rc")
+def generate_research_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """RC: pesquisa aprofundada sobre a obra/artista."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if getattr(project, 'brand_slug', '') != "reels-classics":
+        raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    try:
+        result = generate_research_rc(project)
+        db.commit()
+        return {"status": "research_complete", "research_data": result}
+    except ValueError as e:
+        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na geração RC: {error_str}")
+
+
+@router.post("/{project_id}/generate-hooks-rc")
+def generate_hooks_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """RC: gera hooks baseados na pesquisa."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if getattr(project, 'brand_slug', '') != "reels-classics":
+        raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    if not project.research_data:
+        raise HTTPException(400, "Gere a pesquisa primeiro (generate-research-rc)")
+    try:
+        result = generate_hooks_rc(project)
+        db.commit()
+        return {"status": "hooks_complete", "hooks_json": result}
+    except ValueError as e:
+        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na geração RC: {error_str}")
+
+
+@router.put("/{project_id}/select-hook", response_model=ProjectOut)
+def select_hook(
+    project_id: int,
+    body: SelectHookRequest,
+    db: Session = Depends(get_db),
+):
+    """RC: seleciona um hook do hooks_json ou define um custom."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if body.hook_index is not None:
+        if not project.hooks_json or "ganchos" not in project.hooks_json:
+            raise HTTPException(400, "Gere os ganchos primeiro (generate-hooks-rc)")
+        if body.hook_index >= len(project.hooks_json["ganchos"]):
+            raise HTTPException(400, f"hook_index {body.hook_index} fora do range (max: {len(project.hooks_json['ganchos']) - 1})")
+        texto = project.hooks_json["ganchos"][body.hook_index]["texto"]
+        project.selected_hook = texto
+        project.hook = texto
+    elif body.custom_hook:
+        project.selected_hook = body.custom_hook
+        project.hook = body.custom_hook
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.post("/{project_id}/generate-overlay-rc")
+def generate_overlay_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """RC: gera overlay baseado no hook selecionado."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if getattr(project, 'brand_slug', '') != "reels-classics":
+        raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    if not project.selected_hook:
+        raise HTTPException(400, "Selecione um gancho primeiro (select-hook)")
+    try:
+        result = generate_overlay_rc(project)
+        db.commit()
+        return {"status": "overlay_complete", "overlay_json": result}
+    except ValueError as e:
+        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na geração RC: {error_str}")
+
+
+@router.post("/{project_id}/generate-post-rc")
+def generate_post_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """RC: gera post/caption baseado no hook selecionado."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if getattr(project, 'brand_slug', '') != "reels-classics":
+        raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    if not project.overlay_json:
+        raise HTTPException(400, "Gere o overlay primeiro (generate-overlay-rc)")
+    try:
+        result = generate_post_rc(project)
+        db.commit()
+        return {"status": "post_complete", "post_text": result}
+    except ValueError as e:
+        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na geração RC: {error_str}")
+
+
+@router.post("/{project_id}/generate-automation-rc")
+def generate_automation_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """RC: gera automation JSON."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    if getattr(project, 'brand_slug', '') != "reels-classics":
+        raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
+    if not project.post_text:
+        raise HTTPException(400, "Gere a descrição primeiro (generate-post-rc)")
+    try:
+        result = generate_automation_rc(project)
+        db.commit()
+        return {"status": "automation_complete", "automation_json": result}
+    except ValueError as e:
+        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na geração RC: {error_str}")
+
+
+@router.put("/{project_id}/approve-automation", response_model=ProjectOut)
+def approve_automation(project_id: int, db: Session = Depends(get_db)):
+    """RC: aprova o automation_json gerado."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    if not project.automation_json:
+        raise HTTPException(400, "No automation_json to approve")
+
+    project.automation_approved = True
+    db.commit()
+    db.refresh(project)
+    return project

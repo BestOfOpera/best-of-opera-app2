@@ -8,6 +8,17 @@ from backend.config import GOOGLE_TRANSLATE_API_KEY
 
 ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
+# CTAs fixos para RC (Reels Classics) por idioma
+RC_CTA = {
+    "pt": "Siga, o melhor da música clássica,\ndiariamente no seu feed. ❤️",
+    "en": "Follow for the best of classical music,\ndaily on your feed. ❤️",
+    "es": "Sigue, lo mejor de la música clásica,\na diario en tu feed. ❤️",
+    "de": "Folge uns für die beste klassische Musik,\ntäglich in deinem Feed. ❤️",
+    "fr": "Suis-nous pour le meilleur\nde la musique classique. ❤️",
+    "it": "Seguici per il meglio della musica classica,\nogni giorno nel tuo feed. ❤️",
+    "pl": "Obserwuj nas, najlepsza muzyka klasyczna\ncodziennie na Twoim feedzie. ❤️",
+}
+
 TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
 DETECT_URL = "https://translation.googleapis.com/language/translate/v2/detect"
 
@@ -340,11 +351,15 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def translate_overlay_json(overlay_json: list, target_lang: str) -> list:
-    """Translate the text field of each overlay subtitle."""
+def translate_overlay_json(overlay_json: list, target_lang: str, brand_slug: str | None = None) -> list:
+    """Translate the text field of each overlay subtitle.
+    Para RC, usa CTA fixo traduzido ao invés de tradução automática."""
     result = []
     for entry in overlay_json:
-        translated_text = translate_text(entry.get("text", ""), target_lang)
+        if entry.get("_is_cta") and brand_slug == "reels-classics":
+            translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
+        else:
+            translated_text = translate_text(entry.get("text", ""), target_lang)
         item = {"timestamp": entry["timestamp"], "text": translated_text}
         if entry.get("_is_cta"):
             item["_is_cta"] = True

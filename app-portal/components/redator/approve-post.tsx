@@ -27,13 +27,22 @@ export function RedatorApprovePost({ projectId }: { projectId: number }) {
     }).finally(() => setLoading(false))
   }, [projectId])
 
+  const isRC = project?.brand_slug === "reels-classics"
+
   const handleRegenerate = async () => {
     setRegenerating(true)
     setError("")
     try {
-      const p = await redatorApi.regeneratePost(projectId, customPrompt || undefined)
-      setProject(p)
-      setPostText(p.post_text || "")
+      if (isRC) {
+        await redatorApi.generatePostRC(projectId)
+        const p = await redatorApi.getProject(projectId)
+        setProject(p)
+        setPostText(p.post_text || "")
+      } else {
+        const p = await redatorApi.regeneratePost(projectId, customPrompt || undefined)
+        setProject(p)
+        setPostText(p.post_text || "")
+      }
       setCustomPrompt("")
       setShowPrompt(false)
     } catch (err: any) {
@@ -43,17 +52,44 @@ export function RedatorApprovePost({ projectId }: { projectId: number }) {
     }
   }
 
+  const [generatingPost, setGeneratingPost] = useState(false)
+
+  const handleGeneratePost = async () => {
+    setGeneratingPost(true)
+    setError("")
+    try {
+      await redatorApi.generatePostRC(projectId)
+      const p = await redatorApi.getProject(projectId)
+      setProject(p)
+      setPostText(p.post_text || "")
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setGeneratingPost(false)
+    }
+  }
+
   const handleApprove = async () => {
     setSaving(true)
     setError("")
     try {
       await redatorApi.approvePost(projectId, postText)
-      router.push(`/redator/projeto/${projectId}/youtube`)
     } catch (err: any) {
       setError(err.message)
-    } finally {
       setSaving(false)
+      return
     }
+    if (isRC) {
+      try {
+        await redatorApi.generateAutomationRC(projectId)
+      } catch (e: any) {
+        // Post aprovado mas automação falhou — redirecionar mesmo assim
+      }
+      router.push(`/redator/projeto/${projectId}/automation`)
+    } else {
+      router.push(`/redator/projeto/${projectId}/youtube`)
+    }
+    setSaving(false)
   }
 
   const handleCopy = () => {
@@ -95,6 +131,18 @@ export function RedatorApprovePost({ projectId }: { projectId: number }) {
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
 
+      {isRC && !postText && !regenerating && (
+        <Card>
+          <CardContent className="p-8 text-center space-y-4">
+            <p className="text-sm text-muted-foreground">Descricao ainda nao foi gerada</p>
+            <Button onClick={handleGeneratePost} disabled={generatingPost}>
+              {generatingPost && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {generatingPost ? "Gerando descricao..." : "Gerar descricao"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {showPrompt && (
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -133,7 +181,7 @@ export function RedatorApprovePost({ projectId }: { projectId: number }) {
       <Button className="w-full" onClick={handleApprove} disabled={saving || !postText.trim()}>
         {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         <Check className="mr-2 h-4 w-4" />
-        {saving ? "Salvando..." : "Aprovar e Continuar para YouTube"}
+        {saving ? (isRC ? "Gerando automacao..." : "Salvando...") : (isRC ? "Aprovar e Gerar Automacao" : "Aprovar e Continuar para YouTube")}
       </Button>
     </div>
   )

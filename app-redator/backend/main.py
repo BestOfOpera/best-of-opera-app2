@@ -39,6 +39,24 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE projects ADD COLUMN brand_slug VARCHAR(50) DEFAULT 'best-of-opera'"))
         # SPEC-009: remover default BO — novos projetos devem sempre ter slug explícito
         conn.execute(text("ALTER TABLE projects ALTER COLUMN brand_slug DROP DEFAULT"))
+        # v13 — RC foundation fields
+        if "research_data" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN research_data JSON"))
+        if "hooks_json" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN hooks_json JSON"))
+        if "selected_hook" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN selected_hook TEXT"))
+        if "automation_json" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN automation_json JSON"))
+        if "automation_approved" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN automation_approved BOOLEAN DEFAULT FALSE"))
+        # v14 — RC metadata fields
+        if "instrument_formation" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN instrument_formation VARCHAR(255)"))
+        if "orchestra" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN orchestra VARCHAR(255)"))
+        if "conductor" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN conductor VARCHAR(255)"))
 
 
 _run_migrations()

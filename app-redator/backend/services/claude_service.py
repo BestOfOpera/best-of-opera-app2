@@ -444,3 +444,268 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
     if title == tags:
         tags = ""
     return title, tags
+
+
+# ═══════════════════════════════════════════════════════════════
+# RC (Reels Classics) — Funções de geração
+# ═══════════════════════════════════════════════════════════════
+
+
+def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
+    """Chama Claude e parseia resposta JSON. Retry 1x se JSON inválido."""
+    system = "Respond in valid JSON only. No markdown fences, no preamble, no explanation outside the JSON."
+    message = client.messages.create(
+        model=MODEL, max_tokens=max_tokens, temperature=temperature,
+        system=system, messages=[{"role": "user", "content": prompt}],
+    )
+    raw = message.content[0].text.strip()
+    try:
+        return json.loads(_strip_json_fences(raw))
+    except json.JSONDecodeError:
+        # Retry 1x
+        message2 = client.messages.create(
+            model=MODEL, max_tokens=max_tokens, temperature=temperature,
+            system=system + " Your previous response was not valid JSON. Try again.",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw2 = message2.content[0].text.strip()
+        try:
+            return json.loads(_strip_json_fences(raw2))
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Claude retornou JSON inválido após 2 tentativas. "
+                f"Últimos 500 chars: {raw2[-500:]}"
+            ) from e
+
+
+def _extract_rc_metadata(project) -> dict:
+    """Extrai metadata do projeto no formato esperado pelos prompts RC."""
+    return {
+        "artist": project.artist or "",
+        "work": project.work or "",
+        "composer": project.composer or "",
+        "composition_year": project.composition_year or "",
+        "nationality": project.nationality or "",
+        "instrument_formation": getattr(project, 'instrument_formation', '') or "",
+        "orchestra": getattr(project, 'orchestra', '') or "",
+        "conductor": getattr(project, 'conductor', '') or "",
+        "category": project.category or "",
+        "album_opera": project.album_opera or "",
+        "cut_start": project.cut_start or "00:00",
+        "cut_end": project.cut_end or "01:00",
+    }
+
+
+def _sanitize_rc(texto: str) -> str:
+    """Pós-processamento determinístico para RC."""
+    if not texto:
+        return texto
+
+    # Remove travessões (marca de IA mais comum)
+    texto = texto.replace(" — ", ". ")
+    texto = texto.replace("— ", ". ")
+    texto = texto.replace(" —", ".")
+    texto = texto.replace("—", ".")
+    texto = texto.replace(" – ", ", ")
+    texto = texto.replace("–", ",")
+
+    # Remove metadados vazados
+    texto = re.sub(r'\d+px', '', texto)
+    texto = re.sub(
+        r'\b(GANCHO|CORPO|CLÍMAX|FECHAMENTO|CTA|CONSTRUÇÃO|DESENVOLVIMENTO)\b\s*',
+        '', texto, flags=re.IGNORECASE
+    )
+
+    # Remove markdown
+    texto = texto.replace('**', '')
+    texto = texto.replace('__', '')
+    texto = texto.replace('---', '')
+    texto = texto.replace('___', '')
+    texto = texto.replace('***', '')
+
+    # Remove emojis de overlay (exceto ❤️ no CTA)
+    for emoji in ['🎵', '🎶', '🎼', '💫', '🌟', '⭐', '🎭', '🎪']:
+        texto = texto.replace(emoji, '')
+
+    # Limpa espaços extras e linhas vazias
+    texto = re.sub(r' +', ' ', texto)
+    texto = re.sub(r'\n\s*\n\s*\n', '\n\n', texto)
+    texto = texto.strip()
+
+    return texto
+
+
+def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
+    """Converte MM:SS para segundos e retorna duração."""
+    def to_sec(t):
+        if not t:
+            return 0
+        parts = str(t).strip().split(":")
+        if len(parts) == 2:
+            return int(parts[0]) * 60 + int(parts[1])
+        return 0
+    return max(0, to_sec(cut_end) - to_sec(cut_start))
+
+
+def _process_overlay_rc(response: dict, project) -> list:
+    """Converte output do LLM em overlay_json compatível com o editor.
+    Calcula timestamps deterministicamente. Aplica sanitização."""
+    legendas = response.get("legendas", [])
+
+    duracao_video = _calc_duracao_video(project.cut_start, project.cut_end)
+    cta_duracao = max(5.0, duracao_video * 0.13)
+    tempo_narrativo = duracao_video - cta_duracao
+
+    overlay_json = []
+    timestamp_sec = 0.0
+
+    for leg in legendas:
+        texto = leg.get("texto", "")
+        tipo = leg.get("tipo", "corpo")
+
+        texto = _sanitize_rc(texto)
+
+        if not texto:
+            continue
+
+        # Calcular duração desta legenda
+        if tipo == "cta":
+            dur = cta_duracao
+        else:
+            palavras = len(texto.split())
+            dur = palavras / 2.5  # ~2.5 palavras/segundo
+            dur = max(4.0, min(7.0, round(dur, 1)))
+
+        # Ajustar se estourar o tempo narrativo
+        if tipo != "cta" and tempo_narrativo > 0 and timestamp_sec + dur > tempo_narrativo:
+            dur = max(4.0, tempo_narrativo - timestamp_sec)
+
+        # Formatar timestamp MM:SS
+        mins = int(timestamp_sec // 60)
+        secs = int(timestamp_sec % 60)
+        ts = f"{mins:02d}:{secs:02d}"
+
+        overlay_json.append({
+            "text": texto,
+            "timestamp": ts,
+            "type": "gancho" if tipo == "gancho" else ("cta" if tipo == "cta" else "corpo"),
+            "_is_cta": tipo == "cta",
+        })
+
+        # Gap ZERO
+        timestamp_sec += dur
+
+    return overlay_json
+
+
+def _format_post_rc(response: dict) -> str:
+    """Monta post_text formatado a partir do JSON do LLM."""
+    h1 = response.get("header_linha1", "")
+    h2 = response.get("header_linha2", "")
+    h3 = response.get("header_linha3", "")
+    p1 = response.get("paragrafo1", "")
+    p2 = response.get("paragrafo2", "")
+    p3 = response.get("paragrafo3", "")
+    cta = response.get("cta", "👉 Siga, o melhor da música clássica, diariamente no seu feed.")
+    hashtags = response.get("hashtags", [])
+
+    lines = [h1, h2]
+    if h3:
+        lines.append(h3)
+    lines.append("•")
+    lines.append(p1)
+    lines.append("•")
+    lines.append(p2)
+    lines.append("•")
+    lines.append(p3)
+    lines.append("•")
+    lines.append(cta)
+    lines.append("•")
+    lines.append("•")
+    lines.append("•")
+    lines.append(" ".join(hashtags))
+
+    return "\n".join(lines)
+
+
+# ── RC Generation Functions ──────────────────────────────
+
+def generate_research_rc(project, brand_config=None) -> dict:
+    """Gera pesquisa profunda para RC. Salva em project.research_data."""
+    from backend.prompts.rc_research_prompt import build_rc_research_prompt
+
+    metadata = _extract_rc_metadata(project)
+    prompt = build_rc_research_prompt(metadata)
+
+    result = _call_claude_json(prompt, max_tokens=4000, temperature=0.7)
+    project.research_data = result
+    return result
+
+
+def generate_hooks_rc(project, brand_config=None) -> dict:
+    """Gera ganchos para RC usando pesquisa como base. Salva em project.hooks_json."""
+    from backend.prompts.rc_hook_prompt import build_rc_hook_prompt
+
+    metadata = _extract_rc_metadata(project)
+    prompt = build_rc_hook_prompt(metadata, project.research_data or {})
+
+    result = _call_claude_json(prompt, max_tokens=2000, temperature=0.7)
+    project.hooks_json = result
+    return result
+
+
+def generate_overlay_rc(project, brand_config=None) -> list:
+    """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json."""
+    from backend.prompts.rc_overlay_prompt import build_rc_overlay_prompt
+
+    metadata = _extract_rc_metadata(project)
+
+    # Buscar fio narrativo do hook selecionado
+    hook_fio = ""
+    if project.hooks_json and project.selected_hook:
+        for h in (project.hooks_json or {}).get("ganchos", []):
+            if h.get("texto") == project.selected_hook:
+                hook_fio = h.get("fio_narrativo", "")
+                break
+
+    prompt = build_rc_overlay_prompt(
+        metadata, project.research_data or {},
+        project.selected_hook or "", hook_fio
+    )
+
+    response = _call_claude_json(prompt, max_tokens=3000, temperature=0.5)
+    overlay_json = _process_overlay_rc(response, project)
+
+    project.overlay_json = overlay_json
+    return overlay_json
+
+
+def generate_post_rc(project, brand_config=None) -> str:
+    """Gera descrição Instagram para RC. Salva em project.post_text."""
+    from backend.prompts.rc_post_prompt import build_rc_post_prompt
+
+    metadata = _extract_rc_metadata(project)
+    prompt = build_rc_post_prompt(
+        metadata, project.research_data or {}, project.overlay_json or []
+    )
+
+    response = _call_claude_json(prompt, max_tokens=2500, temperature=0.5)
+    post_text = _format_post_rc(response)
+    post_text = _sanitize_rc(post_text)
+
+    project.post_text = post_text
+    return post_text
+
+
+def generate_automation_rc(project, brand_config=None) -> dict:
+    """Gera automação para RC. Salva em project.automation_json."""
+    from backend.prompts.rc_automation_prompt import build_rc_automation_prompt
+
+    metadata = _extract_rc_metadata(project)
+    prompt = build_rc_automation_prompt(
+        metadata, project.overlay_json or [], project.post_text or ""
+    )
+
+    result = _call_claude_json(prompt, max_tokens=1000, temperature=0.5)
+    project.automation_json = result
+    return result
