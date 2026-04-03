@@ -107,8 +107,9 @@ export function RedatorApproveAutomationRC({ projectId }: { projectId: number })
 
   const respostasCurtas = automation.respostas_curtas || []
   const dmFixa = automation.dm_fixa || ""
-  const comentarioKeyword = automation.comentario_keyword || ""
-  const keyword = automation.keyword || ""
+  const comentarioObj = automation.comentario_keyword || {}
+  const comentarioKeyword = typeof comentarioObj === "string" ? comentarioObj : (comentarioObj.texto_completo || "")
+  const keyword = typeof comentarioObj === "string" ? "" : (comentarioObj.keyword || "")
 
   const dmPreview = videoLink ? dmFixa.replace("[link]", videoLink) : dmFixa
 
