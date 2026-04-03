@@ -15,6 +15,11 @@ class DetectMetadataResponse(BaseModel):
     death_date: str = ""
     album_opera: str = ""
     confidence: str = "high"
+    # RC fields (opcionais — só preenchidos quando brand_slug == "reels-classics")
+    instrument_formation: Optional[str] = None
+    orchestra: Optional[str] = None
+    conductor: Optional[str] = None
+    category: Optional[str] = None
 
 
 class ProjectCreate(BaseModel):

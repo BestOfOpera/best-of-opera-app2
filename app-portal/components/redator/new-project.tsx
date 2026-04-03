@@ -130,6 +130,11 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
             album_opera: meta.album_opera || "",
           })
           setConfidence(meta.confidence || "high")
+          // Preencher campos RC se detectados
+          if (meta.instrument_formation) setInstrumentFormation(meta.instrument_formation)
+          if (meta.orchestra) setOrchestra(meta.orchestra)
+          if (meta.conductor) setConductor(meta.conductor)
+          if (meta.category) setCategory(meta.category)
         } catch {
           // Keep r2 pre-fill if detection fails
         } finally {
@@ -198,6 +203,11 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         death_date: deathDates[i] || deathDates[0] || "",
       })))
       setConfidence(result.confidence || "high")
+      // Preencher campos RC se detectados
+      if (result.instrument_formation) setInstrumentFormation(result.instrument_formation)
+      if (result.orchestra) setOrchestra(result.orchestra)
+      if (result.conductor) setConductor(result.conductor)
+      if (result.category) setCategory(result.category)
       setDetected(true)
     } catch (err: any) {
       setError(`Falha na deteccao automatica: ${err.message}. Preencha os campos manualmente.`)
@@ -244,20 +254,8 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
       const project = await redatorApi.createProject(projectData, selectedBrand?.slug)
 
       if (isRC) {
-        try {
-          await redatorApi.generateResearchRC(project.id)
-        } catch (e: any) {
-          setError(`Erro na pesquisa: ${e.message}. Tente novamente.`)
-          setLoading(false)
-          return
-        }
-        try {
-          await redatorApi.generateHooksRC(project.id)
-        } catch (e: any) {
-          setError(`Pesquisa OK, mas erro ao gerar ganchos: ${e.message}. Tente novamente.`)
-          setLoading(false)
-          return
-        }
+        // Research + hooks são chamados na página /hooks (Opção A)
+        // Submit apenas cria o projeto e redireciona
         router.push(`/redator/projeto/${project.id}/hooks`)
       } else {
         await redatorApi.generate(project.id)
@@ -541,8 +539,8 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
           <Button type="submit" className="w-full" size="lg" disabled={loading || !canSubmit}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading
-              ? (isRC ? "Pesquisando e gerando ganchos..." : "Criando & Gerando Conteúdo...")
-              : (isRC ? "Próximo: Pesquisar e Gerar Ganchos" : "Próximo: Gerar Conteúdo")}
+              ? (isRC ? "Criando projeto..." : "Criando & Gerando Conteúdo...")
+              : (isRC ? "Próximo: Selecionar Ganchos" : "Próximo: Gerar Conteúdo")}
           </Button>
           {!detected && !loading && !r2Folder && (
             <p className="mt-3 text-center text-sm font-medium text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">

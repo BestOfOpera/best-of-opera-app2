@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,25 +10,75 @@ import { Loader2, RefreshCw, Star, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { redatorApi, type Project } from "@/lib/api/redator"
 
+type PipelineStage = "loading" | "researching" | "generating_hooks" | "ready" | "error"
+
 export function RedatorApproveHooksRC({ projectId }: { projectId: number }) {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [stage, setStage] = useState<PipelineStage>("loading")
   const [selecting, setSelecting] = useState<number | null>(null)
   const [customHook, setCustomHook] = useState("")
   const [submittingCustom, setSubmittingCustom] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
-  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState("")
   const [showDiscarded, setShowDiscarded] = useState(false)
   const [expandedNarrative, setExpandedNarrative] = useState<number | null>(null)
+  const pipelineRan = useRef(false)
 
   useEffect(() => {
-    redatorApi.getProject(projectId).then(setProject).finally(() => setLoading(false))
+    redatorApi.getProject(projectId).then((p) => {
+      setProject(p)
+      if (p.hooks_json?.ganchos?.length) {
+        // Hooks already generated (e.g. user came back to this page)
+        setStage("ready")
+      } else {
+        // Need to run pipeline
+        setStage("researching")
+      }
+    }).catch(() => {
+      setStage("error")
+      setError("Projeto nao encontrado")
+    })
   }, [projectId])
 
+  // Auto-run research + hooks pipeline when stage transitions
+  useEffect(() => {
+    if (stage !== "researching" || !project || pipelineRan.current) return
+    pipelineRan.current = true
+
+    const runPipeline = async () => {
+      // Step 1: Research (skip if already done)
+      if (!project.research_data) {
+        setStage("researching")
+        try {
+          await redatorApi.generateResearchRC(projectId)
+        } catch (e: any) {
+          setError(`Erro na pesquisa: ${e.message}`)
+          setStage("error")
+          return
+        }
+      }
+
+      // Step 2: Hooks
+      setStage("generating_hooks")
+      try {
+        await redatorApi.generateHooksRC(projectId)
+      } catch (e: any) {
+        setError(`Pesquisa OK, mas erro ao gerar ganchos: ${e.message}`)
+        setStage("error")
+        return
+      }
+
+      // Done — reload project
+      const updated = await redatorApi.getProject(projectId)
+      setProject(updated)
+      setStage("ready")
+    }
+
+    runPipeline()
+  }, [stage, project, projectId])
+
   const ganchos = project?.hooks_json?.ganchos || []
-  const hasHooks = ganchos.length > 0
 
   const handleSelect = async (index: number) => {
     setSelecting(index)
@@ -85,21 +135,14 @@ export function RedatorApproveHooksRC({ projectId }: { projectId: number }) {
     }
   }
 
-  const handleGenerate = async () => {
-    setGenerating(true)
+  const handleRetry = () => {
     setError("")
-    try {
-      await redatorApi.generateHooksRC(projectId)
-      const p = await redatorApi.getProject(projectId)
-      setProject(p)
-    } catch (e: any) {
-      setError(`Erro ao gerar ganchos: ${e.message}`)
-    } finally {
-      setGenerating(false)
-    }
+    pipelineRan.current = false
+    setStage("researching")
   }
 
-  if (loading) {
+  // Loading / pipeline running states
+  if (stage === "loading") {
     return <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">Carregando...</div>
   }
 
@@ -107,8 +150,42 @@ export function RedatorApproveHooksRC({ projectId }: { projectId: number }) {
     return <div className="flex items-center justify-center py-12 text-sm text-destructive">Projeto nao encontrado</div>
   }
 
-  // Empty state: hooks not generated yet
-  if (!hasHooks) {
+  // Pipeline running: research or hooks in progress
+  if (stage === "researching" || stage === "generating_hooks") {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Selecionar Gancho</h1>
+          <p className="text-sm text-muted-foreground">{project.composer} — {project.work}</p>
+        </div>
+        <Card>
+          <CardContent className="p-8 text-center space-y-4">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-foreground">
+              {stage === "researching" ? "Pesquisando sobre a obra..." : "Gerando ganchos..."}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {stage === "researching"
+                ? "Analisando compositor, obra e intérprete. Isso pode levar até 60 segundos."
+                : "Criando ganchos a partir da pesquisa. Quase lá..."}
+            </p>
+            {/* Progress indicator */}
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <div className={cn("h-2 w-2 rounded-full", stage === "researching" ? "bg-primary animate-pulse" : "bg-primary")} />
+              <div className="h-px w-8 bg-border" />
+              <div className={cn("h-2 w-2 rounded-full", stage === "generating_hooks" ? "bg-primary animate-pulse" : "bg-muted")} />
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Etapa {stage === "researching" ? "1" : "2"} de 2
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Error state with retry
+  if (stage === "error" && !ganchos.length) {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
@@ -120,10 +197,10 @@ export function RedatorApproveHooksRC({ projectId }: { projectId: number }) {
         )}
         <Card>
           <CardContent className="p-8 text-center space-y-4">
-            <p className="text-sm text-muted-foreground">Ganchos ainda nao foram gerados</p>
-            <Button onClick={handleGenerate} disabled={generating}>
-              {generating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {generating ? "Gerando ganchos..." : "Gerar ganchos"}
+            <p className="text-sm text-muted-foreground">Nao foi possivel gerar os ganchos</p>
+            <Button onClick={handleRetry}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Tentar novamente
             </Button>
           </CardContent>
         </Card>
@@ -131,7 +208,7 @@ export function RedatorApproveHooksRC({ projectId }: { projectId: number }) {
     )
   }
 
-  // Separate ranked hooks from discarded
+  // Ready: hooks are available
   const ranked = ganchos.filter((_: any, i: number) => i < 5)
   const discarded = ganchos.filter((_: any, i: number) => i >= 5)
 

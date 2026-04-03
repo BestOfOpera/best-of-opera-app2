@@ -70,6 +70,11 @@ export interface DetectedMetadata {
   death_date: string
   album_opera: string
   confidence: string
+  // RC fields (optional — only present for reels-classics)
+  instrument_formation?: string
+  orchestra?: string
+  conductor?: string
+  category?: string
 }
 
 export interface R2AvailableItem {
@@ -171,20 +176,20 @@ export const redatorApi = {
 
   // RC (Reels Classics) endpoints
   generateResearchRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-rc`, { method: "POST", timeout: 90000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-rc`, { method: "POST", timeout: 120000 }),
   generateHooksRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-hooks-rc`, { method: "POST", timeout: 90000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-hooks-rc`, { method: "POST", timeout: 120000 }),
   selectHook: (id: number, body: { hook_index?: number; custom_hook?: string }) =>
     request<Project>(`${BASE()}/projects/${id}/select-hook`, {
       method: "PUT",
       body: JSON.stringify(body),
     }),
   generateOverlayRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-overlay-rc`, { method: "POST", timeout: 90000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-overlay-rc`, { method: "POST", timeout: 120000 }),
   generatePostRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-post-rc`, { method: "POST", timeout: 90000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-post-rc`, { method: "POST", timeout: 120000 }),
   generateAutomationRC: (id: number) =>
-    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-automation-rc`, { method: "POST", timeout: 90000 }),
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-automation-rc`, { method: "POST", timeout: 120000 }),
   approveAutomation: (id: number) =>
     request<Project>(`${BASE()}/projects/${id}/approve-automation`, { method: "PUT" }),
 

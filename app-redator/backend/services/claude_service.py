@@ -216,6 +216,127 @@ Return the JSON object and nothing else."""
     return json.loads(_strip_json_fences(raw))
 
 
+def _build_rc_detect_prompt_text(youtube_url: str, title: str, description: str) -> str:
+    """Prompt de detecção de metadata para RC (instrumental/orquestral)."""
+    return f"""You are a classical music expert specializing in instrumental, orchestral, chamber, and all non-vocal classical music. Based on the YouTube video title and description below, extract the metadata for this performance.
+
+YouTube Title: {title}
+YouTube Description:
+{description}
+{"YouTube URL: " + youtube_url if youtube_url else ""}
+
+STEP 1: From the title and description, identify:
+- The EXACT title of the piece being performed (include catalogue number if present: BWV, Op., K., etc.)
+- ALL performers: soloists, orchestra/ensemble, conductor
+
+STEP 2: Determine the formation:
+- SOLO: One performer with one instrument (e.g. "Piano Solo", "Violin Solo")
+- DUO/TRIO/QUARTET: Small ensemble — list instrument combination (e.g. "String Quartet", "Piano Trio")
+- ORCHESTRA: Full orchestra — identify the orchestra name and conductor
+- CHAMBER: Chamber ensemble — identify the ensemble name
+
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in:
+- Composer's full name and nationality
+- Year of composition (approximate decade if exact year unknown)
+- Whether the piece belongs to a larger work (symphony, suite, ballet, opera)
+- The instrument/formation type
+- The category that best fits
+
+CRITICAL RULE FOR "work": The "work" field MUST contain ONLY the name of the piece that is EXPLICITLY written in the title or description. Include catalogue numbers (BWV, Op., K., etc.) if present. If the exact name is NOT clearly stated, return "work" as an EMPTY STRING "". Do NOT guess.
+
+Return ONLY a JSON object with these exact keys:
+- "artist": Performer name(s) — soloists separated by " & "
+- "work": The EXACT name of the piece with catalogue number (EMPTY STRING if not explicit)
+- "composer": The composer's full name
+- "composition_year": Year composed (e.g. "1832")
+- "nationality": Composer's nationality
+- "nationality_flag": Flag emoji of composer's nationality
+- "voice_type": "" (not applicable for instrumental)
+- "birth_date": "" (not extracted for RC)
+- "death_date": "" (not extracted for RC)
+- "album_opera": The parent work if this is a movement/excerpt (symphony, suite, ballet, opera name)
+- "instrument_formation": The instrument or formation type (e.g. "Piano solo", "String Quartet", "Orquestra sinfônica")
+- "orchestra": Orchestra or ensemble name (empty string if not applicable)
+- "conductor": Conductor name (empty string if not applicable)
+- "category": One of: "Orchestral", "Chamber", "Piano Solo", "Strings", "Winds", "Choral/Sacred", "Ballet", "Contemporary", "Crossover", "Opera", "Other"
+- "confidence": "high" if you identified work and artist clearly, "medium" if work was left empty
+
+Return the JSON object and nothing else."""
+
+
+def _build_rc_detect_prompt_screenshot(youtube_url: str) -> str:
+    """Prompt de detecção de metadata por screenshot para RC."""
+    return f"""Look at this screenshot of a YouTube video page about a classical music performance (instrumental, orchestral, chamber, or any non-vocal classical genre).
+
+STEP 1: Read CAREFULLY the video title, description, channel name, and ALL visible text. Identify:
+- The EXACT title of the piece (include catalogue numbers like BWV, Op., K. if visible)
+- ALL performers: soloists, orchestra/ensemble, conductor
+
+STEP 2: Determine the formation:
+- SOLO: One performer with one instrument
+- DUO/TRIO/QUARTET: Small ensemble
+- ORCHESTRA: Full orchestra — identify orchestra name and conductor
+- CHAMBER: Chamber ensemble
+
+STEP 3: Use YOUR KNOWLEDGE of classical music to fill in composer, nationality, year, category, formation.
+
+CRITICAL RULE FOR "work": ONLY use the name EXPLICITLY visible in the screenshot. Include catalogue numbers if visible. EMPTY STRING if not clearly stated.
+
+Return ONLY a JSON object with these exact keys:
+- "artist": Performer name(s) — soloists separated by " & "
+- "work": The EXACT name with catalogue number (EMPTY STRING if not explicit)
+- "composer": The composer's full name
+- "composition_year": Year composed
+- "nationality": Composer's nationality
+- "nationality_flag": Flag emoji
+- "voice_type": ""
+- "birth_date": ""
+- "death_date": ""
+- "album_opera": Parent work if this is a movement/excerpt
+- "instrument_formation": Instrument or formation type (e.g. "Piano solo", "String Quartet")
+- "orchestra": Orchestra/ensemble name (empty if N/A)
+- "conductor": Conductor name (empty if N/A)
+- "category": One of: "Orchestral", "Chamber", "Piano Solo", "Strings", "Winds", "Choral/Sacred", "Ballet", "Contemporary", "Crossover", "Opera", "Other"
+- "confidence": "high" or "medium"
+
+{"YouTube URL for additional context: " + youtube_url if youtube_url else ""}
+
+Return the JSON object and nothing else."""
+
+
+def detect_metadata_from_text_rc(youtube_url: str, title: str, description: str) -> dict:
+    """RC: extract metadata from YouTube title/description for instrumental music."""
+    prompt = _build_rc_detect_prompt_text(youtube_url, title, description)
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw = message.content[0].text.strip()
+    return json.loads(_strip_json_fences(raw))
+
+
+def detect_metadata_rc(youtube_url: str, screenshot_base64: Optional[str] = None, screenshot_media_type: str = "image/png") -> dict:
+    """RC: extract metadata from screenshot for instrumental music."""
+    prompt_text = _build_rc_detect_prompt_screenshot(youtube_url)
+
+    if screenshot_base64:
+        content = [
+            {"type": "image", "source": {"type": "base64", "media_type": screenshot_media_type, "data": screenshot_base64}},
+            {"type": "text", "text": prompt_text},
+        ]
+    else:
+        content = prompt_text
+
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": content}],
+    )
+    raw = message.content[0].text.strip()
+    return json.loads(_strip_json_fences(raw))
+
+
 def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=None) -> list[dict]:
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)

@@ -10,6 +10,7 @@ from backend.config import load_brand_config
 from backend.services.claude_service import (
     generate_overlay, generate_post, generate_youtube, generate_hooks,
     detect_metadata, detect_metadata_from_text,
+    detect_metadata_rc, detect_metadata_from_text_rc,
     generate_research_rc, generate_hooks_rc,
     generate_overlay_rc, generate_post_rc, generate_automation_rc,
 )
@@ -21,12 +22,16 @@ class DetectFromTextRequest(BaseModel):
     youtube_url: str = ""
     title: str = ""
     description: str = ""
+    brand_slug: str = ""
 
 
 @router.post("/detect-metadata-text", response_model=DetectMetadataResponse)
 async def detect_metadata_text_endpoint(body: DetectFromTextRequest):
     try:
-        result = detect_metadata_from_text(body.youtube_url, body.title, body.description)
+        if body.brand_slug == "reels-classics":
+            result = detect_metadata_from_text_rc(body.youtube_url, body.title, body.description)
+        else:
+            result = detect_metadata_from_text(body.youtube_url, body.title, body.description)
         return DetectMetadataResponse(**result)
     except Exception as e:
         print(f"[detect-metadata-text] ERROR: {e}")
@@ -37,6 +42,7 @@ async def detect_metadata_text_endpoint(body: DetectFromTextRequest):
 async def detect_metadata_endpoint(
     screenshot: UploadFile = File(...),
     youtube_url: str = Form(""),
+    brand_slug: str = Form(""),
 ):
     try:
         image_bytes = await screenshot.read()
@@ -44,8 +50,11 @@ async def detect_metadata_endpoint(
             raise HTTPException(400, "Empty screenshot file")
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
         media_type = screenshot.content_type or "image/png"
-        print(f"[detect-metadata] file={screenshot.filename} size={len(image_bytes)} type={media_type} url={youtube_url}")
-        result = detect_metadata(youtube_url, image_b64, media_type)
+        print(f"[detect-metadata] file={screenshot.filename} size={len(image_bytes)} type={media_type} url={youtube_url} brand={brand_slug}")
+        if brand_slug == "reels-classics":
+            result = detect_metadata_rc(youtube_url, image_b64, media_type)
+        else:
+            result = detect_metadata(youtube_url, image_b64, media_type)
         print(f"[detect-metadata] result={result}")
         return DetectMetadataResponse(**result)
     except HTTPException:
