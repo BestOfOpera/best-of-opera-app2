@@ -308,6 +308,14 @@ def gerar_ass(
         print(f"[DIAG ASS] pre_formatted: {_ov.get('overlay_pre_formatted', 'N/A')}", flush=True)
         print(f"[DIAG ASS] fontname: {_ov.get('fontname', 'N/A')}", flush=True)
         print(f"[DIAG ASS] gancho_fs: {_ov.get('gancho_fontsize', 'N/A')} corpo_fs: {_ov.get('corpo_fontsize', 'N/A')} cta_fs: {_ov.get('cta_fontsize', 'N/A')}", flush=True)
+        # [DIAG POS]
+        print(f"[DIAG POS] alignment: {_ov.get('alignment', 'N/A')}", flush=True)
+        print(f"[DIAG POS] marginv: {_ov.get('marginv', 'N/A')}", flush=True)
+        print(f"[DIAG POS] marginl: {_ov.get('marginl', 'N/A')} marginr: {_ov.get('marginr', 'N/A')}", flush=True)
+        print(f"[DIAG POS] gancho_gap: {_ov.get('gancho_gap', 'N/A')} corpo_gap: {_ov.get('corpo_gap', 'N/A')} cta_gap: {_ov.get('cta_gap', 'N/A')}", flush=True)
+        print(f"[DIAG POS] gap_overlay_px: {_ov.get('gap_overlay_px', 'N/A')}", flush=True)
+        print(f"[DIAG POS] gancho_line_spacing: {_ov.get('gancho_line_spacing', 'N/A')} corpo_line_spacing: {_ov.get('corpo_line_spacing', 'N/A')} cta_line_spacing: {_ov.get('cta_line_spacing', 'N/A')}", flush=True)
+        print(f"[DIAG POS] image_top_px param: {image_top_px}", flush=True)
         overlay_max_linha = perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA
         lyrics_max = perfil.lyrics_max_chars or LYRICS_MAX_CHARS
         traducao_max = perfil.traducao_max_chars or TRADUCAO_MAX_CHARS
@@ -563,6 +571,9 @@ def gerar_ass(
             _play_res_x = int(subs.info.get("PlayResX", "1080"))
             _center_x = _play_res_x // 2
             pos_tag = f"{{\\an8\\pos({_center_x},{pos_y})}}"
+            # [DIAG POS]
+            _tipo = "gancho" if is_gancho else ("cta" if is_cta else "corpo")
+            print(f"[DIAG POS] Legenda {i}: tipo={_tipo} VIDEO_TOP={_VIDEO_TOP} gap={cfg['gap']} fs={cfg['fontsize']} lines={num_lines} block_h={block_h} pos_y={pos_y}", flush=True)
 
         event.text = "{\\q2}" + pos_tag + fs_tag + texto
         event.style = "Overlay"

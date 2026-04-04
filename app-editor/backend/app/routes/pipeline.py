@@ -1889,6 +1889,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         _src_w, _src_h = await _probar_video(local_video)
                         _src_w_eff = min(_src_w, int(_src_h * 4 / 3))
                         _image_top_px = _calcular_image_top(_src_w_eff, _src_h, frame_w=vw, frame_h=vh)
+                        # [DIAG POS]
+                        print(f"[DIAG POS PIPELINE] src={_src_w}x{_src_h} src_eff_w={_src_w_eff} frame={vw}x{vh} image_top_px={_image_top_px}", flush=True)
                     except Exception:
                         logger.warning(f"[{edicao_id}] probar_video falhou — usando marginv do perfil como fallback")
 
