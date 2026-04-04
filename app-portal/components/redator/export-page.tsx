@@ -85,7 +85,10 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
       const matchedPerfil = perfis.find(p => p.slug === brandSlug)
       const perfilId = matchedPerfil?.id
 
-      const edicao = await editorApi.importarDoRedator(projectId, undefined, undefined, perfilId)
+      // RC: passar eh_instrumental=true como default (a maioria é instrumental)
+      // Evita 422 quando idioma não pode ser detectado automaticamente
+      const ehInstrumental = brandSlug === "reels-classics" ? true : undefined
+      const edicao = await editorApi.importarDoRedator(projectId, undefined, ehInstrumental, perfilId)
       router.push(`/editor/edicao/${edicao.id}/letra`)
     } catch {
       // Se já foi importado ou erro, ir para a fila do editor

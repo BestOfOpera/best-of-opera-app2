@@ -755,7 +755,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
 
-    linhas = texto.split("\\n")
+    linhas = texto.split("\n")
 
     # Verificar se TODAS as linhas já estão OK
     todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
@@ -791,7 +791,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
     # Garantir max_linhas
     novas_linhas = novas_linhas[:max_linhas]
 
-    resultado = "\\n".join(novas_linhas)
+    resultado = "\n".join(novas_linhas)
 
     if resultado != texto:
         print(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas", flush=True)
@@ -904,7 +904,7 @@ def _validate_overlay_rc(overlay_json: list):
     # 1. Verificar overflow residual
     for i, item in enumerate(overlay_json):
         texto = item.get("text", "")
-        for j, linha in enumerate(texto.split("\\n")):
+        for j, linha in enumerate(texto.split("\n")):
             if len(linha) > 40:
                 print(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)", flush=True)
 
