@@ -89,7 +89,15 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
       // Evita 422 quando idioma não pode ser detectado automaticamente
       const ehInstrumental = brandSlug === "reels-classics" ? true : undefined
       const edicao = await editorApi.importarDoRedator(projectId, undefined, ehInstrumental, perfilId)
-      router.push(`/editor/edicao/${edicao.id}/letra`)
+
+      // RC/instrumental: ir para overview (tem botão "Iniciar Pipeline")
+      // BO: ir para /letra (fluxo normal com lyrics)
+      const isInstrumental = ehInstrumental || brandSlug === "reels-classics"
+      if (isInstrumental) {
+        router.push(`/editor/edicao/${edicao.id}`)
+      } else {
+        router.push(`/editor/edicao/${edicao.id}/letra`)
+      }
     } catch {
       // Se já foi importado ou erro, ir para a fila do editor
       router.push("/editor")
