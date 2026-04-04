@@ -85,18 +85,24 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
     try:
         from app.services.youtube import _ensure_cookies_file
         cookies_file = _ensure_cookies_file()
-        cmd = (
-            f'yt-dlp "{youtube_url}" '
-            f'-o "{output_path}" '
-            f'-f "bv[ext=mp4][height<=1080]+ba[ext=m4a]/best[ext=mp4]/best" '
-            f'--merge-output-format mp4 '
-            f'--no-playlist '
-            f'--quiet'
-        )
+        cmd = [
+            'yt-dlp', youtube_url,
+            '-o', output_path,
+            '-f', 'bv[ext=mp4][height<=1080]+ba[ext=m4a]/best[ext=mp4]/best',
+            '--merge-output-format', 'mp4',
+            '--no-playlist',
+            '--quiet',
+            '--retries', '3',
+            '--fragment-retries', '5',
+            '--extractor-retries', '3',
+            '--socket-timeout', '30',
+            '--no-check-certificates',
+            '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        ]
         if cookies_file:
-            cmd += f' --cookies "{cookies_file}"'
-        processo = await asyncio.create_subprocess_shell(
-            cmd,
+            cmd.extend(['--cookies', cookies_file])
+        processo = await asyncio.create_subprocess_exec(
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

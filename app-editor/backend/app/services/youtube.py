@@ -11,16 +11,27 @@ _COOKIES_PATH = "/tmp/yt_cookies.txt"
 
 
 def _ensure_cookies_file() -> str | None:
-    """Decodifica YOUTUBE_COOKIES_BASE64 para arquivo temporário se disponível."""
+    """Decodifica cookies do YouTube para arquivo temporário.
+
+    Tenta YOUTUBE_COOKIES_BASE64 (base64) primeiro, depois YOUTUBE_COOKIES (raw text)
+    para alinhar com curadoria e permitir uma só env var em ambos os serviços.
+    """
     b64 = os.environ.get("YOUTUBE_COOKIES_BASE64")
-    if not b64:
-        return None
-    try:
-        data = base64.b64decode(b64)
-        Path(_COOKIES_PATH).write_bytes(data)
-        return _COOKIES_PATH
-    except Exception:
-        return None
+    if b64:
+        try:
+            data = base64.b64decode(b64)
+            Path(_COOKIES_PATH).write_bytes(data)
+            return _COOKIES_PATH
+        except Exception:
+            pass
+    raw = os.environ.get("YOUTUBE_COOKIES")
+    if raw:
+        try:
+            Path(_COOKIES_PATH).write_text(raw)
+            return _COOKIES_PATH
+        except Exception:
+            pass
+    return None
 
 
 async def download_video(youtube_url: str, video_id: int, storage_path: str,
