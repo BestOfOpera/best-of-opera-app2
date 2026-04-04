@@ -695,6 +695,45 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v7 RC: {e}")
 
+    # Migration v8: RC — fontsizes maiores (gancho 58, corpo 54, cta 50)
+    # Guard: gancho_fontsize != 58 (valor definitivo v8)
+    try:
+        with engine.begin() as conn:
+            import json as _json8
+            rc_overlay_v8 = _json8.dumps({
+                "fontsize": 54,
+                "primarycolor": "#FFFFFF",
+                "outlinecolor": "#000000",
+                "outline": 0,
+                "shadow": 0,
+                "alignment": 8,
+                "bold": True,
+                "italic": False,
+                "gancho_fontsize": 58,
+                "corpo_fontsize": 54,
+                "cta_fontsize": 50,
+                "gap_overlay_px": 12,
+                "gancho_gap": 12,
+                "corpo_gap": 14,
+                "cta_gap": 16,
+                "gancho_line_spacing": 6,
+                "corpo_line_spacing": 5,
+                "cta_line_spacing": 6,
+                "marginl": 40,
+                "marginr": 40,
+                "marginv": 418,
+                "overlay_pre_formatted": True,
+            })
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = :overlay_style
+                WHERE sigla = 'RC'
+                  AND (overlay_style->>'gancho_fontsize')::int != 58
+            """), {"overlay_style": rc_overlay_v8})
+            logger.info("Migration v8: RC fontsizes 58/54/50 (gancho/corpo/cta) OK")
+    except Exception as e:
+        logger.warning(f"Migration v8 RC: {e}")
+
     # Migration: BO overlay gap reduzido (30→8px) para legendas mais próximas da imagem
     try:
         with engine.begin() as conn:
