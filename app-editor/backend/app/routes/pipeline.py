@@ -21,7 +21,7 @@ from app.services.gemini import buscar_letra as gemini_buscar_letra
 from app.services.regua import extrair_janela_do_overlay, reindexar_timestamps, recortar_lyrics_na_janela, normalizar_segmentos
 import os
 import shutil
-from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL, CURADORIA_API_URL, COBALT_API_URL
+from app.config import STORAGE_PATH, IDIOMAS_ALVO, EXPORT_PATH, REDATOR_API_URL, CURADORIA_API_URL, COBALT_API_URL, COBALT_API_KEY
 from shared.storage_service import storage, lang_prefix, check_conflict, save_youtube_marker
 
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
@@ -43,10 +43,13 @@ async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
     try:
         import httpx
         async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+            headers = {"Accept": "application/json", "Content-Type": "application/json"}
+            if COBALT_API_KEY:
+                headers["Authorization"] = f"Api-Key {COBALT_API_KEY}"
             resp = await client.post(
                 COBALT_API_URL,
                 json={"url": youtube_url, "videoQuality": "1080"},
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                headers=headers,
             )
         if resp.status_code != 200:
             logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")
@@ -80,6 +83,8 @@ async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
 async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
     """Baixa vídeo usando yt-dlp como último fallback. Retorna True se ok."""
     try:
+        from app.services.youtube import _ensure_cookies_file
+        cookies_file = _ensure_cookies_file()
         cmd = (
             f'yt-dlp "{youtube_url}" '
             f'-o "{output_path}" '
@@ -88,6 +93,8 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
             f'--no-playlist '
             f'--quiet'
         )
+        if cookies_file:
+            cmd += f' --cookies "{cookies_file}"'
         processo = await asyncio.create_subprocess_shell(
             cmd,
             stdout=asyncio.subprocess.PIPE,

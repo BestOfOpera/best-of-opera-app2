@@ -5,7 +5,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 import database as db
-from config import PROJECTS_DIR, COBALT_API_URL, load_brand_config
+from config import PROJECTS_DIR, COBALT_API_URL, COBALT_API_KEY, load_brand_config
 from shared.storage_service import storage, check_conflict, save_youtube_marker
 
 # ─── DOWNLOAD WORKER (ERR-055) ───
@@ -120,10 +120,13 @@ async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
     try:
         import httpx
         async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15)) as client:
+            headers = {"Accept": "application/json", "Content-Type": "application/json"}
+            if COBALT_API_KEY:
+                headers["Authorization"] = f"Api-Key {COBALT_API_KEY}"
             resp = await client.post(
                 COBALT_API_URL,
                 json={"url": youtube_url, "videoQuality": "1080"},
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                headers=headers,
             )
         if resp.status_code != 200:
             logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")

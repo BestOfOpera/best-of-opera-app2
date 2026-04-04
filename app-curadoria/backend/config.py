@@ -23,6 +23,7 @@ def _resolve_editor_url() -> str:
 EDITOR_API_URL = _resolve_editor_url()
 BRAND_SLUG = os.getenv("BRAND_SLUG", "best-of-opera")
 COBALT_API_URL = os.getenv("COBALT_API_URL", "https://api.cobalt.tools")
+COBALT_API_KEY = os.getenv("COBALT_API_KEY", "")
 
 # ─── SHARED DIR ───
 PROJECTS_DIR = Path("/tmp/best-of-opera-projects")
