@@ -356,11 +356,19 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setRenderizando(true)
     setError("")
     try {
-      await editorApi.desbloquear(edicaoId).catch(() => { })
+      // Desbloquear só para recuperar status travado (ex: "preview" ou "renderizando" stuck).
+      // Se status é "corte", desbloquear mantém "corte" e renderizarPreview falhará com 409
+      // — operador precisa re-aplicar corte antes de renderizar.
+      try { await editorApi.desbloquear(edicaoId) } catch { /* 409 esperado se não travado */ }
       await editorApi.renderizarPreview(edicaoId, { sem_legendas: semLegendas })
       await load()
     } catch (err: unknown) {
-      setError("Erro ao refazer preview: " + (err instanceof Error ? err.message : "Erro"))
+      const msg = err instanceof Error ? err.message : "Erro"
+      if (msg.includes("corte") || msg.includes("não permite")) {
+        setError("Corte pendente — volte ao alinhamento e valide novamente para re-aplicar o corte.")
+      } else {
+        setError("Erro ao refazer preview: " + msg)
+      }
     } finally {
       setRenderizando(false)
     }

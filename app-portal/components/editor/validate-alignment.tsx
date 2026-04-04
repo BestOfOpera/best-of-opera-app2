@@ -263,10 +263,11 @@ export function EditorValidateAlignment({ edicaoId }: { edicaoId: number }) {
     try {
       await editorApi.validarAlinhamento(edicaoId, { segmentos })
       setCortando(true)
-      try { await editorApi.aplicarCorte(edicaoId) } catch {}
+      await editorApi.aplicarCorte(edicaoId)
       setCortando(false)
       router.push(`/editor/edicao/${edicaoId}/conclusao`)
     } catch (err: unknown) {
+      setCortando(false)
       setError("Erro: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setSalvando(false)

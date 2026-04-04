@@ -1235,6 +1235,15 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             janela["janela_fim_sec"],
         )
 
+    # Invalidar traduções existentes para forçar re-tradução com dados atualizados.
+    # Sem isso, _traducao_task pula idiomas já traduzidos (idempotência) e o render
+    # usa traduções stale baseadas no alinhamento anterior.
+    n_deleted = db.query(TraducaoLetra).filter(
+        TraducaoLetra.edicao_id == edicao_id
+    ).delete()
+    if n_deleted:
+        logger.info(f"[aplicar_corte] {n_deleted} traduções invalidadas para re-tradução edicao_id={edicao_id}")
+
     # Instrumental: pular tradução, direto para render (passo 7)
     if edicao.sem_lyrics:
         edicao.passo_atual = 7
@@ -2814,6 +2823,8 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
                 + (" (processamento ativo)" if is_active and not is_stale else ""),
             )
 
+        status_anterior = edicao.status
+
         # Consultar dados reais do banco para inferir status correto
         n_renders = db.query(Render).filter(
             Render.edicao_id == edicao_id,
@@ -2840,8 +2851,19 @@ async def desbloquear_edicao(edicao_id: int, force: bool = False):
             and storage.exists(edicao.arquivo_video_completo)
         )
 
+        # Se status atual é "corte", o operador editou alinhamento mas ainda não
+        # re-aplicou o corte. Renders e traduções existentes são de um pipeline
+        # anterior e estão stale. Não avançar além de "corte" — forçar re-aplicação.
+        if status_anterior == "corte" and tem_alinhamento_validado:
+            novo_status = "corte"
+            base = "corte_pendente_reaplicacao"
+            logger.warning(
+                f"[desbloquear] edicao_id={edicao_id} status 'corte' mantido — "
+                f"operador deve re-aplicar corte antes de renderizar "
+                f"(renders={n_renders}, traducoes={n_traducoes} são stale)"
+            )
         # Inferir status do mais avançado para o mais básico
-        if n_renders > 0:
+        elif n_renders > 0:
             novo_status = "preview_pronto"
             base = "renders"
         elif n_traducoes > 0:
