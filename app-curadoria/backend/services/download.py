@@ -1,4 +1,4 @@
-import os, re, asyncio, shutil, logging
+import os, re, asyncio, shutil, logging, base64
 from datetime import datetime
 from pathlib import Path
 
@@ -92,23 +92,33 @@ def _get_ydl_opts(dl_path: str):
         # pot_from_server requires a separate HTTP server — not available on Railway.
     }
 
-    # Cookies support via YOUTUBE_COOKIES env var (ERR-055)
-    cookies_content = os.getenv("YOUTUBE_COOKIES")
-    if cookies_content:
-        cookies_path = "/tmp/yt_cookies.txt"
+    # Cookies support (ERR-055) — base64 preserva TABs que Railway quebra em raw text
+    cookies_path = "/tmp/yt_cookies.txt"
+    b64 = os.getenv("YOUTUBE_COOKIES_BASE64", "")
+    if b64.strip():
         try:
+            raw = base64.b64decode(b64).decode("utf-8")
             with open(cookies_path, "w") as f:
-                f.write(cookies_content)
+                f.write(raw)
             opts['cookiefile'] = cookies_path
-            logger.info(f"Using YOUTUBE_COOKIES (saved to {cookies_path})")
+            logger.info(f"Using YOUTUBE_COOKIES_BASE64 (saved to {cookies_path})")
         except Exception as e:
-            logger.warning(f"Error saving YOUTUBE_COOKIES: {e}")
+            logger.warning(f"Error decoding YOUTUBE_COOKIES_BASE64: {e}")
     else:
-        # Fallback to legacy path
-        legacy_cookies = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
-        if os.path.exists(legacy_cookies):
-            opts['cookiefile'] = legacy_cookies
-            logger.info(f"Using legacy cookies from {legacy_cookies}")
+        cookies_content = os.getenv("YOUTUBE_COOKIES")
+        if cookies_content:
+            try:
+                with open(cookies_path, "w") as f:
+                    f.write(cookies_content)
+                opts['cookiefile'] = cookies_path
+                logger.info(f"Using YOUTUBE_COOKIES (saved to {cookies_path})")
+            except Exception as e:
+                logger.warning(f"Error saving YOUTUBE_COOKIES: {e}")
+        else:
+            legacy_cookies = os.getenv("YT_COOKIES_FILE", "/app/cookies.txt")
+            if os.path.exists(legacy_cookies):
+                opts['cookiefile'] = legacy_cookies
+                logger.info(f"Using legacy cookies from {legacy_cookies}")
 
     return opts
 
