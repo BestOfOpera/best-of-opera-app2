@@ -296,11 +296,6 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
     L2: Artista – instrumento [emoji] → traduzir APENAS instrumento
     L3: Orquestra – Regente → NÃO traduzir (nomes próprios)
     """
-    # [DIAG]
-    print(f"[DIAG HEADER TRAD] Chamada com {len(header_lines)} linhas, lang={target_lang}", flush=True)
-    for i, line in enumerate(header_lines):
-        print(f"[DIAG HEADER TRAD] L{i}: [{line}]", flush=True)
-
     if not header_lines or target_lang == "pt":
         return list(header_lines)
 
@@ -308,13 +303,16 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
 
     if len(result) >= 2:
         line2 = result[1]
-        # [DIAG]
-        print(f"[DIAG HEADER TRAD] Tentando split de: [{line2}]", flush=True)
-        print(f"[DIAG HEADER TRAD] ' – ' in line2: {' – ' in line2}", flush=True)
-        print(f"[DIAG HEADER TRAD] ', ' in line2: {', ' in line2}", flush=True)
-        print(f"[DIAG HEADER TRAD] ' - ' in line2: {' - ' in line2}", flush=True)
-        if " – " in line2:
-            parts = line2.split(" – ", 1)
+
+        # Aceitar en-dash, vírgula ou hífen (_sanitize_rc converte – para ,)
+        sep_found = None
+        for sep in [" – ", ", ", " - "]:
+            if sep in line2:
+                sep_found = sep
+                break
+
+        if sep_found:
+            parts = line2.split(sep_found, 1)
             artist_name = parts[0].strip()
             instrument_part = parts[1].strip()
 
@@ -333,10 +331,7 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
             if clean_instrument:
                 translated_instrument = translate_text(clean_instrument, target_lang)
                 if translated_instrument:
-                    result[1] = f"{artist_name} – {translated_instrument.strip()}{emoji_suffix}"
-        else:
-            # [DIAG]
-            print(f"[DIAG HEADER TRAD] NENHUM separador ' – ' encontrado — L2 NÃO será traduzida", flush=True)
+                    result[1] = f"{artist_name}{sep_found}{translated_instrument.strip()}{emoji_suffix}"
 
     return result
 
@@ -453,13 +448,19 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
 
 def translate_overlay_json(overlay_json: list, target_lang: str, brand_slug: str | None = None) -> list:
     """Translate the text field of each overlay subtitle.
-    Para RC, usa CTA fixo traduzido ao invés de tradução automática."""
+    Para RC, usa CTA fixo traduzido ao invés de tradução automática.
+    Aplica re-wrap pós-tradução para garantir ≤33 chars/linha."""
+    from backend.services.claude_service import _enforce_line_breaks_rc
+
     result = []
-    for entry in overlay_json:
+    for i, entry in enumerate(overlay_json):
         if entry.get("_is_cta") and brand_slug == "reels-classics":
             translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
         else:
             translated_text = translate_text(entry.get("text", ""), target_lang)
+            # Re-wrap: traduções podem perder \n ou exceder limite de chars
+            tipo = "gancho" if i == 0 else "corpo"
+            translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33)
         item = {"timestamp": entry["timestamp"], "text": translated_text}
         if entry.get("_is_cta"):
             item["_is_cta"] = True

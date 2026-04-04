@@ -1056,21 +1056,8 @@ def generate_post_rc(project, brand_config=None) -> str:
     _rc_logger.info(f"[RC Post] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     response = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
-
-    # [DIAG] Header antes de sanitização
-    h2_raw = response.get("header_linha2", "")
-    print(f"[DIAG HEADER] LLM gerou header_linha2: [{h2_raw}]", flush=True)
-    print(f"[DIAG HEADER] Contém ' – ': {' – ' in h2_raw}", flush=True)
-    print(f"[DIAG HEADER] Contém ', ': {', ' in h2_raw}", flush=True)
-
     post_text = _format_post_rc(response)
     post_text = _sanitize_rc(post_text)
-
-    # [DIAG] Header depois de sanitização
-    first_lines = post_text.split("\n")[:3]
-    for i, line in enumerate(first_lines):
-        print(f"[DIAG HEADER] Post L{i} após sanitize: [{line}]", flush=True)
-
     _rc_logger.info(f"[RC Post] Completo, {len(post_text)} chars texto final")
 
     project.post_text = post_text

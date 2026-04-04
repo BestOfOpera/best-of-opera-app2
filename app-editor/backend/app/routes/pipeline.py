@@ -1162,28 +1162,33 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             raise HTTPException(400, "Nenhum overlay encontrado. Adicione overlays primeiro.")
         corte_inicio_ov = edicao.corte_original_inicio
         corte_fim_ov = edicao.corte_original_fim
-        # [DIAG]
-        print(f"[DIAG CUT PIPELINE] corte_original_inicio=[{corte_inicio_ov}] corte_original_fim=[{corte_fim_ov}]", flush=True)
         if not corte_inicio_ov or not corte_fim_ov:
-            print(f"[DIAG CUT PIPELINE] Campos vazios/None — chamando fallback _buscar_corte_do_redator", flush=True)
             corte_inicio_ov, corte_fim_ov = await _buscar_corte_do_redator(edicao)
-            print(f"[DIAG CUT PIPELINE] Fallback retornou: inicio=[{corte_inicio_ov}] fim=[{corte_fim_ov}]", flush=True)
             if corte_inicio_ov and corte_fim_ov:
                 edicao.corte_original_inicio = corte_inicio_ov
                 edicao.corte_original_fim = corte_fim_ov
 
-        primeiro = overlays[0]
-        janela = extrair_janela_do_overlay(
-            primeiro.segmentos_original,
-            corte_inicio_override=corte_inicio_ov,
-            corte_fim_override=corte_fim_ov,
-        )
+        # Se corte_original está preenchido, usar DIRETAMENTE como janela
+        # (prioridade sobre timestamps do overlay)
+        if corte_inicio_ov and corte_fim_ov:
+            from app.services.regua import timestamp_to_seconds
+            inicio_sec = timestamp_to_seconds(corte_inicio_ov)
+            fim_sec = timestamp_to_seconds(corte_fim_ov)
+            janela = {
+                "janela_inicio_sec": inicio_sec,
+                "janela_fim_sec": fim_sec,
+                "duracao_corte_sec": fim_sec - inicio_sec,
+            }
+            logger.info(f"[{edicao_id}] Corte original aplicado: {corte_inicio_ov} → {corte_fim_ov} ({inicio_sec:.1f}s → {fim_sec:.1f}s)")
+        else:
+            primeiro = overlays[0]
+            janela = extrair_janela_do_overlay(
+                primeiro.segmentos_original,
+            )
 
     edicao.janela_inicio_sec = janela["janela_inicio_sec"]
     edicao.janela_fim_sec = janela["janela_fim_sec"]
     edicao.duracao_corte_sec = janela["duracao_corte_sec"]
-    # [DIAG]
-    print(f"[DIAG CUT PIPELINE] janela: inicio={janela['janela_inicio_sec']}s fim={janela['janela_fim_sec']}s duracao={janela['duracao_corte_sec']}s", flush=True)
 
     # Overlays do Redator têm timestamps clip-relativos (começam em "00:00").
     # Apenas normalizar o formato — NÃO subtrair janela_inicio (isso zeraria tudo).
@@ -1889,8 +1894,6 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         _src_w, _src_h = await _probar_video(local_video)
                         _src_w_eff = min(_src_w, int(_src_h * 4 / 3))
                         _image_top_px = _calcular_image_top(_src_w_eff, _src_h, frame_w=vw, frame_h=vh)
-                        # [DIAG POS]
-                        print(f"[DIAG POS PIPELINE] src={_src_w}x{_src_h} src_eff_w={_src_w_eff} frame={vw}x{vh} image_top_px={_image_top_px}", flush=True)
                     except Exception:
                         logger.warning(f"[{edicao_id}] probar_video falhou — usando marginv do perfil como fallback")
 
