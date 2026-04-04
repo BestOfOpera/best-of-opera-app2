@@ -101,7 +101,9 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
             logger.warning("[yt-dlp] Timeout após 300s")
             return False
         if processo.returncode != 0:
-            logger.warning(f"[yt-dlp] Falhou: {stderr_out.decode()[-500:]}")
+            _stderr_full = stderr_out.decode()
+            print(f"[YT-DLP STDERR COMPLETO] {_stderr_full[:2000]}", flush=True)
+            logger.warning(f"[yt-dlp] Falhou (inicio): {_stderr_full[:500]} ... (fim): {_stderr_full[-500:]}")
             return False
         logger.info(f"[yt-dlp] Download concluído → {output_path}")
         return True
@@ -2036,7 +2038,9 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     raise
 
                 if processo.returncode != 0:
-                    raise Exception(f"FFmpeg falhou: {stderr_out.decode()[-1000:]}")
+                    _stderr_full = stderr_out.decode()
+                    print(f"[FFMPEG STDERR COMPLETO] {_stderr_full[:2000]}", flush=True)
+                    raise Exception(f"FFmpeg falhou (inicio): {_stderr_full[:1000]} ... (fim): {_stderr_full[-500:]}")
 
                 tamanho = _Path(output_video).stat().st_size
 
