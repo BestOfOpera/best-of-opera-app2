@@ -1769,10 +1769,17 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 msg = f"{idioma_falta}: Overlay não encontrado — reimporte o projeto"
                 falhas.append(msg)
                 with SessionLocal() as db:
-                    db.add(Render(
-                        edicao_id=edicao_id, idioma=idioma_falta, tipo="9:16",
-                        status="erro", erro_msg="Overlay não encontrado — reimporte o projeto",
-                    ))
+                    existing = db.query(Render).filter(
+                        Render.edicao_id == edicao_id, Render.idioma == idioma_falta
+                    ).first()
+                    if existing:
+                        existing.status = "erro"
+                        existing.erro_msg = "Overlay não encontrado — reimporte o projeto"
+                    else:
+                        db.add(Render(
+                            edicao_id=edicao_id, idioma=idioma_falta, tipo="9:16",
+                            status="erro", erro_msg="Overlay não encontrado — reimporte o projeto",
+                        ))
                     db.commit()
 
         # PASSO B — Loop de render (banco FECHADO durante FFmpeg)
@@ -2023,10 +2030,17 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         except Exception as cleanup_err:
                             logger.warning(f"[{edicao_id}] Falha ao limpar {tmp_file}: {cleanup_err}")
                 with SessionLocal() as db:
-                    db.add(Render(
-                        edicao_id=edicao_id, idioma=idioma, tipo="9:16",
-                        status="erro", erro_msg="timeout (600s)",
-                    ))
+                    existing = db.query(Render).filter(
+                        Render.edicao_id == edicao_id, Render.idioma == idioma
+                    ).first()
+                    if existing:
+                        existing.status = "erro"
+                        existing.erro_msg = "timeout (600s)"
+                    else:
+                        db.add(Render(
+                            edicao_id=edicao_id, idioma=idioma, tipo="9:16",
+                            status="erro", erro_msg="timeout (600s)",
+                        ))
                     db.commit()
             except Exception as e:
                 falhas.append(f"{idioma}: {str(e)[:200]}")
@@ -2039,10 +2053,17 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         except Exception as cleanup_err:
                             logger.warning(f"[{edicao_id}] Falha ao limpar {tmp_file}: {cleanup_err}")
                 with SessionLocal() as db:
-                    db.add(Render(
-                        edicao_id=edicao_id, idioma=idioma, tipo="9:16",
-                        status="erro", erro_msg=str(e)[:500],
-                    ))
+                    existing = db.query(Render).filter(
+                        Render.edicao_id == edicao_id, Render.idioma == idioma
+                    ).first()
+                    if existing:
+                        existing.status = "erro"
+                        existing.erro_msg = str(e)[:500]
+                    else:
+                        db.add(Render(
+                            edicao_id=edicao_id, idioma=idioma, tipo="9:16",
+                            status="erro", erro_msg=str(e)[:500],
+                        ))
                     db.commit()
 
         # PASSO C — Finalização (sessão curta)
