@@ -732,6 +732,11 @@ def _run_migrations():
                   AND (overlay_style->>'gancho_fontsize')::int != 56
             """), {"overlay_style": rc_overlay_v8})
             logger.info("Migration v8/v9: RC fontsizes 56/52/48 (gancho/corpo/cta) OK")
+            # RC usa 3 linhas × 33 chars = 99 chars total (não 66 que é BO 2×33)
+            conn.execute(text("""
+                UPDATE editor_perfis SET overlay_max_chars = 99
+                WHERE sigla = 'RC' AND overlay_max_chars != 99
+            """))
     except Exception as e:
         logger.warning(f"Migration v8/v9 RC: {e}")
 

@@ -308,7 +308,7 @@ export const editorApi = {
   validarAlinhamento: (id: number, data: { segmentos: Segmento[] }) =>
     request<Edicao>(`${BASE()}/edicoes/${id}/alinhamento`, { method: "PUT", body: JSON.stringify(data) }),
   aplicarCorte: (id: number, params?: Record<string, unknown>) =>
-    request<Edicao>(`${BASE()}/edicoes/${id}/aplicar-corte`, { method: "POST", body: JSON.stringify(params || {}) }),
+    request<Edicao>(`${BASE()}/edicoes/${id}/aplicar-corte`, { method: "POST", body: JSON.stringify(params || {}), timeout: 120000 }),
   infoCorte: (id: number) =>
     request<{ cut_start: string; cut_end: string; duracao: number }>(`${BASE()}/edicoes/${id}/corte`),
   traduzirLyrics: (id: number) =>

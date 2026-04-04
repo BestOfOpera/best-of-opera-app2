@@ -302,6 +302,9 @@ def gerar_ass(
     """
     if perfil is not None:
         estilos = _estilos_do_perfil(perfil)
+        _ov_cfg = estilos.get("overlay", {})
+        if _ov_cfg.get("overlay_pre_formatted"):
+            print(f"[RC RENDER] Perfil: gancho_fs={_ov_cfg.get('gancho_fontsize')} corpo_fs={_ov_cfg.get('corpo_fontsize')} cta_fs={_ov_cfg.get('cta_fontsize')} max_chars_linha={perfil.overlay_max_chars_linha} max_chars={perfil.overlay_max_chars}", flush=True)
         overlay_max_linha = perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA
         lyrics_max = perfil.lyrics_max_chars or LYRICS_MAX_CHARS
         traducao_max = perfil.traducao_max_chars or TRADUCAO_MAX_CHARS

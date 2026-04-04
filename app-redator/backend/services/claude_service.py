@@ -774,6 +774,12 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
         teste = (linha_atual + " " + palavra).strip()
         if len(teste) <= max_chars_linha:
             linha_atual = teste
+            # Preferir quebra após pontuação se já tem 25+ chars
+            if (len(linha_atual) >= 25
+                    and linha_atual[-1] in ",.;:"
+                    and len(novas_linhas) < max_linhas - 1):
+                novas_linhas.append(linha_atual)
+                linha_atual = ""
         else:
             if linha_atual:
                 novas_linhas.append(linha_atual)
