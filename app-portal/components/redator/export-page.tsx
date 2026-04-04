@@ -90,9 +90,9 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
       const ehInstrumental = brandSlug === "reels-classics" ? true : undefined
       const edicao = await editorApi.importarDoRedator(projectId, undefined, ehInstrumental, perfilId)
 
-      // RC/instrumental: ir para overview (tem botão "Iniciar Pipeline")
-      // BO: ir para /letra (fluxo normal com lyrics)
-      const isInstrumental = ehInstrumental || brandSlug === "reels-classics"
+      // Instrumental: ir para overview (tem botão "Iniciar Pipeline")
+      // Com letra (BO ou RC vocal): ir para /letra (fluxo normal com lyrics)
+      const isInstrumental = ehInstrumental
       if (isInstrumental) {
         router.push(`/editor/edicao/${edicao.id}`)
       } else {
