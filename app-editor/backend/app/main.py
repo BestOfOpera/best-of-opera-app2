@@ -747,9 +747,9 @@ def _run_migrations():
                 "SELECT overlay_style->>'gancho_fontsize' as g, overlay_style->>'corpo_fontsize' as c, overlay_style->>'cta_fontsize' as t FROM editor_perfis WHERE sigla = 'RC'"
             )).first()
             if row:
-                print(f"[PERFIL CHECK] RC gancho={row[0]} corpo={row[1]} cta={row[2]}", flush=True)
-    except Exception:
-        pass
+                logger.info(f"[PERFIL CHECK] RC gancho={row[0]} corpo={row[1]} cta={row[2]}")
+    except Exception as e:
+        logger.warning(f"[PERFIL CHECK] Falha ao verificar fontsizes RC: {e}")
 
     # Migration: BO overlay gap reduzido (30→8px) para legendas mais próximas da imagem
     try:
@@ -839,7 +839,7 @@ def _run_migrations():
                 conn.execute(text("ALTER TABLE editor_perfis ALTER COLUMN overlay_cta TYPE TEXT USING overlay_cta::text"))
                 logger.info("Migration: overlay_cta convertido de JSON para TEXT")
             except Exception:
-                pass  # já é TEXT ou não existe
+                pass  # já é TEXT ou não existe — idempotente
 
         # SPEC-010: Seed CTA fixo para BO e RC (texto simples PT-BR)
         with engine.begin() as conn:

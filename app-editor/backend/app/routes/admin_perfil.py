@@ -242,19 +242,6 @@ def listar_perfis(db: Session = Depends(get_db)):
     return resultado
 
 
-@router.get("/template-bo", response_model=PerfilDetalheOut)
-def template_bo(db: Session = Depends(get_db)):
-    """Retorna todos os valores do perfil BO como template para pré-preencher nova marca."""
-    perfil = db.query(Perfil).filter(Perfil.sigla == "BO").first()
-    if not perfil:
-        raise HTTPException(status_code=404, detail="Perfil BO nao encontrado")
-
-    stats = _get_stats(perfil.id, db)
-    dados = {c.name: getattr(perfil, c.name) for c in perfil.__table__.columns}
-    dados["stats"] = stats
-    return PerfilDetalheOut(**dados)
-
-
 @router.post("/{perfil_id}/upload-font", response_model=PerfilDetalheOut)
 def upload_font(perfil_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), force: bool = False):
     """Faz upload de fonte .ttf/.otf para o R2 e atualiza font_name e font_file_r2_key do perfil."""

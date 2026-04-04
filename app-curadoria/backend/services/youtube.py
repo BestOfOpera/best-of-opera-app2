@@ -170,8 +170,8 @@ async def yt_playlist(playlist_id: str, max_results: int = 50, api_key: str = ""
 
             try:
                 db.register_quota_usage(search_calls=0, detail_calls=1)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Falha ao registrar quota usage (playlist): {e}")
 
             next_page_token = data.get("nextPageToken")
             if not next_page_token:
@@ -195,8 +195,8 @@ async def yt_playlist(playlist_id: str, max_results: int = 50, api_key: str = ""
                     dm[v["id"]] = v
             try:
                 db.register_quota_usage(search_calls=0, detail_calls=1)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Falha ao registrar quota usage (video details): {e}")
 
         results = []
         for it in all_items:

@@ -112,8 +112,10 @@ def check_conflict(artista: str, musica: str, youtube_video_id: str, r2_prefix: 
             if existing_id and existing_id != youtube_video_id:
                 # Conflito: outro vídeo com mesmo artista/música
                 return sanitize_name(f"{artista} - {musica} ({youtube_video_id})")
-        except Exception:
-            pass
+        except FileNotFoundError:
+            pass  # marker não existe, sem conflito
+        except Exception as e:
+            logger.warning(f"[check_conflict] Erro inesperado ao verificar marker {marker_key}: {e}")
 
     return base  # SEMPRE retorna BARE
 

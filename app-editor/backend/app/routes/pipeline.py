@@ -102,7 +102,7 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
             return False
         if processo.returncode != 0:
             _stderr_full = stderr_out.decode()
-            print(f"[YT-DLP STDERR COMPLETO] {_stderr_full[:2000]}", flush=True)
+            logger.info(f"[YT-DLP STDERR COMPLETO] {_stderr_full[:2000]}")
             logger.warning(f"[yt-dlp] Falhou (inicio): {_stderr_full[:500]} ... (fim): {_stderr_full[-500:]}")
             return False
         logger.info(f"[yt-dlp] Download concluído → {output_path}")
@@ -1588,56 +1588,6 @@ async def _traducao_task(edicao_id: int):
             raise
 
 
-# --- Reset de status travado ---
-@router.post("/edicoes/{edicao_id}/limpar-traducoes")
-def limpar_traducoes(edicao_id: int, db: Session = Depends(get_db)):
-    """Apaga todas as traduções e volta o status para 'corte', forçando retradução completa."""
-    edicao = db.get(Edicao, edicao_id)
-    if not edicao:
-        raise HTTPException(404, "Edição não encontrada")
-
-    deletados = db.query(TraducaoLetra).filter(
-        TraducaoLetra.edicao_id == edicao_id
-    ).delete()
-    edicao.status = "montagem"
-    edicao.passo_atual = 7
-    edicao.erro_msg = None
-    db.commit()
-
-    return {"ok": True, "traducoes_deletadas": deletados, "status": "montagem"}
-
-
-@router.post("/edicoes/{edicao_id}/reset-traducao")
-def reset_traducao(edicao_id: int, db: Session = Depends(get_db)):
-    """Reseta status preso em 'traducao' para permitir retry.
-
-    Mantém traduções já concluídas — só limpa o status travado.
-    """
-    edicao = db.get(Edicao, edicao_id)
-    if not edicao:
-        raise HTTPException(404, "Edição não encontrada")
-
-    if edicao.status not in ("traducao", "erro"):
-        raise HTTPException(400, f"Status atual é '{edicao.status}', não precisa de reset")
-
-    # Contar traduções já feitas
-    traducoes_existentes = db.query(TraducaoLetra).filter(
-        TraducaoLetra.edicao_id == edicao_id
-    ).count()
-
-    # Setar para "montagem" para destravar — permite retrigger tradução
-    edicao.status = "montagem"
-    edicao.passo_atual = 7
-    edicao.erro_msg = None
-    db.commit()
-
-    return {
-        "ok": True,
-        "traducoes_existentes": traducoes_existentes,
-        "msg": f"Status resetado para montagem. {traducoes_existentes} traduções já existem e serão mantidas.",
-    }
-
-
 # Statuses que permitem iniciar renderização final
 _STATUS_PERMITIDOS_RENDER = {"montagem", "preview_pronto", "erro"}
 
@@ -2039,7 +1989,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 if processo.returncode != 0:
                     _stderr_full = stderr_out.decode()
-                    print(f"[FFMPEG STDERR COMPLETO] {_stderr_full[:2000]}", flush=True)
+                    logger.info(f"[FFMPEG STDERR COMPLETO] {_stderr_full[:2000]}")
                     raise Exception(f"FFmpeg falhou (inicio): {_stderr_full[:1000]} ... (fim): {_stderr_full[-500:]}")
 
                 tamanho = _Path(output_video).stat().st_size

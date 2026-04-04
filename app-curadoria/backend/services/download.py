@@ -57,8 +57,8 @@ async def download_worker():
                     import sentry_sdk
                     sentry_sdk.set_context("download", {"video_id": video_id})
                     sentry_sdk.capture_exception(e)
-                except Exception:
-                    pass
+                except Exception as sentry_err:
+                    logger.debug(f"Sentry report falhou: {sentry_err}")
             finally:
                 manager.current_task = None
                 manager.queue.task_done()
@@ -208,8 +208,8 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
 
         try:
             db.save_download(video_id, f"{project_name}.mp4", artist, song, youtube_url)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[{video_id}] Falha ao salvar registro de download: {e}")
 
         cfg = load_brand_config()
         r2_prefix = cfg.get("r2_prefix", "")

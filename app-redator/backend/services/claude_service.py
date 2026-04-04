@@ -1,8 +1,11 @@
 from __future__ import annotations
 import json
+import logging
 import re
 from typing import Optional
 import anthropic
+
+logger = logging.getLogger(__name__)
 
 from backend.config import ANTHROPIC_API_KEY
 from backend.prompts.hook_helper import detect_hook_language
@@ -72,8 +75,8 @@ def _check_language_leak(text: str, target_language: str) -> None:
     words = set(last.split())
     found = words & _PT_COMMON_WORDS
     if len(found) >= 3:
-        print(
-            f"ALERTA: possível trecho em português detectado na geração — revisar manualmente. "
+        logger.warning(
+            f"Possível trecho em português detectado na geração — revisar manualmente. "
             f"Idioma alvo: {target_language}. Palavras PT encontradas: {found}"
         )
 
@@ -432,7 +435,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
             entry["timestamp"] = _secs_to_ts(int(round(current_ts)))
             prev_ts = current_ts
 
-        print(f"[generate_overlay] Timestamps por leitura: {len(parsed)} legendas, "
+        logger.info(f"[generate_overlay] Timestamps por leitura: {len(parsed)} legendas, "
               f"ceiling={narrative_ceiling}s, cta_pos={cta_secs}s, video={vid_duration}s")
 
     # Anexar CTA fixo da marca como última legenda (SPEC-010)
@@ -450,7 +453,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         if vid_duration > 0:
             cta_entry["end"] = _secs_to_ts(vid_duration)
         parsed.append(cta_entry)
-        print(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} end={cta_entry.get('end', 'auto')} (video={vid_duration}s)")
+        logger.info(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} end={cta_entry.get('end', 'auto')} (video={vid_duration}s)")
 
     # Check language leak on subtitle texts
     all_text = " ".join(item.get("text", "") for item in parsed)
@@ -592,7 +595,7 @@ def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, tempe
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            print(f"[RC _call_claude_api] Tentativa {attempt+1}/{max_retries}, {len(prompt)} chars", flush=True)
+            _rc_logger.info(f"[RC _call_claude_api] Tentativa {attempt+1}/{max_retries}, {len(prompt)} chars")
             start = _time.time()
             message = client.messages.create(
                 model=MODEL, max_tokens=max_tokens, temperature=temperature,
@@ -600,13 +603,13 @@ def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, tempe
             )
             raw = message.content[0].text.strip()
             elapsed = _time.time() - start
-            print(f"[RC _call_claude_api] Resposta: {len(raw)} chars em {elapsed:.1f}s", flush=True)
+            _rc_logger.info(f"[RC _call_claude_api] Resposta: {len(raw)} chars em {elapsed:.1f}s")
             return raw
         except Exception as api_error:
             error_str = str(api_error)
             if ("529" in error_str or "overloaded" in error_str.lower()) and attempt < max_retries - 1:
                 wait = (attempt + 1) * 10  # 10s, 20s, 30s
-                print(f"[RC _call_claude_api] API overloaded, aguardando {wait}s antes de retry...", flush=True)
+                _rc_logger.warning(f"[RC _call_claude_api] API overloaded, aguardando {wait}s antes de retry...")
                 _time.sleep(wait)
                 continue
             else:
@@ -616,7 +619,7 @@ def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, tempe
 
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
     """Chama Claude e parseia resposta JSON. Retry para 529 + limpeza agressiva."""
-    print(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}", flush=True)
+    _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
     system = "Return RAW JSON only. Rules: 1) First character must be { or [. 2) Last character must be } or ]. 3) No ```json fences. 4) No text before or after the JSON. 5) Keep string values concise (1-2 sentences max per field)."
 
     raw = _call_claude_api_with_retry(system, prompt, max_tokens, temperature)
@@ -626,8 +629,8 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        print(f"[RC _call_claude_json] JSON inválido. Primeiros 200: {raw[:200]}", flush=True)
-        print(f"[RC _call_claude_json] JSON inválido. Últimos 200: {raw[-200:]}", flush=True)
+        _rc_logger.info(f"[RC _call_claude_json] JSON inválido. Primeiros 200: {raw[:200]}")
+        _rc_logger.info(f"[RC _call_claude_json] JSON inválido. Últimos 200: {raw[-200:]}")
 
     # Tentativa 2: extrair JSON por braces (limpeza agressiva, sem nova chamada)
     first_brace = raw.find('{')
@@ -636,7 +639,7 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
         extracted = raw[first_brace:last_brace + 1]
         try:
             result = json.loads(extracted)
-            print(f"[RC _call_claude_json] JSON extraído por braces OK", flush=True)
+            _rc_logger.info("[RC _call_claude_json] JSON extraído por braces OK")
             return result
         except json.JSONDecodeError:
             pass
@@ -648,13 +651,13 @@ def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 
         extracted = raw[first_bracket:last_bracket + 1]
         try:
             result = json.loads(extracted)
-            print(f"[RC _call_claude_json] JSON extraído por brackets OK", flush=True)
+            _rc_logger.info("[RC _call_claude_json] JSON extraído por brackets OK")
             return result
         except json.JSONDecodeError:
             pass
 
     # Tentativa 4: retry com nova chamada ao Claude (último recurso para JSON inválido)
-    print(f"[RC _call_claude_json] Limpeza falhou. Fazendo retry com nova chamada...", flush=True)
+    _rc_logger.info("[RC _call_claude_json] Limpeza falhou. Fazendo retry com nova chamada...")
     raw2 = _call_claude_api_with_retry(
         system + " CRITICAL: Your previous response was not valid JSON. Return ONLY the JSON object, nothing else.",
         prompt, max_tokens, temperature,
@@ -786,7 +789,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
             # Se já atingiu max de linhas, truncar e avisar
             if len(novas_linhas) >= max_linhas:
                 resto = " ".join(palavras[idx:])
-                print(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'", flush=True)
+                _rc_logger.warning(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'")
                 truncado = True
                 break
             linha_atual = palavra
@@ -800,7 +803,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
     resultado = "\n".join(novas_linhas)
 
     if resultado != texto:
-        print(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas", flush=True)
+        _rc_logger.info(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas")
 
     return resultado
 
@@ -879,7 +882,7 @@ def _process_overlay_rc(response: dict, project) -> list:
 
             # Se as narrativas ultrapassam o espaço disponível, comprimir
             if fim_narrativo > cta_inicio_ideal and len(narrativas) > 3:
-                print(f"[RC Timestamps] Comprimindo: narrativas terminam em {fim_narrativo:.0f}s, CTA deveria começar em {cta_inicio_ideal:.0f}s", flush=True)
+                _rc_logger.info(f"[RC Timestamps] Comprimindo: narrativas terminam em {fim_narrativo:.0f}s, CTA deveria começar em {cta_inicio_ideal:.0f}s")
 
                 dur_por_legenda = cta_inicio_ideal / len(narrativas)
                 dur_por_legenda = max(4.0, min(7.0, dur_por_legenda))
@@ -898,7 +901,7 @@ def _process_overlay_rc(response: dict, project) -> list:
             for cta_item in cta_items:
                 cta_item["timestamp"] = f"{cta_mins:02d}:{cta_secs:02d}"
 
-            print(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)", flush=True)
+            _rc_logger.info(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)")
 
     return overlay_json
 
@@ -912,7 +915,7 @@ def _validate_overlay_rc(overlay_json: list):
         texto = item.get("text", "")
         for j, linha in enumerate(texto.split("\n")):
             if len(linha) > 40:
-                print(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)", flush=True)
+                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)")
 
     # 2. Anti-repetição (palavras compartilhadas entre legendas)
     stop_words = {"a", "o", "e", "de", "da", "do", "em", "que", "um", "uma", "no", "na", "com", "por", "para", "se", "não", "é"}
@@ -928,17 +931,17 @@ def _validate_overlay_rc(overlay_json: list):
             compartilhadas = palavras_por_legenda[i] & palavras_por_legenda[j]
             menor = min(len(palavras_por_legenda[i]), len(palavras_por_legenda[j]))
             if menor > 0 and len(compartilhadas) / menor > 0.6:
-                print(f"[RC WARN] Legendas {i+1} e {j+1} compartilham >60% palavras (possível repetição)", flush=True)
+                _rc_logger.warning(f"[RC WARN] Legendas {i+1} e {j+1} compartilham >60% palavras (possível repetição)")
 
     # 3. Verificar se CTA existe
     tem_cta = any(item.get("_is_cta") for item in overlay_json)
     if not tem_cta:
-        print("[RC WARN] Overlay sem CTA!", flush=True)
+        _rc_logger.warning("[RC WARN] Overlay sem CTA!")
 
     # 4. Contar legendas
     n = len(narrativas)
     if n < 5:
-        print(f"[RC WARN] Apenas {n} legendas narrativas (esperado ≥8)", flush=True)
+        _rc_logger.warning(f"[RC WARN] Apenas {n} legendas narrativas (esperado ≥8)")
 
 
 def _format_post_rc(response: dict) -> str:
@@ -984,11 +987,11 @@ def generate_research_rc(project, brand_config=None) -> dict:
     """Gera pesquisa profunda para RC. Salva em project.research_data."""
     from backend.prompts.rc_research_prompt import build_rc_research_prompt
 
-    print(f"[RC Research] Iniciando para project {project.id}", flush=True)
+    _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_research_prompt(metadata)
-    print(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)", flush=True)
+    _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
     _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
@@ -1011,7 +1014,7 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
     # Se o JSON veio como lista (fallback de extração por brackets),
     # wrappear no formato esperado
     if isinstance(result, list):
-        print(f"[RC Hooks] Resultado veio como lista, convertendo para dict", flush=True)
+        _rc_logger.info("[RC Hooks] Resultado veio como lista, convertendo para dict")
         result = {"ganchos": result, "descartados_e_motivos": []}
 
     n_ganchos = len(result.get("ganchos", []))

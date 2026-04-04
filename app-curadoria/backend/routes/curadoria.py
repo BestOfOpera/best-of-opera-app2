@@ -270,8 +270,8 @@ async def add_manual_video(
 
                         try:
                             db.register_quota_usage(search_calls=0, detail_calls=1)
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Falha ao registrar quota usage: {e}")
 
                         _cfg = load_brand_config(brand_slug)
                         sc = calc_score_v7(video_data, _cat, _cfg)
@@ -483,8 +483,8 @@ async def download_video(
                         try:
                             shutil.rmtree(str(project_dir), ignore_errors=True)
                             logger.info(f"Limpeza local: {project_dir}")
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Falha ao limpar diretório local {project_dir}: {e}")
 
             ascii_name = _ud.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
             resp_headers = {
@@ -713,8 +713,8 @@ async def r2_info(folder: str = Query(...)):
                     snippet = items[0].get("snippet", {})
                     result["title"] = snippet.get("title", "") or result["title"]
                     result["description"] = snippet.get("description", "")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[r2/info] Falha ao enriquecer com YouTube API para {video_id}: {e}")
 
     return result
 
