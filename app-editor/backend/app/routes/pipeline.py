@@ -159,6 +159,7 @@ _STATUS_PERMITIDOS_DOWNLOAD = {"aguardando", "baixando", "letra", "erro"}
 def _set_post_download_state(edicao):
     """Define status/passo após download bem-sucedido.
     Instrumental (sem_lyrics) pula direto para corte (passo 5).
+    Retorna True se auto-corte deve ser enfileirado (corte_original preenchido).
     """
     if edicao.sem_lyrics:
         edicao.status = "corte"
@@ -168,6 +169,34 @@ def _set_post_download_state(edicao):
         edicao.status = "letra"
         edicao.passo_atual = 2
     edicao.erro_msg = None
+    return bool(edicao.corte_original_inicio and edicao.corte_original_fim)
+
+
+async def _auto_corte_task(edicao_id: int):
+    """Auto-aplica corte após download quando corte_original preenchido (importação RC)."""
+    try:
+        from app.database import SessionLocal
+
+        logger.info(f"[auto_corte] INÍCIO edicao_id={edicao_id}")
+        with SessionLocal() as db:
+            edicao = db.get(Edicao, edicao_id)
+            if not edicao:
+                logger.warning(f"[auto_corte] Edição {edicao_id} não encontrada")
+                return
+            if not edicao.corte_original_inicio or not edicao.corte_original_fim:
+                logger.info(f"[auto_corte] corte_original vazio, skip edicao_id={edicao_id}")
+                return
+            if edicao.status not in ("corte", "letra"):
+                logger.warning(f"[auto_corte] Status '{edicao.status}' não permite corte, skip edicao_id={edicao_id}")
+                return
+
+            await _aplicar_corte_impl(edicao_id, CorteParams(), db)
+            logger.info(f"[auto_corte] Corte aplicado com sucesso edicao_id={edicao_id}")
+
+    except BaseException as e:
+        if isinstance(e, asyncio.CancelledError):
+            raise
+        logger.warning(f"[auto_corte] Falhou edicao_id={edicao_id}: {e} (operador pode completar manualmente)")
 
 
 # --- Passo 1: Garantir vídeo ---
@@ -226,8 +255,14 @@ async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session
 
     edicao.arquivo_video_completo = r2_key
     edicao.r2_base = base  # BARE no DB
-    _set_post_download_state(edicao)
+    _needs_corte = _set_post_download_state(edicao)
     db.commit()
+
+    if _needs_corte:
+        from app.worker import task_queue
+        task_queue.put_nowait((_auto_corte_task, edicao_id))
+        logger.info(f"[upload-video] Auto-corte enfileirado edicao_id={edicao_id}")
+
     return {"status": "ok", "arquivo": r2_key}
 
 
@@ -265,8 +300,11 @@ async def _download_task(edicao_id: int):
             # Idempotência: se já tem vídeo no R2, não baixar de novo
             if edicao.arquivo_video_completo and storage.exists(edicao.arquivo_video_completo):
                 logger.info(f"[{edicao_id}] Vídeo já existe no R2 ({edicao.arquivo_video_completo}), pulando download")
-                _set_post_download_state(edicao)
+                _needs_corte = _set_post_download_state(edicao)
                 db.commit()
+                if _needs_corte:
+                    from app.worker import task_queue
+                    task_queue.put_nowait((_auto_corte_task, edicao_id))
                 return
 
             # Check local file (fast filesystem I/O, ok dentro da sessão)
@@ -309,15 +347,20 @@ async def _download_task(edicao_id: int):
                 _save_youtube_marker(base, youtube_video_id, r2_prefix=_prefix)
 
             # Salvar resultado (sessão curta)
+            _needs_corte = False
             with SessionLocal() as db:
                 edicao = db.get(Edicao, edicao_id)
                 if edicao:
                     edicao.arquivo_video_completo = r2_key
                     edicao.r2_base = base
-                    _set_post_download_state(edicao)
+                    _needs_corte = _set_post_download_state(edicao)
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {}
                     db.commit()
+
+            if _needs_corte:
+                from app.worker import task_queue
+                task_queue.put_nowait((_auto_corte_task, edicao_id))
 
             logger.info(f"[{edicao_id}] Download concluído via local: {r2_key}")
             return
@@ -342,15 +385,20 @@ async def _download_task(edicao_id: int):
             if youtube_video_id:
                 _save_youtube_marker(base, youtube_video_id, r2_prefix=_prefix)
 
+            _needs_corte = False
             with SessionLocal() as db:
                 edicao = db.get(Edicao, edicao_id)
                 if edicao:
                     edicao.arquivo_video_completo = r2_key
                     edicao.r2_base = base
-                    _set_post_download_state(edicao)
+                    _needs_corte = _set_post_download_state(edicao)
                     edicao.task_heartbeat = datetime.now(timezone.utc)
                     edicao.progresso_detalhe = {}
                     db.commit()
+
+            if _needs_corte:
+                from app.worker import task_queue
+                task_queue.put_nowait((_auto_corte_task, edicao_id))
 
             logger.info(f"[{edicao_id}] Vídeo encontrado no R2 (curadoria): {r2_key}")
             return
@@ -380,15 +428,20 @@ async def _download_task(edicao_id: int):
                     cur_r2_key = result.get("r2_key", r2_key)
                     cur_r2_base = result.get("r2_base", base)
 
+                    _needs_corte = False
                     with SessionLocal() as db:
                         edicao = db.get(Edicao, edicao_id)
                         if edicao:
                             edicao.arquivo_video_completo = cur_r2_key
                             edicao.r2_base = cur_r2_base
-                            _set_post_download_state(edicao)
+                            _needs_corte = _set_post_download_state(edicao)
                             edicao.task_heartbeat = datetime.now(timezone.utc)
                             edicao.progresso_detalhe = {}
                             db.commit()
+
+                    if _needs_corte:
+                        from app.worker import task_queue
+                        task_queue.put_nowait((_auto_corte_task, edicao_id))
 
                     logger.info(f"[{edicao_id}] Vídeo baixado via curadoria: {cur_r2_key}")
                     return
@@ -425,15 +478,21 @@ async def _download_task(edicao_id: int):
                     _os.unlink(cobalt_local)
                 except Exception:
                     pass
+                _needs_corte = False
                 with SessionLocal() as db:
                     edicao = db.get(Edicao, edicao_id)
                     if edicao:
                         edicao.arquivo_video_completo = r2_key2
                         edicao.r2_base = base2
-                        _set_post_download_state(edicao)
+                        _needs_corte = _set_post_download_state(edicao)
                         edicao.task_heartbeat = datetime.now(timezone.utc)
                         edicao.progresso_detalhe = {}
                         db.commit()
+
+                if _needs_corte:
+                    from app.worker import task_queue
+                    task_queue.put_nowait((_auto_corte_task, edicao_id))
+
                 logger.info(f"[{edicao_id}] Download concluído via cobalt: {r2_key2}")
                 return
 
@@ -465,15 +524,21 @@ async def _download_task(edicao_id: int):
                     _os.unlink(ytdlp_local)
                 except Exception:
                     pass
+                _needs_corte = False
                 with SessionLocal() as db:
                     edicao = db.get(Edicao, edicao_id)
                     if edicao:
                         edicao.arquivo_video_completo = r2_key3
                         edicao.r2_base = base3
-                        _set_post_download_state(edicao)
+                        _needs_corte = _set_post_download_state(edicao)
                         edicao.task_heartbeat = datetime.now(timezone.utc)
                         edicao.progresso_detalhe = {}
                         db.commit()
+
+                if _needs_corte:
+                    from app.worker import task_queue
+                    task_queue.put_nowait((_auto_corte_task, edicao_id))
+
                 logger.info(f"[{edicao_id}] Download concluído via yt-dlp: {r2_key3}")
                 return
 
@@ -1614,7 +1679,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
     try:
         from app.database import SessionLocal
         from app.services.legendas import (
-            gerar_ass, OVERLAY_MAX_CHARS_LINHA, LYRICS_MAX_CHARS, TRADUCAO_MAX_CHARS
+            gerar_ass, OVERLAY_MAX_CHARS, OVERLAY_MAX_CHARS_LINHA, LYRICS_MAX_CHARS, TRADUCAO_MAX_CHARS
         )
         from pathlib import Path as _Path
 
@@ -1677,6 +1742,7 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     overlay_style=perfil.overlay_style,
                     lyrics_style=perfil.lyrics_style,
                     traducao_style=perfil.traducao_style,
+                    overlay_max_chars=perfil.overlay_max_chars or OVERLAY_MAX_CHARS,
                     overlay_max_chars_linha=perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA,
                     lyrics_max_chars=perfil.lyrics_max_chars or LYRICS_MAX_CHARS,
                     traducao_max_chars=perfil.traducao_max_chars or TRADUCAO_MAX_CHARS,

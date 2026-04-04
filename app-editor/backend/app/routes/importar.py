@@ -256,6 +256,25 @@ async def importar_do_redator(
     db.commit()
     db.refresh(edicao)
 
+    # Auto-download: se corte_original preenchido (importação RC via redator),
+    # iniciar download automaticamente para encadear com auto-corte.
+    auto_download = False
+    if edicao.corte_original_inicio and edicao.corte_original_fim:
+        from sqlalchemy import update as _sa_update
+        from app.worker import task_queue
+        from app.routes.pipeline import _download_task
+
+        _res = db.execute(
+            _sa_update(Edicao)
+            .where(Edicao.id == edicao.id, Edicao.status == "aguardando")
+            .values(status="baixando", passo_atual=1, erro_msg=None)
+        )
+        db.commit()
+        if _res.rowcount:
+            task_queue.put_nowait((_download_task, edicao.id))
+            auto_download = True
+            logger.info(f"[importar] Auto-download enfileirado edicao_id={edicao.id}")
+
     return {
         "id": edicao.id,
         "artista": edicao.artista,
@@ -264,4 +283,5 @@ async def importar_do_redator(
         "overlays_count": len(overlays),
         "posts_count": len(posts),
         "seo_count": len(seo),
+        "auto_download": auto_download,
     }
