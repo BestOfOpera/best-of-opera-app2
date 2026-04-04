@@ -695,13 +695,14 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v7 RC: {e}")
 
-    # Migration v8: RC — fontsizes maiores (gancho 58, corpo 54, cta 50)
-    # Guard: gancho_fontsize != 58 (valor definitivo v8)
+    # Migration v8+v9: RC — fontsizes definitivos 56/52/48
+    # v8 originalmente setou 58/54/50, v9 reverte para 56/52/48
+    # Guard: gancho_fontsize != 56 (valor definitivo)
     try:
         with engine.begin() as conn:
             import json as _json8
             rc_overlay_v8 = _json8.dumps({
-                "fontsize": 54,
+                "fontsize": 52,
                 "primarycolor": "#FFFFFF",
                 "outlinecolor": "#000000",
                 "outline": 0,
@@ -709,9 +710,9 @@ def _run_migrations():
                 "alignment": 8,
                 "bold": True,
                 "italic": False,
-                "gancho_fontsize": 58,
-                "corpo_fontsize": 54,
-                "cta_fontsize": 50,
+                "gancho_fontsize": 56,
+                "corpo_fontsize": 52,
+                "cta_fontsize": 48,
                 "gap_overlay_px": 12,
                 "gancho_gap": 12,
                 "corpo_gap": 14,
@@ -728,11 +729,22 @@ def _run_migrations():
                 UPDATE editor_perfis SET
                     overlay_style = :overlay_style
                 WHERE sigla = 'RC'
-                  AND (overlay_style->>'gancho_fontsize')::int != 58
+                  AND (overlay_style->>'gancho_fontsize')::int != 56
             """), {"overlay_style": rc_overlay_v8})
-            logger.info("Migration v8: RC fontsizes 58/54/50 (gancho/corpo/cta) OK")
+            logger.info("Migration v8/v9: RC fontsizes 56/52/48 (gancho/corpo/cta) OK")
     except Exception as e:
-        logger.warning(f"Migration v8 RC: {e}")
+        logger.warning(f"Migration v8/v9 RC: {e}")
+
+    # Verificação de perfil RC no startup
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text(
+                "SELECT overlay_style->>'gancho_fontsize' as g, overlay_style->>'corpo_fontsize' as c, overlay_style->>'cta_fontsize' as t FROM editor_perfis WHERE sigla = 'RC'"
+            )).first()
+            if row:
+                print(f"[PERFIL CHECK] RC gancho={row[0]} corpo={row[1]} cta={row[2]}", flush=True)
+    except Exception:
+        pass
 
     # Migration: BO overlay gap reduzido (30→8px) para legendas mais próximas da imagem
     try:
