@@ -544,6 +544,7 @@ async def prepare_video(
             try:
                 import yt_dlp
                 ydl_opts = _get_ydl_opts(dl_path)
+                logger.info(f"[prepare-video] ydl_opts format: {ydl_opts.get('format', 'NENHUM')}")
 
                 def _download():
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

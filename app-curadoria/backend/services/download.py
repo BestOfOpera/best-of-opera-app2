@@ -120,6 +120,7 @@ def _get_ydl_opts(dl_path: str):
                 opts['cookiefile'] = legacy_cookies
                 logger.info(f"Using legacy cookies from {legacy_cookies}")
 
+    logger.info(f"[yt-dlp] Formato selecionado: {opts.get('format', 'NENHUM')}")
     return opts
 
 
