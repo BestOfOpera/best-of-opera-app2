@@ -1,7 +1,6 @@
 import os, re, asyncio, shutil, logging, base64, subprocess
 from datetime import datetime
 from pathlib import Path
-import importlib.util
 
 logger = logging.getLogger(__name__)
 
@@ -14,22 +13,6 @@ if _node_path:
         logger.info(f"[download] Node.js version: {_nv.stdout.strip()}")
     except Exception as e:
         logger.error(f"[download] Node.js check failed: {e}")
-
-try:
-    _ejs = importlib.util.find_spec("yt_dlp_plugins")
-    logger.info(f"[download] yt-dlp plugins: {_ejs}")
-except Exception:
-    logger.warning("[download] yt-dlp plugins não encontrados")
-
-try:
-    _ejs_pkg = subprocess.run(["pip", "show", "yt-dlp-ejs-default"],
-                               capture_output=True, text=True, timeout=10)
-    if _ejs_pkg.returncode == 0:
-        logger.info("[download] yt-dlp-ejs-default: INSTALADO")
-    else:
-        logger.error("[download] yt-dlp-ejs-default: NÃO INSTALADO")
-except Exception as e:
-    logger.error(f"[download] pip check failed: {e}")
 
 import database as db
 from config import PROJECTS_DIR, COBALT_API_URL, COBALT_API_KEY, load_brand_config
