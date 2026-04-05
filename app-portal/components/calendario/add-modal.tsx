@@ -35,9 +35,13 @@ export function AddModal({
   const [scheduling, setScheduling] = useState<number | null>(null)
 
   const filtered = useMemo(() => {
+    console.log("[AddModal] brandSlug recebido:", brandSlug)
+    console.log("[AddModal] total unscheduled:", unscheduledProjects.length)
+    console.log("[AddModal] brand_slugs:", [...new Set(unscheduledProjects.map(p => p.brand_slug))])
     const projects = unscheduledProjects
       .filter((p) => (p.brand_slug || "").toLowerCase() === (brandSlug || "").toLowerCase())
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    console.log("[AddModal] após filtro:", projects.length)
     if (!search.trim()) return projects
     const term = search.toLowerCase()
     return projects.filter(

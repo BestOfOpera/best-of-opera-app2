@@ -219,7 +219,7 @@ export function RedatorProjectList() {
           {(activeView !== "em_andamento" || total > 0) && (
             <Button
               size="sm"
-              variant="ghost"
+              variant="outline"
               onClick={() => { setSelectMode(s => !s); setSelectedIds(new Set()); setSelectedFolders(new Set()) }}
             >
               {selectMode ? "Cancelar" : "Selecionar"}
