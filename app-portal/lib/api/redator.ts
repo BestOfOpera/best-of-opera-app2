@@ -44,6 +44,7 @@ export interface Project {
   instrument_formation: string | null
   orchestra: string | null
   conductor: string | null
+  scheduled_date: string | null
   translations: Translation[]
   warnings?: string[]
 }
@@ -216,4 +217,18 @@ export const redatorApi = {
     request<{ export_path: string | null }>(`${BASE()}/projects/export-config`),
   deleteProjectsByBrand: (brandSlug: string) =>
     request<{ deleted: number }>(`${BASE()}/projects/by-brand/${brandSlug}`, { method: "DELETE", timeout: 60000 }),
+
+  // Calendar
+  getCalendar: (startDate: string, endDate: string, brandSlug?: string) => {
+    const params = new URLSearchParams({ start_date: startDate, end_date: endDate })
+    if (brandSlug) params.append("brand_slug", brandSlug)
+    return request<{ scheduled: Project[]; unscheduled: Project[] }>(
+      `${BASE()}/calendar?${params.toString()}`
+    )
+  },
+  scheduleProject: (id: number, scheduledDate: string | null) =>
+    request<Project>(`${BASE()}/calendar/${id}/schedule`, {
+      method: "PUT",
+      body: JSON.stringify({ scheduled_date: scheduledDate }),
+    }),
 }

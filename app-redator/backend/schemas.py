@@ -127,6 +127,7 @@ class ProjectOut(BaseModel):
     instrument_formation: Optional[str] = None
     orchestra: Optional[str] = None
     conductor: Optional[str] = None
+    scheduled_date: Optional[datetime.date] = None
     translations: List[TranslationOut] = []
     warnings: List[str] = []
 
@@ -154,6 +155,10 @@ class ApprovePostRequest(BaseModel):
 class ApproveYoutubeRequest(BaseModel):
     youtube_title: str
     youtube_tags: str
+
+
+class ScheduleRequest(BaseModel):
+    scheduled_date: Optional[datetime.date] = None
 
 
 class SelectHookRequest(BaseModel):

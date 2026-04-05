@@ -5,7 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
-import { Search, LayoutDashboard, Download, PenTool, ListPlus, FileCheck, FileText, Globe, Send, Film, ListOrdered, Music, AlignLeft, HardDrive, Settings, ChevronDown, User, ShieldCheck, LogOut } from "lucide-react"
+import { Search, LayoutDashboard, Download, PenTool, ListPlus, FileCheck, FileText, Globe, Send, Film, ListOrdered, Music, AlignLeft, HardDrive, Settings, ChevronDown, User, ShieldCheck, LogOut, CalendarDays } from "lucide-react"
 
 interface NavItem { label: string; href: string; icon: React.ElementType; adminOnly?: boolean }
 interface ToolSection { id: string; label: string; icon: React.ElementType; items: NavItem[]; adminOnly?: boolean }
@@ -21,6 +21,7 @@ const tools: ToolSection[] = [
     id: "redator", label: "Redator de Conteúdo", icon: PenTool, items: [
       { label: "Projetos", href: "/redator", icon: ListPlus },
       { label: "Novo Projeto", href: "/redator/novo", icon: FileText },
+      { label: "Calendario", href: "/calendario", icon: CalendarDays },
     ]
   },
   {
@@ -46,6 +47,7 @@ const tools: ToolSection[] = [
 
 function deriveActiveTool(pathname: string): string {
   if (pathname.startsWith("/curadoria")) return "curadoria"
+  if (pathname.startsWith("/calendario")) return "redator"
   if (pathname.startsWith("/redator")) return "redator"
   if (pathname.startsWith("/editor")) return "editor"
   if (pathname.startsWith("/dashboard")) return "dashboard"

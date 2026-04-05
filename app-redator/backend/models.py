@@ -69,6 +69,11 @@ class Project(Base):
     orchestra: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     conductor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Calendar
+    scheduled_date: Mapped[Optional[datetime.date]] = mapped_column(
+        nullable=True, index=True
+    )
+
     translations: Mapped[list["Translation"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

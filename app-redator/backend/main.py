@@ -19,7 +19,7 @@ if _SENTRY_DSN:
         attach_stacktrace=True,
         server_name="redator-backend",
     )
-from backend.routers import projects, generation, approval, translation, export, health
+from backend.routers import projects, generation, approval, translation, export, health, calendar
 
 Base.metadata.create_all(bind=engine)
 
@@ -57,6 +57,10 @@ def _run_migrations():
             conn.execute(text("ALTER TABLE projects ADD COLUMN orchestra VARCHAR(255)"))
         if "conductor" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN conductor VARCHAR(255)"))
+        # v15 — Calendar: scheduled_date
+        if "scheduled_date" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN scheduled_date DATE"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_scheduled_date ON projects (scheduled_date)"))
 
 
 _run_migrations()
@@ -72,6 +76,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(calendar.router)     # /api/calendar — prefix próprio, sem conflito
 app.include_router(export.router)       # ANTES de projects — rotas literais (/export-config) primeiro
 app.include_router(projects.router)     # catch-all /{project_id} depois
 app.include_router(generation.router)
