@@ -101,7 +101,6 @@ def _get_ydl_opts(dl_path: str):
         # Player client web — mais compatível com cookies e evita pot_from_server
         # (que requer servidor HTTP separado impossível no Railway)
         'extractor_args': {'youtube': {'player_client': ['web']}},
-        'js_runtimes': {'node': {}},
     }
 
     # Cookies support (ERR-055) — base64 preserva TABs que Railway quebra em raw text
