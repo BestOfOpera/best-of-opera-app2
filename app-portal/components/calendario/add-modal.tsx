@@ -10,6 +10,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { redatorApi, type Project } from "@/lib/api/redator"
+import { isRecentProject } from "@/lib/project-utils"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface AddModalProps {
@@ -33,7 +35,9 @@ export function AddModal({
   const [scheduling, setScheduling] = useState<number | null>(null)
 
   const filtered = useMemo(() => {
-    const projects = unscheduledProjects.filter((p) => p.brand_slug === brandSlug)
+    const projects = unscheduledProjects
+      .filter((p) => (p.brand_slug || "").toLowerCase() === (brandSlug || "").toLowerCase())
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     if (!search.trim()) return projects
     const term = search.toLowerCase()
     return projects.filter(
@@ -88,7 +92,10 @@ export function AddModal({
                   key={p.id}
                   disabled={scheduling === p.id}
                   onClick={() => handleSelect(p)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-50"
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-50",
+                    isRecentProject(p.created_at) && "ring-1 ring-green-400/50 bg-green-50/30 dark:bg-green-950/20"
+                  )}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{p.artist}</p>

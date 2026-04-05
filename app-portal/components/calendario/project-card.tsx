@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { ScheduleDropdown } from "./schedule-dropdown"
 import type { Project } from "@/lib/api/redator"
+import { nextStepLink, isRecentProject, RECENT_CLASSES } from "@/lib/project-utils"
 
 const STATUS_COLORS: Record<string, string> = {
   input_complete: "bg-gray-100 text-gray-700",
@@ -44,7 +45,7 @@ export function ProjectCard({ project, editorStatus, onScheduleChange }: Project
     project.status !== "export_ready"
 
   function handleClick() {
-    router.push(`/redator/projeto/${project.id}/overlay`)
+    router.push(nextStepLink(project))
   }
 
   return (
@@ -52,7 +53,8 @@ export function ProjectCard({ project, editorStatus, onScheduleChange }: Project
       onClick={handleClick}
       className={cn(
         "group flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 transition-colors hover:bg-muted/60",
-        isLate && "border-destructive/40"
+        isLate && "border-destructive/40",
+        isRecentProject(project.created_at) && RECENT_CLASSES
       )}
     >
       <div className="min-w-0 flex-1">
@@ -77,6 +79,11 @@ export function ProjectCard({ project, editorStatus, onScheduleChange }: Project
             </Badge>
           )}
         </div>
+        {project.cut_start && project.cut_end && (
+          <p className="text-[9px] text-muted-foreground mt-0.5">
+            Corte: {project.cut_start} — {project.cut_end}
+          </p>
+        )}
       </div>
       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
         <ScheduleDropdown projectId={project.id} onScheduleChange={onScheduleChange} />

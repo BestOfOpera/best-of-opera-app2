@@ -11,7 +11,7 @@ const breadcrumbMap: Record<string, string[]> = {
   "/curadoria/downloads": ["Curadoria", "Downloads"],
   "/redator": ["Redator", "Projetos"],
   "/redator/novo": ["Redator", "Novo Projeto"],
-  "/calendario": ["Producao", "Calendario"],
+  "/calendario": ["Produção", "Calendário"],
   "/editor": ["Editor", "Fila de Edicao"],
   "/dashboard": ["Dashboard", "Visão Geral"],
   "/dashboard/reports": ["Dashboard", "Reports"],

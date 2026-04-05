@@ -13,6 +13,7 @@ import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redato
 import { useBrand } from "@/lib/brand-context"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { nextStepLink, isRecentProject, RECENT_CLASSES } from "@/lib/project-utils"
 
 type View = "em_andamento" | "export_ready" | "r2"
 
@@ -49,20 +50,6 @@ const SORT_OPTIONS_R2 = [
 
 const PAGE_SIZE = 20
 
-const isRecent = (created_at: string) =>
-  Date.now() - new Date(created_at).getTime() < 30 * 60 * 1000
-
-function nextStepLink(p: Project): string {
-  const isRC = p.brand_slug === "reels-classics"
-  if (p.status === "input_complete" || p.status === "generating") {
-    return isRC ? `/redator/projeto/${p.id}/hooks` : `/redator/projeto/${p.id}/overlay`
-  }
-  if (!p.overlay_approved) return `/redator/projeto/${p.id}/overlay`
-  if (!p.post_approved) return `/redator/projeto/${p.id}/post`
-  if (!isRC && !p.youtube_approved) return `/redator/projeto/${p.id}/youtube`
-  if (isRC && !p.automation_approved) return `/redator/projeto/${p.id}/automation`
-  return `/redator/projeto/${p.id}/exportar`
-}
 
 export function RedatorProjectList() {
   const { selectedBrand } = useBrand()
@@ -321,7 +308,7 @@ export function RedatorProjectList() {
                   <Card className={cn(
                     "cursor-pointer transition-colors hover:bg-muted/20",
                     selectMode && selectedIds.has(p.id) && "border-primary/40 bg-primary/5",
-                    isRecent(p.created_at) && "ring-2 ring-blue-400/50 bg-blue-50/30 dark:bg-blue-950/20"
+                    isRecentProject(p.created_at) && RECENT_CLASSES
                   )}>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">

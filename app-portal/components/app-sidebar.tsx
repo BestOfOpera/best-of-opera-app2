@@ -21,12 +21,16 @@ const tools: ToolSection[] = [
     id: "redator", label: "Redator de Conteúdo", icon: PenTool, items: [
       { label: "Projetos", href: "/redator", icon: ListPlus },
       { label: "Novo Projeto", href: "/redator/novo", icon: FileText },
-      { label: "Calendario", href: "/calendario", icon: CalendarDays },
     ]
   },
   {
     id: "editor", label: "Editor de Vídeo", icon: Film, items: [
       { label: "Fila de Edicao", href: "/editor", icon: ListOrdered },
+    ]
+  },
+  {
+    id: "producao", label: "Produção", icon: CalendarDays, items: [
+      { label: "Calendário", href: "/calendario", icon: CalendarDays },
     ]
   },
   {
@@ -47,7 +51,7 @@ const tools: ToolSection[] = [
 
 function deriveActiveTool(pathname: string): string {
   if (pathname.startsWith("/curadoria")) return "curadoria"
-  if (pathname.startsWith("/calendario")) return "redator"
+  if (pathname.startsWith("/calendario")) return "producao"
   if (pathname.startsWith("/redator")) return "redator"
   if (pathname.startsWith("/editor")) return "editor"
   if (pathname.startsWith("/dashboard")) return "dashboard"

@@ -9,7 +9,6 @@ import { redatorApi, type Project } from "@/lib/api/redator"
 import { editorApi, type Edicao, type Perfil } from "@/lib/api/editor"
 import { CalendarCell, type EnrichedProject } from "./calendar-cell"
 import { AddModal } from "./add-modal"
-import { ScheduleDropdown } from "./schedule-dropdown"
 import { toast } from "sonner"
 
 function extractVideoId(url: string): string {
@@ -230,32 +229,6 @@ export function CalendarView() {
             ))
           )}
 
-          {/* Projetos sem data */}
-          {unscheduled.length > 0 && (
-            <div className="mt-4 flex flex-col gap-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Sem Data ({unscheduled.length})
-              </h3>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                {unscheduled.map((p) => {
-                  const enriched = enrichProject(p)
-                  return (
-                    <div key={p.id} className="flex items-center gap-1 rounded-md border border-border bg-card p-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium">{p.artist}</p>
-                        <p className="truncate text-[10px] text-muted-foreground">{p.work}</p>
-                        <Badge variant="outline" className="mt-0.5 text-[9px]">{p.brand_slug}</Badge>
-                      </div>
-                      <ScheduleDropdown
-                        projectId={p.id}
-                        onScheduleChange={() => fetchData()}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
         </>
       )}
 

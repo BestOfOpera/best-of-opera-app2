@@ -18,6 +18,7 @@ import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircl
 import { useBrand } from "@/lib/brand-context"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { isRecentProject, RECENT_CLASSES } from "@/lib/project-utils"
 import { extractErrorMessage } from "@/lib/utils"
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -68,8 +69,6 @@ const SORT_OPTIONS_EDITOR = [
 
 const PAGE_SIZE_EDITOR = 20
 
-const isRecent = (created_at: string) =>
-  Date.now() - new Date(created_at).getTime() < 30 * 60 * 1000
 
 function formatDuration(sec: number | null | undefined) {
   if (!sec) return "--:--"
@@ -149,6 +148,11 @@ export function EditorEditingQueue() {
   const [limpando, setLimpando] = useState(false)
   const [erroLimpar, setErroLimpar] = useState("")
 
+  // Multi-select
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
   const buildFilterParams = (): Record<string, string> => {
     const [sort_by, sort_order] = filterSort.split(":")
     const params: Record<string, string> = {}
@@ -193,6 +197,11 @@ export function EditorEditingQueue() {
           .finally(() => setLoadingRedator(false))
       }
     }).finally(() => setLoading(false))
+  }, [selectedBrand?.id, filterSearch, filterStatus, filterSort, filterPage])
+
+  useEffect(() => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
   }, [selectedBrand?.id, filterSearch, filterStatus, filterSort, filterPage])
 
   const extractVideoId = (url: string) => {
@@ -257,6 +266,36 @@ export function EditorEditingQueue() {
     if (!confirm("Remover esta edição?")) return
     await editorApi.removerEdicao(id)
     loadEdicoes()
+  }
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const allIds = edicoes.map(e => e.id)
+    setSelectedIds(prev => prev.size === allIds.length ? new Set() : new Set(allIds))
+  }
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Remover ${selectedIds.size} edição(ões)?`)) return
+    setBulkDeleting(true)
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => editorApi.removerEdicao(id)))
+      toast.success(`${selectedIds.size} edição(ões) removida(s)`)
+      setSelectedIds(new Set())
+      setSelectMode(false)
+      loadEdicoes()
+    } catch {
+      toast.error("Erro ao remover edições")
+      loadEdicoes()
+    } finally {
+      setBulkDeleting(false)
+    }
   }
 
   const carregarProjetosRedator = async () => {
@@ -352,12 +391,25 @@ export function EditorEditingQueue() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold">Fila de Edição</h2>
         <div className="flex items-center gap-2">
-          <Button onClick={toggleImportar} variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Importar do Redator
+          {selectMode && selectedIds.size > 0 && (
+            <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting} className="gap-1.5">
+              <Trash2 className="h-3.5 w-3.5" />
+              {bulkDeleting ? "Removendo..." : `Excluir (${selectedIds.size})`}
+            </Button>
+          )}
+          <Button size="sm" variant="outline" onClick={() => { setSelectMode(m => !m); setSelectedIds(new Set()) }}>
+            {selectMode ? "Cancelar" : "Selecionar"}
           </Button>
-          <Button onClick={() => { setShowForm(!showForm); if (!showForm) setShowImportar(false) }} className="gap-2">
-            <Plus className="h-4 w-4" /> Criar Manual
-          </Button>
+          {!selectMode && (
+            <>
+              <Button onClick={toggleImportar} variant="outline" className="gap-2">
+                <Download className="h-4 w-4" /> Importar do Redator
+              </Button>
+              <Button onClick={() => { setShowForm(!showForm); if (!showForm) setShowImportar(false) }} className="gap-2">
+                <Plus className="h-4 w-4" /> Criar Manual
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -831,12 +883,33 @@ export function EditorEditingQueue() {
         </div>
       ) : (
         <div className="space-y-3">
+          {selectMode && ativas.length > 0 && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+              <input
+                type="checkbox"
+                checked={selectedIds.size === ativas.length && ativas.length > 0}
+                onChange={toggleSelectAll}
+                className="h-4 w-4 accent-primary cursor-pointer"
+              />
+              <span>Selecionar tudo ({ativas.length})</span>
+            </div>
+          )}
           {ativas.map(e => {
             const st = STATUS_LABELS[e.status] || STATUS_LABELS.aguardando
             return (
-              <Card key={e.id} className={cn(
-                "hover:shadow-md transition",
-                isRecent(e.created_at) && "ring-2 ring-blue-400/50 bg-blue-50/30 dark:bg-blue-950/20"
+              <div key={e.id} className="flex items-center gap-2">
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(e.id)}
+                    onChange={() => toggleSelect(e.id)}
+                    className="h-4 w-4 accent-primary flex-shrink-0 cursor-pointer"
+                  />
+                )}
+              <Card className={cn(
+                "flex-1 hover:shadow-md transition",
+                isRecentProject(e.created_at) && RECENT_CLASSES,
+                selectMode && selectedIds.has(e.id) && "border-primary/40 bg-primary/5"
               )}>
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className="flex-1 min-w-0">
@@ -897,6 +970,7 @@ export function EditorEditingQueue() {
                   </div>
                 </CardContent>
               </Card>
+              </div>
             )
           })}
         </div>
