@@ -546,21 +546,28 @@ async def prepare_video(
                 ydl_opts = _get_ydl_opts(dl_path)
                 logger.info(f"[prepare-video] ydl_opts format: {ydl_opts.get('format', 'NENHUM')}")
 
-                # DEBUG: listar formatos disponíveis
+                # DEBUG: teste mínimo sem formato
                 try:
-                    with yt_dlp.YoutubeDL({**ydl_opts, 'quiet': True}) as ydl_info:
-                        info = ydl_info.extract_info(youtube_url, download=False)
+                    import yt_dlp as _ytdlp
+                    logger.info(f"[prepare-video] yt-dlp version: {_ytdlp.version.__version__}")
+                    debug_opts = {'quiet': True, 'no_warnings': False}
+                    cookies_path = ydl_opts.get('cookiefile')
+                    if cookies_path:
+                        debug_opts['cookiefile'] = cookies_path
+                    with _ytdlp.YoutubeDL(debug_opts) as ydl_debug:
+                        info = ydl_debug.extract_info(youtube_url, download=False)
                         formats = info.get('formats', [])
-                        logger.info(f"[prepare-video] yt-dlp version: {yt_dlp.version.__version__}")
-                        logger.info(f"[prepare-video] Formatos disponíveis: {len(formats)}")
+                        logger.info(f"[prepare-video] Formatos sem filtro: {len(formats)}")
                         for f in formats[:5]:
-                            logger.info(f"  formato: {f.get('format_id')} ext={f.get('ext')} "
-                                       f"height={f.get('height')} vcodec={f.get('vcodec')} "
-                                       f"acodec={f.get('acodec')}")
+                            logger.info(f"  {f.get('format_id')} ext={f.get('ext')} "
+                                       f"h={f.get('height')} vc={f.get('vcodec')} ac={f.get('acodec')}")
                         if not formats:
-                            logger.error("[prepare-video] ZERO formatos encontrados pelo yt-dlp!")
+                            logger.error("[prepare-video] ZERO formatos! Extrator YouTube quebrado.")
+                            logger.error(f"[prepare-video] Video title: {info.get('title', 'N/A')}")
+                            logger.error(f"[prepare-video] Uploader: {info.get('uploader', 'N/A')}")
+                            logger.error(f"[prepare-video] Availability: {info.get('availability', 'N/A')}")
                 except Exception as e:
-                    logger.error(f"[prepare-video] Erro ao listar formatos: {e}")
+                    logger.error(f"[prepare-video] extract_info falhou: {type(e).__name__}: {e}")
 
                 def _download():
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
