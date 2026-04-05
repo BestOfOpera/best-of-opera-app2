@@ -546,6 +546,22 @@ async def prepare_video(
                 ydl_opts = _get_ydl_opts(dl_path)
                 logger.info(f"[prepare-video] ydl_opts format: {ydl_opts.get('format', 'NENHUM')}")
 
+                # DEBUG: listar formatos disponíveis
+                try:
+                    with yt_dlp.YoutubeDL({**ydl_opts, 'quiet': True}) as ydl_info:
+                        info = ydl_info.extract_info(youtube_url, download=False)
+                        formats = info.get('formats', [])
+                        logger.info(f"[prepare-video] yt-dlp version: {yt_dlp.version.__version__}")
+                        logger.info(f"[prepare-video] Formatos disponíveis: {len(formats)}")
+                        for f in formats[:5]:
+                            logger.info(f"  formato: {f.get('format_id')} ext={f.get('ext')} "
+                                       f"height={f.get('height')} vcodec={f.get('vcodec')} "
+                                       f"acodec={f.get('acodec')}")
+                        if not formats:
+                            logger.error("[prepare-video] ZERO formatos encontrados pelo yt-dlp!")
+                except Exception as e:
+                    logger.error(f"[prepare-video] Erro ao listar formatos: {e}")
+
                 def _download():
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         n_errors = ydl.download([youtube_url])
