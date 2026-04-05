@@ -1,8 +1,35 @@
-import os, re, asyncio, shutil, logging, base64
+import os, re, asyncio, shutil, logging, base64, subprocess
 from datetime import datetime
 from pathlib import Path
+import importlib.util
 
 logger = logging.getLogger(__name__)
+
+# Diagnóstico de startup — mostra nos logs do Railway
+_node_path = shutil.which("node")
+logger.info(f"[download] Node.js: {_node_path}")
+if _node_path:
+    try:
+        _nv = subprocess.run(["node", "--version"], capture_output=True, text=True, timeout=5)
+        logger.info(f"[download] Node.js version: {_nv.stdout.strip()}")
+    except Exception as e:
+        logger.error(f"[download] Node.js check failed: {e}")
+
+try:
+    _ejs = importlib.util.find_spec("yt_dlp_plugins")
+    logger.info(f"[download] yt-dlp plugins: {_ejs}")
+except Exception:
+    logger.warning("[download] yt-dlp plugins não encontrados")
+
+try:
+    _ejs_pkg = subprocess.run(["pip", "show", "yt-dlp-ejs-default"],
+                               capture_output=True, text=True, timeout=10)
+    if _ejs_pkg.returncode == 0:
+        logger.info("[download] yt-dlp-ejs-default: INSTALADO")
+    else:
+        logger.error("[download] yt-dlp-ejs-default: NÃO INSTALADO")
+except Exception as e:
+    logger.error(f"[download] pip check failed: {e}")
 
 import database as db
 from config import PROJECTS_DIR, COBALT_API_URL, COBALT_API_KEY, load_brand_config
@@ -91,7 +118,7 @@ def _get_ydl_opts(dl_path: str):
         # Player client web — mais compatível com cookies e evita pot_from_server
         # (que requer servidor HTTP separado impossível no Railway)
         'extractor_args': {'youtube': {'player_client': ['web']}},
-        'js_runtimes': ['node'],
+        'js_runtimes': {'node': {}},
     }
 
     # Cookies support (ERR-055) — base64 preserva TABs que Railway quebra em raw text
