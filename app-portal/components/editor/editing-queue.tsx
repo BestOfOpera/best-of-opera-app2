@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { editorApi, type Edicao, type RedatorProject } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
 import { Button } from "@/components/ui/button"
@@ -13,8 +13,10 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { FilterBar } from "@/components/ui/filter-bar"
 import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react"
 import { useBrand } from "@/lib/brand-context"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { extractErrorMessage } from "@/lib/utils"
 
@@ -40,6 +42,35 @@ const REDATOR_STATUS_LABELS: Record<string, { label: string; variant: "default" 
   export_ready: { label: "Pronto", variant: "default" },
 }
 
+const STATUS_ATIVAS = ["aguardando", "baixando", "letra", "transcricao", "alinhamento", "corte", "traducao", "montagem", "renderizando", "preview_pronto", "erro"]
+
+const STATUS_OPTIONS_EDITOR = [
+  { value: "", label: "Todos" },
+  { value: "aguardando", label: "Aguardando" },
+  { value: "baixando", label: "Baixando" },
+  { value: "letra", label: "Letra" },
+  { value: "transcricao", label: "Transcrição" },
+  { value: "alinhamento", label: "Alinhamento" },
+  { value: "corte", label: "Corte" },
+  { value: "traducao", label: "Tradução" },
+  { value: "montagem", label: "Montagem" },
+  { value: "renderizando", label: "Renderizando" },
+  { value: "preview_pronto", label: "Preview pronto" },
+  { value: "erro", label: "Erro" },
+]
+
+const SORT_OPTIONS_EDITOR = [
+  { value: "created_at:desc", label: "Mais recente" },
+  { value: "created_at:asc", label: "Mais antigo" },
+  { value: "artista:asc", label: "Artista A→Z" },
+  { value: "artista:desc", label: "Artista Z→A" },
+]
+
+const PAGE_SIZE_EDITOR = 20
+
+const isRecent = (created_at: string) =>
+  Date.now() - new Date(created_at).getTime() < 30 * 60 * 1000
+
 function formatDuration(sec: number | null | undefined) {
   if (!sec) return "--:--"
   const m = Math.floor(sec / 60)
@@ -64,9 +95,27 @@ function nextStepPath(e: Edicao) {
 
 export function EditorEditingQueue() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { selectedBrand } = useBrand()
   const [edicoes, setEdicoes] = useState<Edicao[]>([])
   const [loading, setLoading] = useState(true)
+  const [totalEdicoes, setTotalEdicoes] = useState(0)
+  const [totalPagesEdicoes, setTotalPagesEdicoes] = useState(1)
+
+  const filterSearch = searchParams.get("search") || ""
+  const filterStatus = searchParams.get("status") || ""
+  const filterSort = searchParams.get("sort") || "created_at:desc"
+  const filterPage = parseInt(searchParams.get("page") || "1", 10)
+
+  const updateParams = (updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(updates)) {
+      if (v) params.set(k, v)
+      else params.delete(k)
+    }
+    if (!updates.page) params.set("page", "1")
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
     youtube_url: "", youtube_video_id: "", artista: "", musica: "",
@@ -100,9 +149,26 @@ export function EditorEditingQueue() {
   const [limpando, setLimpando] = useState(false)
   const [erroLimpar, setErroLimpar] = useState("")
 
+  const buildFilterParams = (): Record<string, string> => {
+    const [sort_by, sort_order] = filterSort.split(":")
+    const params: Record<string, string> = {}
+    if (filterSearch) params.search = filterSearch
+    params.status = filterStatus || STATUS_ATIVAS.join(",")
+    if (sort_by) params.sort_by = sort_by
+    if (sort_order) params.sort_order = sort_order
+    params.page = String(filterPage)
+    params.limit = String(PAGE_SIZE_EDITOR)
+    return params
+  }
+
   const loadEdicoes = () => {
-    editorApi.listarEdicoes(undefined, selectedBrand?.id)
-      .then(setEdicoes)
+    const params = buildFilterParams()
+    editorApi.listarEdicoes(params, selectedBrand?.id)
+      .then(res => {
+        setEdicoes(res.edicoes ?? (res as any))
+        setTotalEdicoes(res.total ?? 0)
+        setTotalPagesEdicoes(res.total_pages ?? 1)
+      })
       .catch(err => {
         const msg = extractErrorMessage(err)
         toast.error(`Erro ao carregar edições: ${msg}`)
@@ -112,9 +178,13 @@ export function EditorEditingQueue() {
 
   useEffect(() => {
     setLoading(true)
-    editorApi.listarEdicoes(undefined, selectedBrand?.id).then(data => {
-      setEdicoes(data)
-      if (data.length === 0) {
+    const params = buildFilterParams()
+    editorApi.listarEdicoes(params, selectedBrand?.id).then(res => {
+      const items = res.edicoes ?? (res as any)
+      setEdicoes(items)
+      setTotalEdicoes(res.total ?? 0)
+      setTotalPagesEdicoes(res.total_pages ?? 1)
+      if (items.length === 0 && !filterSearch && !filterStatus) {
         setShowImportar(true)
         setLoadingRedator(true)
         editorApi.listarProjetosRedator(selectedBrand?.id)
@@ -123,7 +193,7 @@ export function EditorEditingQueue() {
           .finally(() => setLoadingRedator(false))
       }
     }).finally(() => setLoading(false))
-  }, [selectedBrand?.id])
+  }, [selectedBrand?.id, filterSearch, filterStatus, filterSort, filterPage])
 
   const extractVideoId = (url: string) => {
     const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
@@ -275,7 +345,7 @@ export function EditorEditingQueue() {
 
   if (loading) return <div className="text-center py-16 text-muted-foreground">Carregando...</div>
 
-  const ativas = edicoes.filter(e => e.status !== "concluido")
+  const ativas = edicoes
 
   return (
     <div>
@@ -731,18 +801,43 @@ export function EditorEditingQueue() {
         </DialogContent>
       </Dialog>
 
+      <FilterBar
+        searchPlaceholder="Buscar artista, música, compositor..."
+        searchValue={filterSearch}
+        onSearchChange={(v) => updateParams({ search: v })}
+        statusOptions={STATUS_OPTIONS_EDITOR}
+        statusValue={filterStatus}
+        onStatusChange={(v) => updateParams({ status: v })}
+        showStatus
+        sortOptions={SORT_OPTIONS_EDITOR}
+        sortValue={filterSort}
+        onSortChange={(v) => updateParams({ sort: v })}
+        page={filterPage}
+        totalPages={totalPagesEdicoes}
+        total={totalEdicoes}
+        onPageChange={(p) => updateParams({ page: String(p) })}
+        showPagination={totalPagesEdicoes > 1}
+      />
+
       {ativas.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
           <Clapperboard className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Nenhuma edição ainda.</p>
-          <p className="text-sm mt-1">Clique em &quot;Importar do Redator&quot; ou &quot;Criar Manual&quot; para começar.</p>
+          <p>Nenhuma edição encontrada.</p>
+          {(filterSearch || filterStatus) ? (
+            <p className="text-sm mt-1">Tente ajustar os filtros de busca.</p>
+          ) : (
+            <p className="text-sm mt-1">Clique em &quot;Importar do Redator&quot; ou &quot;Criar Manual&quot; para começar.</p>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
           {ativas.map(e => {
             const st = STATUS_LABELS[e.status] || STATUS_LABELS.aguardando
             return (
-              <Card key={e.id} className="hover:shadow-md transition">
+              <Card key={e.id} className={cn(
+                "hover:shadow-md transition",
+                isRecent(e.created_at) && "ring-2 ring-blue-400/50 bg-blue-50/30 dark:bg-blue-950/20"
+              )}>
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-1">

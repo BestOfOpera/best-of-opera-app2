@@ -108,9 +108,11 @@ export const redatorApi = {
       timeout: 60000,
       body: JSON.stringify({ youtube_url: youtubeUrl, title, description, brand_slug }),
     }),
-  listProjects: (brand_slug?: string) => {
-    const qs = brand_slug ? `?brand_slug=${brand_slug}` : ""
-    return request<Project[]>(`${BASE()}/projects${qs}`)
+  listProjects: (params?: { brand_slug?: string; search?: string; status?: string; sort_by?: string; sort_order?: string; page?: number; limit?: number }) => {
+    const qs = params ? "?" + new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => [k, String(v)])
+    ).toString() : ""
+    return request<{ projects: Project[]; total: number; page: number; limit: number; total_pages: number }>(`${BASE()}/projects${qs}`)
   },
   listR2Available: (brand_slug?: string, r2_prefix?: string) => {
     const params = new URLSearchParams()

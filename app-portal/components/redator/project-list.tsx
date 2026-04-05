@@ -1,14 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/status-badge"
+import { FilterBar } from "@/components/ui/filter-bar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Plus, Music, ArrowRight, Download, ChevronDown, Trash2 } from "lucide-react"
 import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
 import { useBrand } from "@/lib/brand-context"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
 type View = "em_andamento" | "export_ready" | "r2"
@@ -20,6 +23,27 @@ const VIEW_LABELS: Record<View, string> = {
 }
 
 const STATUS_EM_ANDAMENTO = ["input_complete", "generating", "awaiting_approval", "translating"]
+
+const STATUS_OPTIONS_REDATOR = [
+  { value: "", label: "Todos" },
+  { value: "input_complete", label: "Aguardando geração" },
+  { value: "generating", label: "Gerando" },
+  { value: "awaiting_approval", label: "Aguardando aprovação" },
+  { value: "translating", label: "Traduzindo" },
+]
+
+const SORT_OPTIONS_REDATOR = [
+  { value: "created_at:desc", label: "Mais recente" },
+  { value: "created_at:asc", label: "Mais antigo" },
+  { value: "artist:asc", label: "Artista A→Z" },
+  { value: "artist:desc", label: "Artista Z→A" },
+  { value: "updated_at:desc", label: "Última atualização" },
+]
+
+const PAGE_SIZE = 20
+
+const isRecent = (created_at: string) =>
+  Date.now() - new Date(created_at).getTime() < 30 * 60 * 1000
 
 function nextStepLink(p: Project): string {
   const isRC = p.brand_slug === "reels-classics"
@@ -35,15 +59,42 @@ function nextStepLink(p: Project): string {
 
 export function RedatorProjectList() {
   const { selectedBrand } = useBrand()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
   const [projects, setProjects] = useState<Project[]>([])
   const [r2Items, setR2Items] = useState<R2AvailableItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
 
-  const [activeView, setActiveView] = useState<View>("r2")
+  const [activeView, setActiveView] = useState<View>((searchParams.get("tab") as View) || "r2")
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [selectedFolders, setSelectedFolders] = useState<Set<string>>(new Set())
   const [deleting, setDeleting] = useState(false)
+
+  const search = searchParams.get("search") || ""
+  const filterStatus = searchParams.get("status") || ""
+  const sort = searchParams.get("sort") || "created_at:desc"
+  const page = parseInt(searchParams.get("page") || "1", 10)
+
+  const updateParams = (updates: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams.toString())
+    for (const [k, v] of Object.entries(updates)) {
+      if (v) params.set(k, v)
+      else params.delete(k)
+    }
+    if (!updates.page) params.set("page", "1")
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
+
+  const handleViewChange = (v: View) => {
+    setActiveView(v)
+    const params = new URLSearchParams()
+    params.set("tab", v)
+    router.replace(`?${params.toString()}`, { scroll: false })
+  }
 
   useEffect(() => {
     setSelectMode(false)
@@ -51,22 +102,46 @@ export function RedatorProjectList() {
     setSelectedFolders(new Set())
   }, [activeView, selectedBrand?.slug])
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     if (!selectedBrand?.slug) return
     setLoading(true)
+
+    const [sort_by, sort_order] = sort.split(":")
+
+    // Build status filter for backend
+    let statusParam = ""
+    if (activeView === "em_andamento") {
+      statusParam = filterStatus || STATUS_EM_ANDAMENTO.join(",")
+    } else if (activeView === "export_ready") {
+      statusParam = "export_ready"
+    }
+
+    const useLimit = activeView !== "r2" ? PAGE_SIZE : 0
+
     Promise.all([
-      redatorApi.listProjects(selectedBrand.slug),
+      redatorApi.listProjects({
+        brand_slug: selectedBrand.slug,
+        search: search || undefined,
+        status: statusParam || undefined,
+        sort_by,
+        sort_order,
+        page: activeView !== "r2" ? page : undefined,
+        limit: useLimit || undefined,
+      }),
       redatorApi.listR2Available(selectedBrand.slug, selectedBrand.r2_prefix).catch(() => [] as R2AvailableItem[]),
-    ]).then(([projs, r2]) => {
-      setProjects(projs)
+    ]).then(([res, r2]) => {
+      setProjects(res.projects ?? (res as any))
+      setTotal(res.total ?? 0)
+      setTotalPages(res.total_pages ?? 1)
       setR2Items(r2)
     }).finally(() => setLoading(false))
-  }, [selectedBrand?.slug])
+  }, [selectedBrand?.slug, activeView, search, filterStatus, sort, page])
 
-  const emAndamento = projects.filter(p => STATUS_EM_ANDAMENTO.includes(p.status))
-  const prontos = projects.filter(p => p.status === "export_ready")
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
-  const currentProjects = activeView === "em_andamento" ? emAndamento : activeView === "export_ready" ? prontos : []
+  const currentProjects = projects
   const currentR2 = activeView === "r2" ? r2Items : []
 
   const allProjectIds = currentProjects.map(p => p.id)
@@ -99,11 +174,12 @@ export function RedatorProjectList() {
       } else {
         const ids = Array.from(selectedIds)
         await redatorApi.deleteProjects(ids)
-        setProjects(prev => prev.filter(p => !selectedIds.has(p.id)))
         setSelectedIds(new Set())
         toast.success(`${ids.length} projeto(s) removido(s)`)
       }
       setSelectMode(false)
+      // Re-fetch to update total and pagination after delete
+      loadData()
     } catch {
       toast.error("Erro ao remover itens")
     } finally {
@@ -121,7 +197,7 @@ export function RedatorProjectList() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Projetos</h1>
-          <p className="text-sm text-muted-foreground">{projects.length} projetos</p>
+          <p className="text-sm text-muted-foreground">{total} projetos</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Botão excluir — só no modo seleção com itens selecionados */}
@@ -132,7 +208,7 @@ export function RedatorProjectList() {
             </Button>
           )}
           {/* Selecionar / Cancelar */}
-          {(activeView !== "em_andamento" || emAndamento.length > 0) && (
+          {(activeView !== "em_andamento" || total > 0) && (
             <Button
               size="sm"
               variant="ghost"
@@ -150,11 +226,10 @@ export function RedatorProjectList() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {(Object.keys(VIEW_LABELS) as View[]).map(v => (
-                <DropdownMenuItem key={v} onClick={() => setActiveView(v)} className={activeView === v ? "font-medium" : ""}>
+                <DropdownMenuItem key={v} onClick={() => handleViewChange(v)} className={activeView === v ? "font-medium" : ""}>
                   {VIEW_LABELS[v]}
-                  {v === "em_andamento" && emAndamento.length > 0 && <span className="ml-auto text-xs text-muted-foreground">{emAndamento.length}</span>}
-                  {v === "export_ready" && prontos.length > 0 && <span className="ml-auto text-xs text-muted-foreground">{prontos.length}</span>}
-                  {v === "r2" && r2Items.length > 0 && <span className="ml-auto text-xs text-muted-foreground">{r2Items.length}</span>}
+                  {v === activeView && total > 0 && <span className="ml-auto text-xs text-muted-foreground">{total}</span>}
+                  {v === "r2" && v !== activeView && r2Items.length > 0 && <span className="ml-auto text-xs text-muted-foreground">{r2Items.length}</span>}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -184,6 +259,27 @@ export function RedatorProjectList() {
         </div>
       )}
 
+      {/* FilterBar — only for em_andamento and export_ready */}
+      {activeView !== "r2" && (
+        <FilterBar
+          searchPlaceholder="Buscar artista, obra, compositor..."
+          searchValue={search}
+          onSearchChange={(v) => updateParams({ search: v })}
+          statusOptions={activeView === "em_andamento" ? STATUS_OPTIONS_REDATOR : undefined}
+          statusValue={filterStatus}
+          onStatusChange={(v) => updateParams({ status: v })}
+          showStatus={activeView === "em_andamento"}
+          sortOptions={SORT_OPTIONS_REDATOR}
+          sortValue={sort}
+          onSortChange={(v) => updateParams({ sort: v })}
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          onPageChange={(p) => updateParams({ page: String(p) })}
+          showPagination={totalPages > 1}
+        />
+      )}
+
       {/* View: Em andamento / Prontos p/ Exportar */}
       {activeView !== "r2" && (
         currentProjects.length === 0 ? (
@@ -203,7 +299,11 @@ export function RedatorProjectList() {
                   />
                 )}
                 <Link href={nextStepLink(p)} className="flex-1">
-                  <Card className={`cursor-pointer transition-colors hover:bg-muted/20 ${selectMode && selectedIds.has(p.id) ? "border-primary/40 bg-primary/5" : ""}`}>
+                  <Card className={cn(
+                    "cursor-pointer transition-colors hover:bg-muted/20",
+                    selectMode && selectedIds.has(p.id) && "border-primary/40 bg-primary/5",
+                    isRecent(p.created_at) && "ring-2 ring-blue-400/50 bg-blue-50/30 dark:bg-blue-950/20"
+                  )}>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
                         <Music className="h-5 w-5 text-primary" />
@@ -274,7 +374,7 @@ export function RedatorProjectList() {
       )}
 
       {/* Empty state geral */}
-      {projects.length === 0 && r2Items.length === 0 && (
+      {total === 0 && r2Items.length === 0 && !search && !filterStatus && (
         <Card className="text-center">
           <CardContent className="py-12">
             <p className="text-sm text-muted-foreground mb-4">Nenhum projeto ainda.</p>

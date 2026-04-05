@@ -4,7 +4,9 @@ import json
 import logging
 import re
 import zipfile
+from math import ceil
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -19,23 +21,62 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/editor", tags=["edicoes"])
 
 
-@router.get("/edicoes", response_model=list[EdicaoOut])
+ALLOWED_SORT_EDICOES = {"created_at", "updated_at", "artista", "musica"}
+
+
+@router.get("/edicoes")
 def listar_edicoes(
     status: Optional[str] = None,
     categoria: Optional[str] = None,
     perfil_id: Optional[int] = Query(None),
+    search: str = Query(""),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     if perfil_id is None:
-        return []
-    q = db.query(Edicao).filter(
-        Edicao.perfil_id == perfil_id
-    ).order_by(Edicao.id.desc())
+        return {"edicoes": [], "total": 0, "page": 1, "limit": limit, "total_pages": 0}
+    q = db.query(Edicao).filter(Edicao.perfil_id == perfil_id)
     if status:
-        q = q.filter(Edicao.status == status)
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if len(statuses) == 1:
+            q = q.filter(Edicao.status == statuses[0])
+        elif statuses:
+            q = q.filter(Edicao.status.in_(statuses))
     if categoria:
         q = q.filter(Edicao.categoria == categoria)
-    return q.all()
+    if search:
+        term = f"%{search}%"
+        q = q.filter(or_(
+            Edicao.artista.ilike(term),
+            Edicao.musica.ilike(term),
+            Edicao.compositor.ilike(term),
+        ))
+
+    if sort_by not in ALLOWED_SORT_EDICOES:
+        sort_by = "created_at"
+    if sort_order not in ("asc", "desc"):
+        sort_order = "desc"
+
+    col = getattr(Edicao, sort_by)
+    q = q.order_by(col.asc() if sort_order == "asc" else col.desc())
+
+    total = q.count()
+
+    if limit > 0:
+        offset = (page - 1) * limit
+        q = q.offset(offset).limit(limit)
+
+    edicoes = q.all()
+    return {
+        "edicoes": [EdicaoOut.model_validate(e) for e in edicoes],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": ceil(total / limit) if limit > 0 else 1,
+    }
 
 
 @router.post("/edicoes", response_model=EdicaoOut)

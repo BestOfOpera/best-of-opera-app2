@@ -1,6 +1,8 @@
+from math import ceil
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -19,15 +21,59 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     return project
 
 
-@router.get("", response_model=List[ProjectOut])
+ALLOWED_SORT_PROJECTS = {"created_at", "updated_at", "artist", "work"}
+
+
+@router.get("")
 def list_projects(
     brand_slug: Optional[str] = Query(None),
+    search: str = Query(""),
+    status: str = Query(""),
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc"),
+    page: int = Query(1, ge=1),
+    limit: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     q = db.query(Project)
     if brand_slug is not None:
         q = q.filter(Project.brand_slug == brand_slug)
-    return q.order_by(Project.created_at.desc()).all()
+    if search:
+        term = f"%{search}%"
+        q = q.filter(or_(
+            Project.artist.ilike(term),
+            Project.work.ilike(term),
+            Project.composer.ilike(term),
+        ))
+    if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if len(statuses) == 1:
+            q = q.filter(Project.status == statuses[0])
+        elif statuses:
+            q = q.filter(Project.status.in_(statuses))
+
+    if sort_by not in ALLOWED_SORT_PROJECTS:
+        sort_by = "created_at"
+    if sort_order not in ("asc", "desc"):
+        sort_order = "desc"
+
+    col = getattr(Project, sort_by)
+    q = q.order_by(col.asc() if sort_order == "asc" else col.desc())
+
+    total = q.count()
+
+    if limit > 0:
+        offset = (page - 1) * limit
+        q = q.offset(offset).limit(limit)
+
+    projects = q.all()
+    return {
+        "projects": [ProjectOut.model_validate(p) for p in projects],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "total_pages": ceil(total / limit) if limit > 0 else 1,
+    }
 
 
 @router.get("/r2-available", response_model=List[R2AvailableItem])

@@ -263,10 +263,10 @@ export interface AuthUser {
 
 export const editorApi = {
   listarEdicoes: (params?: Record<string, string>, perfil_id?: number) => {
-    const p = { ...params }
+    const p: Record<string, string> = { ...params }
     if (perfil_id) p.perfil_id = perfil_id.toString()
-    const qs = p ? "?" + new URLSearchParams(p).toString() : ""
-    return request<Edicao[]>(`${BASE()}/edicoes${qs}`)
+    const qs = Object.keys(p).length ? "?" + new URLSearchParams(p).toString() : ""
+    return request<{ edicoes: Edicao[]; total: number; page: number; limit: number; total_pages: number }>(`${BASE()}/edicoes${qs}`)
   },
   criarEdicao: (data: Partial<Edicao>, perfil_id?: number) => {
     const body = { ...data }
