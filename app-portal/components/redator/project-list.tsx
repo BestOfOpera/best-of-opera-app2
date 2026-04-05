@@ -40,6 +40,13 @@ const SORT_OPTIONS_REDATOR = [
   { value: "updated_at:desc", label: "Última atualização" },
 ]
 
+const SORT_OPTIONS_R2 = [
+  { value: "artist:asc", label: "Artista A→Z" },
+  { value: "artist:desc", label: "Artista Z→A" },
+  { value: "work:asc", label: "Obra A→Z" },
+  { value: "work:desc", label: "Obra Z→A" },
+]
+
 const PAGE_SIZE = 20
 
 const isRecent = (created_at: string) =>
@@ -142,7 +149,21 @@ export function RedatorProjectList() {
   }, [loadData])
 
   const currentProjects = projects
-  const currentR2 = activeView === "r2" ? r2Items : []
+
+  // R2: frontend filtering + sorting
+  const filteredR2 = r2Items.filter(item => {
+    if (!search) return true
+    const s = search.toLowerCase()
+    return (item.artist || "").toLowerCase().includes(s) || (item.work || "").toLowerCase().includes(s)
+  })
+  const sortedR2 = [...filteredR2].sort((a, b) => {
+    const [field, dir] = sort.split(":")
+    const aVal = field === "work" ? (a.work || "") : (a.artist || "")
+    const bVal = field === "work" ? (b.work || "") : (b.artist || "")
+    const cmp = aVal.localeCompare(bVal)
+    return dir === "asc" ? cmp : -cmp
+  })
+  const currentR2 = activeView === "r2" ? sortedR2 : []
 
   const allProjectIds = currentProjects.map(p => p.id)
   const allFolders = currentR2.map(i => i.folder)
@@ -259,26 +280,24 @@ export function RedatorProjectList() {
         </div>
       )}
 
-      {/* FilterBar — only for em_andamento and export_ready */}
-      {activeView !== "r2" && (
-        <FilterBar
-          searchPlaceholder="Buscar artista, obra, compositor..."
-          searchValue={search}
-          onSearchChange={(v) => updateParams({ search: v })}
-          statusOptions={activeView === "em_andamento" ? STATUS_OPTIONS_REDATOR : undefined}
-          statusValue={filterStatus}
-          onStatusChange={(v) => updateParams({ status: v })}
-          showStatus={activeView === "em_andamento"}
-          sortOptions={SORT_OPTIONS_REDATOR}
-          sortValue={sort}
-          onSortChange={(v) => updateParams({ sort: v })}
-          page={page}
-          totalPages={totalPages}
-          total={total}
-          onPageChange={(p) => updateParams({ page: String(p) })}
-          showPagination={totalPages > 1}
-        />
-      )}
+      {/* FilterBar — all tabs */}
+      <FilterBar
+        searchPlaceholder="Buscar artista, obra, compositor..."
+        searchValue={search}
+        onSearchChange={(v) => updateParams({ search: v })}
+        statusOptions={activeView === "em_andamento" ? STATUS_OPTIONS_REDATOR : undefined}
+        statusValue={filterStatus}
+        onStatusChange={(v) => updateParams({ status: v })}
+        showStatus={activeView === "em_andamento"}
+        sortOptions={activeView === "r2" ? SORT_OPTIONS_R2 : SORT_OPTIONS_REDATOR}
+        sortValue={sort}
+        onSortChange={(v) => updateParams({ sort: v })}
+        page={page}
+        totalPages={activeView !== "r2" ? totalPages : 1}
+        total={activeView === "r2" ? filteredR2.length : total}
+        onPageChange={(p) => updateParams({ page: String(p) })}
+        showPagination={activeView !== "r2" && totalPages > 1}
+      />
 
       {/* View: Em andamento / Prontos p/ Exportar */}
       {activeView !== "r2" && (
@@ -339,11 +358,13 @@ export function RedatorProjectList() {
 
       {/* View: Prontos para o Redator (R2) */}
       {activeView === "r2" && (
-        r2Items.length === 0 ? (
-          <div className="text-center py-12 text-sm text-muted-foreground">Nenhum vídeo aguardando no R2.</div>
+        currentR2.length === 0 ? (
+          <div className="text-center py-12 text-sm text-muted-foreground">
+            {search ? "Nenhum vídeo encontrado com esses filtros." : "Nenhum vídeo aguardando no R2."}
+          </div>
         ) : (
           <div className="space-y-2">
-            {r2Items.map(item => (
+            {currentR2.map(item => (
               <div key={item.folder} className="flex items-center gap-2">
                 {selectMode && (
                   <input
