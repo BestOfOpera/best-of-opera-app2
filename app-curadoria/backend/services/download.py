@@ -88,8 +88,9 @@ def _get_ydl_opts(dl_path: str):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        # bgutil-ytdlp-pot-provider auto-registers as local PO token provider when installed.
-        # pot_from_server requires a separate HTTP server — not available on Railway.
+        # Player client web — mais compatível com cookies e evita pot_from_server
+        # (que requer servidor HTTP separado impossível no Railway)
+        'extractor_args': {'youtube': {'player_client': ['web']}},
     }
 
     # Cookies support (ERR-055) — base64 preserva TABs que Railway quebra em raw text
