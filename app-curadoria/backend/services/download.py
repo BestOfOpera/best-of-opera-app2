@@ -71,7 +71,7 @@ def _get_ydl_opts(dl_path: str):
     """Generate yt-dlp options with cookie support and robustness flags (ERR-055)"""
     import yt_dlp
     opts = {
-        'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best',
+        'format': 'bv[ext=mp4][height<=1080]+ba[ext=m4a]/bv[height<=1080]+ba/b[height<=1080]/b',
         'merge_output_format': 'mp4',
         'outtmpl': dl_path,
         'noplaylist': True,
