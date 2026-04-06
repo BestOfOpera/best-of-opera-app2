@@ -45,7 +45,7 @@ const emptyInterpreter = (): Interpreter => ({
   voice_type: "", birth_date: "", death_date: "",
 })
 
-export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: string; scheduledDate?: string }) {
+export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Folder?: string; scheduledDate?: string; projectId?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -145,6 +145,53 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
       setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
     }).finally(() => setR2Loading(false))
   }, [r2Folder])
+
+  // Modo edição: carregar dados do projeto existente
+  useEffect(() => {
+    if (!projectId) return
+    setLoading(true)
+    redatorApi.getProject(Number(projectId)).then((p) => {
+      setYoutubeUrl(p.youtube_url || "")
+      setHook(p.hook || "")
+      setHookCategory(p.hook_category || "")
+      setCategory(p.category || "")
+      setCutStart(p.cut_start || "")
+      setCutEnd(p.cut_end || "")
+      // Interpreters: split multi-artist fields
+      const artists = (p.artist || "").split(" & ").map((a: string) => a.trim()).filter(Boolean)
+      const nationalities = (p.nationality || "").split(" / ").map((s: string) => s.trim())
+      const flags = (p.nationality_flag || "").split(" / ").map((s: string) => s.trim())
+      const voiceTypes = (p.voice_type || "").split(" / ").map((s: string) => s.trim())
+      const birthDates = (p.birth_date || "").split(" / ").map((s: string) => s.trim())
+      const deathDates = (p.death_date || "").split(" / ").map((s: string) => s.trim())
+      setInterpreters(artists.length > 0
+        ? artists.map((a: string, i: number) => ({
+            artist: a,
+            nationality: nationalities[i] || nationalities[0] || "",
+            nationality_flag: flags[i] || flags[0] || "",
+            voice_type: voiceTypes[i] || voiceTypes[0] || "",
+            birth_date: birthDates[i] || birthDates[0] || "",
+            death_date: deathDates[i] || deathDates[0] || "",
+          }))
+        : [emptyInterpreter()]
+      )
+      setShared({
+        work: p.work || "",
+        composer: p.composer || "",
+        composition_year: p.composition_year || "",
+        album_opera: p.album_opera || "",
+      })
+      if (p.instrument_formation) setInstrumentFormation(p.instrument_formation)
+      if (p.orchestra) setOrchestra(p.orchestra)
+      if (p.conductor) setConductor(p.conductor)
+      setDetected(true)
+      setConfidence("edit")
+    }).catch((err) => {
+      setError(`Erro ao carregar projeto: ${err?.message || err}`)
+    }).finally(() => setLoading(false))
+  }, [projectId])
+
+  const isEditMode = !!projectId
 
   const isMulti = category === "Duet" || category === "Ensemble"
 
@@ -251,24 +298,34 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
         if (orchestra) projectData.orchestra = orchestra
         if (conductor) projectData.conductor = conductor
       }
-      const project = await redatorApi.createProject(projectData, selectedBrand?.slug)
+      let finalProjectId: number
 
-      // Agendar se veio do calendário
-      if (scheduledDate && project.id) {
-        try {
-          await redatorApi.scheduleProject(project.id, scheduledDate)
-        } catch (e) {
-          console.error("Erro ao agendar:", e)
+      if (isEditMode) {
+        const updated = await redatorApi.updateProject(Number(projectId), projectData)
+        finalProjectId = updated.id
+      } else {
+        const created = await redatorApi.createProject(projectData, selectedBrand?.slug)
+        finalProjectId = created.id
+
+        // Agendar se veio do calendário
+        if (scheduledDate && finalProjectId) {
+          try {
+            await redatorApi.scheduleProject(finalProjectId, scheduledDate)
+          } catch (e) {
+            console.error("Erro ao agendar:", e)
+          }
         }
       }
 
       if (isRC) {
         // Research + hooks são chamados na página /hooks (Opção A)
         // Submit apenas cria o projeto e redireciona
-        router.push(`/redator/projeto/${project.id}/hooks`)
+        router.push(`/redator/projeto/${finalProjectId}/hooks`)
       } else {
-        await redatorApi.generate(project.id)
-        router.push(`/redator/projeto/${project.id}/overlay`)
+        if (!isEditMode) {
+          await redatorApi.generate(finalProjectId)
+        }
+        router.push(`/redator/projeto/${finalProjectId}/overlay`)
       }
     } catch (err: any) {
       setError(err.message)
@@ -281,8 +338,8 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Novo Projeto</h1>
-          <p className="text-sm text-muted-foreground">Preencha os dados para gerar conteudo</p>
+          <h1 className="text-xl font-semibold text-foreground">{isEditMode ? "Editar Projeto" : "Novo Projeto"}</h1>
+          <p className="text-sm text-muted-foreground">{isEditMode ? "Revise os dados antes de prosseguir" : "Preencha os dados para gerar conteudo"}</p>
         </div>
         <div className="shrink-0 flex items-center gap-3 bg-muted/40 p-2 rounded-lg border border-border">
           <span className="text-xs font-medium text-muted-foreground hidden sm:inline-block">Marca Destino:</span>
@@ -302,7 +359,7 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
             <CardTitle className="text-base">Etapa A — Seus Dados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
-            {!r2Folder && (
+            {!r2Folder && !isEditMode && (
               <div className="space-y-2">
                 <Label>Screenshot do YouTube *</Label>
                 <p className="text-xs text-muted-foreground">Tire um screenshot da pagina do video no YouTube</p>
@@ -423,13 +480,15 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
                 {detected && !detecting && (
                   <span className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium",
-                    confidence === "r2"
-                      ? "bg-primary/10 text-primary"
-                      : confidence === "high"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-800"
+                    confidence === "edit"
+                      ? "bg-blue-100 text-blue-800"
+                      : confidence === "r2"
+                        ? "bg-primary/10 text-primary"
+                        : confidence === "high"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
                   )}>
-                    {confidence === "r2" ? "Pre-carregado do R2" : confidence === "high" ? "Detectado" : "Baixa confianca — revise"}
+                    {confidence === "edit" ? "Dados do projeto" : confidence === "r2" ? "Pre-carregado do R2" : confidence === "high" ? "Detectado" : "Baixa confianca — revise"}
                   </span>
                 )}
               </div>
@@ -548,10 +607,12 @@ export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: stri
           <Button type="submit" className="w-full" size="lg" disabled={loading || !canSubmit}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {loading
-              ? (isRC ? "Criando projeto..." : "Criando & Gerando Conteúdo...")
-              : (isRC ? "Próximo: Selecionar Ganchos" : "Próximo: Gerar Conteúdo")}
+              ? (isEditMode ? "Salvando..." : isRC ? "Criando projeto..." : "Criando & Gerando Conteúdo...")
+              : (isEditMode
+                ? (isRC ? "Salvar e Selecionar Ganchos" : "Salvar e Gerar Conteúdo")
+                : (isRC ? "Próximo: Selecionar Ganchos" : "Próximo: Gerar Conteúdo"))}
           </Button>
-          {!detected && !loading && !r2Folder && (
+          {!detected && !loading && !r2Folder && !isEditMode && (
             <p className="mt-3 text-center text-sm font-medium text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-200">
               Faça upload do screenshot do YouTube para continuar
             </p>

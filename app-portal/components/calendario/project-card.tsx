@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { ScheduleDropdown } from "./schedule-dropdown"
 import type { Project } from "@/lib/api/redator"
-import { nextStepLink, isRecentProject, RECENT_CLASSES } from "@/lib/project-utils"
+import { isRecentProject, RECENT_CLASSES } from "@/lib/project-utils"
 
 const STATUS_COLORS: Record<string, string> = {
   input_complete: "bg-gray-100 text-gray-700",
@@ -45,7 +45,7 @@ export function ProjectCard({ project, editorStatus, onScheduleChange }: Project
     project.status !== "export_ready"
 
   function handleClick() {
-    router.push(nextStepLink(project))
+    router.push(`/redator/novo?project_id=${project.id}`)
   }
 
   return (
