@@ -382,8 +382,9 @@ def gerar_ass(
         if end_ms > duracao_total_ms:
             duracao_total_ms = end_ms
 
-    # Fallback: se lyrics vazios (instrumental), usar duração real do vídeo
-    if duracao_total_ms == 0 and duracao_video_ms:
+    # Garantir que duracao_total_ms >= duração real do vídeo
+    # (lyrics podem acabar antes do vídeo; overlays devem cobrir até o fim)
+    if duracao_video_ms and duracao_video_ms > duracao_total_ms:
         duracao_total_ms = duracao_video_ms
 
     # Track 1: Overlay (com word wrap e timing contínuo)

@@ -136,25 +136,21 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
                     value={entry.timestamp}
                     onChange={(e) => updateEntry(i, "timestamp", e.target.value)}
                     className="w-20 font-mono text-xs"
-                    disabled={isCta}
                   />
                   <Input
                     value={entry.text}
                     onChange={(e) => updateEntry(i, "text", e.target.value)}
-                    className={cn("flex-1 text-sm", isCta && "text-muted-foreground")}
-                    disabled={isCta}
+                    className="flex-1 text-sm"
                   />
+                  <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                    {entry.text.length}/70
+                  </span>
                   {isCta ? (
-                    <Badge variant="secondary" className="text-[9px] shrink-0">Fixo</Badge>
+                    <Badge variant="secondary" className="text-[9px] shrink-0">CTA</Badge>
                   ) : (
-                    <>
-                      <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                        {entry.text.length}/70
-                      </span>
-                      <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-destructive" onClick={() => removeEntry(i)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </>
+                    <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-destructive" onClick={() => removeEntry(i)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   )}
                 </div>
               )

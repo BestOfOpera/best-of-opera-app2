@@ -438,6 +438,23 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         logger.info(f"[generate_overlay] Timestamps por leitura: {len(parsed)} legendas, "
               f"ceiling={narrative_ceiling}s, cta_pos={cta_secs}s, video={vid_duration}s")
 
+        # Redistribuir gap entre narrativas para evitar última legenda esticada
+        # (no editor, cada legenda estica até o start da próxima — sem redistribuição,
+        #  a última narrativa herda todo o gap até o CTA)
+        if len(parsed) > 1 and narrative_ceiling > 0:
+            last_narrative_secs = _ts_to_secs(parsed[-1]["timestamp"])
+            duracao_ultima = _calcular_duracao_leitura(parsed[-1].get("text", ""))
+            gap = narrative_ceiling - (last_narrative_secs + duracao_ultima)
+            if gap > 2:
+                extra_per = gap / len(parsed)
+                current_ts = 0.0
+                for i, entry in enumerate(parsed):
+                    entry["timestamp"] = _secs_to_ts(int(round(current_ts)))
+                    duracao = _calcular_duracao_leitura(entry.get("text", "")) + extra_per
+                    duracao = min(12.0, duracao)  # cap para legibilidade
+                    current_ts += duracao
+                logger.info(f"[generate_overlay] Redistribuição: gap={gap:.1f}s, extra_per={extra_per:.1f}s/legenda")
+
     # Anexar CTA fixo da marca como última legenda (SPEC-010)
     # Posição fixa: vid_duration - interval (garante tempo de tela)
     cta_text = bc.get("overlay_cta", "") or ""

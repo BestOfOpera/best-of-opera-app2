@@ -446,24 +446,39 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def translate_overlay_json(overlay_json: list, target_lang: str, brand_slug: str | None = None) -> list:
+def translate_overlay_json(overlay_json: list, target_lang: str,
+                           brand_slug: str | None = None,
+                           max_chars: int = 70) -> list:
     """Translate the text field of each overlay subtitle.
     Para RC, usa CTA fixo traduzido ao invés de tradução automática.
-    Aplica re-wrap pós-tradução para garantir ≤33 chars/linha."""
+    RC: aplica re-wrap pós-tradução (≤33 chars/linha).
+    BO/outros: valida limite total de caracteres (default 70)."""
     from backend.services.claude_service import _enforce_line_breaks_rc
 
+    is_rc = brand_slug == "reels-classics"
     result = []
     for i, entry in enumerate(overlay_json):
-        if entry.get("_is_cta") and brand_slug == "reels-classics":
+        if entry.get("_is_cta") and is_rc:
             translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
         else:
             translated_text = translate_text(entry.get("text", ""), target_lang)
-            # Re-wrap: traduções podem perder \n ou exceder limite de chars
-            tipo = "gancho" if i == 0 else "corpo"
-            translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33)
+            if is_rc:
+                # RC: re-wrap com limite rígido de 33 chars/linha
+                tipo = "gancho" if i == 0 else "corpo"
+                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33)
+            elif max_chars and len(translated_text) > max_chars:
+                # BO/outros: truncar no último espaço antes do limite
+                cortado = translated_text[:max_chars - 1]
+                ultimo_espaco = cortado.rfind(" ")
+                if ultimo_espaco > max_chars * 0.6:
+                    translated_text = cortado[:ultimo_espaco].rstrip() + "\u2026"
+                else:
+                    translated_text = cortado.rstrip() + "\u2026"
         item = {"timestamp": entry["timestamp"], "text": translated_text}
         if entry.get("_is_cta"):
             item["_is_cta"] = True
+        if "end" in entry:
+            item["end"] = entry["end"]
         result.append(item)
     return result
 
