@@ -35,6 +35,9 @@ function deriveBreadcrumb(pathname: string): string[] {
     if (pathname.endsWith("/exportar")) return ["Redator", "Exportar"]
     return ["Redator", "Projeto"]
   }
+  if (pathname.startsWith("/admin/usuarios/") && pathname !== "/admin/usuarios") {
+    return ["Admin", "Detalhe Usuário"]
+  }
   if (pathname.startsWith("/editor/edicao/")) {
     if (pathname.endsWith("/letra")) return ["Editor", "Validar Letra"]
     if (pathname.endsWith("/alinhamento")) return ["Editor", "Validar Alinhamento"]
