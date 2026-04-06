@@ -85,6 +85,7 @@ def _call_claude(prompt: str, system: str | None = None) -> str:
     kwargs: dict = dict(
         model=MODEL,
         max_tokens=2048,
+        temperature=0.8,
         messages=[{"role": "user", "content": prompt}],
     )
     if system:
@@ -491,18 +492,17 @@ def generate_hooks(project, brand_config=None) -> list:
     if not isinstance(parsed, list):
         raise ValueError(f"Expected JSON array, got {type(parsed).__name__}")
 
-    # Validar e limpar cada hook
+    # Limpar cada hook — sem truncação (o prompt já instrui o limite)
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     result = []
     for item in parsed[:5]:
         hook_text = item.get("hook", "").strip()
-        if len(hook_text) > max_chars:
-            # Truncar no último espaço antes do limite
-            hook_text = hook_text[:max_chars].rsplit(" ", 1)[0]
+        over_limit = len(hook_text) > max_chars
         result.append({
             "angle": item.get("angle", ""),
             "hook": hook_text,
             "thread": item.get("thread", ""),
+            **({"over_limit": True} if over_limit else {}),
         })
 
     return result
@@ -637,7 +637,7 @@ def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, tempe
 def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
     """Chama Claude e parseia resposta JSON. Retry para 529 + limpeza agressiva."""
     _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
-    system = "Return RAW JSON only. Rules: 1) First character must be { or [. 2) Last character must be } or ]. 3) No ```json fences. 4) No text before or after the JSON. 5) Keep string values concise (1-2 sentences max per field)."
+    system = "Return RAW JSON only. Rules: 1) First character must be { or [. 2) Last character must be } or ]. 3) No ```json fences. 4) No text before or after the JSON."
 
     raw = _call_claude_api_with_retry(system, prompt, max_tokens, temperature)
 
@@ -823,6 +823,48 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) ->
         _rc_logger.info(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas")
 
     return resultado
+
+
+def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
+    """Re-wrap texto BO pós-tradução em max 2 linhas de 35 chars.
+    Usa mesma lógica de _enforce_line_breaks_rc, adaptada para BO."""
+    if not texto:
+        return texto
+
+    linhas = texto.split("\n")
+
+    # Se já cabe, não mexer
+    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+    if todas_ok and len(linhas) <= max_linhas:
+        return texto
+
+    texto_junto = " ".join(l.strip() for l in linhas)
+
+    novas_linhas = []
+    linha_atual = ""
+    palavras = texto_junto.split()
+
+    for idx, palavra in enumerate(palavras):
+        teste = (linha_atual + " " + palavra).strip()
+        if len(teste) <= max_chars_linha:
+            linha_atual = teste
+            if (len(linha_atual) >= 25
+                    and linha_atual[-1] in ",.;:"
+                    and len(novas_linhas) < max_linhas - 1):
+                novas_linhas.append(linha_atual)
+                linha_atual = ""
+        else:
+            if linha_atual:
+                novas_linhas.append(linha_atual)
+            if len(novas_linhas) >= max_linhas:
+                break
+            linha_atual = palavra
+
+    if linha_atual and len(novas_linhas) < max_linhas:
+        novas_linhas.append(linha_atual)
+
+    novas_linhas = novas_linhas[:max_linhas]
+    return "\n".join(novas_linhas)
 
 
 def _process_overlay_rc(response: dict, project) -> list:

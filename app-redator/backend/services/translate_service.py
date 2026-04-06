@@ -453,7 +453,7 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
     Para RC, usa CTA fixo traduzido ao invés de tradução automática.
     RC: aplica re-wrap pós-tradução (≤33 chars/linha).
     BO/outros: valida limite total de caracteres (default 70)."""
-    from backend.services.claude_service import _enforce_line_breaks_rc
+    from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
 
     is_rc = brand_slug == "reels-classics"
     result = []
@@ -467,13 +467,9 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
                 tipo = "gancho" if i == 0 else "corpo"
                 translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33)
             elif max_chars and len(translated_text) > max_chars:
-                # BO/outros: truncar no último espaço antes do limite
-                cortado = translated_text[:max_chars - 1]
-                ultimo_espaco = cortado.rfind(" ")
-                if ultimo_espaco > max_chars * 0.6:
-                    translated_text = cortado[:ultimo_espaco].rstrip() + "\u2026"
-                else:
-                    translated_text = cortado.rstrip() + "\u2026"
+                # BO/outros: re-wrap em 2 linhas em vez de truncar
+                max_linha = max_chars // 2
+                translated_text = _enforce_line_breaks_bo(translated_text, max_chars_linha=max_linha, max_linhas=2)
         item = {"timestamp": entry["timestamp"], "text": translated_text}
         if entry.get("_is_cta"):
             item["_is_cta"] = True
