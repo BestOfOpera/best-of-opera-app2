@@ -11,6 +11,9 @@ import { Progress } from "@/components/ui/progress"
 import { AlertCircle, CheckCircle2, Clock, PlayCircle, ExternalLink, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { CrossAppKPIs } from "@/components/dashboard/cross-app-kpis"
+import { ActivityTimeline } from "@/components/dashboard/activity-timeline"
+import { WeeklyProgress } from "@/components/dashboard/weekly-progress"
 
 export default function DashboardPage() {
     const { selectedBrand } = useBrand()
@@ -89,6 +92,14 @@ export default function DashboardPage() {
                     ))}
                 </div>
             </header>
+
+            {/* ═══ Pipeline Cross-App ═══ */}
+            <CrossAppKPIs />
+            <ActivityTimeline />
+            <WeeklyProgress />
+
+            {/* ═══ Editor — Detalhes ═══ */}
+            <h3 className="text-sm font-medium text-muted-foreground mb-3 mt-2">Editor — Detalhes</h3>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -217,10 +228,10 @@ function ProjectCard({ projeto }: { projeto: Edicao & { link_direto: string } })
                         {isProcessando && (
                             <div className="w-full sm:w-48 space-y-2">
                                 <div className="flex justify-between text-[9px] font-black text-primary/40 uppercase tracking-widest">
-                                    <span>Syncing R2</span>
-                                    <span>45%</span>
+                                    <span>Passo {projeto.passo_atual || 0} / 9</span>
+                                    <span>{Math.round(((projeto.passo_atual || 0) / 9) * 100)}%</span>
                                 </div>
-                                <Progress value={45} className="h-2 bg-muted rounded-full overflow-hidden" />
+                                <Progress value={Math.round(((projeto.passo_atual || 0) / 9) * 100)} className="h-2 bg-muted rounded-full overflow-hidden" />
                             </div>
                         )}
 

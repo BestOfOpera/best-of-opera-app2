@@ -1,9 +1,11 @@
 "use client"
 
+import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppBreadcrumb } from "@/components/app-breadcrumb"
 import { BrandSelector } from "@/components/brand-selector"
+import { editorApi } from "@/lib/api/editor"
 
 const breadcrumbMap: Record<string, string[]> = {
   "/curadoria": ["Curadoria", "Dashboard"],
@@ -45,6 +47,14 @@ function deriveBreadcrumb(pathname: string): string[] {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const breadcrumb = deriveBreadcrumb(pathname)
+
+  // Heartbeat para tracking de tempo ativo (a cada 5 min)
+  useEffect(() => {
+    const ping = () => { editorApi.heartbeat().catch(() => {}) }
+    ping()
+    const interval = setInterval(ping, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="flex h-screen w-full overflow-hidden">

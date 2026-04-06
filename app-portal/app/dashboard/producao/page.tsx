@@ -2,21 +2,24 @@
 
 import { useEffect, useState } from "react"
 import { editorApi, DashboardProducao } from "@/lib/api/editor"
+import { useBrand } from "@/lib/brand-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, CheckCircle, Clock, Zap, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function ProducaoPage() {
+    const { selectedBrand } = useBrand()
     const [data, setData] = useState<DashboardProducao | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        editorApi.dashboardProducao()
+        setLoading(true)
+        editorApi.dashboardProducao(selectedBrand?.id)
             .then(setData)
             .catch(console.error)
             .finally(() => setLoading(false))
-    }, [])
+    }, [selectedBrand])
 
     if (loading) return <div className="p-8 animate-pulse space-y-6"><div className="h-64 bg-muted rounded-xl" /><div className="grid grid-cols-3 gap-4"><div className="h-32 bg-muted rounded" /></div></div>
 
@@ -88,7 +91,7 @@ export default function ProducaoPage() {
                                         <span className="text-muted-foreground">{etapa.tempo_medio}</span>
                                     </div>
                                     <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-primary/40 rounded-full transition-all group-hover:bg-primary" style={{ width: `${Math.random() * 50 + 30}%` }} />
+                                        <div className="h-full bg-primary/40 rounded-full transition-all group-hover:bg-primary" style={{ width: "50%" }} />
                                     </div>
                                 </div>
                             </div>

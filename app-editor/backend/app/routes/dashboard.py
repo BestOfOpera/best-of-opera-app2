@@ -112,28 +112,41 @@ def dashboard_producao(perfil_id: Optional[int] = None, db: Session = Depends(ge
     if perfil_id is not None:
         base_q = base_q.filter(Edicao.perfil_id == perfil_id)
 
-    # Gráfico: últimos 30 dias — renders concluídos vs erros por dia
+    # Gráfico: últimos 30 dias — renders concluídos vs erros por dia (query agrupada)
+    trinta_dias_atras = agora - timedelta(days=30)
+    render_q = db.query(
+        func.date(Render.created_at).label("dia"),
+        Render.status,
+        func.count().label("total"),
+    ).filter(Render.created_at >= trinta_dias_atras)
+    if perfil_id is not None:
+        render_q = render_q.join(Edicao, Render.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
+    resultados = render_q.group_by("dia", Render.status).all()
+
+    grafico_map: dict[str, dict] = {}
+    for r in resultados:
+        dia_str = str(r.dia) if r.dia else ""
+        grafico_map.setdefault(dia_str, {"data": dia_str, "sucesso": 0, "erro": 0})
+        if r.status == "concluido":
+            grafico_map[dia_str]["sucesso"] = r.total
+        else:
+            grafico_map[dia_str]["erro"] = grafico_map[dia_str].get("erro", 0) + r.total
+
+    # Preencher dias sem dados
     grafico = []
     for i in range(29, -1, -1):
-        dia = (agora - timedelta(days=i)).date()
-        dia_inicio = datetime(dia.year, dia.month, dia.day, tzinfo=timezone.utc)
-        dia_fim = dia_inicio + timedelta(days=1)
-
-        sucesso = (
-            db.query(func.count(Render.id))
-            .filter(Render.status == "concluido", Render.created_at >= dia_inicio, Render.created_at < dia_fim)
-            .scalar() or 0
-        )
-        erro = (
-            db.query(func.count(Render.id))
-            .filter(Render.status == "erro", Render.created_at >= dia_inicio, Render.created_at < dia_fim)
-            .scalar() or 0
-        )
-        grafico.append({"data": dia.isoformat(), "sucesso": sucesso, "erro": erro})
+        dia = (agora - timedelta(days=i)).date().isoformat()
+        grafico.append(grafico_map.get(dia, {"data": dia, "sucesso": 0, "erro": 0}))
 
     # Métricas gerais
-    total_concluidos = db.query(func.count(Render.id)).filter(Render.status == "concluido").scalar() or 0
-    total_erro = db.query(func.count(Render.id)).filter(Render.status == "erro").scalar() or 0
+    metricas_q = db.query(Render.status, func.count().label("total")).filter(
+        Render.status.in_(["concluido", "erro"])
+    )
+    if perfil_id is not None:
+        metricas_q = metricas_q.join(Edicao, Render.edicao_id == Edicao.id).filter(Edicao.perfil_id == perfil_id)
+    metricas_res = metricas_q.group_by(Render.status).all()
+    total_concluidos = next((r.total for r in metricas_res if r.status == "concluido"), 0)
+    total_erro = next((r.total for r in metricas_res if r.status == "erro"), 0)
     total_renders = total_concluidos + total_erro
     taxa_sucesso = f"{round(total_concluidos / total_renders * 100)}%" if total_renders > 0 else "0%"
 

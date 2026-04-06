@@ -11,7 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { UserPlus, Search, PencilLine, CheckCircle2, XCircle, Power, UserIcon } from "lucide-react"
+import { UserPlus, Search, PencilLine, CheckCircle2, XCircle, Power, UserIcon, Eye } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { RequireAdmin } from "@/components/auth/require-admin"
 
 export default function AdminUsuariosPage() {
@@ -23,6 +24,7 @@ export default function AdminUsuariosPage() {
 }
 
 function AdminUsuariosContent() {
+    const router = useRouter()
     const { user: currentUser } = useAuth()
     const [users, setUsers] = useState<AuthUser[]>([])
     const [loading, setLoading] = useState(true)
@@ -228,6 +230,13 @@ function AdminUsuariosContent() {
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex justify-end gap-2 text-muted-foreground">
+                                                    <button
+                                                        className="p-1.5 rounded hover:bg-muted hover:text-foreground transition-colors"
+                                                        title="Ver detalhes"
+                                                        onClick={() => router.push(`/admin/usuarios/${user.id}`)}
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </button>
                                                     <button
                                                         className="p-1.5 rounded hover:bg-muted hover:text-foreground transition-colors"
                                                         title="Editar usuário"

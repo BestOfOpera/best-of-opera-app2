@@ -1,14 +1,26 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import { useBrand } from "@/lib/brand-context"
+import { redatorApi } from "@/lib/api/redator"
+import { editorApi } from "@/lib/api/editor"
 import { Search, LayoutDashboard, Download, PenTool, ListPlus, FileCheck, FileText, Globe, Send, Film, ListOrdered, Music, AlignLeft, HardDrive, Settings, ChevronDown, User, ShieldCheck, LogOut, CalendarDays, CheckCircle2 } from "lucide-react"
 
-interface NavItem { label: string; href: string; icon: React.ElementType; adminOnly?: boolean }
+interface NavItem { label: string; href: string; icon: React.ElementType; adminOnly?: boolean; badge?: number }
 interface ToolSection { id: string; label: string; icon: React.ElementType; items: NavItem[]; adminOnly?: boolean }
+
+function SidebarBadge({ count }: { count: number }) {
+  if (!count || count <= 0) return null
+  return (
+    <span className="ml-auto text-xs font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
 
 const tools: ToolSection[] = [
   {
@@ -32,13 +44,13 @@ const tools: ToolSection[] = [
     id: "producao", label: "Produção", icon: CalendarDays, items: [
       { label: "Calendário", href: "/calendario", icon: CalendarDays },
       { label: "Finalizados", href: "/finalizados", icon: CheckCircle2 },
+      { label: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Métricas", href: "/dashboard/producao", icon: ListOrdered },
     ]
   },
   {
-    id: "dashboard", label: "Dashboard", icon: LayoutDashboard, items: [
-      { label: "Visão Geral", href: "/dashboard", icon: LayoutDashboard },
+    id: "sistema", label: "Sistema", icon: HardDrive, items: [
       { label: "Saúde", href: "/dashboard/saude", icon: HardDrive },
-      { label: "Produção", href: "/dashboard/producao", icon: ListOrdered },
       { label: "Reports", href: "/dashboard/reports", icon: FileText },
     ]
   },
@@ -56,7 +68,9 @@ function deriveActiveTool(pathname: string): string {
   if (pathname.startsWith("/finalizados")) return "producao"
   if (pathname.startsWith("/redator")) return "redator"
   if (pathname.startsWith("/editor")) return "editor"
-  if (pathname.startsWith("/dashboard")) return "dashboard"
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/producao") || pathname.startsWith("/dashboard/projeto")) return "producao"
+  if (pathname.startsWith("/dashboard/saude") || pathname.startsWith("/dashboard/reports")) return "sistema"
+  if (pathname.startsWith("/dashboard")) return "producao"
   if (pathname.startsWith("/admin")) return "admin"
   return "curadoria"
 }
@@ -66,6 +80,38 @@ export function AppSidebar() {
   const activeTool = deriveActiveTool(pathname)
   const [expandedTools, setExpandedTools] = useState<string[]>([activeTool])
   const { user, isAdmin, logout, isLoading } = useAuth()
+  const { selectedBrand } = useBrand()
+  const [counts, setCounts] = useState({ redator: 0, editor: 0, finalizados: 0 })
+
+  const fetchCounts = useCallback(async () => {
+    if (!selectedBrand) return
+    try {
+      const [redatorRes, editorTotal, editorConcluido] = await Promise.all([
+        redatorApi.listProjects({ brand_slug: selectedBrand.slug, limit: 1 }),
+        editorApi.listarEdicoes({ limit: "1" }, selectedBrand.id),
+        editorApi.listarEdicoes({ status: "concluido", limit: "1" }, selectedBrand.id),
+      ])
+      setCounts({
+        redator: redatorRes.total || 0,
+        editor: Math.max(0, (editorTotal.total || 0) - (editorConcluido.total || 0)),
+        finalizados: editorConcluido.total || 0,
+      })
+    } catch {
+      // Silencioso — badges ficam em 0
+    }
+  }, [selectedBrand])
+
+  useEffect(() => {
+    fetchCounts()
+    const interval = setInterval(fetchCounts, 60_000)
+    return () => clearInterval(interval)
+  }, [fetchCounts])
+
+  const badgeMap: Record<string, number> = {
+    "/redator": counts.redator,
+    "/editor": counts.editor,
+    "/finalizados": counts.finalizados,
+  }
 
   function toggleTool(toolId: string) {
     setExpandedTools((prev) => prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId])
@@ -83,9 +129,10 @@ export function AppSidebar() {
           {tools.filter(t => !t.adminOnly || isAdmin).map((tool, index, array) => {
             const isExpanded = expandedTools.includes(tool.id)
             const isFirstAdmin = tool.adminOnly && (index === 0 || !array[index - 1].adminOnly);
+            const isSistema = tool.id === "sistema" && (index === 0 || array[index - 1].id !== "sistema");
             return (
               <div key={tool.id}>
-                {isFirstAdmin && (
+                {(isFirstAdmin || isSistema) && (
                   <div className="my-2.5 px-3">
                     <div className="h-px bg-border/80" />
                   </div>
@@ -103,6 +150,7 @@ export function AppSidebar() {
                         <Link key={item.href} href={item.href} className={cn("flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors", isPageActive ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground")}>
                           <item.icon className="h-3.5 w-3.5 shrink-0" />
                           <span className="truncate">{item.label}</span>
+                          {badgeMap[item.href] > 0 && <SidebarBadge count={badgeMap[item.href]} />}
                         </Link>
                       )
                     })}

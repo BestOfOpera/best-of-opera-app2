@@ -384,7 +384,10 @@ export const editorApi = {
   },
   dashboardProjeto: (id: number) => request<Edicao>(`${BASE()}/edicoes/${id}`),
   dashboardSaude: () => request<DashboardSaude>(`${BASE()}/dashboard/saude`),
-  dashboardProducao: () => request<DashboardProducao>(`${BASE()}/dashboard/producao`),
+  dashboardProducao: (perfilId?: number) => {
+    const qs = perfilId ? `?perfil_id=${perfilId}` : ""
+    return request<DashboardProducao>(`${BASE()}/dashboard/producao${qs}`)
+  },
 
   // Reports API
   criarReport: (data: Partial<Report>, perfil_id?: number) => {
@@ -444,4 +447,15 @@ export const editorApi = {
     form.append("file", file)
     return requestFormData<Perfil>(`${BASE()}/admin/perfis/${id}/upload-font${force ? "?force=true" : ""}`, form)
   },
+
+  // Analytics API
+  heartbeat: () => request<{ ok: boolean }>(`${BASE()}/auth/heartbeat`, { method: "POST" }),
+  getUserLoginHistory: (userId: number, limit = 50) =>
+    request<{ user_id: number; total: number; logins: Array<{ timestamp: string | null; ip: string | null; device: string }> }>(
+      `${BASE()}/auth/usuarios/${userId}/logins?limit=${limit}`,
+    ),
+  getUserSessions: (userId: number, days = 30) =>
+    request<{ user_id: number; today_minutes: number; week_minutes: number; month_minutes: number; avg_daily_minutes: number; days_active: number; by_day: Array<{ date: string; minutes: number }>; sessions: Array<{ started: string; ended: string; duration_min: number }> }>(
+      `${BASE()}/auth/usuarios/${userId}/sessions?days=${days}`,
+    ),
 }
