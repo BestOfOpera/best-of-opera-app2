@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -34,9 +35,9 @@ export function AddModal({
   r2Items,
   onProjectScheduled,
 }: AddModalProps) {
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [scheduling, setScheduling] = useState<number | null>(null)
-  const [schedulingR2, setSchedulingR2] = useState(false)
 
   const filtered = useMemo(() => {
     const projects = unscheduledProjects
@@ -65,22 +66,9 @@ export function AddModal({
     }
   }
 
-  async function handleScheduleR2(item: R2AvailableItem) {
-    setSchedulingR2(true)
-    try {
-      const project = await redatorApi.createProject(
-        { artist: item.artist, work: item.work, composer: "" },
-        brandSlug
-      )
-      await redatorApi.scheduleProject(project.id, targetDate)
-      toast.success(`"${item.artist}" criado e agendado para ${formatDate(targetDate)}`)
-      onProjectScheduled()
-      onClose()
-    } catch {
-      toast.error("Erro ao criar/agendar projeto")
-    } finally {
-      setSchedulingR2(false)
-    }
+  function handleScheduleR2(item: R2AvailableItem) {
+    router.push(`/redator/novo?r2_folder=${encodeURIComponent(item.folder)}&scheduled_date=${targetDate}`)
+    onClose()
   }
 
   const filteredR2 = useMemo(() => {
@@ -151,7 +139,6 @@ export function AddModal({
                 {filteredR2.map((item, i) => (
                   <button
                     key={`r2-${i}`}
-                    disabled={schedulingR2}
                     onClick={() => handleScheduleR2(item)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-50",

@@ -45,7 +45,7 @@ const emptyInterpreter = (): Interpreter => ({
   voice_type: "", birth_date: "", death_date: "",
 })
 
-export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
+export function RedatorNewProject({ r2Folder, scheduledDate }: { r2Folder?: string; scheduledDate?: string }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -252,6 +252,15 @@ export function RedatorNewProject({ r2Folder }: { r2Folder?: string }) {
         if (conductor) projectData.conductor = conductor
       }
       const project = await redatorApi.createProject(projectData, selectedBrand?.slug)
+
+      // Agendar se veio do calendário
+      if (scheduledDate && project.id) {
+        try {
+          await redatorApi.scheduleProject(project.id, scheduledDate)
+        } catch (e) {
+          console.error("Erro ao agendar:", e)
+        }
+      }
 
       if (isRC) {
         // Research + hooks são chamados na página /hooks (Opção A)
