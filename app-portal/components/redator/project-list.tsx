@@ -362,7 +362,11 @@ export function RedatorProjectList() {
                   />
                 )}
                 <Link href={`/redator/novo?r2_folder=${encodeURIComponent(item.folder)}`} className="flex-1">
-                  <Card className={`cursor-pointer border-primary/20 transition-colors hover:bg-primary/10 ${selectMode && selectedFolders.has(item.folder) ? "bg-destructive/5 border-destructive/20" : "bg-primary/5"}`}>
+                  <Card className={cn(
+                    "cursor-pointer border-primary/20 transition-colors hover:bg-primary/10",
+                    selectMode && selectedFolders.has(item.folder) ? "bg-destructive/5 border-destructive/20" : "bg-primary/5",
+                    item.prepared_at && isRecentProject(item.prepared_at) && RECENT_CLASSES
+                  )}>
                     <CardContent className="flex items-center gap-4 p-4">
                       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/15">
                         <Download className="h-5 w-5 text-primary" />

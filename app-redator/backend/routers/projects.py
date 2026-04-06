@@ -88,15 +88,21 @@ def list_r2_available(
     """
     try:
         from shared.storage_service import storage
-        keys = storage.list_files(r2_prefix or "")
+        files_meta = storage.list_files_with_metadata(r2_prefix or "")
     except Exception:
         return []
 
-    originals = [k for k in keys if k.endswith("/video/original.mp4")]
-
-    # Filtrar estritamente por r2_prefix — garantir que só retorne itens da marca
+    # Filtrar apenas video/original.mp4 e por r2_prefix
+    originals = [fm for fm in files_meta if fm["key"].endswith("/video/original.mp4")]
     if r2_prefix:
-        originals = [k for k in originals if k.startswith(f"{r2_prefix}/")]
+        originals = [fm for fm in originals if fm["key"].startswith(f"{r2_prefix}/")]
+
+    # Mapear folder → last_modified para lookup rápido
+    folder_dates: dict[str, str] = {}
+    for fm in originals:
+        folder_key = fm["key"][: -len("/video/original.mp4")]
+        if folder_key not in folder_dates:
+            folder_dates[folder_key] = fm.get("last_modified", "")
 
     existing_q = db.query(Project.artist, Project.work)
     if brand_slug is not None:
@@ -105,7 +111,8 @@ def list_r2_available(
     existing_set = {(p.artist.lower().strip(), p.work.lower().strip()) for p in existing}
 
     result = []
-    for key in originals:
+    for fm in originals:
+        key = fm["key"]
         # Remover prefixo da marca do caminho antes de extrair artist/work
         relative = key.removeprefix(f"{r2_prefix}/") if r2_prefix else key
         folder_relative = relative[: -len("/video/original.mp4")]
@@ -116,7 +123,10 @@ def list_r2_available(
             artist, work = folder_relative, ""
         artist, work = artist.strip(), work.strip()
         if (artist.lower(), work.lower()) not in existing_set:
-            result.append(R2AvailableItem(folder=full_folder, artist=artist, work=work))
+            result.append(R2AvailableItem(
+                folder=full_folder, artist=artist, work=work,
+                prepared_at=folder_dates.get(full_folder),
+            ))
 
     return result
 

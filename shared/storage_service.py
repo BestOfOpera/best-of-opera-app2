@@ -313,6 +313,35 @@ class StorageService:
 
         return _list()
 
+    def list_files_with_metadata(self, prefix: str) -> list:
+        """Lista arquivos no R2 com dado prefixo, incluindo last_modified."""
+        if not _r2_configured():
+            import datetime as _dt
+            base = Path(LOCAL_STORAGE) / prefix
+            if not base.exists():
+                return []
+            result = []
+            for f in base.rglob("*"):
+                if f.is_file():
+                    mtime = _dt.datetime.fromtimestamp(f.stat().st_mtime).isoformat()
+                    result.append({"key": str(f.relative_to(LOCAL_STORAGE)), "last_modified": mtime})
+            return result
+
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _list():
+            client = _get_s3_client()
+            items = []
+            paginator = client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=R2_BUCKET, Prefix=prefix):
+                for obj in page.get("Contents", []):
+                    items.append({
+                        "key": obj["Key"],
+                        "last_modified": obj["LastModified"].isoformat(),
+                    })
+            return items
+
+        return _list()
+
     def upload_text(self, key: str, content: str) -> str:
         """Escreve texto no R2 (cria temp file, faz upload, apaga)."""
         import tempfile

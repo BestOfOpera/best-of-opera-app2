@@ -9,8 +9,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { redatorApi, type Project } from "@/lib/api/redator"
+import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
 import { isRecentProject } from "@/lib/project-utils"
+import { Download } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -20,6 +21,7 @@ interface AddModalProps {
   targetDate: string
   brandSlug: string
   unscheduledProjects: Project[]
+  r2Items?: R2AvailableItem[]
   onProjectScheduled: () => void
 }
 
@@ -29,19 +31,17 @@ export function AddModal({
   targetDate,
   brandSlug,
   unscheduledProjects,
+  r2Items,
   onProjectScheduled,
 }: AddModalProps) {
   const [search, setSearch] = useState("")
   const [scheduling, setScheduling] = useState<number | null>(null)
+  const [schedulingR2, setSchedulingR2] = useState(false)
 
   const filtered = useMemo(() => {
-    console.log("[AddModal] brandSlug recebido:", brandSlug)
-    console.log("[AddModal] total unscheduled:", unscheduledProjects.length)
-    console.log("[AddModal] brand_slugs:", [...new Set(unscheduledProjects.map(p => p.brand_slug))])
     const projects = unscheduledProjects
       .filter((p) => (p.brand_slug || "").toLowerCase() === (brandSlug || "").toLowerCase())
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    console.log("[AddModal] após filtro:", projects.length)
     if (!search.trim()) return projects
     const term = search.toLowerCase()
     return projects.filter(
@@ -64,6 +64,35 @@ export function AddModal({
       setScheduling(null)
     }
   }
+
+  async function handleScheduleR2(item: R2AvailableItem) {
+    setSchedulingR2(true)
+    try {
+      const project = await redatorApi.createProject(
+        { artist: item.artist, work: item.work, composer: "" },
+        brandSlug
+      )
+      await redatorApi.scheduleProject(project.id, targetDate)
+      toast.success(`"${item.artist}" criado e agendado para ${formatDate(targetDate)}`)
+      onProjectScheduled()
+      onClose()
+    } catch {
+      toast.error("Erro ao criar/agendar projeto")
+    } finally {
+      setSchedulingR2(false)
+    }
+  }
+
+  const filteredR2 = useMemo(() => {
+    if (!r2Items?.length) return []
+    if (!search.trim()) return r2Items
+    const term = search.toLowerCase()
+    return r2Items.filter(
+      (item) =>
+        item.artist.toLowerCase().includes(term) ||
+        item.work.toLowerCase().includes(term)
+    )
+  }, [r2Items, search])
 
   function formatDate(dateStr: string) {
     const [y, m, d] = dateStr.split("-")
@@ -110,6 +139,35 @@ export function AddModal({
                   </Badge>
                 </button>
               ))}
+            </div>
+          )}
+          {/* R2 items disponíveis */}
+          {filteredR2.length > 0 && (
+            <div className="mt-3 border-t pt-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-2">
+                Vídeos disponíveis (R2)
+              </p>
+              <div className="flex flex-col gap-1">
+                {filteredR2.map((item, i) => (
+                  <button
+                    key={`r2-${i}`}
+                    disabled={schedulingR2}
+                    onClick={() => handleScheduleR2(item)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-50",
+                      item.prepared_at && isRecentProject(item.prepared_at) && "ring-1 ring-green-400/50 bg-green-50/30 dark:bg-green-950/20"
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{item.artist}</p>
+                      <p className="truncate text-xs text-muted-foreground">{item.work}</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[10px] bg-blue-50 text-blue-600">
+                      <Download className="mr-1 h-3 w-3" /> R2
+                    </Badge>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

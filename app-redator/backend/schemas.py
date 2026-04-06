@@ -138,6 +138,7 @@ class R2AvailableItem(BaseModel):
     folder: str
     artist: str
     work: str
+    prepared_at: Optional[str] = None
 
 
 class RegenerateRequest(BaseModel):

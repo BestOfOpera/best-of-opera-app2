@@ -82,6 +82,7 @@ export interface R2AvailableItem {
   folder: string
   artist: string
   work: string
+  prepared_at?: string
 }
 
 export interface ExportData {

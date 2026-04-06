@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { redatorApi, type Project } from "@/lib/api/redator"
+import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
 import { editorApi, type Edicao, type Perfil } from "@/lib/api/editor"
 import { CalendarCell, type EnrichedProject } from "./calendar-cell"
 import { AddModal } from "./add-modal"
@@ -65,6 +65,7 @@ export function CalendarView() {
   const [perfis, setPerfis] = useState<Perfil[]>([])
   const [loading, setLoading] = useState(true)
   const [addModal, setAddModal] = useState<{ date: string; brandSlug: string } | null>(null)
+  const [r2Items, setR2Items] = useState<R2AvailableItem[]>([])
 
   const weekDates = useMemo(() => getWeekDates(weekStart), [weekStart])
   const todayStr = useMemo(() => formatISO(new Date()), [])
@@ -220,7 +221,13 @@ export function CalendarView() {
                       date={date}
                       projects={getProjectsForCell(date, perfil.slug)}
                       isToday={date === todayStr}
-                      onAddClick={() => setAddModal({ date, brandSlug: perfil.slug })}
+                      onAddClick={async () => {
+                        setAddModal({ date, brandSlug: perfil.slug })
+                        try {
+                          const items = await redatorApi.listR2Available(perfil.slug, perfil.r2_prefix)
+                          setR2Items(items)
+                        } catch { setR2Items([]) }
+                      }}
                       onScheduleChange={() => fetchData()}
                     />
                   ))}
@@ -240,8 +247,10 @@ export function CalendarView() {
           targetDate={addModal.date}
           brandSlug={addModal.brandSlug}
           unscheduledProjects={unscheduled}
+          r2Items={r2Items}
           onProjectScheduled={() => {
             setAddModal(null)
+            setR2Items([])
             fetchData()
           }}
         />
