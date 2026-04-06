@@ -1176,7 +1176,9 @@ async def _buscar_corte_do_redator(edicao) -> tuple:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(f"{REDATOR_API_URL}/api/projects")
             resp.raise_for_status()
-        for p in resp.json():
+        data = resp.json()
+        _projects = data.get("projects", data) if isinstance(data, dict) else data
+        for p in _projects:
             if (p.get("artist", "").lower() == edicao.artista.lower()
                     and p.get("work", "").lower() == edicao.musica.lower()):
                 cs = p.get("cut_start")

@@ -76,7 +76,8 @@ async def listar_projetos_redator(perfil_id: int = None, db: Session = Depends(g
     except httpx.HTTPError as e:
         raise HTTPException(502, f"Erro ao conectar com o Redator: {e}")
 
-    projects = resp.json()
+    data = resp.json()
+    projects = data.get("projects", data) if isinstance(data, dict) else data
 
     # Cruzar com edições já importadas — filtrar por marca se perfil_id fornecido
     query = db.query(Edicao.redator_project_id, Edicao.id, Edicao.status).filter(
