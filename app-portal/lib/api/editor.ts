@@ -38,6 +38,8 @@ export interface Edicao {
   updated_at: string
   perfil_id?: number
   perfil_nome?: string
+  redator_project_id?: number | null
+  published_at?: string | null
 }
 
 export interface Segmento {
@@ -346,6 +348,9 @@ export const editorApi = {
     request<{ status: string; mensagem: string }>(`${BASE()}/edicoes/${id}/pacote`, { method: "POST", body: "{}" }),
   statusPacote: (id: number) =>
     request<PacoteStatus>(`${BASE()}/edicoes/${id}/pacote/status`),
+
+  marcarPublicado: (id: number) =>
+    request<Edicao>(`${BASE()}/edicoes/${id}/publicado`, { method: "PATCH" }),
 
   desbloquear: (id: number) =>
     request<{ novo_status: string; renders_concluidos: number; traducoes: number }>(

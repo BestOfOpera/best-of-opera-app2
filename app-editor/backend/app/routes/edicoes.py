@@ -162,6 +162,21 @@ def atualizar_edicao(edicao_id: int, data: EdicaoUpdate, db: Session = Depends(g
     return edicao
 
 
+@router.patch("/edicoes/{edicao_id}/publicado", response_model=EdicaoOut)
+def marcar_publicado(edicao_id: int, db: Session = Depends(get_db)):
+    """Toggle publicação de edição concluída."""
+    from datetime import datetime as dt
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+    if edicao.status != "concluido":
+        raise HTTPException(400, "Apenas edições concluídas podem ser marcadas como publicadas")
+    edicao.published_at = dt.utcnow() if edicao.published_at is None else None
+    db.commit()
+    db.refresh(edicao)
+    return edicao
+
+
 @router.delete("/edicoes/{edicao_id}")
 def remover_edicao(edicao_id: int, db: Session = Depends(get_db)):
     edicao = db.get(Edicao, edicao_id)

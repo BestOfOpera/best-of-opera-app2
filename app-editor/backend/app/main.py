@@ -1113,6 +1113,17 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration uix_redator_project_id: {e}")
 
+    # Migration: published_at em editor_edicoes
+    if "editor_edicoes" in insp.get_table_names():
+        edicao_cols = [c["name"] for c in insp.get_columns("editor_edicoes")]
+        if "published_at" not in edicao_cols:
+            with engine.begin() as conn:
+                try:
+                    conn.execute(text("ALTER TABLE editor_edicoes ADD COLUMN published_at TIMESTAMP"))
+                    logger.info("Migration editor_edicoes: added column published_at")
+                except Exception as e:
+                    logger.warning(f"Migration editor_edicoes/published_at: {e}")
+
     # Migration: tabela editor_reports (criada pelo create_all, mas garantir colunas)
     if "editor_reports" in insp.get_table_names():
         report_cols = [c["name"] for c in insp.get_columns("editor_reports")]

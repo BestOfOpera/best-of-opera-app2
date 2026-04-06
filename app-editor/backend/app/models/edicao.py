@@ -56,5 +56,7 @@ class Edicao(Base):
     # Multi-brand: perfil da marca desta edição (nullable para retrocompatibilidade)
     perfil_id = Column(Integer, ForeignKey("editor_perfis.id"), nullable=True)
 
+    published_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

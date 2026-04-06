@@ -153,12 +153,14 @@ class EdicaoOut(BaseModel):
     rota_alinhamento: Optional[str] = None
     confianca_alinhamento: Optional[float] = None
     r2_base: Optional[str] = None
+    redator_project_id: Optional[int] = None
     notas_revisao: Optional[str] = None
     task_heartbeat: Optional[datetime] = None
     progresso_detalhe: Optional[Any] = None
     tentativas_requeue: int = 0
     perfil_id: Optional[int] = None
     perfil_nome: Optional[str] = None
+    published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
