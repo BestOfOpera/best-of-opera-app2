@@ -46,7 +46,19 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/services/claude_service.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''claude_service.py: OK''\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/services/translate_service.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''translate_service.py: OK''\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-editor/backend/app/services/legendas.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''legendas.py: OK''\\)\")",
-      "Bash(python -c \"import re; t=''enterrá-lo.ela''; print\\(re.sub\\(r''\\(?<!\\\\d\\)\\([.]\\)\\([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ]\\)'', r''\\\\1 \\\\2'', t\\)\\)\")"
+      "Bash(python -c \"import re; t=''enterrá-lo.ela''; print\\(re.sub\\(r''\\(?<!\\\\d\\)\\([.]\\)\\([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ]\\)'', r''\\\\1 \\\\2'', t\\)\\)\")",
+      "Bash(python -c \"from prompts.overlay_prompt import *; print\\(''OVERLAY OK''\\)\")",
+      "Bash(python -m py_compile \"app-redator/backend/prompts/overlay_prompt.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/prompts/hook_prompt.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/services/claude_service.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/prompts/bo_research_prompt.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/prompts/post_prompt.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/prompts/rc_overlay_prompt.py\")",
+      "Bash(python -m py_compile \"app-redator/backend/routers/generation.py\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/routers/generation.py''\\).read\\(\\)\\); print\\(''generation.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/prompts/rc_overlay_prompt.py''\\).read\\(\\)\\); print\\(''rc_overlay_prompt.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/routers/generation.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''generation.py: OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/prompts/rc_overlay_prompt.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''rc_overlay_prompt.py: OK''\\)\")"
     ]
   }
 }

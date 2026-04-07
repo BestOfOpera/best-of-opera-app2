@@ -359,13 +359,14 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_overlay_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_overlay_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system, temperature=0.85, max_tokens=4096)
+    raw = _call_claude(prompt, system=system, temperature=0.7, max_tokens=4096)
     parsed = json.loads(_strip_json_fences(raw))
 
-    # Apply orthographic cleaning (ERR-056) — char limit enforced by prompt + human review
+    # Apply orthographic cleaning (ERR-056) + enforce char limits (max 70 total, 2 linhas)
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
+            leg["text"] = _enforce_line_breaks_bo(leg["text"])
 
     # --- Validação de timestamps + CTA fixo ---
     # Claude gera timestamps flexíveis. Este script CORRIGE problemas sem
@@ -416,7 +417,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         duracao = (palavras * 0.35) + 4.0
         return max(4.0, min(7.0, duracao))
 
-    if parsed and vid_duration > 10:
+    if parsed and vid_duration > 0:
         # Timing variável por tempo de leitura (substitui banda fixa min/max gap)
         current_ts = 0.0
         prev_ts = 0.0
@@ -822,12 +823,20 @@ def _wrap_balanced(texto_junto: str, max_linhas: int, max_total: int) -> str:
     if len(clean) <= max_total // max_linhas:
         return clean
 
-    # Truncar se total excede max_total
+    # Truncar se total excede max_total — preferir corte em frase completa
     if len(clean) > max_total:
-        palavras = clean.split()
-        while len(' '.join(palavras)) > max_total and len(palavras) > 1:
-            palavras.pop()
-        clean = ' '.join(palavras)
+        # Tentar cortar na última frase completa que cabe
+        corte_frase = -1
+        for match in re.finditer(r'[.!?]\s', clean[:max_total]):
+            corte_frase = match.end()
+        if corte_frase > max_total * 0.5:
+            clean = clean[:corte_frase].strip()
+        else:
+            # Fallback: cortar por palavra
+            palavras = clean.split()
+            while len(' '.join(palavras)) > max_total and len(palavras) > 1:
+                palavras.pop()
+            clean = ' '.join(palavras)
         _rc_logger.warning(f"[LineBreak] Texto truncado para {max_total}c: '{clean[:50]}...'")
 
     palavras = clean.split()
@@ -898,6 +907,9 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
 
+    # Fix espaçamento: garantir espaço após pontuação seguida de maiúscula
+    texto = re.sub(r'([.!?])([A-ZÀ-Ú])', r'\1 \2', texto)
+
     # Limites por grupo de idioma (Content Bible §1.5)
     if lang in ("de", "pl"):
         max_2line = 64
@@ -916,6 +928,21 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
     # Se já está OK (dentro do total e num de linhas), não mexer
     if total_chars <= max_total and len(linhas) <= max_linhas:
         return texto
+
+    # Se total OK mas linhas demais → mesclar linhas menores em vez de destruir todas
+    if total_chars <= max_total and len(linhas) > max_linhas:
+        while len(linhas) > max_linhas:
+            # Encontrar par de linhas adjacentes cuja soma é menor
+            menor_soma = float('inf')
+            idx_merge = 0
+            for i in range(len(linhas) - 1):
+                soma = len(linhas[i].strip()) + len(linhas[i + 1].strip())
+                if soma < menor_soma:
+                    menor_soma = soma
+                    idx_merge = i
+            linhas[idx_merge] = linhas[idx_merge].strip() + " " + linhas[idx_merge + 1].strip()
+            linhas.pop(idx_merge + 1)
+        return "\n".join(l.strip() for l in linhas)
 
     resultado = _wrap_balanced(texto_junto, max_linhas, max_total)
 
