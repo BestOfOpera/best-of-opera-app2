@@ -101,6 +101,12 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
         </div>
       </div>
 
+      {overlay.length === 0 && !regenerating && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+          Nenhuma legenda gerada. Clique em &quot;Regenerar&quot; para gerar o overlay.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}

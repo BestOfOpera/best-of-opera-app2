@@ -31,6 +31,8 @@ export function RedatorApproveAutomationRC({ projectId }: { projectId: number })
     setError("")
     try {
       await redatorApi.approveAutomation(projectId)
+      // Aguardar commit no banco antes de navegar (evita 404 por race condition)
+      await new Promise(r => setTimeout(r, 300))
       router.push(`/redator/projeto/${projectId}/exportar`)
     } catch (err: any) {
       setError(err.message)

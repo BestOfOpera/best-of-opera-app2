@@ -335,6 +335,12 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
       } else {
         if (!isEditMode) {
           await redatorApi.generate(finalProjectId)
+        } else {
+          // Edit mode (ex: projeto criado via calendário): gerar se overlay ainda não existe
+          const existing = await redatorApi.getProject(finalProjectId)
+          if (!existing.overlay_json || existing.overlay_json.length === 0) {
+            await redatorApi.generate(finalProjectId)
+          }
         }
         router.push(`/redator/projeto/${finalProjectId}/overlay`)
       }

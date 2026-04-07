@@ -373,8 +373,20 @@ def _translate_post_fallback(post_text: str, target_lang: str,
     bullet_indices = [i for i, line in enumerate(lines) if line.strip() == "•"]
 
     if len(bullet_indices) < 4:
-        # Formato não reconhecido — fallback: traduzir tudo
-        return translate_text(post_text, target_lang)
+        # Formato não reconhecido — extrair hashtags antes de traduzir
+        lines_all = post_text.split("\n")
+        hashtag_lines = []
+        text_lines = []
+        for line in lines_all:
+            if line.strip().startswith("#"):
+                hashtag_lines.append(line.strip())
+            else:
+                text_lines.append(line)
+        translated_text = translate_text("\n".join(text_lines), target_lang)
+        if hashtag_lines:
+            translated_ht = _translate_hashtags(" ".join(hashtag_lines), target_lang)
+            return translated_text.rstrip() + "\n" + translated_ht
+        return translated_text
 
     # Header: tudo ANTES do primeiro •
     header_lines = lines[:bullet_indices[0]]

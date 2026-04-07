@@ -740,10 +740,10 @@ def _sanitize_rc(texto: str) -> str:
     # Remove travessões (marca de IA mais comum)
     texto = texto.replace(" — ", ". ")
     texto = texto.replace("— ", ". ")
-    texto = texto.replace(" —", ".")
-    texto = texto.replace("—", ".")
+    texto = texto.replace(" —", ". ")
+    texto = texto.replace("—", ". ")
     texto = texto.replace(" – ", ", ")
-    texto = texto.replace("–", ",")
+    texto = texto.replace("–", ", ")
 
     # Remove metadados vazados
     texto = re.sub(r'\d+px', '', texto)
@@ -761,7 +761,7 @@ def _sanitize_rc(texto: str) -> str:
 
     # Remove emojis de overlay (exceto ❤️ no CTA)
     for emoji in ['🎵', '🎶', '🎼', '💫', '🌟', '⭐', '🎭', '🎪']:
-        texto = texto.replace(emoji, '')
+        texto = texto.replace(emoji, ' ')
 
     # Limpa espaços extras e linhas vazias
     texto = re.sub(r' +', ' ', texto)
@@ -791,10 +791,14 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
         return texto  # CTA é fixo, não tocar
 
     # Fix palavras coladas após pontuação (ex: "fim.Começo" → "fim. Começo")
-    texto = re.sub(r'([.!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
+    # Fix palavras coladas após pontuação (inclui vírgula/ponto-e-vírgula/dois-pontos)
+    texto = re.sub(r'([.!?,;:])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
 
     # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
-    if lang in ("de", "fr", "it", "pl", "es"):
+    # Idiomas verbosos: DE/PL expandem mais (~20-30%), margem maior
+    if lang in ("de", "pl"):
+        max_chars_linha = min(max_chars_linha + 5, 40)
+    elif lang in ("fr", "it", "es"):
         max_chars_linha = min(max_chars_linha + 3, 38)
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
