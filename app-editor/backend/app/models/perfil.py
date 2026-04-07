@@ -32,7 +32,7 @@ class Perfil(Base):
 
     # Limites de caracteres
     overlay_max_chars = Column(Integer, default=70)
-    overlay_max_chars_linha = Column(Integer, default=30)
+    overlay_max_chars_linha = Column(Integer, default=35)
     lyrics_max_chars = Column(Integer, default=43)
     traducao_max_chars = Column(Integer, default=100)
     overlay_interval_secs = Column(Integer, default=6)  # intervalo entre legendas overlay

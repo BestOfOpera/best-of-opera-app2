@@ -212,7 +212,7 @@ FORMATAÇÃO DE LINHAS (INVIOLÁVEL — enforçado por código, mas gere já for
 - Máximo 33 caracteres por linha (contando espaços).
   Exceção: o CTA fixo tem 35 chars na primeira linha. É aceitável porque usa fonte menor (48px vs 52px do corpo).
 - Gancho e fechamento: SEMPRE 2 linhas, máximo 66 caracteres total.
-- Corpo: 2 ou 3 linhas, máximo 85 caracteres total.
+- Corpo: 2 ou 3 linhas, máximo 99 caracteres total (3 × 33).
 - Quebrar na pausa natural: vírgula, ponto, respiração, entre frases.
 - Balancear comprimento das linhas (não uma de 33 e outra de 5).
 - O texto será exibido centralizado. Linhas balanceadas ficam visualmente melhores.

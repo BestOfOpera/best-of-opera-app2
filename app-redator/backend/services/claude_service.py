@@ -82,11 +82,11 @@ def _check_language_leak(text: str, target_language: str) -> None:
         )
 
 
-def _call_claude(prompt: str, system: str | None = None) -> str:
+def _call_claude(prompt: str, system: str | None = None, temperature: float = 0.8) -> str:
     kwargs: dict = dict(
         model=MODEL,
         max_tokens=2048,
-        temperature=0.8,
+        temperature=temperature,
         messages=[{"role": "user", "content": prompt}],
     )
     if system:
@@ -359,13 +359,20 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_overlay_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_overlay_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system)
+    raw = _call_claude(prompt, system=system, temperature=0.7)
     parsed = json.loads(_strip_json_fences(raw))
 
-    # Apply orthographic cleaning (ERR-056) — char limit enforced by prompt + human review
+    # Apply orthographic cleaning (ERR-056) + warning se acima do limite
+    bc_pre = brand_config or {}
+    max_chars = bc_pre.get("overlay_max_chars", 70)
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
+            if len(leg["text"]) > max_chars:
+                logger.warning(
+                    f"[generate_overlay] Texto com {len(leg['text'])} chars (max {max_chars}): "
+                    f"'{leg['text'][:50]}...'"
+                )
 
     # --- Validação de timestamps + CTA fixo ---
     # Claude gera timestamps flexíveis. Este script CORRIGE problemas sem
@@ -400,6 +407,14 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         except (ValueError, IndexError):
             pass
 
+    if vid_duration <= 0:
+        vid_duration = 60
+        logger.warning(
+            f"[generate_overlay] vid_duration indefinida — usando fallback {vid_duration}s. "
+            f"cut_start={project.cut_start!r} cut_end={project.cut_end!r} "
+            f"original_duration={project.original_duration!r}"
+        )
+
     # Posição fixa do CTA: duração - intervalo
     cta_secs = max(0, vid_duration - interval_secs) if vid_duration > 0 else 0
     narrative_ceiling = max(0, cta_secs - 2) if cta_secs > 0 else 0
@@ -417,7 +432,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         duracao = (palavras * 0.35) + 4.0
         return max(5.0, min(8.0, duracao))
 
-    if parsed and vid_duration > 10:
+    if parsed and vid_duration > 0:
         # Timing variável por tempo de leitura (substitui banda fixa min/max gap)
         current_ts = 0.0
         prev_ts = 0.0
@@ -774,6 +789,9 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
     Idiomas verbosos (de, fr, it, pl, es) ganham margem extra de 3 chars."""
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
+
+    # Fix palavras coladas após pontuação (ex: "fim.Começo" → "fim. Começo")
+    texto = re.sub(r'([.!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
 
     # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
     if lang in ("de", "fr", "it", "pl", "es"):

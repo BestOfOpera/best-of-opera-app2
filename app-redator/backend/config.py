@@ -46,6 +46,11 @@ def load_brand_config(slug: str) -> dict:
         url = f"{EDITOR_API_URL}/api/internal/perfil/{target_slug}/redator-config"
         with urllib.request.urlopen(url, timeout=3) as resp:
             data = json.loads(resp.read().decode())
+        if not data.get("identity_prompt_redator") and not data.get("tom_de_voz_redator"):
+            print(
+                f"⚠️ [brand_config] Perfil '{target_slug}' sem identity_prompt_redator "
+                f"nem tom_de_voz_redator. Geração usará defaults sem personalidade de marca."
+            )
         _brand_config_cache[target_slug] = {"data": data, "ts": now}
         return data
     except Exception as exc:
