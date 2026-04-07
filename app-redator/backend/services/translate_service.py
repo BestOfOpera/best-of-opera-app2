@@ -8,6 +8,27 @@ from backend.config import GOOGLE_TRANSLATE_API_KEY
 
 ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
+
+def _protect_proper_names(text: str, names: list[str]) -> tuple[str, dict[str, str]]:
+    """Replace proper names with placeholders before translation.
+    Only protects names with 3+ chars that appear in the text."""
+    replacements: dict[str, str] = {}
+    for i, name in enumerate(names):
+        if not name or len(name) < 3 or name not in text:
+            continue
+        placeholder = f"PROPERNAME{i:02d}"
+        text = text.replace(name, placeholder)
+        replacements[placeholder] = name
+    return text, replacements
+
+
+def _restore_proper_names(text: str, replacements: dict[str, str]) -> str:
+    """Restore proper names after translation.
+    Uses case-insensitive match because Google Translate may alter placeholder case."""
+    for placeholder, name in replacements.items():
+        text = re.sub(re.escape(placeholder), name, text, flags=re.IGNORECASE)
+    return text
+
 # CTAs fixos para RC (Reels Classics) por idioma — overlay (com \n para legendas)
 RC_CTA = {
     "pt": "Siga, o melhor da música clássica,\ndiariamente no seu feed. ❤️",
@@ -336,7 +357,8 @@ def _translate_header_rc(header_lines: list, target_lang: str) -> list:
     return result
 
 
-def _translate_post_fallback(post_text: str, target_lang: str) -> str:
+def _translate_post_fallback(post_text: str, target_lang: str,
+                             protected_names: list[str] | None = None) -> str:
     """Fallback para posts sem bloco de créditos (ex: RC).
 
     Formato: \\n simples entre todas as linhas, • como delimitador de blocos.
@@ -385,7 +407,13 @@ def _translate_post_fallback(post_text: str, target_lang: str) -> str:
 
     translated_paragraphs = []
     for para in story_paragraphs:
-        translated = translate_text(para, target_lang)
+        src = para
+        repl = {}
+        if protected_names:
+            src, repl = _protect_proper_names(src, protected_names)
+        translated = translate_text(src, target_lang)
+        if repl:
+            translated = _restore_proper_names(translated, repl)
         if translated and translated.strip():
             translated_paragraphs.append(translated.strip())
 
@@ -412,20 +440,27 @@ def _translate_post_fallback(post_text: str, target_lang: str) -> str:
     return "\n".join(result_lines)
 
 
-def translate_post_text(post_text: str, target_lang: str) -> str:
+def translate_post_text(post_text: str, target_lang: str,
+                        protected_names: list[str] | None = None) -> str:
     """Translate Section 2 (storytelling), CTA (Section 4), and hashtags (Section 5).
 
     Credit labels in Section 3 are translated via hardcoded mappings.
     If the post has no credit block (e.g. RC brand), falls back to translating
     the entire storytelling body (everything between intro line and CTA/hashtags).
+    protected_names: nomes próprios (artist, work, composer) a preservar na tradução.
     """
     before, section2, after = extract_post_section2(post_text)
     if not section2:
         # Fallback: post sem bloco de créditos (ex: RC).
         # Traduzir tudo exceto a primeira linha (intro com emojis) e hashtags.
-        return _translate_post_fallback(post_text, target_lang)
+        return _translate_post_fallback(post_text, target_lang, protected_names=protected_names)
 
+    repl = {}
+    if protected_names:
+        section2, repl = _protect_proper_names(section2, protected_names)
     translated_section2 = translate_text(section2, target_lang)
+    if repl:
+        translated_section2 = _restore_proper_names(translated_section2, repl)
 
     # Split after into credits, CTA, and hashtags
     credits, cta, hashtags = _split_credits_cta_hashtags(after)
@@ -448,11 +483,13 @@ def translate_post_text(post_text: str, target_lang: str) -> str:
 
 def translate_overlay_json(overlay_json: list, target_lang: str,
                            brand_slug: str | None = None,
-                           max_chars: int = 70) -> list:
+                           max_chars: int = 70,
+                           protected_names: list[str] | None = None) -> list:
     """Translate the text field of each overlay subtitle.
     Para RC, usa CTA fixo traduzido ao invés de tradução automática.
     RC: aplica re-wrap pós-tradução (≤33 chars/linha).
-    BO/outros: valida limite total de caracteres (default 70)."""
+    BO/outros: valida limite total de caracteres (default 70).
+    protected_names: nomes próprios (artist, work, composer) a preservar na tradução."""
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
 
     is_rc = brand_slug == "reels-classics"
@@ -461,11 +498,17 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
         if entry.get("_is_cta") and is_rc:
             translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
         else:
-            translated_text = translate_text(entry.get("text", ""), target_lang)
+            src_text = entry.get("text", "")
+            replacements = {}
+            if protected_names:
+                src_text, replacements = _protect_proper_names(src_text, protected_names)
+            translated_text = translate_text(src_text, target_lang)
+            if replacements:
+                translated_text = _restore_proper_names(translated_text, replacements)
             if is_rc:
                 # RC: re-wrap com limite rígido de 33 chars/linha
                 tipo = "gancho" if i == 0 else "corpo"
-                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33)
+                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33, lang=target_lang)
             elif max_chars and len(translated_text) > max_chars:
                 # BO/outros: re-wrap em 2 linhas em vez de truncar
                 max_linha = max_chars // 2

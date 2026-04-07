@@ -74,6 +74,9 @@ class Project(Base):
         nullable=True, index=True
     )
 
+    # R2 reference
+    r2_folder: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
     translations: Mapped[list["Translation"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

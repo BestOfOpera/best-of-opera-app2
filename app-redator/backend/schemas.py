@@ -46,6 +46,7 @@ class ProjectCreate(BaseModel):
     instrument_formation: Optional[str] = None
     orchestra: Optional[str] = None
     conductor: Optional[str] = None
+    r2_folder: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -128,6 +129,7 @@ class ProjectOut(BaseModel):
     orchestra: Optional[str] = None
     conductor: Optional[str] = None
     scheduled_date: Optional[datetime.date] = None
+    r2_folder: Optional[str] = None
     translations: List[TranslationOut] = []
     warnings: List[str] = []
 

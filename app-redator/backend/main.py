@@ -61,6 +61,9 @@ def _run_migrations():
         if "scheduled_date" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN scheduled_date DATE"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_scheduled_date ON projects (scheduled_date)"))
+        # v16 — R2 folder reference
+        if "r2_folder" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN r2_folder VARCHAR(500)"))
 
 
 _run_migrations()

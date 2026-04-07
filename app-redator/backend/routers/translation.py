@@ -58,6 +58,9 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
         source_lang = "pt"
         target_langs = get_target_languages(source_lang)
 
+        # Nomes próprios a preservar durante tradução (artist, work, composer)
+        _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 3]
+
         for lang in target_langs:
             # For the source language, copy original content instead of translating
             if lang == source_lang:
@@ -67,12 +70,13 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
                 translated_tags = project.youtube_tags
             else:
                 translated_overlay = (
-                    translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug)
+                    translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug,
+                                          protected_names=_names)
                     if project.overlay_json
                     else None
                 )
                 translated_post = (
-                    translate_post_text(project.post_text, lang)
+                    translate_post_text(project.post_text, lang, protected_names=_names)
                     if project.post_text
                     else None
                 )
@@ -127,13 +131,17 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
         Translation.project_id == project_id, Translation.language == lang
     ).delete()
 
+    # Nomes próprios a preservar durante tradução
+    _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 3]
+
     translated_overlay = (
-        translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug)
+        translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug,
+                               protected_names=_names)
         if project.overlay_json
         else None
     )
     translated_post = (
-        translate_post_text(project.post_text, lang)
+        translate_post_text(project.post_text, lang, protected_names=_names)
         if project.post_text
         else None
     )

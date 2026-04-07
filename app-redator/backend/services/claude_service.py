@@ -39,8 +39,9 @@ def _limpar_texto_overlay(texto: str) -> str:
     texto = texto.replace("\\n", " ").replace("\\N", " ")
     # Espaço após pontuação colada a palavra
     texto = re.sub(r'([,;:!?])([A-ZÀ-Úa-zà-ú])', r'\1 \2', texto)
-    # Espaço após ponto colado a letra maiúscula (ex: "fim.Começo")
-    texto = re.sub(r'([.])([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
+    # Espaço após ponto colado a letra (ex: "fim.Começo", "enterrá-lo.ela")
+    # Lookbehind negativo evita quebrar números decimais (2.5, 3.14)
+    texto = re.sub(r'(?<!\d)([.])([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ])', r'\1 \2', texto)
     # Espaço após aspas/apóstrofo fechando colado a palavra (ex: Marquis'para → Marquis' para)
     texto = re.sub(r"(['\"\u2019\u201D\)\]])([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ])", r"\1 \2", texto)
     # Espaço antes de maiúscula colada após minúscula (palavras unidas ex: "elaFez")
@@ -767,11 +768,16 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
-def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33) -> str:
+def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, lang: str = "pt") -> str:
     """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
-    Se o LLM não gerou \\n, adiciona word-wrap inteligente."""
+    Se o LLM não gerou \\n, adiciona word-wrap inteligente.
+    Idiomas verbosos (de, fr, it, pl, es) ganham margem extra de 3 chars."""
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
+
+    # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
+    if lang in ("de", "fr", "it", "pl", "es"):
+        max_chars_linha = min(max_chars_linha + 3, 38)
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
 

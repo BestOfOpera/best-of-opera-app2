@@ -298,6 +298,7 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
         if (orchestra) projectData.orchestra = orchestra
         if (conductor) projectData.conductor = conductor
       }
+      if (r2Folder) projectData.r2_folder = r2Folder
       let finalProjectId: number
 
       if (isEditMode) {
