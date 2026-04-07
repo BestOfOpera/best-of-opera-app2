@@ -223,6 +223,80 @@ Hook angle: "The high C was never in the score"
 Notice: the hook opens with the high C, then the body goes to 1638, choir texture, Mendelssohn, Grove's Dictionary, printing error. Each subtitle is a NEW thread. Two anchoring captions ("Listen to the choir", "singing right now"). The closing returns to the hook with a twist.
 
 ═══════════════════════════════
+EXAMPLE 2 — GOOD (Vissi d'arte — Puccini/Tosca)
+═══════════════════════════════
+
+Hook angle: "Tosca kills to save love. Puccini almost cut this aria."
+[
+  {{"timestamp": "00:00", "text": "Tosca kills to save love.\\nPuccini almost cut this aria."}},
+  {{"timestamp": "00:06", "text": "Rome, 1900. The premiere\\nwas nearly sabotaged."}},
+  {{"timestamp": "00:12", "text": "Puccini thought this aria\\nstopped the drama cold."}},
+  {{"timestamp": "00:18", "text": "Listen to that first phrase.\\nShe's not singing. She's pleading."}},
+  {{"timestamp": "00:24", "text": "Sardou wrote the play in 1887\\nfor Sarah Bernhardt."}},
+  {{"timestamp": "00:30", "text": "Notice how the orchestra\\npulls back. Only her voice."}},
+  {{"timestamp": "00:36", "text": "The aria he wanted to cut\\nbecame the most recorded."}}
+]
+Notice: hook pairs two acts of destruction (Tosca's killing and Puccini's cut), then branches into 4 threads: sabotage, doubt, Sardou's play, orchestration. Two anchoring captions ("Listen to that first phrase", "Notice how the orchestra pulls back"). Closing echoes the hook's irony: what he wanted to destroy became immortal.
+
+═══════════════════════════════
+EXAMPLE 3 — BAD (common failures)
+═══════════════════════════════
+
+[
+  {{"timestamp": "00:00", "text": "This performance will\\ngive you chills"}},
+  {{"timestamp": "00:06", "text": "The singer delivers\\nan incredible performance"}},
+  {{"timestamp": "00:12", "text": "Every note is filled\\nwith raw emotion"}},
+  {{"timestamp": "00:18", "text": "This is what true\\nartistry sounds like"}},
+  {{"timestamp": "00:24", "text": "A voice that defines\\na generation"}}
+]
+PROBLEMS:
+1. GENERIC HOOK: "give you chills" works for ANY video. No specific fact.
+2. SATURATED: every subtitle says "this is amazing" in different words. One idea repeated 5 times.
+3. NO ANCHORING: zero references to what the viewer sees or hears in the video.
+4. MONOTONE RHYTHM: all subtitles are exactly 2 lines with similar length.
+5. DISCONNECTED CLOSING: "defines a generation" has no relation to "give you chills."
+6. EMPTY ADJECTIVES: "incredible", "raw", "true" — all prohibited.
+SWAP TEST: replace singer name — text still works for anyone. GENERIC. FAIL.
+
+═══════════════════════════════
+VERIFY (execute BEFORE delivering output)
+═══════════════════════════════
+
+Run ALL 6 checks. If ANY fails, fix BEFORE outputting.
+
+CHECK 1 — ANCHORING:
+Count subtitles that reference something AUDIBLE or VISIBLE in the video.
+Good anchoring: "Listen to the clarinet opening" / "That high note you hear is not in the score"
+Bad anchoring: "A beautiful melody" / "The sound is moving"
+Minimum: 2 anchored subtitles. If fewer, rewrite weakest to anchor.
+
+CHECK 2 — ANTI-SATURATION:
+Does the hook's angle dominate more than 40% of subtitles?
+If yes: the hook is the DOOR, not the SUBJECT. Diversify development.
+
+CHECK 3 — NARRATIVE ARC:
+Read ONLY first subtitle (hook) and last narrative subtitle (closing) side by side.
+Do they form a pair? Does closing REFRAME, COMPLETE, or ECHO the hook?
+If not: rewrite closing so it resonates with the opening.
+
+CHECK 4 — ANTI-REPETITION:
+Summarize each subtitle in 5 words.
+If any two summaries overlap: one is redundant. Rewrite with a NEW angle.
+
+CHECK 5 — RHYTHM:
+Check subtitle lengths. If 3+ consecutive subtitles have similar character count (within 5 chars): vary them. Alternate short punchy (30-45 chars) with fuller (55-70 chars).
+
+CHECK 6 — AI DETECTION:
+Read all subtitles aloud mentally.
+- Repeated parallelism ("X. Y. Z." in more than 1 subtitle)? Rewrite one.
+- Sounds like Instagram copy or documentary voiceover? Rewrite conversationally.
+- Cascade of sensory metaphors (more than 1 per 3 subtitles)? Cut extras.
+- Em-dash (—) anywhere? REMOVE, use period or comma.
+- Forbidden words from PROHIBITIONS section? REMOVE.
+
+Only after ALL 6 checks pass: output.
+
+═══════════════════════════════
 TECHNICAL RULES
 ═══════════════════════════════
 

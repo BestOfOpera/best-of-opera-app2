@@ -82,11 +82,11 @@ def _check_language_leak(text: str, target_language: str) -> None:
         )
 
 
-def _call_claude(prompt: str, system: str | None = None) -> str:
+def _call_claude(prompt: str, system: str | None = None, *, temperature: float = 0.8, max_tokens: int = 2048) -> str:
     kwargs: dict = dict(
         model=MODEL,
-        max_tokens=2048,
-        temperature=0.8,
+        max_tokens=max_tokens,
+        temperature=temperature,
         messages=[{"role": "user", "content": prompt}],
     )
     if system:
@@ -359,7 +359,7 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_overlay_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_overlay_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system)
+    raw = _call_claude(prompt, system=system, temperature=0.85, max_tokens=4096)
     parsed = json.loads(_strip_json_fences(raw))
 
     # Apply orthographic cleaning (ERR-056) — char limit enforced by prompt + human review
@@ -486,8 +486,9 @@ def generate_hooks(project, brand_config=None) -> list:
 
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
-    prompt = build_hook_generation_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system)
+    research_data = getattr(project, 'research_data', None)
+    prompt = build_hook_generation_prompt(project, brand_config=brand_config, research_data=research_data)
+    raw = _call_claude(prompt, system=system, temperature=0.85, max_tokens=4096)
     parsed = json.loads(_strip_json_fences(raw))
 
     if not isinstance(parsed, list):
@@ -496,13 +497,16 @@ def generate_hooks(project, brand_config=None) -> list:
     # Limpar cada hook — sem truncação (o prompt já instrui o limite)
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     result = []
-    for item in parsed[:5]:
+    for i, item in enumerate(parsed[:5]):
         hook_text = item.get("hook", "").strip()
         over_limit = len(hook_text) > max_chars
         result.append({
             "angle": item.get("angle", ""),
             "hook": hook_text,
             "thread": item.get("thread", ""),
+            "rank": item.get("rank", i + 1),
+            "type": item.get("type", ""),
+            "why": item.get("why", ""),
             **({"over_limit": True} if over_limit else {}),
         })
 
@@ -554,7 +558,7 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
         prompt = build_post_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_post_prompt(project, brand_config=brand_config)
-    result = _call_claude(prompt, system=system)
+    result = _call_claude(prompt, system=system, temperature=0.7, max_tokens=4096)
     _check_language_leak(result, lang)
     result = _sanitize_post(result)
     return {"text": result, "warning": warning}
@@ -583,7 +587,7 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_youtube_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_youtube_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system)
+    raw = _call_claude(prompt, system=system, temperature=0.7, max_tokens=2048)
     raw = _strip_markdown_preamble(raw)
     _check_language_leak(raw, lang)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
@@ -722,13 +726,15 @@ def _sanitize_rc(texto: str) -> str:
     if not texto:
         return texto
 
-    # Remove travessões (marca de IA mais comum)
-    texto = texto.replace(" — ", ". ")
-    texto = texto.replace("— ", ". ")
-    texto = texto.replace(" —", ".")
-    texto = texto.replace("—", ".")
-    texto = texto.replace(" – ", ", ")
-    texto = texto.replace("–", ",")
+    # Remove travessões (marca de IA mais comum) — context-aware
+    # Maiúscula após em-dash → nova frase (período), minúscula → aposto (vírgula)
+    texto = re.sub(r'\s*—\s*(?=[A-ZÀ-Ú])', '. ', texto)
+    texto = re.sub(r'\s*—\s*(?=[a-zà-ú])', ', ', texto)
+    texto = re.sub(r'\s*—\s*', '. ', texto)  # fallback
+    # En-dash: preservar ranges numéricos (1820–1830), substituir texto
+    texto = re.sub(r'(\d)\s*–\s*(\d)', r'\1{{RANGE}}\2', texto)
+    texto = re.sub(r'\s*–\s*', ', ', texto)
+    texto = texto.replace('{{RANGE}}', '–')
 
     # Remove metadados vazados
     texto = re.sub(r'\d+px', '', texto)
