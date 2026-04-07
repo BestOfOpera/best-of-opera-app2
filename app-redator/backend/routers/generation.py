@@ -12,7 +12,6 @@ from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataRespons
 from backend.config import load_brand_config
 from backend.services.claude_service import (
     generate_overlay, generate_post, generate_youtube, generate_hooks,
-    generate_research_bo,
     detect_metadata, detect_metadata_from_text,
     detect_metadata_rc, detect_metadata_from_text_rc,
     generate_research_rc, generate_hooks_rc,
@@ -88,24 +87,12 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
 
     warnings = []
     try:
-        # 1. Research (se não existir) — fornece fatos para overlay e post
-        if not project.research_data and getattr(project, 'brand_slug', '') != 'reels-classics':
-            try:
-                generate_research_bo(project, brand_config=brand_config)
-                db.flush()  # persist research_data antes do overlay ler
-            except Exception as e:
-                logger.warning(f"[generate_all] Research BO falhou, continuando sem: {e}")
-
-        # 2. Overlay PRIMEIRO — usa research_data para fatos concretos
-        project.overlay_json = generate_overlay(project, brand_config=brand_config)
-
-        # 3. Post SEGUNDO — usa overlay_json para anti-repetição
+        # Post PRIMEIRO: fornece material narrativo para o overlay via fallback
         post_result = generate_post(project, brand_config=brand_config)
         project.post_text = post_result["text"]
         if post_result.get("warning"):
             warnings.append(post_result["warning"])
-
-        # 4. YouTube por último
+        project.overlay_json = generate_overlay(project, brand_config=brand_config)
         title, tags = generate_youtube(project, brand_config=brand_config)
         project.youtube_title = title
         project.youtube_tags = tags
@@ -233,33 +220,6 @@ def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Hook generation failed: {e}")
-
-
-# ── BO (Best of Opera) research endpoint ─────────────────────
-
-@router.post("/{project_id}/generate-research-bo")
-def generate_research_bo_endpoint(project_id: int, db: Session = Depends(get_db)):
-    """BO: pesquisa aprofundada sobre a ária/ópera/intérprete."""
-    project = db.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
-    if getattr(project, 'brand_slug', '') == 'reels-classics':
-        raise HTTPException(400, "Use generate-research-rc para Reels Classics")
-    try:
-        result = generate_research_bo(project)
-        db.commit()
-        logger.info(f"[BO Endpoint] generate-research-bo OK project={project_id}")
-        return {"status": "research_complete", "research_data": result}
-    except ValueError as e:
-        logger.error(f"[BO Endpoint] generate-research-bo ValueError project={project_id}: {e}")
-        raise HTTPException(502, f"Resposta inválida do Claude: {str(e)}")
-    except Exception as e:
-        db.rollback()
-        error_str = str(e)
-        logger.error(f"[BO Endpoint] generate-research-bo ERRO project={project_id}: {error_str}")
-        if "overloaded" in error_str.lower() or "529" in error_str:
-            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
-        raise HTTPException(500, f"Erro na geração BO: {error_str}")
 
 
 # ── RC (Reels Classics) endpoints ──────────────────────────────

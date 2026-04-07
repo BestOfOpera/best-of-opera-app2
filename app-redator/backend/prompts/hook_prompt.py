@@ -1,5 +1,3 @@
-import json
-
 from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
 
 
@@ -10,7 +8,7 @@ def _field(label: str, value) -> str:
     return f"- {label}: {v}\n"
 
 
-def build_hook_generation_prompt(project, brand_config=None, research_data=None) -> str:
+def build_hook_generation_prompt(project, brand_config=None) -> str:
     bc = brand_config or {}
     brand_name = bc.get("brand_name", "")
     max_chars = bc.get("overlay_max_chars", 70)
@@ -27,7 +25,7 @@ def build_hook_generation_prompt(project, brand_config=None, research_data=None)
         f"{_field('Album/Opera', project.album_opera)}"
     )
 
-    # Passar o hook_category/complemento para contexto de angulo preferido
+    # Passar o hook_category/complemento para contexto de ângulo preferido
     hook_context = build_hook_text(project, brand_config=brand_config)
     angle_block = ""
     if hook_context.strip():
@@ -38,132 +36,65 @@ The operator selected this angle direction:
 Use this as a STARTING POINT for hook #1. The other 4 hooks MUST explore DIFFERENT angles.
 """
 
-    # Research data block (optional — BO may not have research phase)
-    if research_data:
-        research_block = f"""DEEP RESEARCH AVAILABLE:
-{json.dumps(research_data, ensure_ascii=False, indent=2)}
+    return f"""You are generating scroll-stopping hooks for a short-form music video on "{brand_name}".
 
-Use this research as your PRIMARY source. Identify the 5-7 facts/events with the strongest emotional potential."""
-    else:
-        research_block = "RESEARCH: not available. Use the video data and highlights above. Identify the strongest angles from what you have."
+A hook is the FIRST subtitle that appears on screen. It must stop the scroll in under 2 seconds of reading.
 
-    return f"""You are a scriptwriter for viral short-form opera and classical vocal music videos on "{brand_name}".
-
-Your only skill that matters now: writing the FIRST PHRASE that appears on screen — the phrase that decides if the person leaves or stops scrolling.
-
-A hook works when it triggers a PHYSICAL reaction — the thumb stops moving. This does NOT happen with trivia or data. It happens with EMOTION.
-
-You are NOT a copywriter. You do NOT sell anything. You find the angle of a story that makes it IMPOSSIBLE not to want to know the rest.
-
-===============================
+═══════════════════════════════
 VIDEO DATA
-===============================
+═══════════════════════════════
 
 {fields}
 {angle_block}
-{research_block}
+═══════════════════════════════
+RULES
+═══════════════════════════════
 
-===============================
-TASK — 7 mandatory steps
-===============================
+Generate exactly 5 hooks. Each must:
+1. Be SPECIFIC to THIS video. Swapping the artist or work name must make the hook FALSE or meaningless.
+2. Maximum {max_chars} characters (this is a hard technical limit).
+3. Maximum 2 lines (use \\n for line break if needed).
+4. Be grounded in verifiable facts. You MAY use well-known facts about the artist, work, or composer. NEVER invent facts.
+5. Use a DIFFERENT angle from each other:
+   - One based on a surprising FACT about the music itself
+   - One based on the PERFORMER's story or biography
+   - One based on historical CONTEXT, controversy, or cultural impact
+   - One based on what the VIEWER can hear or see in the video
+   - One based on an emotional PARADOX, contrast, or irony
 
-STEP 1 — SELECT MATERIAL
-Scan all available data (video metadata, highlights, research if available).
-Identify the 5-7 facts, events, or moments with the strongest emotional potential.
+═══════════════════════════════
+ANTI-PATTERNS (never do this)
+═══════════════════════════════
 
-STEP 2 — GENERATE CANDIDATES
-For each strong fact/event, formulate a hook. Generate at least 10 candidates internally.
-Do NOT show the 10 — they are drafts.
+- "This will change how you hear music forever" (works for anything)
+- "The most beautiful voice you'll ever hear" (empty adjective)
+- "You won't believe what happens next" (clickbait)
+- "One of the greatest performances ever" (generic superlative)
+- Any hook that works equally well for Pavarotti singing Nessun Dorma AND a random choir singing Ave Maria. If it fits both, it's too generic.
 
-STEP 3 — FEEL vs PROCESS FILTER
-For each candidate ask: "Does the viewer FEEL something in 1 second, or need to PROCESS information?"
+═══════════════════════════════
+GOOD EXAMPLES (specific, factual)
+═══════════════════════════════
 
-FEEL = reaction in the body (chills, curiosity, contradiction, emotional surprise)
-PROCESS = reaction in the head (calculate a number, absorb trivia, understand a reference)
+- "The high C in this piece was never in Allegri's score"
+- "She was 17. She chose the hardest aria in opera."
+- "The premiere flopped. The audience booed Verdi."
+- "This melody existed 14 years before The Godfather."
+- "Listen to what happens at 0:47. That note shouldn't exist."
 
-If PROCESS: discard or reformulate.
-
-HOOKS THAT MAKE YOU PROCESS (eliminate):
-- Numbers/statistics as the main element
-- Trivia disconnected from emotion
-- Verifiable superlatives with no consequence
-- Technical information (opus numbers, keys, catalog numbers)
-
-HOOKS THAT MAKE YOU FEEL (keep):
-- Emotional paradox: "The most beautiful aria in opera tells the story of a murder."
-- Provocation: "You know this melody. But you never knew what it really says."
-- Universal connection: "If longing had a voice, it would sing exactly like this."
-- Performer moment: "She sang with a 39C fever. The audience wept standing."
-- Inversion: "This opera was banned because the audience laughed at the wrong moment."
-- Extreme zoom: "One note. A single note separated triumph from disaster at this premiere."
-
-STEP 4 — SPECIFICITY FILTER
-"Would this hook work for ANOTHER aria/opera if I swapped names?"
-If YES: too generic. Reformulate or discard.
-EXCEPTION: emotional/sensory hooks may be general IF the second subtitle immediately anchors specificity.
-
-STEP 5 — NARRATIVE THREAD CHECK
-"Can I write 8+ overlay subtitles from this hook WITHOUT repeating the same point?"
-If NO: dead end. Discard.
-If YES: write in 1-2 sentences what the narrative thread would be.
-
-A good thread has a CHAIN OF EVENTS. A bad hook has an ISOLATED FACT that exhausts itself in 2 subtitles.
-
-STEP 6 — SELECT THE 5 BEST
-Ensure diversity:
-- At least 2 different emotional angles
-- At least 1 specific to the performer or THIS performance
-- No two hooks that lead to the SAME narrative thread
-- At least 1 that anchors in something audible or visible in the video
-
-STEP 7 — RANK
-Order from strongest to weakest.
-Criterion: "Which of these would make MORE people stop their scroll?"
-
-===============================
-CONSTRAINTS
-===============================
-
-FORBIDDEN in hook text:
-- Em-dash (—)
-- Numbers as the main element
-- Superlatives without consequence ("the most beautiful", "the most famous")
-- Empty rhetorical questions ("Have you ever heard of...?")
-- Aggressive commands ("Stop everything!", "Listen now!")
-- Telling the viewer what to feel ("Prepare to cry")
-- Technical information (opus, catalogs, keys)
-- Forbidden words: dive into, journey, uncover, fascinating, masterpiece (without concrete fact), iconic, timeless, dazzling, spectacular, masterful, breathtaking (as empty adjective)
-
-REQUIRED:
-- Maximum {max_chars} characters per hook (hard technical limit)
-- Maximum 2 lines (use \\n for line break if needed)
-- Each hook understandable by someone who has NEVER heard opera
-- Each hook MUST have a viable narrative thread of 8+ subtitles
-
-===============================
+═══════════════════════════════
 OUTPUT FORMAT
-===============================
+═══════════════════════════════
 
 Return ONLY a JSON array of exactly 5 objects:
 [
-  {{"rank": 1, "angle": "descriptive angle name", "hook": "The exact hook text", "thread": "Brief description of the narrative thread (1-2 sentences)", "type": "emotional|cultural|structural|specific", "why": "Why this hook works (1 sentence)"}},
-  ...5 hooks total...
+  {{"angle": "fact", "hook": "The exact hook text here", "thread": "Brief description of where the overlay narrative goes after this hook (1-2 sentences)"}},
+  {{"angle": "performer", "hook": "...", "thread": "..."}},
+  {{"angle": "context", "hook": "...", "thread": "..."}},
+  {{"angle": "visual", "hook": "...", "thread": "..."}},
+  {{"angle": "paradox", "hook": "...", "thread": "..."}}
 ]
 
-The "angle" field should be a SHORT descriptive name (e.g. "fever-performance", "forbidden-laughter", "one-note-disaster").
-The "thread" field helps the operator understand what story the overlays would tell.
-The "type" field classifies: emotional (paradox/feeling), cultural (history/impact), structural (music/composition), specific (performer/this video).
-The "why" field explains in 1 sentence why this hook stops the scroll.
-
-===============================
-SELF-CHECK (execute before delivering)
-===============================
-
-For EACH hook, before outputting:
-1. SCROLL: Person aged 25, 11pm, scrolling Instagram. Does their thumb STOP? If not, cut.
-2. FEEL: Reaction in body or in head? If head, reformulate.
-3. THREAD: 8 different subtitles without repeating? If forced, it's a dead end.
-4. AI: Sounds like a human in a bar or Instagram copy? If copy, reformulate.
-5. DIVERSITY: 5 hooks lead to 5 DIFFERENT stories? If 2 overlap, replace one.
+The "thread" field helps the operator understand what story the overlays would tell if this hook is chosen.
 
 Write ALL hook text in the SAME LANGUAGE as the Highlights field. If Highlights is empty, write in Portuguese.{build_language_reinforcement(project)}"""

@@ -82,11 +82,11 @@ def _check_language_leak(text: str, target_language: str) -> None:
         )
 
 
-def _call_claude(prompt: str, system: str | None = None, *, temperature: float = 0.8, max_tokens: int = 2048) -> str:
+def _call_claude(prompt: str, system: str | None = None) -> str:
     kwargs: dict = dict(
         model=MODEL,
-        max_tokens=max_tokens,
-        temperature=temperature,
+        max_tokens=2048,
+        temperature=0.8,
         messages=[{"role": "user", "content": prompt}],
     )
     if system:
@@ -359,14 +359,13 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_overlay_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_overlay_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system, temperature=0.7, max_tokens=4096)
+    raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
 
-    # Apply orthographic cleaning (ERR-056) + enforce char limits (max 70 total, 2 linhas)
+    # Apply orthographic cleaning (ERR-056) — char limit enforced by prompt + human review
     for leg in parsed:
         if "text" in leg:
             leg["text"] = _limpar_texto_overlay(leg["text"])
-            leg["text"] = _enforce_line_breaks_bo(leg["text"])
 
     # --- Validação de timestamps + CTA fixo ---
     # Claude gera timestamps flexíveis. Este script CORRIGE problemas sem
@@ -407,17 +406,18 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
 
     def _calcular_duracao_leitura(text: str) -> float:
         """Duração de exibição baseada no tempo de leitura.
-        Range: 4.0s a 7.0s (ritmo mais ágil para retenção).
-        - Texto curto (2 palavras): 4.7s
+        Viés para leitura lenta (público contemplativo).
+        Range: 5.0s a 8.0s.
+        - Texto curto (2 palavras): 4.7 → 5.0s (clamp)
         - Texto médio (5 palavras): 5.75s
         - Texto longo (8 palavras): 6.8s
-        - Texto longo (10+ palavras): 7.0s (clamp)
+        - Texto longo (10+ palavras): 7.5-8.0s (clamp)
         """
         palavras = len(text.split())
         duracao = (palavras * 0.35) + 4.0
-        return max(4.0, min(7.0, duracao))
+        return max(5.0, min(8.0, duracao))
 
-    if parsed and vid_duration > 0:
+    if parsed and vid_duration > 10:
         # Timing variável por tempo de leitura (substitui banda fixa min/max gap)
         current_ts = 0.0
         prev_ts = 0.0
@@ -486,9 +486,8 @@ def generate_hooks(project, brand_config=None) -> list:
 
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
-    research_data = getattr(project, 'research_data', None)
-    prompt = build_hook_generation_prompt(project, brand_config=brand_config, research_data=research_data)
-    raw = _call_claude(prompt, system=system, temperature=0.85, max_tokens=4096)
+    prompt = build_hook_generation_prompt(project, brand_config=brand_config)
+    raw = _call_claude(prompt, system=system)
     parsed = json.loads(_strip_json_fences(raw))
 
     if not isinstance(parsed, list):
@@ -497,16 +496,13 @@ def generate_hooks(project, brand_config=None) -> list:
     # Limpar cada hook — sem truncação (o prompt já instrui o limite)
     max_chars = (brand_config or {}).get("overlay_max_chars", 70)
     result = []
-    for i, item in enumerate(parsed[:5]):
+    for item in parsed[:5]:
         hook_text = item.get("hook", "").strip()
         over_limit = len(hook_text) > max_chars
         result.append({
             "angle": item.get("angle", ""),
             "hook": hook_text,
             "thread": item.get("thread", ""),
-            "rank": item.get("rank", i + 1),
-            "type": item.get("type", ""),
-            "why": item.get("why", ""),
             **({"over_limit": True} if over_limit else {}),
         })
 
@@ -554,12 +550,11 @@ def generate_post(project, custom_prompt: Optional[str] = None, brand_config=Non
 
     lang = detect_hook_language(project)
     system = _build_language_system_prompt(lang)
-    overlay_json = getattr(project, 'overlay_json', None)
     if custom_prompt:
-        prompt = build_post_prompt_with_custom(project, custom_prompt, brand_config=brand_config, overlay_json=overlay_json)
+        prompt = build_post_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
-        prompt = build_post_prompt(project, brand_config=brand_config, overlay_json=overlay_json)
-    result = _call_claude(prompt, system=system, temperature=0.7, max_tokens=4096)
+        prompt = build_post_prompt(project, brand_config=brand_config)
+    result = _call_claude(prompt, system=system)
     _check_language_leak(result, lang)
     result = _sanitize_post(result)
     return {"text": result, "warning": warning}
@@ -588,7 +583,7 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
         prompt = build_youtube_prompt_with_custom(project, custom_prompt, brand_config=brand_config)
     else:
         prompt = build_youtube_prompt(project, brand_config=brand_config)
-    raw = _call_claude(prompt, system=system, temperature=0.7, max_tokens=2048)
+    raw = _call_claude(prompt, system=system)
     raw = _strip_markdown_preamble(raw)
     _check_language_leak(raw, lang)
     lines = [l.strip() for l in raw.strip().splitlines() if l.strip()]
@@ -601,42 +596,6 @@ def generate_youtube(project, custom_prompt: Optional[str] = None, brand_config=
     if title == tags:
         tags = ""
     return title, tags
-
-
-# ═══════════════════════════════════════════════════════════════
-# BO (Best of Opera) — Research
-# ═══════════════════════════════════════════════════════════════
-
-
-def _extract_bo_metadata(project) -> dict:
-    """Extrai metadata do projeto no formato esperado pelo prompt de research BO."""
-    return {
-        "artist": project.artist or "",
-        "work": project.work or "",
-        "composer": project.composer or "",
-        "composition_year": project.composition_year or "",
-        "nationality": project.nationality or "",
-        "voice_type": getattr(project, 'voice_type', '') or "",
-        "category": project.category or "",
-        "album_opera": project.album_opera or "",
-        "cut_start": project.cut_start or "00:00",
-        "cut_end": project.cut_end or "01:00",
-        "highlights": project.highlights or "",
-    }
-
-
-def generate_research_bo(project, brand_config=None) -> dict:
-    """Gera pesquisa profunda para BO. Salva em project.research_data."""
-    from backend.prompts.bo_research_prompt import build_bo_research_prompt
-
-    logger.info(f"[BO Research] Iniciando para project {project.id}")
-    metadata = _extract_bo_metadata(project)
-    prompt = build_bo_research_prompt(metadata)
-
-    result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
-    project.research_data = result
-    logger.info(f"[BO Research] Concluído para project {project.id}")
-    return result
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -763,15 +722,13 @@ def _sanitize_rc(texto: str) -> str:
     if not texto:
         return texto
 
-    # Remove travessões (marca de IA mais comum) — context-aware
-    # Maiúscula após em-dash → nova frase (período), minúscula → aposto (vírgula)
-    texto = re.sub(r'\s*—\s*(?=[A-ZÀ-Ú])', '. ', texto)
-    texto = re.sub(r'\s*—\s*(?=[a-zà-ú])', ', ', texto)
-    texto = re.sub(r'\s*—\s*', '. ', texto)  # fallback
-    # En-dash: preservar ranges numéricos (1820–1830), substituir texto
-    texto = re.sub(r'(\d)\s*–\s*(\d)', r'\1{{RANGE}}\2', texto)
-    texto = re.sub(r'\s*–\s*', ', ', texto)
-    texto = texto.replace('{{RANGE}}', '–')
+    # Remove travessões (marca de IA mais comum)
+    texto = texto.replace(" — ", ". ")
+    texto = texto.replace("— ", ". ")
+    texto = texto.replace(" —", ".")
+    texto = texto.replace("—", ".")
+    texto = texto.replace(" – ", ", ")
+    texto = texto.replace("–", ",")
 
     # Remove metadados vazados
     texto = re.sub(r'\d+px', '', texto)
@@ -811,165 +768,109 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
-def _wrap_balanced(texto_junto: str, max_linhas: int, max_total: int) -> str:
-    """Quebra texto em linhas balanceadas respeitando limites por TOTAL de chars.
-    Prefere quebra em pausas naturais (pontuação, conjunções)."""
-    if not texto_junto.strip():
-        return texto_junto.strip()
-
-    clean = re.sub(r'\s+', ' ', texto_junto).strip()
-
-    # Se cabe em 1 linha e max_linhas permite, retornar
-    if len(clean) <= max_total // max_linhas:
-        return clean
-
-    # Truncar se total excede max_total — preferir corte em frase completa
-    if len(clean) > max_total:
-        # Tentar cortar na última frase completa que cabe
-        corte_frase = -1
-        for match in re.finditer(r'[.!?]\s', clean[:max_total]):
-            corte_frase = match.end()
-        if corte_frase > max_total * 0.5:
-            clean = clean[:corte_frase].strip()
-        else:
-            # Fallback: cortar por palavra
-            palavras = clean.split()
-            while len(' '.join(palavras)) > max_total and len(palavras) > 1:
-                palavras.pop()
-            clean = ' '.join(palavras)
-        _rc_logger.warning(f"[LineBreak] Texto truncado para {max_total}c: '{clean[:50]}...'")
-
-    palavras = clean.split()
-    if max_linhas == 1 or len(palavras) <= 1:
-        return clean
-
-    # Encontrar melhor ponto de quebra perto do target
-    def _find_best_break(text: str, target: int) -> int:
-        """Retorna índice de quebra (posição do espaço) mais próximo do target."""
-        best = target
-        best_score = len(text)
-        for i, ch in enumerate(text):
-            if ch == ' ':
-                dist = abs(i - target)
-                # Bonus para quebra após pontuação
-                if i > 0 and text[i - 1] in '.,;:!?':
-                    dist = max(0, dist - 8)
-                if dist < best_score:
-                    best_score = dist
-                    best = i
-        return best
-
-    if max_linhas == 2:
-        target = len(clean) // 2
-        bp = _find_best_break(clean, target)
-        line1 = clean[:bp].strip()
-        line2 = clean[bp:].strip()
-        if not line1 or not line2:
-            # Fallback: dividir por palavras
-            mid = len(palavras) // 2
-            line1 = ' '.join(palavras[:mid])
-            line2 = ' '.join(palavras[mid:])
-        return f"{line1}\n{line2}"
-
-    elif max_linhas == 3:
-        t1 = len(clean) // 3
-        t2 = 2 * len(clean) // 3
-        bp1 = _find_best_break(clean, t1)
-        bp2 = _find_best_break(clean, t2)
-        # Garantir que bp2 > bp1 (evitar slice invertido)
-        if bp2 <= bp1:
-            bp2 = _find_best_break(clean, bp1 + max(1, len(clean) // 6))
-        if bp2 <= bp1:
-            bp2 = min(len(clean), bp1 + len(clean) // 3)
-        line1 = clean[:bp1].strip()
-        line2 = clean[bp1:bp2].strip()
-        line3 = clean[bp2:].strip()
-        lines = [l for l in [line1, line2, line3] if l]
-        if len(lines) < 2:
-            # Fallback: dividir por palavras
-            third = max(1, len(palavras) // 3)
-            lines = [
-                ' '.join(palavras[:third]),
-                ' '.join(palavras[third:2*third]),
-                ' '.join(palavras[2*third:]),
-            ]
-            lines = [l for l in lines if l]
-        return "\n".join(lines[:3])
-
-    return clean
-
-
 def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, lang: str = "pt") -> str:
-    """Re-wrap RC por TOTAL de chars (não por linha).
-    Limites: Grupo A (PT/EN/ES/FR/IT) = 70/85, Grupo B (DE/PL) = 64/77.
-    Gancho/fechamento: sempre 2 linhas. Corpo: até 3 linhas.
-    Param max_chars_linha mantido para backward compat (ignorado internamente)."""
+    """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
+    Se o LLM não gerou \\n, adiciona word-wrap inteligente.
+    Idiomas verbosos (de, fr, it, pl, es) ganham margem extra de 3 chars."""
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
 
-    # Fix espaçamento: garantir espaço após pontuação seguida de maiúscula
-    texto = re.sub(r'([.!?])([A-ZÀ-Ú])', r'\1 \2', texto)
-
-    # Limites por grupo de idioma (Content Bible §1.5)
-    if lang in ("de", "pl"):
-        max_2line = 64
-        max_3line = 77
-    else:  # PT, EN, ES, FR, IT
-        max_2line = 70
-        max_3line = 85
+    # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
+    if lang in ("de", "fr", "it", "pl", "es"):
+        max_chars_linha = min(max_chars_linha + 3, 38)
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
-    max_total = max_2line if max_linhas <= 2 else max_3line
 
     linhas = texto.split("\n")
+
+    # Verificar se TODAS as linhas já estão OK
+    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+    if todas_ok and len(linhas) <= max_linhas:
+        return texto  # Já está bom, não mexer
+
+    # Precisa re-wrap: juntar tudo e quebrar novamente
     texto_junto = " ".join(l.strip() for l in linhas)
-    total_chars = len(re.sub(r'\s+', ' ', texto_junto).strip())
 
-    # Se já está OK (dentro do total e num de linhas), não mexer
-    if total_chars <= max_total and len(linhas) <= max_linhas:
-        return texto
+    novas_linhas = []
+    linha_atual = ""
+    palavras = texto_junto.split()
+    truncado = False
 
-    # Se total OK mas linhas demais → mesclar linhas menores em vez de destruir todas
-    if total_chars <= max_total and len(linhas) > max_linhas:
-        while len(linhas) > max_linhas:
-            # Encontrar par de linhas adjacentes cuja soma é menor
-            menor_soma = float('inf')
-            idx_merge = 0
-            for i in range(len(linhas) - 1):
-                soma = len(linhas[i].strip()) + len(linhas[i + 1].strip())
-                if soma < menor_soma:
-                    menor_soma = soma
-                    idx_merge = i
-            linhas[idx_merge] = linhas[idx_merge].strip() + " " + linhas[idx_merge + 1].strip()
-            linhas.pop(idx_merge + 1)
-        return "\n".join(l.strip() for l in linhas)
+    for idx, palavra in enumerate(palavras):
+        teste = (linha_atual + " " + palavra).strip()
+        if len(teste) <= max_chars_linha:
+            linha_atual = teste
+            # Preferir quebra após pontuação se já tem 25+ chars
+            if (len(linha_atual) >= 25
+                    and linha_atual[-1] in ",.;:"
+                    and len(novas_linhas) < max_linhas - 1):
+                novas_linhas.append(linha_atual)
+                linha_atual = ""
+        else:
+            if linha_atual:
+                novas_linhas.append(linha_atual)
+            # Se já atingiu max de linhas, truncar e avisar
+            if len(novas_linhas) >= max_linhas:
+                resto = " ".join(palavras[idx:])
+                _rc_logger.warning(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'")
+                truncado = True
+                break
+            linha_atual = palavra
 
-    resultado = _wrap_balanced(texto_junto, max_linhas, max_total)
+    if not truncado and linha_atual:
+        novas_linhas.append(linha_atual)
+
+    # Garantir max_linhas
+    novas_linhas = novas_linhas[:max_linhas]
+
+    resultado = "\n".join(novas_linhas)
 
     if resultado != texto:
-        _rc_logger.info(f"[RC LineBreak] Reformatado: {len(texto)}c → total {len(resultado.replace(chr(10), ''))}c, "
-                        f"{len(resultado.split(chr(10)))} linhas (max_total={max_total})")
+        _rc_logger.info(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas")
 
     return resultado
 
 
 def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
-    """Re-wrap BO por TOTAL de chars: max 70 total, 2 linhas.
-    Quebra em pausas naturais. Param max_chars_linha mantido para backward compat."""
+    """Re-wrap texto BO pós-tradução em max 2 linhas de 35 chars.
+    Usa mesma lógica de _enforce_line_breaks_rc, adaptada para BO."""
     if not texto:
         return texto
 
-    max_total = max_chars_linha * max_linhas  # default: 35 * 2 = 70
-
     linhas = texto.split("\n")
-    texto_junto = " ".join(l.strip() for l in linhas)
-    total_chars = len(re.sub(r'\s+', ' ', texto_junto).strip())
 
     # Se já cabe, não mexer
-    if total_chars <= max_total and len(linhas) <= max_linhas:
+    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+    if todas_ok and len(linhas) <= max_linhas:
         return texto
 
-    return _wrap_balanced(texto_junto, max_linhas, max_total)
+    texto_junto = " ".join(l.strip() for l in linhas)
+
+    novas_linhas = []
+    linha_atual = ""
+    palavras = texto_junto.split()
+
+    for idx, palavra in enumerate(palavras):
+        teste = (linha_atual + " " + palavra).strip()
+        if len(teste) <= max_chars_linha:
+            linha_atual = teste
+            if (len(linha_atual) >= 25
+                    and linha_atual[-1] in ",.;:"
+                    and len(novas_linhas) < max_linhas - 1):
+                novas_linhas.append(linha_atual)
+                linha_atual = ""
+        else:
+            if linha_atual:
+                novas_linhas.append(linha_atual)
+            if len(novas_linhas) >= max_linhas:
+                break
+            linha_atual = palavra
+
+    if linha_atual and len(novas_linhas) < max_linhas:
+        novas_linhas.append(linha_atual)
+
+    novas_linhas = novas_linhas[:max_linhas]
+    return "\n".join(novas_linhas)
 
 
 def _process_overlay_rc(response: dict, project) -> list:
@@ -1152,8 +1053,10 @@ def generate_research_rc(project, brand_config=None) -> dict:
     from backend.prompts.rc_research_prompt import build_rc_research_prompt
 
     _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
+    _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_research_prompt(metadata)
+    _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
     _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)

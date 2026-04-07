@@ -210,6 +210,7 @@ REGRAS TÉCNICAS INVIOLÁVEIS:
 FORMATAÇÃO DE LINHAS (INVIOLÁVEL — enforçado por código, mas gere já formatado):
 - Cada legenda DEVE ter quebras de linha (\\n) explícitas no texto.
 - Máximo 33 caracteres por linha (contando espaços).
+  Exceção: o CTA fixo tem 35 chars na primeira linha. É aceitável porque usa fonte menor (48px vs 52px do corpo).
 - Gancho e fechamento: SEMPRE 2 linhas, máximo 66 caracteres total.
 - Corpo: 2 ou 3 linhas, máximo 85 caracteres total.
 - Quebrar na pausa natural: vírgula, ponto, respiração, entre frases.

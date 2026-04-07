@@ -81,19 +81,10 @@ def _extract_narrative(post_text: str, max_chars: int = 500) -> str:
 def _build_overlay_fields(project) -> str:
     """Monta os campos de input do projeto para overlay."""
     highlights = getattr(project, "highlights", "") or ""
-    # Fallback: se highlights vazio, usar research_data ou narrativa do post
+    # Fallback: se highlights vazio, usar narrativa do post gerado
     if not highlights.strip():
-        research_data = getattr(project, "research_data", None)
-        if research_data and isinstance(research_data, dict):
-            angulos = research_data.get("angulos_narrativos", [])
-            if angulos and isinstance(angulos, list):
-                highlights = "; ".join(
-                    a.get("nome", "") for a in angulos[:5]
-                    if isinstance(a, dict) and a.get("nome")
-                )
-        if not highlights.strip():
-            post_text = getattr(project, "post_text", "") or ""
-            highlights = _extract_narrative(post_text)
+        post_text = getattr(project, "post_text", "") or ""
+        highlights = _extract_narrative(post_text)
     return (
         f"{_field('Artist', project.artist)}"
         f"{_field('Work', project.work)}"
@@ -127,45 +118,17 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     count_info = _calc_subtitle_count(project, interval_secs=interval_secs)
     fields = _build_overlay_fields(project)
 
-    # Research data: usar pesquisa profunda se disponível, fallback para post_text
+    # Research data: narrativa do post para fatos concretos no gancho
     research_block = ""
-    research_data = getattr(project, "research_data", None)
-    if research_data and isinstance(research_data, dict):
-        # Extrair fatos surpreendentes e ângulos da pesquisa
-        fatos = research_data.get("fatos_surpreendentes", [])
-        fatos_text = "\n".join(f"- {f.get('fato', '')}" for f in fatos[:8] if isinstance(f, dict) and f.get("fato"))
-        angulos = research_data.get("angulos_narrativos", [])
-        angulos_text = "\n".join(f"- {a.get('nome', '')}: {a.get('fio_narrativo', '')}" for a in angulos[:5] if isinstance(a, dict) and a.get("nome"))
-        interprete = research_data.get("interprete", {}) if isinstance(research_data.get("interprete"), dict) else {}
-        interp_parts = [interprete.get("diferencial", ""), interprete.get("relacao_com_esta_peca", "")]
-        interp_text = " ".join(p for p in interp_parts if p).strip()
-
-        parts = []
-        if fatos_text:
-            parts.append(f"SURPRISING FACTS:\n{fatos_text}")
-        if angulos_text:
-            parts.append(f"NARRATIVE ANGLES:\n{angulos_text}")
-        if interp_text:
-            parts.append(f"PERFORMER INSIGHT:\n- {interp_text}")
-
-        if parts:
+    post_text = getattr(project, "post_text", "") or ""
+    if post_text.strip():
+        narrative = _extract_narrative(post_text, max_chars=300)
+        if narrative:
             research_block = f"""
-RESEARCH DATA (use for specific facts in your HOOK and throughout the overlay):
-{chr(10).join(parts)}
-
-HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks like 'this will give you chills', 'you won't believe this', or 'what's about to happen will...' are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
-"""
-    else:
-        # Fallback: post_text (para regeneração quando post já existe)
-        post_text = getattr(project, "post_text", "") or ""
-        if post_text.strip():
-            narrative = _extract_narrative(post_text, max_chars=300)
-            if narrative:
-                research_block = f"""
 RESEARCH DATA (use for specific facts in your HOOK):
 {narrative}
 
-HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
+HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks like 'this will give you chills', 'you won't believe this', or 'what's about to happen will...' are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
 """
 
     brand_block_parts = []
@@ -260,88 +223,16 @@ Hook angle: "The high C was never in the score"
 Notice: the hook opens with the high C, then the body goes to 1638, choir texture, Mendelssohn, Grove's Dictionary, printing error. Each subtitle is a NEW thread. Two anchoring captions ("Listen to the choir", "singing right now"). The closing returns to the hook with a twist.
 
 ═══════════════════════════════
-EXAMPLE 2 — GOOD (Vissi d'arte — Puccini/Tosca)
-═══════════════════════════════
-
-Hook angle: "Tosca kills to save love. Puccini almost cut this aria."
-[
-  {{"timestamp": "00:00", "text": "Tosca kills to save love.\\nPuccini almost cut this aria."}},
-  {{"timestamp": "00:06", "text": "Rome, 1900. The premiere\\nwas nearly sabotaged."}},
-  {{"timestamp": "00:12", "text": "Puccini thought this aria\\nstopped the drama cold."}},
-  {{"timestamp": "00:18", "text": "Listen to that first phrase.\\nShe's not singing. She's pleading."}},
-  {{"timestamp": "00:24", "text": "Sardou wrote the play in 1887\\nfor Sarah Bernhardt."}},
-  {{"timestamp": "00:30", "text": "Notice how the orchestra\\npulls back. Only her voice."}},
-  {{"timestamp": "00:36", "text": "The aria he wanted to cut\\nbecame the most recorded."}}
-]
-Notice: hook pairs two acts of destruction (Tosca's killing and Puccini's cut), then branches into 4 threads: sabotage, doubt, Sardou's play, orchestration. Two anchoring captions ("Listen to that first phrase", "Notice how the orchestra pulls back"). Closing echoes the hook's irony: what he wanted to destroy became immortal.
-
-═══════════════════════════════
-EXAMPLE 3 — BAD (common failures)
-═══════════════════════════════
-
-[
-  {{"timestamp": "00:00", "text": "This performance will\\ngive you chills"}},
-  {{"timestamp": "00:06", "text": "The singer delivers\\nan incredible performance"}},
-  {{"timestamp": "00:12", "text": "Every note is filled\\nwith raw emotion"}},
-  {{"timestamp": "00:18", "text": "This is what true\\nartistry sounds like"}},
-  {{"timestamp": "00:24", "text": "A voice that defines\\na generation"}}
-]
-PROBLEMS:
-1. GENERIC HOOK: "give you chills" works for ANY video. No specific fact.
-2. SATURATED: every subtitle says "this is amazing" in different words. One idea repeated 5 times.
-3. NO ANCHORING: zero references to what the viewer sees or hears in the video.
-4. MONOTONE RHYTHM: all subtitles are exactly 2 lines with similar length.
-5. DISCONNECTED CLOSING: "defines a generation" has no relation to "give you chills."
-6. EMPTY ADJECTIVES: "incredible", "raw", "true" — all prohibited.
-SWAP TEST: replace singer name — text still works for anyone. GENERIC. FAIL.
-
-═══════════════════════════════
-VERIFY (execute BEFORE delivering output)
-═══════════════════════════════
-
-Run ALL 6 checks. If ANY fails, fix BEFORE outputting.
-
-CHECK 1 — ANCHORING:
-Count subtitles that reference something AUDIBLE or VISIBLE in the video.
-Good anchoring: "Listen to the clarinet opening" / "That high note you hear is not in the score"
-Bad anchoring: "A beautiful melody" / "The sound is moving"
-Minimum: 2 anchored subtitles. If fewer, rewrite weakest to anchor.
-
-CHECK 2 — ANTI-SATURATION:
-Does the hook's angle dominate more than 40% of subtitles?
-If yes: the hook is the DOOR, not the SUBJECT. Diversify development.
-
-CHECK 3 — NARRATIVE ARC:
-Read ONLY first subtitle (hook) and last narrative subtitle (closing) side by side.
-Do they form a pair? Does closing REFRAME, COMPLETE, or ECHO the hook?
-If not: rewrite closing so it resonates with the opening.
-
-CHECK 4 — ANTI-REPETITION:
-Summarize each subtitle in 5 words.
-If any two summaries overlap: one is redundant. Rewrite with a NEW angle.
-
-CHECK 5 — RHYTHM:
-Check subtitle lengths. If 3+ consecutive subtitles have similar character count (within 5 chars): vary them. Alternate short punchy (30-45 chars) with fuller (55-70 chars).
-
-CHECK 6 — AI DETECTION:
-Read all subtitles aloud mentally.
-- Repeated parallelism ("X. Y. Z." in more than 1 subtitle)? Rewrite one.
-- Sounds like Instagram copy or documentary voiceover? Rewrite conversationally.
-- Cascade of sensory metaphors (more than 1 per 3 subtitles)? Cut extras.
-- Em-dash (—) anywhere? REMOVE, use period or comma.
-- Forbidden words from PROHIBITIONS section? REMOVE.
-
-Only after ALL 6 checks pass: output.
-
-═══════════════════════════════
 TECHNICAL RULES
 ═══════════════════════════════
 
-1. Write concise subtitles — each should be brief and punchy. See EXAMPLES for ideal length. The system handles formatting automatically.
+1. Maximum {max_chars} characters per subtitle.
 2. {count_info} Cover the video with no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. Your LAST narrative subtitle should end at around 80% of the video duration — leave the final ~20% free for the CTA that the system adds automatically. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
 3. FIRST subtitle starts at "00:00".
 4. OVERLAY FORMATTING:
-   - Split subtitles into 2 balanced lines using \\n.
+   - Maximum {max_chars} characters in total per subtitle.
+   - If a subtitle has more than {max_chars_line} characters, split it into 2 lines using \\n.
+   - Each line: maximum {max_chars_line} characters.
    - The 2 lines must be BALANCED in length (maximum 30% difference between them).
 5. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks.
    WRONG: "nuncasetocam" / "harmoniaé" / "comoum"
