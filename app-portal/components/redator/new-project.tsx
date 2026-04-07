@@ -78,6 +78,60 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
   const [shared, setShared] = useState({ work: "", composer: "", composition_year: "", album_opera: "" })
   const [interpreters, setInterpreters] = useState<Interpreter[]>([emptyInterpreter()])
 
+  // Helper: aplica metadados detectados via detectMetadataFromText
+  async function applyR2Info(folder: string, fallbackArtist: string, fallbackWork: string) {
+    setR2Loading(true)
+    setR2Error("")
+    try {
+      const info = await curadoriaApi.r2Info(folder, selectedBrand?.slug)
+      setYoutubeUrl(info.youtube_url)
+      setThumbnailUrl(info.thumbnail_url)
+      setYtTitle(info.title || "")
+      setYtDescription(info.description || "")
+      if (info.category) setCategory(info.category)
+      if (info.title) {
+        setDetecting(true)
+        try {
+          const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "", selectedBrand?.slug)
+          const artistStr = meta.artist || fallbackArtist
+          const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
+          const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
+          const flags = (meta.nationality_flag || "").trim().replace(/\s*\/\s*/g, " ").split(" ").map((s: string) => s.trim()).filter(Boolean)
+          const voiceTypes = (meta.voice_type || "").split(" / ").map((s: string) => s.trim())
+          const birthDates = (meta.birth_date || "").split(" / ").map((s: string) => s.trim())
+          const deathDates = (meta.death_date || "").split(" / ").map((s: string) => s.trim())
+          setInterpreters(artists.map((a: string, i: number) => ({
+            artist: a,
+            nationality: nationalities[i] || nationalities[0] || "",
+            nationality_flag: flags[i] || flags[0] || "",
+            voice_type: voiceTypes[i] || voiceTypes[0] || "",
+            birth_date: birthDates[i] || birthDates[0] || "",
+            death_date: deathDates[i] || deathDates[0] || "",
+          })))
+          setShared({
+            work: meta.work || fallbackWork,
+            composer: meta.composer || "",
+            composition_year: meta.composition_year || "",
+            album_opera: meta.album_opera || "",
+          })
+          setConfidence(meta.confidence || "high")
+          if (meta.instrument_formation) setInstrumentFormation(meta.instrument_formation)
+          if (meta.orchestra) setOrchestra(meta.orchestra)
+          if (meta.conductor) setConductor(meta.conductor)
+          if (meta.category) setCategory(meta.category)
+        } catch {
+          // Keep pre-fill if detection fails
+        } finally {
+          setDetecting(false)
+        }
+      }
+    } catch (err: any) {
+      setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
+    } finally {
+      setR2Loading(false)
+    }
+  }
+
   useEffect(() => {
     if (!r2Folder) return
     // Strip r2_prefix da marca (ex: "ReelsClassics/projetos_/") para extrair artist/work
@@ -95,55 +149,7 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
     setShared(prev => ({ ...prev, work }))
     setDetected(true)
     setConfidence("r2")
-    setR2Loading(true)
-    setR2Error("")
-    curadoriaApi.r2Info(r2Folder, selectedBrand?.slug).then(async info => {
-      setYoutubeUrl(info.youtube_url)
-      setThumbnailUrl(info.thumbnail_url)
-      setYtTitle(info.title || "")
-      setYtDescription(info.description || "")
-      if (info.category) setCategory(info.category)
-      // Auto-detect metadata from YouTube title + description
-      if (info.title) {
-        setDetecting(true)
-        try {
-          const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "", selectedBrand?.slug)
-          const artistStr = meta.artist || artist
-          const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
-          const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
-          const flags = (meta.nationality_flag || "").trim().replace(/\s*\/\s*/g, " ").split(" ").map((s: string) => s.trim()).filter(Boolean)
-          const voiceTypes = (meta.voice_type || "").split(" / ").map((s: string) => s.trim())
-          const birthDates = (meta.birth_date || "").split(" / ").map((s: string) => s.trim())
-          const deathDates = (meta.death_date || "").split(" / ").map((s: string) => s.trim())
-          setInterpreters(artists.map((a: string, i: number) => ({
-            artist: a,
-            nationality: nationalities[i] || nationalities[0] || "",
-            nationality_flag: flags[i] || flags[0] || "",
-            voice_type: voiceTypes[i] || voiceTypes[0] || "",
-            birth_date: birthDates[i] || birthDates[0] || "",
-            death_date: deathDates[i] || deathDates[0] || "",
-          })))
-          setShared({
-            work: meta.work || work,
-            composer: meta.composer || "",
-            composition_year: meta.composition_year || "",
-            album_opera: meta.album_opera || "",
-          })
-          setConfidence(meta.confidence || "high")
-          // Preencher campos RC se detectados
-          if (meta.instrument_formation) setInstrumentFormation(meta.instrument_formation)
-          if (meta.orchestra) setOrchestra(meta.orchestra)
-          if (meta.conductor) setConductor(meta.conductor)
-          if (meta.category) setCategory(meta.category)
-        } catch {
-          // Keep r2 pre-fill if detection fails
-        } finally {
-          setDetecting(false)
-        }
-      }
-    }).catch((err) => {
-      setR2Error(`Não foi possível carregar YouTube info: ${err?.message || err}`)
-    }).finally(() => setR2Loading(false))
+    applyR2Info(r2Folder, artist, work)
   }, [r2Folder])
 
   // Modo edição: carregar dados do projeto existente
@@ -186,6 +192,10 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
       if (p.conductor) setConductor(p.conductor)
       setDetected(true)
       setConfidence("edit")
+      // Se tem r2_folder mas não youtube_url, buscar info do R2 para preencher metadados
+      if (p.r2_folder && !p.youtube_url) {
+        applyR2Info(p.r2_folder, p.artist || "", p.work || "")
+      }
     }).catch((err) => {
       setError(`Erro ao carregar projeto: ${err?.message || err}`)
     }).finally(() => setLoading(false))

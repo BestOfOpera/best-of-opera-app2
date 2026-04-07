@@ -47,6 +47,7 @@ export interface Project {
   scheduled_date: string | null
   translations: Translation[]
   warnings?: string[]
+  r2_folder?: string | null
 }
 
 export interface Translation {

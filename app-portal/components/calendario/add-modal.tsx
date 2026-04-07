@@ -71,6 +71,7 @@ export function AddModal({
         artist: item.artist,
         work: item.work,
         composer: "",
+        r2_folder: item.folder,
       }, brandSlug)
       await redatorApi.scheduleProject(project.id, targetDate)
       toast.success(`"${item.artist}" agendado para ${formatDate(targetDate)}`)
