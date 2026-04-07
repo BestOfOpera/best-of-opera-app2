@@ -207,15 +207,15 @@ REGRAS TÉCNICAS INVIOLÁVEIS:
 - Ponto de exclamação: máximo 2 em todo o overlay
 - Idioma: português brasileiro, tom de conversa
 
-FORMATAÇÃO DE LINHAS (INVIOLÁVEL — enforçado por código, mas gere já formatado):
+FORMATAÇÃO DE LINHAS:
 - Cada legenda DEVE ter quebras de linha (\\n) explícitas no texto.
-- Máximo 33 caracteres por linha (contando espaços).
-  Exceção: o CTA fixo tem 35 chars na primeira linha. É aceitável porque usa fonte menor (48px vs 52px do corpo).
-- Gancho e fechamento: SEMPRE 2 linhas, máximo 66 caracteres total.
-- Corpo: 2 ou 3 linhas, máximo 85 caracteres total.
+- Gancho e fechamento: SEMPRE 2 linhas.
+- Corpo: 2 ou 3 linhas conforme a narrativa pede.
 - Quebrar na pausa natural: vírgula, ponto, respiração, entre frases.
-- Balancear comprimento das linhas (não uma de 33 e outra de 5).
+- Balancear comprimento das linhas (não uma muito longa e outra muito curta).
 - O texto será exibido centralizado. Linhas balanceadas ficam visualmente melhores.
+- Escreva legendas concisas e curtas — veja os EXEMPLOS para o tamanho ideal.
+- O sistema ajusta a formatação automaticamente se necessário.
 
 SE NÃO SOUBER ONDE QUEBRAR: leia a frase em voz alta. Onde você pausa para respirar, coloque \\n.
 
@@ -263,7 +263,7 @@ POR QUE FUNCIONA:
 - ÂNGULO COMO PORTA: "sombrio/bonito" abre, mas a história EXPANDE para o mistério da encomenda, a morte, o aluno.
 - ANCORAGEM: legendas 10-12 conectam ao que o espectador OUVE (coro subindo, escurecendo).
 - FECHAMENTO retoma gancho: "sombrio e bonito" → eco direto do "Como algo tão sombrio pode ser tão bonito?"
-- TODAS as legendas têm \\n. Nenhuma linha passa de 33 chars.
+- TODAS as legendas têm \\n. Linhas curtas e balanceadas.
 - Zero travessão. Zero paralelismo repetido. Zero metáfora vazia.
 - Variação de ritmo: legendas de 2 linhas alternam com 3 linhas.
 

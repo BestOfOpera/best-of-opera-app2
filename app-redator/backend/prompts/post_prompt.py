@@ -168,7 +168,7 @@ def _build_fields(project) -> str:
     return fields.rstrip("\n")
 
 
-def build_post_prompt(project, brand_config=None) -> str:
+def build_post_prompt(project, brand_config=None, overlay_json=None) -> str:
     bc = brand_config or {}
     brand_name = bc.get("brand_name", "")
     opening_line = bc.get("brand_opening_line", "")
@@ -214,6 +214,37 @@ CRITICAL RULES
 - Write ALL content in the SAME LANGUAGE as the Hook/angle field.
 - Return ONLY the post text. No explanations, no commentary, no preamble."""
 
+    # Anti-repetição: se overlay disponível, impedir que post repita os mesmos fatos
+    anti_rep_block = ""
+    if overlay_json and isinstance(overlay_json, list):
+        overlay_texts = []
+        for leg in overlay_json:
+            if isinstance(leg, dict):
+                texto = leg.get("text", "")
+                if texto and not leg.get("_is_cta"):
+                    overlay_texts.append(texto)
+        if overlay_texts:
+            overlay_list = "\n".join(f"- {t}" for t in overlay_texts)
+            anti_rep_block = f"""
+═══════════════════════════════
+ANTI-REPETITION (MANDATORY)
+═══════════════════════════════
+
+The viewer has ALREADY SEEN these subtitles in the video overlay:
+{overlay_list}
+
+These facts/events are USED. DO NOT repeat ANY of them in the post.
+Your post must add DIFFERENT facts, angles, and information.
+
+Strategy:
+- If overlay told the COMPOSITION story → post focuses on PERFORMER and PERFORMANCE
+- If overlay focused on COMPOSER → post deepens the PIECE and its RECEPTION
+- If overlay used surprising facts → post explains MUSICAL context
+- If overlay described the SOUND → post tells the STORY behind it
+
+Every paragraph must add information the viewer did NOT get from the video.
+"""
+
     return f"""You are a world-class storyteller who writes viral social media content for "{brand_name}"{f' — {opening_line}' if opening_line else ''}.
 
 Your posts don't describe performances. They make people FEEL something they didn't expect to feel today.
@@ -224,12 +255,12 @@ Write an Instagram/Facebook post for a video clip featuring:
 {fields}
 
 {brand_block}{structure}
-{critical_rules}
+{anti_rep_block}{critical_rules}
 {build_language_reinforcement(project)}"""
 
 
-def build_post_prompt_with_custom(project, custom_prompt: str, brand_config=None) -> str:
-    base = build_post_prompt(project, brand_config=brand_config)
+def build_post_prompt_with_custom(project, custom_prompt: str, brand_config=None, overlay_json=None) -> str:
+    base = build_post_prompt(project, brand_config=brand_config, overlay_json=overlay_json)
     return f"""{base}
 
 ADDITIONAL INSTRUCTIONS FROM THE USER (interpret them and write the output in the same language as the hook):

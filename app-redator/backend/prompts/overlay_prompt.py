@@ -81,10 +81,19 @@ def _extract_narrative(post_text: str, max_chars: int = 500) -> str:
 def _build_overlay_fields(project) -> str:
     """Monta os campos de input do projeto para overlay."""
     highlights = getattr(project, "highlights", "") or ""
-    # Fallback: se highlights vazio, usar narrativa do post gerado
+    # Fallback: se highlights vazio, usar research_data ou narrativa do post
     if not highlights.strip():
-        post_text = getattr(project, "post_text", "") or ""
-        highlights = _extract_narrative(post_text)
+        research_data = getattr(project, "research_data", None)
+        if research_data and isinstance(research_data, dict):
+            angulos = research_data.get("angulos_narrativos", [])
+            if angulos and isinstance(angulos, list):
+                highlights = "; ".join(
+                    a.get("nome", "") for a in angulos[:5]
+                    if isinstance(a, dict) and a.get("nome")
+                )
+        if not highlights.strip():
+            post_text = getattr(project, "post_text", "") or ""
+            highlights = _extract_narrative(post_text)
     return (
         f"{_field('Artist', project.artist)}"
         f"{_field('Work', project.work)}"
@@ -118,17 +127,45 @@ def build_overlay_prompt(project, brand_config=None) -> str:
     count_info = _calc_subtitle_count(project, interval_secs=interval_secs)
     fields = _build_overlay_fields(project)
 
-    # Research data: narrativa do post para fatos concretos no gancho
+    # Research data: usar pesquisa profunda se disponível, fallback para post_text
     research_block = ""
-    post_text = getattr(project, "post_text", "") or ""
-    if post_text.strip():
-        narrative = _extract_narrative(post_text, max_chars=300)
-        if narrative:
+    research_data = getattr(project, "research_data", None)
+    if research_data and isinstance(research_data, dict):
+        # Extrair fatos surpreendentes e ângulos da pesquisa
+        fatos = research_data.get("fatos_surpreendentes", [])
+        fatos_text = "\n".join(f"- {f.get('fato', '')}" for f in fatos[:8] if isinstance(f, dict) and f.get("fato"))
+        angulos = research_data.get("angulos_narrativos", [])
+        angulos_text = "\n".join(f"- {a.get('nome', '')}: {a.get('fio_narrativo', '')}" for a in angulos[:5] if isinstance(a, dict) and a.get("nome"))
+        interprete = research_data.get("interprete", {}) if isinstance(research_data.get("interprete"), dict) else {}
+        interp_parts = [interprete.get("diferencial", ""), interprete.get("relacao_com_esta_peca", "")]
+        interp_text = " ".join(p for p in interp_parts if p).strip()
+
+        parts = []
+        if fatos_text:
+            parts.append(f"SURPRISING FACTS:\n{fatos_text}")
+        if angulos_text:
+            parts.append(f"NARRATIVE ANGLES:\n{angulos_text}")
+        if interp_text:
+            parts.append(f"PERFORMER INSIGHT:\n- {interp_text}")
+
+        if parts:
             research_block = f"""
+RESEARCH DATA (use for specific facts in your HOOK and throughout the overlay):
+{chr(10).join(parts)}
+
+HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks like 'this will give you chills', 'you won't believe this', or 'what's about to happen will...' are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
+"""
+    else:
+        # Fallback: post_text (para regeneração quando post já existe)
+        post_text = getattr(project, "post_text", "") or ""
+        if post_text.strip():
+            narrative = _extract_narrative(post_text, max_chars=300)
+            if narrative:
+                research_block = f"""
 RESEARCH DATA (use for specific facts in your HOOK):
 {narrative}
 
-HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks like 'this will give you chills', 'you won't believe this', or 'what's about to happen will...' are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
+HOOK RULE: Your FIRST subtitle (hook) MUST reference a specific fact from the research data above. Generic hooks are STRICTLY PROHIBITED. The hook must contain a concrete, surprising detail about THIS specific artist, work, or performance.
 """
 
     brand_block_parts = []
@@ -300,13 +337,11 @@ Only after ALL 6 checks pass: output.
 TECHNICAL RULES
 ═══════════════════════════════
 
-1. Maximum {max_chars} characters per subtitle.
+1. Write concise subtitles — each should be brief and punchy. See EXAMPLES for ideal length. The system handles formatting automatically.
 2. {count_info} Cover the video with no long gaps without text on screen. Each subtitle stays visible until ~1 second before the next appears. Your LAST narrative subtitle should end at around 80% of the video duration — leave the final ~20% free for the CTA that the system adds automatically. Vary the spacing organically: tighter intervals for context-rich moments, wider intervals when the music speaks for itself.
 3. FIRST subtitle starts at "00:00".
 4. OVERLAY FORMATTING:
-   - Maximum {max_chars} characters in total per subtitle.
-   - If a subtitle has more than {max_chars_line} characters, split it into 2 lines using \\n.
-   - Each line: maximum {max_chars_line} characters.
+   - Split subtitles into 2 balanced lines using \\n.
    - The 2 lines must be BALANCED in length (maximum 30% difference between them).
 5. WORD SPACING — CRITICAL: Every word MUST be separated by exactly one space character. NEVER concatenate two words without a space. Do NOT use newline characters (\\n) as word separators — use them ONLY for intentional line breaks.
    WRONG: "nuncasetocam" / "harmoniaé" / "comoum"
