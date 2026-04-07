@@ -97,11 +97,7 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
                 logger.warning(f"[generate_all] Research BO falhou, continuando sem: {e}")
 
         # 2. Overlay PRIMEIRO — usa research_data para fatos concretos
-        try:
-            project.overlay_json = generate_overlay(project, brand_config=brand_config)
-        except Exception as e:
-            logger.error(f"[generate_all] Overlay falhou: {e}")
-            warnings.append(f"Overlay falhou: {e}")
+        project.overlay_json = generate_overlay(project, brand_config=brand_config)
 
         # 3. Post SEGUNDO — usa overlay_json para anti-repetição
         post_result = generate_post(project, brand_config=brand_config)
