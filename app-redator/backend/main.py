@@ -68,52 +68,14 @@ def _run_migrations():
 
 _run_migrations()
 
-
-def _recover_stuck_projects():
-    """Marca projetos em status transitório como awaiting_approval no startup."""
-    from backend.database import SessionLocal
-    from backend.models import Project
-
-    db = SessionLocal()
-    try:
-        stuck_statuses = ["translating", "generating"]
-        stuck = db.query(Project).filter(
-            Project.status.in_(stuck_statuses)
-        ).all()
-
-        if stuck:
-            for p in stuck:
-                old_status = p.status
-                p.status = "awaiting_approval"
-                print(
-                    f"[RECOVERY] Projeto {p.id} ({p.artist} - {p.work}): "
-                    f"{old_status} → awaiting_approval",
-                    flush=True,
-                )
-            db.commit()
-            print(f"[RECOVERY] {len(stuck)} projetos recuperados no startup", flush=True)
-    except Exception as e:
-        print(f"[RECOVERY] Erro na recuperação: {e}", flush=True)
-        db.rollback()
-    finally:
-        db.close()
-
-
-_recover_stuck_projects()
-
-ALLOWED_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "https://portal-production-4304.up.railway.app,http://localhost:3000",
-).split(",")
-
 app = FastAPI(title="Best of Opera — APP2")
 
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 

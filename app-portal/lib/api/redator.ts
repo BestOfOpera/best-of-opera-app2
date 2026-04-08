@@ -133,8 +133,6 @@ export const redatorApi = {
     request<{ ok: boolean }>(`${BASE()}/projects/${id}`, { method: "DELETE" }),
   deleteProjects: (ids: number[]) =>
     request<{ deleted: number }>(`${BASE()}/projects/bulk`, { method: "DELETE", body: JSON.stringify({ ids }) }),
-  resetProject: (id: number) =>
-    request<{ ok: boolean; message: string }>(`${BASE()}/projects/${id}/reset`, { method: "POST" }),
   getProject: (id: number) => request<Project>(`${BASE()}/projects/${id}`),
   createProject: (data: Record<string, string>, brand_slug?: string) => {
     const body = { ...data }

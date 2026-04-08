@@ -23,7 +23,7 @@ class Edicao(Base):
     sem_lyrics = Column(Boolean, default=False)
     duracao_total_sec = Column(Float)
 
-    status = Column(String(30), default="aguardando", index=True)
+    status = Column(String(30), default="aguardando")
     passo_atual = Column(Integer, default=1)
     erro_msg = Column(Text)
 

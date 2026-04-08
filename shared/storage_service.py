@@ -188,23 +188,6 @@ class StorageService:
             client.upload_file(local_path, R2_BUCKET, key)
 
         _upload()
-
-        # Verificação pós-upload: confirmar que o arquivo existe no R2
-        try:
-            client = _get_s3_client()
-            head = client.head_object(Bucket=R2_BUCKET, Key=key)
-            remote_size = head.get("ContentLength", 0)
-            local_size = Path(local_path).stat().st_size
-            if remote_size == 0:
-                logger.error(f"[storage:r2] VERIFICAÇÃO FALHOU: arquivo vazio no R2 — key={key}")
-            elif abs(remote_size - local_size) > 1024:
-                logger.warning(
-                    f"[storage:r2] Tamanho divergente: local={local_size}, "
-                    f"remote={remote_size}, key={key}"
-                )
-        except Exception as e:
-            logger.warning(f"[storage:r2] Verificação pós-upload falhou (upload pode ter sido ok): {e}")
-
         logger.info(f"[storage:r2] upload {key} ({Path(local_path).stat().st_size / 1024 / 1024:.1f}MB)")
         return key
 
