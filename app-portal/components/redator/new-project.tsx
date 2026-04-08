@@ -78,8 +78,8 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
   const [shared, setShared] = useState({ work: "", composer: "", composition_year: "", album_opera: "" })
   const [interpreters, setInterpreters] = useState<Interpreter[]>([emptyInterpreter()])
 
-  // Helper: aplica metadados detectados via detectMetadataFromText
-  async function applyR2Info(folder: string, fallbackArtist: string, fallbackWork: string) {
+  // Helper: busca info do R2 e detecta metadados via Claude (YouTube título/descrição)
+  async function applyR2Info(folder: string) {
     setR2Loading(true)
     setR2Error("")
     try {
@@ -93,23 +93,25 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
         setDetecting(true)
         try {
           const meta = await redatorApi.detectMetadataFromText(info.youtube_url, info.title, info.description || "", selectedBrand?.slug)
-          const artistStr = meta.artist || fallbackArtist
-          const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : [artistStr]
+          const artistStr = meta.artist || ""
+          const artists = artistStr.includes(" & ") ? artistStr.split(" & ").map((a: string) => a.trim()) : artistStr ? [artistStr] : []
           const nationalities = (meta.nationality || "").split(" / ").map((s: string) => s.trim())
           const flags = (meta.nationality_flag || "").trim().replace(/\s*\/\s*/g, " ").split(" ").map((s: string) => s.trim()).filter(Boolean)
           const voiceTypes = (meta.voice_type || "").split(" / ").map((s: string) => s.trim())
           const birthDates = (meta.birth_date || "").split(" / ").map((s: string) => s.trim())
           const deathDates = (meta.death_date || "").split(" / ").map((s: string) => s.trim())
-          setInterpreters(artists.map((a: string, i: number) => ({
-            artist: a,
-            nationality: nationalities[i] || nationalities[0] || "",
-            nationality_flag: flags[i] || flags[0] || "",
-            voice_type: voiceTypes[i] || voiceTypes[0] || "",
-            birth_date: birthDates[i] || birthDates[0] || "",
-            death_date: deathDates[i] || deathDates[0] || "",
-          })))
+          if (artists.length > 0) {
+            setInterpreters(artists.map((a: string, i: number) => ({
+              artist: a,
+              nationality: nationalities[i] || nationalities[0] || "",
+              nationality_flag: flags[i] || flags[0] || "",
+              voice_type: voiceTypes[i] || voiceTypes[0] || "",
+              birth_date: birthDates[i] || birthDates[0] || "",
+              death_date: deathDates[i] || deathDates[0] || "",
+            })))
+          }
           setShared({
-            work: meta.work || fallbackWork,
+            work: meta.work || "",
             composer: meta.composer || "",
             composition_year: meta.composition_year || "",
             album_opera: meta.album_opera || "",
@@ -120,7 +122,8 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
           if (meta.conductor) setConductor(meta.conductor)
           if (meta.category) setCategory(meta.category)
         } catch {
-          // Keep pre-fill if detection fails
+          // Detection failed — fields stay empty for operator to fill manually
+          setConfidence("low")
         } finally {
           setDetecting(false)
         }
@@ -134,22 +137,10 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
 
   useEffect(() => {
     if (!r2Folder) return
-    // Strip r2_prefix da marca (ex: "ReelsClassics/projetos_/") para extrair artist/work
-    const prefix = selectedBrand?.r2_prefix || ""
-    let folderClean = r2Folder
-    if (prefix && folderClean.startsWith(prefix)) {
-      folderClean = folderClean.slice(prefix.length)
-      if (folderClean.startsWith("/")) folderClean = folderClean.slice(1)
-    }
-    const sep = " - "
-    const idx = folderClean.indexOf(sep)
-    const artist = idx >= 0 ? folderClean.slice(0, idx).trim() : folderClean.trim()
-    const work = idx >= 0 ? folderClean.slice(idx + sep.length).trim() : ""
-    setInterpreters([{ ...emptyInterpreter(), artist }])
-    setShared(prev => ({ ...prev, work }))
+    // R2 folder fornece apenas youtube_url e vídeo — metadados vêm do Claude detection
     setDetected(true)
-    setConfidence("r2")
-    applyR2Info(r2Folder, artist, work)
+    setConfidence("detecting")
+    applyR2Info(r2Folder)
   }, [r2Folder])
 
   // Modo edição: carregar dados do projeto existente
@@ -194,7 +185,7 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
       setConfidence("edit")
       // Se tem r2_folder mas não youtube_url, buscar info do R2 para preencher metadados
       if (p.r2_folder && !p.youtube_url) {
-        applyR2Info(p.r2_folder, p.artist || "", p.work || "")
+        applyR2Info(p.r2_folder)
       }
     }).catch((err) => {
       setError(`Erro ao carregar projeto: ${err?.message || err}`)
@@ -499,13 +490,11 @@ export function RedatorNewProject({ r2Folder, scheduledDate, projectId }: { r2Fo
                     "rounded-full px-3 py-1 text-xs font-medium",
                     confidence === "edit"
                       ? "bg-blue-100 text-blue-800"
-                      : confidence === "r2"
-                        ? "bg-primary/10 text-primary"
-                        : confidence === "high"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-amber-100 text-amber-800"
+                      : confidence === "high"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-amber-100 text-amber-800"
                   )}>
-                    {confidence === "edit" ? "Dados do projeto" : confidence === "r2" ? "Pre-carregado do R2" : confidence === "high" ? "Detectado" : "Baixa confianca — revise"}
+                    {confidence === "edit" ? "Dados do projeto" : confidence === "high" ? "Detectado via IA — verifique" : "Baixa confianca — revise"}
                   </span>
                 )}
               </div>
