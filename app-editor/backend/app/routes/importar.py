@@ -240,6 +240,15 @@ async def importar_do_redator(
             f"overlay CONGELADO: {len(segmentos)} segs, textos={textos}"
         )
         db.add(Overlay(edicao_id=edicao.id, idioma=idioma, segmentos_original=segmentos))
+        # Diagnóstico: RC overlays devem ter \n para quebras de linha
+        if perfil.slug == "reels-classics":
+            for idx_s, s in enumerate(segmentos):
+                txt = s.get("text", "")
+                if len(txt) > 35 and "\n" not in txt and not s.get("_is_cta"):
+                    logger.warning(
+                        f"[importar] RC overlay sem \\n: "
+                        f"edicao={edicao.id} seg={idx_s} text='{txt[:50]}...'"
+                    )
 
     # Salvar posts
     for idioma, texto in posts.items():

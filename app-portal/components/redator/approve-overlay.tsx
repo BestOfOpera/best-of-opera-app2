@@ -134,7 +134,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
             {overlay.map((entry, i) => {
               const isCta = (entry as any)._is_cta === true
               return (
-                <div key={i} className={cn("flex items-center gap-3 px-4 py-2.5", isCta && "bg-muted/30")}>
+                <div key={i} className={cn("flex items-start gap-3 px-4 py-2.5", isCta && "bg-muted/30")}>
                   <span className="text-xs font-medium text-muted-foreground tabular-nums w-8">
                     {isCta ? "CTA" : i + 1}
                   </span>
@@ -143,10 +143,11 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
                     onChange={(e) => updateEntry(i, "timestamp", e.target.value)}
                     className="w-20 font-mono text-xs"
                   />
-                  <Input
+                  <Textarea
                     value={entry.text}
                     onChange={(e) => updateEntry(i, "text", e.target.value)}
-                    className="flex-1 text-sm"
+                    className="flex-1 text-sm min-h-0 py-1.5 resize-none"
+                    rows={1}
                   />
                   <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                     {entry.text.length}/70
