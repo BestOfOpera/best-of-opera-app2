@@ -1952,7 +1952,10 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 # Crop lateral para vídeos widescreen (>4:3): brand doc exige imagem em 40-65% da tela
                 _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
-                _base_vf = f"{_pts_vf}{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black"
+                _scale = f"scale={vw}:{vh}:force_original_aspect_ratio=decrease:flags=lanczos"
+                _unsharp = "unsharp=5:5:0.5:5:5:0.25"
+                _pad = f"pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black"
+                _base_vf = f"{_pts_vf}{_crop}{_scale},{_unsharp},{_pad}"
 
                 # Logo/watermark: buscar do perfil se configurado
                 _logo_path = None
