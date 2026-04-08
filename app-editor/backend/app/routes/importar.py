@@ -118,24 +118,37 @@ async def importar_do_redator(
     idioma: str = None,
     eh_instrumental: bool = False,
     perfil_id: int = None,
+    force: bool = False,
     db: Session = Depends(get_db),
 ):
     """Importa um projeto do Redator e cria uma edição no Editor.
 
     ?idioma=XX — sobrescreve a detecção automática do idioma da música.
     ?perfil_id=X — associa a edição a uma marca específica (padrão: Best of Opera).
+    ?force=true — substitui edição existente (deleta a anterior e re-importa).
     """
     # Verificar se o projeto já foi importado (anti-duplicata)
     existente = db.query(Edicao).filter(
         Edicao.redator_project_id == project_id
     ).first()
     if existente:
-        raise HTTPException(409, detail={
-            "duplicata": True,
-            "edicao_existente_id": existente.id,
-            "status": existente.status,
-            "mensagem": f"Projeto já importado como edição #{existente.id} (status: {existente.status})"
-        })
+        if not force:
+            raise HTTPException(409, detail={
+                "duplicata": True,
+                "edicao_existente_id": existente.id,
+                "status": existente.status,
+                "mensagem": f"Projeto já importado como edição #{existente.id} (status: {existente.status}). "
+                            f"Use ?force=true para substituir."
+            })
+        # Force: deletar edição existente antes de re-importar
+        import logging
+        _log = logging.getLogger(__name__)
+        _log.info(
+            f"[IMPORT] Force re-import: deletando edição {existente.id} "
+            f"para projeto {project_id}"
+        )
+        db.delete(existente)  # CASCADE cuida de Alinhamento, Overlay, Post, Seo, Render, TraducaoLetra
+        db.commit()
 
     # Buscar projeto completo do Redator
     try:

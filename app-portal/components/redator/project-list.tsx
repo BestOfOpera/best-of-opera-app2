@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/status-badge"
 import { FilterBar } from "@/components/ui/filter-bar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Plus, Music, ArrowRight, Download, ChevronDown, Trash2 } from "lucide-react"
+import { Plus, Music, ArrowRight, Download, ChevronDown, Trash2, RotateCcw } from "lucide-react"
 import { redatorApi, type Project, type R2AvailableItem } from "@/lib/api/redator"
 import { useBrand } from "@/lib/brand-context"
 import { cn } from "@/lib/utils"
@@ -334,6 +334,26 @@ export function RedatorProjectList() {
                         </span>
                       )}
                       <StatusBadge status={p.status as any} />
+                      {(p.status === "translating" || p.status === "generating") && (
+                        <button
+                          title="Resetar projeto (destravar)"
+                          className="ml-1 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={async (e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (!confirm("Resetar este projeto? Traduções serão removidas.")) return
+                            try {
+                              await redatorApi.resetProject(p.id)
+                              toast.success("Projeto resetado")
+                              loadData()
+                            } catch {
+                              toast.error("Erro ao resetar projeto")
+                            }
+                          }}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </CardContent>
                   </Card>
                 </Link>
