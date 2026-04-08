@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type ProgressoDetalheInner, type PacoteStatus, type OverlaySegmento } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
+import { toast } from "sonner"
 import { getYoutubeUrl } from "@/lib/utils"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
 import { Button } from "@/components/ui/button"
@@ -95,6 +96,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [overlayDirty, setOverlayDirty] = useState<Record<string, boolean>>({})
   const [overlayLoading, setOverlayLoading] = useState(false)
   const [savingOverlay, setSavingOverlay] = useState<string | null>(null)
+  const [overlayEditados, setOverlayEditados] = useState<Set<string>>(new Set())
   const [preservarTraducoes, setPreservarTraducoes] = useState(false)
 
   const loadOverlays = async () => {
@@ -119,8 +121,16 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     try {
       await editorApi.atualizarOverlay(edicaoId, idioma, overlayData[idioma])
       setOverlayDirty(prev => ({ ...prev, [idioma]: false }))
+      setOverlayEditados(prev => new Set(prev).add(idioma))
+      toast.success(`Overlay ${idioma.toUpperCase()} salvo. Re-aplique o corte e re-renderize para aplicar.`, {
+        action: {
+          label: `Re-Renderizar ${idioma.toUpperCase()}`,
+          onClick: () => handleReRenderizarIndividual(idioma),
+        },
+        duration: 8000,
+      })
     } catch (err: unknown) {
-      setError(`Erro ao salvar overlay ${idioma}: ` + (err instanceof Error ? err.message : "Erro"))
+      toast.error(`Erro ao salvar overlay ${idioma}: ` + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setSavingOverlay(null)
     }
@@ -193,6 +203,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setError("")
     try {
       await editorApi.reRenderizar(edicaoId, idioma)
+      setOverlayEditados(prev => {
+        const next = new Set(prev)
+        next.delete(idioma)
+        return next
+      })
       await load()
     } catch (err: unknown) {
       setError(`Erro ao re-renderizar ${idioma.toUpperCase()}: ` + (err instanceof Error ? err.message : "Erro"))
@@ -918,8 +933,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                 {traduzindo ? "Tentando..." : "🔄 Tentar novamente"}
               </Button>
             )}
-            {/* Refazer Preview: preview_pronto or error */}
-            {(isPreviewPronto || isErro) && (
+            {/* Refazer Preview: preview_pronto, error, montagem, or concluido */}
+            {(isPreviewPronto || isErro || isMontagem || isConcluido) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1022,12 +1037,20 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                   </div>
                 )
                 return (
-                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
+                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${overlayEditados.has(code) ? "bg-amber-50 hover:bg-amber-100 transition" : render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
                     <span className="text-lg">{flag}</span>
-                    <span className="flex-1 font-medium">{label}</span>
+                    <span className="flex-1 font-medium">{label}
+                      {overlayEditados.has(code) && (
+                        <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 rounded px-1.5 py-0.5">overlay editado</span>
+                      )}
+                    </span>
                     {render.status === "concluido" ? (
                       <>
-                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        {overlayEditados.has(code) ? (
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        )}
                         <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
                         <Dialog>
                           <DialogTrigger asChild>
