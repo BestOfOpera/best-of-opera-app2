@@ -149,9 +149,23 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
                     className="flex-1 text-sm min-h-0 py-1.5 resize-none"
                     rows={1}
                   />
-                  <span className={`text-[10px] tabular-nums w-10 text-right ${entry.text.length > 70 ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                    {entry.text.length}/70
-                  </span>
+                  {(() => {
+                    if (isRC) {
+                      const longest = Math.max(...(entry.text.split("\n").map((l: string) => l.length)), 0)
+                      const over = longest > 33
+                      return (
+                        <span className={`text-[10px] tabular-nums w-14 text-right ${over ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                          {longest}/33 lin
+                        </span>
+                      )
+                    }
+                    const over = entry.text.length > 70
+                    return (
+                      <span className={`text-[10px] tabular-nums w-10 text-right ${over ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                        {entry.text.length}/70
+                      </span>
+                    )
+                  })()}
                   {isCta ? (
                     <Badge variant="secondary" className="text-[9px] shrink-0">CTA</Badge>
                   ) : (

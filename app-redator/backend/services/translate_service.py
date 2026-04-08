@@ -11,14 +11,17 @@ ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
 def _protect_proper_names(text: str, names: list[str]) -> tuple[str, dict[str, str]]:
     """Replace proper names with placeholders before translation.
-    Only protects names with 3+ chars that appear in the text."""
+    Uses word boundary regex to avoid corrupting words that contain the name
+    (e.g. "Ana" must not match inside "analisar")."""
     replacements: dict[str, str] = {}
     for i, name in enumerate(names):
-        if not name or len(name) < 3 or name not in text:
+        if not name or len(name) < 2:
             continue
-        placeholder = f"PROPERNAME{i:02d}"
-        text = text.replace(name, placeholder)
-        replacements[placeholder] = name
+        pattern = r'\b' + re.escape(name) + r'\b'
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            placeholder = f"PROPERNAME{i:02d}"
+            text = re.sub(pattern, placeholder, text, flags=re.IGNORECASE)
+            replacements[placeholder] = name
     return text, replacements
 
 
@@ -73,18 +76,32 @@ def get_target_languages(source_lang: str) -> list[str]:
     return list(ALL_LANGUAGES)
 
 
-def translate_text(text: str, target_lang: str) -> str:
+def translate_text(text: str, target_lang: str, _max_retries: int = 3) -> str:
+    """Traduz texto via Google Translate v2 com retry e backoff."""
     if not text or not text.strip():
         return ""
-    resp = requests.post(TRANSLATE_URL, data={
-        "q": text,
-        "target": target_lang,
-        "format": "text",
-        "key": GOOGLE_TRANSLATE_API_KEY,
-    })
-    resp.raise_for_status()
-    translated = resp.json()["data"]["translations"][0]["translatedText"]
-    return html.unescape(translated)
+    for attempt in range(_max_retries):
+        try:
+            resp = requests.post(TRANSLATE_URL, data={
+                "q": text,
+                "target": target_lang,
+                "format": "text",
+                "key": GOOGLE_TRANSLATE_API_KEY,
+            })
+            resp.raise_for_status()
+            translated = resp.json()["data"]["translations"][0]["translatedText"]
+            return html.unescape(translated)
+        except Exception as e:
+            if attempt < _max_retries - 1:
+                import time
+                wait = (attempt + 1) * 5
+                print(f"[TRANSLATE] Retry {attempt+1}/{_max_retries} '{text[:30]}...' "
+                      f"→ {target_lang}: {e}. Aguardando {wait}s...", flush=True)
+                time.sleep(wait)
+            else:
+                print(f"[TRANSLATE] FALHA DEFINITIVA '{text[:30]}...' "
+                      f"→ {target_lang}: {e}", flush=True)
+                raise
 
 
 def extract_post_section2(post_text: str) -> tuple:
@@ -519,7 +536,7 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
                 translated_text = _restore_proper_names(translated_text, replacements)
             if is_rc:
                 # RC: re-wrap com limite rígido de 33 chars/linha
-                tipo = "gancho" if i == 0 else "corpo"
+                tipo = entry.get("type", "corpo")
                 translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33, lang=target_lang)
             elif max_chars and len(translated_text) > max_chars:
                 # BO/outros: re-wrap em 2 linhas em vez de truncar
@@ -541,3 +558,282 @@ def translate_tags(tags: str, target_lang: str) -> str:
     tag_list = [t.strip() for t in tags.split(",")]
     translated = [translate_text(t, target_lang) for t in tag_list if t]
     return ", ".join(translated)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Tradução via Claude — overlay + post com contexto narrativo
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import json as _json
+import logging as _logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+_translate_logger = _logging.getLogger("translate_claude")
+
+_LANG_NAMES = {
+    "en": "English", "es": "Spanish", "de": "German",
+    "fr": "French", "it": "Italian", "pl": "Polish",
+}
+
+
+def _build_translation_prompt(
+    overlay_entries: list,
+    post_text: str,
+    target_lang: str,
+    brand_slug: str,
+    brand_config: dict | None,
+    research_data: str = "",
+    protected_names: list | None = None,
+) -> str:
+    """Monta prompt de tradução para o Claude.
+    Traduz overlay + post storytelling juntos para manter coerência narrativa."""
+    lang_name = _LANG_NAMES.get(target_lang, target_lang)
+    is_rc = brand_slug == "reels-classics"
+
+    if is_rc:
+        overlay_rules = (
+            "OVERLAY RULES:\n"
+            "- Maximum 33 characters per line (counting spaces)\n"
+            "- 'gancho' and 'fechamento': exactly 2 lines, separated by \\n\n"
+            "- 'corpo': 2 or 3 lines, separated by \\n\n"
+            "- 'cta': DO NOT translate — return EXACTLY as given\n"
+            "- Balance line lengths (similar length per line)\n"
+            "- German/Polish: maximum 40 characters per line\n"
+            "- French/Italian/Spanish: maximum 38 characters per line"
+        )
+    else:
+        overlay_rules = (
+            "OVERLAY RULES:\n"
+            "- Maximum 70 characters total per subtitle\n"
+            "- If subtitle > 35 characters: split into 2 lines with \\n\n"
+            "- Balance 2 lines (max 30% length difference)\n"
+            "- German/Polish: maximum 40 characters per line\n"
+            "- French/Italian/Spanish: maximum 38 characters per line"
+        )
+
+    # Montar overlay como lista legível
+    overlay_text = ""
+    for i, entry in enumerate(overlay_entries):
+        tipo = entry.get("type", "corpo")
+        text = entry.get("text", "")
+        is_cta = entry.get("_is_cta", False)
+        if is_cta:
+            overlay_text += f"\n[{i+1}] (CTA — DO NOT TRANSLATE): {text}"
+        else:
+            overlay_text += f"\n[{i+1}] ({tipo}): {text}"
+
+    names_instruction = ""
+    if protected_names:
+        names_instruction = (
+            "\nPROTECTED NAMES (keep exactly as-is, do NOT translate):\n"
+            + ", ".join(protected_names)
+        )
+
+    identity = (brand_config or {}).get("identity_prompt_redator", "")
+    tom = (brand_config or {}).get("tom_de_voz_redator", "")
+
+    prompt = f"""You are a professional translator specializing in classical music content for social media.
+
+BRAND VOICE:
+{identity[:500] if identity else "Poetic, evocative, respectful of classical music tradition."}
+
+TONE:
+{tom[:300] if tom else "Elegant, emotional, culturally informed."}
+
+TASK:
+Translate the following content from Portuguese to {lang_name}.
+Translate BOTH the overlay subtitles AND the post description as a SINGLE coherent piece.
+The overlay tells a narrative story that connects with the post — maintain narrative coherence across both.
+{names_instruction}
+
+MUSICAL CONTEXT:
+{str(research_data)[:1500] if research_data else "Classical music performance."}
+
+{overlay_rules}
+
+POST RULES:
+- Maintain the EXACT same structure (line breaks, bullet separators •, emojis)
+- Translate narrative/storytelling sections naturally
+- Translate hashtags to the target language (keep # prefix, no spaces inside)
+- Keep emoji positions unchanged
+- CTA lines with 👉: use culturally appropriate translation
+- Credit labels (Voice type:, Compositor:, etc.): keep the label format, translate only values
+
+═══════════════════════════════════════════
+OVERLAY SUBTITLES TO TRANSLATE:
+{overlay_text}
+
+═══════════════════════════════════════════
+POST DESCRIPTION TO TRANSLATE:
+{post_text or "(no post)"}
+
+═══════════════════════════════════════════
+RESPOND IN JSON FORMAT ONLY:
+{{
+  "overlay": [
+    {{ "index": 1, "text": "translated text with\\nline breaks" }},
+    {{ "index": 2, "text": "..." }}
+  ],
+  "post": "full translated post text preserving structure"
+}}
+
+CRITICAL: Respect character limits per line. Use \\n for line breaks in overlay.
+Each overlay entry MUST match the index from the input (1-based).
+CTA entries must be returned EXACTLY as given (not translated)."""
+
+    return prompt
+
+
+def translate_one_claude(
+    overlay_json: list,
+    post_text: str,
+    target_lang: str,
+    brand_slug: str,
+    project,
+) -> dict | None:
+    """Traduz overlay + post para 1 idioma via Claude.
+    Retorna {"overlay": [...], "post": "..."} ou None se falhar."""
+    from backend.services.claude_service import _call_claude_json
+    from backend.config import load_brand_config
+
+    try:
+        brand_config = None
+        try:
+            brand_config = load_brand_config(brand_slug) if brand_slug else None
+        except Exception:
+            pass
+
+        protected_names = []
+        if project:
+            for field in ("artist", "work", "composer"):
+                val = getattr(project, field, None)
+                if val and len(val) >= 2:
+                    protected_names.append(val)
+
+        research_data = ""
+        if project and hasattr(project, "research_data") and project.research_data:
+            research_data = (
+                _json.dumps(project.research_data, ensure_ascii=False)
+                if isinstance(project.research_data, dict)
+                else str(project.research_data)
+            )
+
+        prompt = _build_translation_prompt(
+            overlay_entries=overlay_json or [],
+            post_text=post_text or "",
+            target_lang=target_lang,
+            brand_slug=brand_slug or "",
+            brand_config=brand_config,
+            research_data=research_data,
+            protected_names=protected_names,
+        )
+
+        result = _call_claude_json(prompt=prompt, max_tokens=2048, temperature=0.3)
+
+        if not result or "overlay" not in result:
+            _translate_logger.warning(
+                f"[CLAUDE] Resposta inválida para {target_lang}: {str(result)[:100]}"
+            )
+            return None
+
+        return result
+
+    except Exception as e:
+        _translate_logger.warning(f"[CLAUDE] Erro para {target_lang}: {e}")
+        return None
+
+
+def translate_project_parallel(
+    project,
+    overlay_json: list,
+    post_text: str,
+    brand_slug: str,
+    target_languages: list[str],
+) -> dict:
+    """Traduz overlay + post para TODOS os idiomas em paralelo via Claude.
+    Idiomas que falharem no Claude caem para Google Translate (fallback).
+
+    Retorna: { "en": {"data": {...}, "source": "claude"|"google"}, ... }
+    """
+    from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+
+    is_rc = brand_slug == "reels-classics"
+
+    protected_names = []
+    if project:
+        for field in ("artist", "work", "composer"):
+            val = getattr(project, field, None)
+            if val and len(val) >= 2:
+                protected_names.append(val)
+
+    def _translate_one(lang: str) -> tuple[str, dict | None, str]:
+        """Traduz 1 idioma: tenta Claude, fallback Google."""
+        # Tentar Claude
+        claude_result = translate_one_claude(
+            overlay_json=overlay_json,
+            post_text=post_text,
+            target_lang=lang,
+            brand_slug=brand_slug,
+            project=project,
+        )
+
+        if claude_result and claude_result.get("overlay") and claude_result.get("post"):
+            # Aplicar safety net enforce nos overlays do Claude
+            safe_overlay = []
+            for i, orig_entry in enumerate(overlay_json or []):
+                claude_entry = next(
+                    (e for e in claude_result["overlay"] if e.get("index") == i + 1),
+                    None,
+                )
+                if claude_entry:
+                    t_text = claude_entry.get("text", "")
+                else:
+                    t_text = orig_entry.get("text", "")
+
+                if orig_entry.get("_is_cta") and is_rc:
+                    t_text = RC_CTA.get(lang, RC_CTA.get("en", t_text))
+
+                if not orig_entry.get("_is_cta"):
+                    if is_rc:
+                        tipo = orig_entry.get("type", "corpo")
+                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                    elif len(t_text) > 70:
+                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+
+                item = {"timestamp": orig_entry.get("timestamp", ""), "text": t_text}
+                if orig_entry.get("_is_cta"):
+                    item["_is_cta"] = True
+                if "end" in orig_entry:
+                    item["end"] = orig_entry["end"]
+                if "type" in orig_entry:
+                    item["type"] = orig_entry["type"]
+                safe_overlay.append(item)
+
+            _translate_logger.info(f"[TRANSLATE] {lang}: Claude OK")
+            return lang, {"overlay": safe_overlay, "post": claude_result["post"]}, "claude"
+
+        # Fallback Google
+        _translate_logger.info(f"[TRANSLATE] {lang}: Claude falhou, usando Google")
+        try:
+            g_overlay = translate_overlay_json(
+                overlay_json, lang, brand_slug, max_chars=70, protected_names=protected_names
+            )
+            g_post = translate_post_text(post_text, lang, protected_names=protected_names)
+            return lang, {"overlay": g_overlay, "post": g_post}, "google"
+        except Exception as e2:
+            _translate_logger.error(f"[TRANSLATE] {lang}: Google também falhou: {e2}")
+            return lang, None, "failed"
+
+    results: dict = {}
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(_translate_one, lang): lang for lang in target_languages}
+        for future in as_completed(futures):
+            lang = futures[future]
+            try:
+                r_lang, r_data, r_source = future.result()
+                results[r_lang] = {"data": r_data, "source": r_source} if r_data else None
+            except Exception as e:
+                _translate_logger.error(f"[TRANSLATE] {lang}: exceção thread: {e}")
+                results[lang] = None
+
+    return results

@@ -11,6 +11,9 @@ from backend.services.translate_service import (
     translate_post_text,
     translate_text,
     translate_tags,
+    translate_project_parallel,
+    translate_one_claude,
+    RC_CTA,
 )
 from backend.services.export_service import save_texts_to_r2
 from pydantic import BaseModel
@@ -59,36 +62,58 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
         target_langs = get_target_languages(source_lang)
 
         # Nomes próprios a preservar durante tradução (artist, work, composer)
-        _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 3]
+        _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 2]
+
+        # Idiomas que precisam tradução (excluindo source)
+        langs_to_translate = [l for l in target_langs if l != source_lang]
+
+        # Traduzir overlay + post via Claude em paralelo (6 idiomas simultâneos)
+        # Fallback automático para Google se Claude falhar
+        claude_results = {}
+        if project.overlay_json or project.post_text:
+            claude_results = translate_project_parallel(
+                project=project,
+                overlay_json=project.overlay_json or [],
+                post_text=project.post_text or "",
+                brand_slug=project.brand_slug or "",
+                target_languages=langs_to_translate,
+            )
 
         for lang in target_langs:
-            # For the source language, copy original content instead of translating
             if lang == source_lang:
+                # Cópia do original para idioma fonte
                 translated_overlay = project.overlay_json
                 translated_post = project.post_text
                 translated_title = project.youtube_title
-                translated_tags = project.youtube_tags
+                translated_tags_val = project.youtube_tags
             else:
-                translated_overlay = (
-                    translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug,
-                                          protected_names=_names)
-                    if project.overlay_json
-                    else None
-                )
-                translated_post = (
-                    translate_post_text(project.post_text, lang, protected_names=_names)
-                    if project.post_text
-                    else None
-                )
+                cr = claude_results.get(lang)
+                if cr and cr.get("data"):
+                    # Claude/fallback já traduziu overlay + post
+                    translated_overlay = cr["data"].get("overlay")
+                    translated_post = cr["data"].get("post", "")
+                    logger.info(f"[{project_id}] {lang}: {cr.get('source', '?')} para overlay+post")
+                else:
+                    # Sem resultado — fallback Google direto
+                    translated_overlay = (
+                        translate_overlay_json(project.overlay_json, lang,
+                                              brand_slug=project.brand_slug,
+                                              protected_names=_names)
+                        if project.overlay_json else None
+                    )
+                    translated_post = (
+                        translate_post_text(project.post_text, lang, protected_names=_names)
+                        if project.post_text else None
+                    )
+
+                # Tags e YouTube: SEMPRE Google (conteúdo simples, rápido, barato)
                 translated_title = (
                     translate_text(project.youtube_title, lang)
-                    if project.youtube_title
-                    else None
+                    if project.youtube_title else None
                 )
-                translated_tags = (
+                translated_tags_val = (
                     translate_tags(project.youtube_tags, lang)
-                    if project.youtube_tags
-                    else None
+                    if project.youtube_tags else None
                 )
 
             translation = Translation(
@@ -97,7 +122,7 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
                 overlay_json=translated_overlay,
                 post_text=translated_post,
                 youtube_title=translated_title,
-                youtube_tags=translated_tags,
+                youtube_tags=translated_tags_val,
             )
             db.add(translation)
 
@@ -132,19 +157,53 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
     ).delete()
 
     # Nomes próprios a preservar durante tradução
-    _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 3]
+    _names = [n for n in [project.artist, project.work, project.composer] if n and len(n) >= 2]
 
-    translated_overlay = (
-        translate_overlay_json(project.overlay_json, lang, brand_slug=project.brand_slug,
-                               protected_names=_names)
-        if project.overlay_json
-        else None
-    )
-    translated_post = (
-        translate_post_text(project.post_text, lang, protected_names=_names)
-        if project.post_text
-        else None
-    )
+    # Tentar Claude para overlay + post (1 idioma)
+    translated_overlay = None
+    translated_post = None
+    if project.overlay_json or project.post_text:
+        from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+        claude_result = translate_one_claude(
+            overlay_json=project.overlay_json or [],
+            post_text=project.post_text or "",
+            target_lang=lang,
+            brand_slug=project.brand_slug or "",
+            project=project,
+        )
+        if claude_result and claude_result.get("overlay") and claude_result.get("post"):
+            is_rc = getattr(project, "brand_slug", "") == "reels-classics"
+            safe_overlay = []
+            for i, orig_entry in enumerate(project.overlay_json or []):
+                ce = next((e for e in claude_result["overlay"] if e.get("index") == i + 1), None)
+                t_text = ce.get("text", "") if ce else orig_entry.get("text", "")
+                if orig_entry.get("_is_cta") and is_rc:
+                    t_text = RC_CTA.get(lang, RC_CTA.get("en", t_text))
+                elif not orig_entry.get("_is_cta"):
+                    if is_rc:
+                        tipo = orig_entry.get("type", "corpo")
+                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                    elif len(t_text) > 70:
+                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+                item = {"timestamp": orig_entry.get("timestamp", ""), "text": t_text}
+                if orig_entry.get("_is_cta"):
+                    item["_is_cta"] = True
+                if "end" in orig_entry:
+                    item["end"] = orig_entry["end"]
+                if "type" in orig_entry:
+                    item["type"] = orig_entry["type"]
+                safe_overlay.append(item)
+            translated_overlay = safe_overlay
+            translated_post = claude_result["post"]
+            logger.info(f"[{project_id}] retranslate {lang}: Claude OK")
+
+    # Fallback Google se Claude não retornou
+    if translated_overlay is None and project.overlay_json:
+        translated_overlay = translate_overlay_json(
+            project.overlay_json, lang, brand_slug=project.brand_slug, protected_names=_names
+        )
+    if translated_post is None and project.post_text:
+        translated_post = translate_post_text(project.post_text, lang, protected_names=_names)
     translated_title = (
         translate_text(project.youtube_title, lang)
         if project.youtube_title
