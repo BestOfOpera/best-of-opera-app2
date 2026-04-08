@@ -23,12 +23,14 @@ if not DATABASE_URL:
 _pool: Optional[ConnectionPool] = None
 
 
-def init_pool(min_size: int = 2, max_size: int = 10) -> None:
+def init_pool(min_size: int = None, max_size: int = None) -> None:
     global _pool
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL not set — add PostgreSQL on Railway")
-    _pool = ConnectionPool(DATABASE_URL, min_size=min_size, max_size=max_size, open=True)
-    logger.info(f"Database connection pool initialized (min={min_size}, max={max_size})")
+    _min = min_size or int(os.getenv("DB_POOL_MIN", "2"))
+    _max = max_size or int(os.getenv("DB_POOL_MAX", "10"))
+    _pool = ConnectionPool(DATABASE_URL, min_size=_min, max_size=_max, open=True)
+    logger.info(f"Database connection pool initialized (min={_min}, max={_max})")
 
 
 def close_pool() -> None:

@@ -37,7 +37,15 @@ def approve_overlay(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    project.overlay_json = body.overlay_json
+    overlay = body.overlay_json
+    if overlay is not None:
+        if not isinstance(overlay, list):
+            raise HTTPException(422, "overlay_json deve ser uma lista")
+        for i, entry in enumerate(overlay):
+            if not isinstance(entry, dict):
+                raise HTTPException(422, f"overlay_json[{i}] deve ser um dict")
+
+    project.overlay_json = overlay
     project.overlay_approved = True
     db.flush()
 

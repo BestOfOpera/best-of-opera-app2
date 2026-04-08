@@ -206,9 +206,21 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
+
+    r2_deleted = 0
+    if project.r2_folder:
+        try:
+            from shared.storage_service import storage
+            files = storage.list_files(project.r2_folder)
+            for f in files:
+                storage.delete(f)
+            r2_deleted = len(files)
+        except Exception as e:
+            print(f"[DELETE] Aviso: erro ao limpar R2 {project.r2_folder}: {e}", flush=True)
+
     db.delete(project)
     db.commit()
-    return {"ok": True}
+    return {"ok": True, "r2_files_deleted": r2_deleted}
 
 
 @router.get("/{project_id}", response_model=ProjectOut)

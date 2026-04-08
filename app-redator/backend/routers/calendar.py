@@ -42,6 +42,7 @@ def get_calendar(
     unscheduled = (
         base_q.filter(Project.scheduled_date.is_(None))
         .order_by(Project.created_at.desc())
+        .limit(200)
         .all()
     )
 

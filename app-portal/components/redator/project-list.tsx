@@ -172,6 +172,8 @@ export function RedatorProjectList() {
   }
 
   const handleDelete = async () => {
+    const total = activeView === "r2" ? selectedFolders.size : selectedIds.size
+    if (!confirm(`Excluir ${total} item(s) permanentemente? Esta ação não pode ser desfeita.`)) return
     setDeleting(true)
     try {
       if (activeView === "r2") {
@@ -188,8 +190,9 @@ export function RedatorProjectList() {
       setSelectMode(false)
       // Re-fetch to update total and pagination after delete
       loadData()
-    } catch {
-      toast.error("Erro ao remover itens")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "erro desconhecido"
+      toast.error(`Erro ao remover itens: ${msg}`)
     } finally {
       setDeleting(false)
     }

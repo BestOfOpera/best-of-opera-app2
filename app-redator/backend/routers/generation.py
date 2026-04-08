@@ -91,6 +91,9 @@ async def detect_metadata_endpoint(
 
 @router.post("/{project_id}/generate", response_model=ProjectOut)
 def generate_all(project_id: int, db: Session = Depends(get_db)):
+    import time as _time
+    _t0 = _time.time()
+
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
@@ -130,6 +133,7 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(project)
+    print(f"[TIMING] generate_all projeto={project_id}: {_time.time() - _t0:.1f}s", flush=True)
     out = ProjectOut.model_validate(project)
     out.warnings = warnings
     return out

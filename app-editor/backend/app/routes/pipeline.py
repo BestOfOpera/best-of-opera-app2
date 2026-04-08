@@ -266,6 +266,15 @@ async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session
     full_base = f"{prefix}/{base}" if prefix else base
     r2_key = f"{full_base}/video/original.mp4"
     storage.upload_file(local_path, r2_key)
+
+    # Log resolução do vídeo baixado para diagnóstico de qualidade
+    try:
+        from app.services.ffmpeg_service import probar_video
+        _w, _h = await probar_video(local_path)
+        logger.info(f"[{edicao_id}] Download resolução: {_w}x{_h} — {r2_key}")
+    except Exception:
+        pass
+
     if edicao.youtube_video_id:
         save_youtube_marker(base, edicao.youtube_video_id, r2_prefix=prefix)
 

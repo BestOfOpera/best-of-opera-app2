@@ -2,7 +2,10 @@
 
 Isolado para permitir import em testes sem precisar de python-jose.
 """
+import logging
 from app.models.perfil import Perfil
+
+_logger = logging.getLogger(__name__)
 
 
 def build_curadoria_config(perfil: Perfil) -> dict:
@@ -26,7 +29,7 @@ def build_curadoria_config(perfil: Perfil) -> dict:
 
 def build_redator_config(perfil: Perfil) -> dict:
     """Monta o payload de config do redator no formato que o app-redator espera."""
-    return {
+    result = {
         "brand_name": perfil.nome,
         "brand_slug": perfil.slug,
         "identity_prompt": perfil.identity_prompt or "",
@@ -47,3 +50,11 @@ def build_redator_config(perfil: Perfil) -> dict:
         "r2_prefix": perfil.r2_prefix or "",
         "overlay_cta": perfil.overlay_cta or "",
     }
+    _defaults = {
+        "overlay_max_chars": 70, "overlay_max_chars_linha": 35,
+        "overlay_interval_secs": 6, "hashtag_count": 4,
+    }
+    _used = [k for k, v in _defaults.items() if not getattr(perfil, k, None)]
+    if _used:
+        _logger.info(f"[PERFIL] {perfil.slug}: fallback em {', '.join(_used)}")
+    return result

@@ -2,7 +2,7 @@
 import subprocess
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 router = APIRouter(tags=["health"])
 
@@ -15,8 +15,12 @@ def health_check():
 
 
 @router.get("/debug/fonts")
-def debug_fonts():
-    """Diagnóstico de fontes disponíveis no container."""
+def debug_fonts(auth: str = ""):
+    """Diagnóstico de fontes disponíveis no container. Requer ?auth=<DEBUG_AUTH>."""
+    import os
+    expected = os.environ.get("DEBUG_AUTH", "")
+    if not expected or auth != expected:
+        raise HTTPException(403, "Não autorizado. Defina DEBUG_AUTH e passe ?auth=<valor>.")
     # 1. Arquivos no diretório de fontes custom
     custom_files = []
     if FONTS_CUSTOM_DIR.exists():

@@ -54,7 +54,7 @@ class Edicao(Base):
     tentativas_requeue = Column(Integer, default=0)
 
     # Multi-brand: perfil da marca desta edição (nullable para retrocompatibilidade)
-    perfil_id = Column(Integer, ForeignKey("editor_perfis.id"), nullable=True)
+    perfil_id = Column(Integer, ForeignKey("editor_perfis.id", ondelete="SET NULL"), nullable=True)
 
     published_at = Column(DateTime, nullable=True)
 

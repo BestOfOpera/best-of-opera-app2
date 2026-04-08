@@ -34,6 +34,9 @@ router = APIRouter(prefix="/api/projects", tags=["translation"])
 
 @router.post("/{project_id}/translate", response_model=ProjectOut)
 def translate_project(project_id: int, db: Session = Depends(get_db)):
+    import time as _time
+    _t0 = _time.time()
+
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
@@ -134,6 +137,7 @@ def translate_project(project_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(project)
+    print(f"[TIMING] translate_project projeto={project_id}: {_time.time() - _t0:.1f}s", flush=True)
 
     # Salvar textos no R2 para o Editor consumir
     try:

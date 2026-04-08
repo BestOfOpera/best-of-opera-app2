@@ -19,7 +19,7 @@ from backend.prompts.youtube_prompt import (
     build_youtube_prompt_with_custom,
 )
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=120.0)
 MODEL = "claude-sonnet-4-6"
 
 # Common Portuguese words for post-generation leak detection
@@ -96,10 +96,11 @@ def _call_claude(prompt: str, system: str | None = None, temperature: float = 0.
             message = client.messages.create(**kwargs)
             return message.content[0].text.strip()
         except Exception as e:
-            error_str = str(e)
-            if ("529" in error_str or "overloaded" in error_str.lower()) and attempt < max_retries - 1:
+            error_str = str(e).lower()
+            retryable = any(code in error_str for code in ("429", "500", "502", "503", "529", "overloaded"))
+            if retryable and attempt < max_retries - 1:
                 wait = (attempt + 1) * 10
-                logger.warning(f"[_call_claude] API overloaded, aguardando {wait}s antes de retry ({attempt+1}/{max_retries})...")
+                logger.warning(f"[_call_claude] Erro retentável, aguardando {wait}s ({attempt+1}/{max_retries}): {e}")
                 import time
                 time.sleep(wait)
                 continue

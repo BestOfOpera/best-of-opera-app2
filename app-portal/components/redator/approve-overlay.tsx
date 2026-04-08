@@ -26,7 +26,7 @@ function formatTimestamp(secs: number): string {
 export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
-  const [overlay, setOverlay] = useState<{ timestamp: string; text: string }[]>([])
+  const [overlay, setOverlay] = useState<{ timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -214,7 +214,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
         <CardContent className="p-0">
           <div className="divide-y divide-border">
             {overlay.map((entry, i) => {
-              const isCta = (entry as any)._is_cta === true
+              const isCta = entry._is_cta === true
               return (
                 <div key={i}>
                   {/* Insert button between entries */}

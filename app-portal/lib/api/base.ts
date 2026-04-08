@@ -69,7 +69,7 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
     if (token) headers["Authorization"] = `Bearer ${token}`
   }
 
-  const { timeout = 30000, ...fetchOptions } = options ?? {}
+  const { timeout = 60000, ...fetchOptions } = options ?? {}
   const canRetry = isSafeToRetry(path, fetchOptions.method)
   const maxAttempts = canRetry ? MAX_503_RETRIES : 0
 
@@ -110,7 +110,11 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
         window.dispatchEvent(new CustomEvent("bo:unauthorized"))
       }
       const body = await res.json().catch(() => ({ detail: res.statusText }))
-      throw new ApiError(res.status, body.detail ?? body)
+      const detail = body.detail ?? body
+      if (res.status === 403) {
+        throw new ApiError(res.status, typeof detail === "string" ? detail : "Sem permissão para esta ação")
+      }
+      throw new ApiError(res.status, detail)
     }
     if (res.status === 204) return undefined as T
     return res.json()
