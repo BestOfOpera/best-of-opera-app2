@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type ProgressoDetalheInner, type PacoteStatus } from "@/lib/api/editor"
+import { editorApi, type Edicao, type Render, type FilaStatus, type ProgressoDetalhe, type ProgressoDetalheInner, type PacoteStatus, type OverlaySegmento } from "@/lib/api/editor"
 import { ApiError } from "@/lib/api/base"
 import { getYoutubeUrl } from "@/lib/utils"
 import { useAdaptivePolling } from "@/lib/hooks/use-polling"
@@ -90,6 +90,41 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [semLegendas, setSemLegendas] = useState(false)
   const [mostrarConfirmLimpar, setMostrarConfirmLimpar] = useState(false)
   const [limpando, setLimpando] = useState(false)
+  const [overlayEditOpen, setOverlayEditOpen] = useState(false)
+  const [overlayData, setOverlayData] = useState<Record<string, OverlaySegmento[]>>({})
+  const [overlayDirty, setOverlayDirty] = useState<Record<string, boolean>>({})
+  const [overlayLoading, setOverlayLoading] = useState(false)
+  const [savingOverlay, setSavingOverlay] = useState<string | null>(null)
+  const [preservarTraducoes, setPreservarTraducoes] = useState(false)
+
+  const loadOverlays = async () => {
+    setOverlayLoading(true)
+    try {
+      const data = await editorApi.listarOverlays(edicaoId)
+      const parsed: Record<string, OverlaySegmento[]> = {}
+      for (const [idioma, info] of Object.entries(data)) {
+        parsed[idioma] = info.segmentos || []
+      }
+      setOverlayData(parsed)
+      setOverlayDirty({})
+    } catch {
+      // silencioso — overlay edit é opcional
+    } finally {
+      setOverlayLoading(false)
+    }
+  }
+
+  const salvarOverlay = async (idioma: string) => {
+    setSavingOverlay(idioma)
+    try {
+      await editorApi.atualizarOverlay(edicaoId, idioma, overlayData[idioma])
+      setOverlayDirty(prev => ({ ...prev, [idioma]: false }))
+    } catch (err: unknown) {
+      setError(`Erro ao salvar overlay ${idioma}: ` + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setSavingOverlay(null)
+    }
+  }
 
   const load = async () => {
     try {
@@ -302,7 +337,7 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     return parseFloat(val) || 0
   }
 
-  const handleReaplicarCorte = async (params?: Record<string, number>) => {
+  const handleReaplicarCorte = async (params?: Record<string, unknown>) => {
     setReaplicando(true)
     setError("")
     try {
@@ -656,10 +691,19 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                   <span className="text-xs text-muted-foreground">→</span>
                   <Input value={corteFim} onChange={e => setCorteFim(e.target.value)} placeholder="MM:SS" className="w-20 h-7 text-xs font-mono" />
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={preservarTraducoes}
+                    onChange={e => setPreservarTraducoes(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 accent-gray-600"
+                  />
+                  <span className="text-[11px] text-muted-foreground">Preservar traduções existentes</span>
+                </label>
                 <Button
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => handleReaplicarCorte({ janela_inicio: parseMMSS(corteInicio), janela_fim: parseMMSS(corteFim) })}
+                  onClick={() => handleReaplicarCorte({ janela_inicio: parseMMSS(corteInicio), janela_fim: parseMMSS(corteFim), preservar_traducoes: preservarTraducoes })}
                   disabled={reaplicando}
                 >
                   {reaplicando ? "Reaplicando..." : "Reaplicar Corte"}
@@ -704,12 +748,92 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         )}
       </div>
 
+      {/* Editor inline de overlays */}
+      <Card className="mb-6">
+        <CardHeader
+          className="cursor-pointer select-none py-3 px-4"
+          onClick={() => {
+            const next = !overlayEditOpen
+            setOverlayEditOpen(next)
+            if (next && Object.keys(overlayData).length === 0) loadOverlays()
+          }}
+        >
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <Pencil className="h-3.5 w-3.5" />
+              Editar Overlays
+            </span>
+            <span className="text-xs text-muted-foreground">{overlayEditOpen ? "fechar" : "expandir"}</span>
+          </CardTitle>
+        </CardHeader>
+        {overlayEditOpen && (
+          <CardContent className="pt-0 px-4 pb-4">
+            {overlayLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Carregando overlays...
+              </div>
+            ) : Object.keys(overlayData).length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">Nenhum overlay encontrado.</p>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(overlayData).map(([idioma, segs]) => (
+                  <div key={idioma}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">{idioma.toUpperCase()} ({segs.length} segs)</span>
+                      <div className="flex items-center gap-2">
+                        {overlayDirty[idioma] && (
+                          <span className="text-xs text-amber-600">modificado</span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={overlayDirty[idioma] ? "default" : "outline"}
+                          className="h-7 text-xs gap-1"
+                          onClick={() => salvarOverlay(idioma)}
+                          disabled={savingOverlay === idioma || !overlayDirty[idioma]}
+                        >
+                          {savingOverlay === idioma ? (
+                            <><RefreshCw className="h-3 w-3 animate-spin" /> Salvando...</>
+                          ) : "Salvar"}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {segs.map((seg, idx) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          <span className="text-[10px] text-muted-foreground w-5 pt-2 text-right font-mono shrink-0">
+                            {seg._is_cta ? "C" : idx + 1}
+                          </span>
+                          <Textarea
+                            value={seg.text}
+                            onChange={(e) => {
+                              const novo = [...segs]
+                              novo[idx] = { ...seg, text: e.target.value }
+                              setOverlayData(prev => ({ ...prev, [idioma]: novo }))
+                              setOverlayDirty(prev => ({ ...prev, [idioma]: true }))
+                            }}
+                            className="flex-1 text-xs min-h-0 py-1 px-2 resize-none font-mono"
+                            rows={Math.max(1, (seg.text || "").split("\n").length)}
+                          />
+                          <span className="text-[10px] text-muted-foreground w-6 pt-2 text-right shrink-0">
+                            {(seg.text || "").length}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Actions */}
       <div className="flex gap-3 mb-6 flex-wrap">
         <Button variant="secondary" size="sm" className="gap-2" onClick={() => router.push(`/editor/edicao/${edicaoId}/alinhamento`)}>
           <ArrowLeft className="h-3.5 w-3.5" /> Voltar ao Alinhamento
         </Button>
-        <Button variant="secondary" size="sm" className="gap-2" onClick={() => handleReaplicarCorte()} disabled={reaplicando}>
+        <Button variant="secondary" size="sm" className="gap-2" onClick={() => handleReaplicarCorte({ preservar_traducoes: preservarTraducoes })} disabled={reaplicando}>
           <RotateCcw className="h-3.5 w-3.5" />
           {reaplicando ? "Recalculando..." : "Refazer Corte"}
         </Button>

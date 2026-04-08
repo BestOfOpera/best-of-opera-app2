@@ -234,12 +234,23 @@ async def importar_do_redator(
 
     # Salvar overlays (congelados — texto imutável a partir daqui)
     for idioma, segmentos in overlays.items():
-        textos = [s.get("text", "") for s in segmentos if s.get("text")]
+        # Validação: pular overlays vazios ou sem segmentos com texto
+        if not segmentos:
+            logger.warning(f"[importar] Overlay vazio para idioma={idioma}, edicao={edicao.id} — pulando")
+            continue
+        segmentos_validos = [
+            s for s in segmentos
+            if s.get("text", "").strip() or s.get("_is_cta")
+        ]
+        if not segmentos_validos:
+            logger.warning(f"[importar] Todos segmentos sem texto para idioma={idioma}, edicao={edicao.id} — pulando")
+            continue
+        textos = [s.get("text", "") for s in segmentos_validos if s.get("text")]
         logger.info(
             f"[importar] edicao={edicao.id} idioma={idioma} "
-            f"overlay CONGELADO: {len(segmentos)} segs, textos={textos}"
+            f"overlay CONGELADO: {len(segmentos_validos)} segs, textos={textos}"
         )
-        db.add(Overlay(edicao_id=edicao.id, idioma=idioma, segmentos_original=segmentos))
+        db.add(Overlay(edicao_id=edicao.id, idioma=idioma, segmentos_original=segmentos_validos))
         # Diagnóstico: RC overlays devem ter \n para quebras de linha
         if perfil.slug == "reels-classics":
             for idx_s, s in enumerate(segmentos):

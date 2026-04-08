@@ -208,6 +208,64 @@ def remover_edicao(edicao_id: int, db: Session = Depends(get_db)):
     return {"ok": True, "r2_files_deleted": r2_deleted}
 
 
+@router.get("/edicoes/{edicao_id}/overlays")
+def listar_overlays(edicao_id: int, db: Session = Depends(get_db)):
+    """Retorna todos os overlays de uma edição, organizados por idioma."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+    overlays = db.query(Overlay).filter(Overlay.edicao_id == edicao_id).all()
+    return {
+        ov.idioma: {
+            "id": ov.id,
+            "segmentos": ov.segmentos_reindexado or ov.segmentos_original,
+            "segmentos_original": ov.segmentos_original,
+        }
+        for ov in overlays
+    }
+
+
+@router.patch("/edicoes/{edicao_id}/overlays/{idioma}")
+def update_overlay_idioma(edicao_id: int, idioma: str, payload: dict, db: Session = Depends(get_db)):
+    """Atualiza segmentos de overlay de um idioma específico.
+
+    Atualiza segmentos_original (fonte de verdade) e limpa segmentos_reindexado
+    para forçar re-normalização no próximo aplicar-corte.
+    """
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    segmentos = payload.get("segmentos")
+    if not segmentos or not isinstance(segmentos, list):
+        raise HTTPException(422, "Campo 'segmentos' é obrigatório e deve ser uma lista")
+
+    for idx, seg in enumerate(segmentos):
+        if not isinstance(seg, dict):
+            raise HTTPException(422, f"Segmento {idx} deve ser um objeto")
+        texto = (seg.get("text") or "").strip()
+        if not texto and not seg.get("_is_cta"):
+            raise HTTPException(422, f"Segmento {idx} sem texto")
+
+    overlay = db.query(Overlay).filter(
+        Overlay.edicao_id == edicao_id, Overlay.idioma == idioma
+    ).first()
+    if not overlay:
+        raise HTTPException(404, f"Overlay para idioma '{idioma}' não encontrado")
+
+    overlay.segmentos_original = segmentos
+    overlay.segmentos_reindexado = None  # Forçar re-normalização
+    db.commit()
+
+    logger.info(f"[overlay-edit] edicao={edicao_id} idioma={idioma} atualizado com {len(segmentos)} segmentos")
+    return {
+        "status": "ok",
+        "idioma": idioma,
+        "segmentos_count": len(segmentos),
+        "mensagem": f"Overlay {idioma} atualizado. Re-aplique o corte e re-renderize para aplicar.",
+    }
+
+
 @router.post("/edicoes/{edicao_id}/upload-overlays")
 async def upload_overlays(
     edicao_id: int,

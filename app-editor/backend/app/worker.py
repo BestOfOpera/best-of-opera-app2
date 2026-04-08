@@ -14,6 +14,9 @@ task_queue: asyncio.Queue = asyncio.Queue()
 # Flag real do worker — edicao_id da task em execução (None = idle)
 _current_task_edicao_id: int | None = None
 
+# Rastreamento de edicao_ids pendentes na fila (proteção contra enqueue duplicado)
+_pending_edicao_ids: set[int] = set()
+
 _STALE_THRESHOLD = timedelta(minutes=5)
 
 
@@ -25,7 +28,8 @@ async def worker_loop():
         try:
             logger.info("[worker] Aguardando próxima task na fila...")
             task_func, edicao_id = await task_queue.get()
-            logger.info(f"[worker] Pegou task edicao_id={edicao_id} queue={task_queue.qsize()}")
+            _pending_edicao_ids.discard(edicao_id)
+            logger.info(f"[worker] Pegou task edicao_id={edicao_id} queue={task_queue.qsize()} pending={len(_pending_edicao_ids)}")
             _current_task_edicao_id = edicao_id
             try:
                 logger.info(f"[worker] Chamando task_func para edicao_id={edicao_id}")
@@ -71,6 +75,23 @@ async def worker_loop():
             # Proteção contra crash inesperado no próprio loop (ex: falha em task_queue.get)
             # O loop NUNCA deve morrer — continuar consumindo a próxima task
             logger.error(f"[worker] Erro inesperado no loop principal: {e}", exc_info=True)
+
+
+def enqueue_safe(task_func, edicao_id: int) -> bool:
+    """Enfileira task com proteção contra duplicatas.
+
+    Retorna True se enfileirou, False se edicao_id já estava pendente ou em execução.
+    """
+    if edicao_id == _current_task_edicao_id:
+        logger.info(f"[worker] enqueue_safe: edicao_id={edicao_id} já em execução — ignorando")
+        return False
+    if edicao_id in _pending_edicao_ids:
+        logger.info(f"[worker] enqueue_safe: edicao_id={edicao_id} já na fila — ignorando")
+        return False
+    _pending_edicao_ids.add(edicao_id)
+    task_queue.put_nowait((task_func, edicao_id))
+    logger.info(f"[worker] enqueue_safe: edicao_id={edicao_id} enfileirado queue={task_queue.qsize()}")
+    return True
 
 
 def _make_preview_wrapper(eid: int, idioma: str, sem_legendas: bool = False):

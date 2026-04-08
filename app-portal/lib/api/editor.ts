@@ -52,6 +52,14 @@ export interface Segmento {
   confianca: number
 }
 
+export interface OverlaySegmento {
+  text: string
+  start?: number
+  end?: number
+  _is_cta?: boolean
+  [key: string]: unknown
+}
+
 export interface Janela {
   inicio: number
   fim: number
@@ -293,6 +301,13 @@ export const editorApi = {
     form.append("file", file)
     return requestFormData<{ status: string; salvos: string[]; erros: Record<string, string>; total_segmentos: number }>(`${BASE()}/edicoes/${id}/upload-overlays`, form)
   },
+  listarOverlays: (id: number) =>
+    request<Record<string, { id: number; segmentos: OverlaySegmento[]; segmentos_original: OverlaySegmento[] }>>(`${BASE()}/edicoes/${id}/overlays`),
+  atualizarOverlay: (id: number, idioma: string, segmentos: OverlaySegmento[]) =>
+    request<{ status: string; idioma: string; segmentos_count: number; mensagem: string }>(
+      `${BASE()}/edicoes/${id}/overlays/${idioma}`,
+      { method: "PATCH", body: JSON.stringify({ segmentos }) }
+    ),
   statusVideo: (id: number) =>
     request<{ status: string; video_completo: boolean; audio_completo: boolean; duracao_total: number | null }>(`${BASE()}/edicoes/${id}/video/status`),
   buscarLetra: (id: number) =>

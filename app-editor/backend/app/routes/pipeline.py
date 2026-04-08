@@ -166,6 +166,7 @@ class CorteParams(BaseModel):
     janela_inicio: Optional[float] = None
     janela_fim: Optional[float] = None
     usar_video_inteiro: bool = False
+    preservar_traducoes: bool = False
 
 
 _STATUS_PERMITIDOS_DOWNLOAD = {"aguardando", "baixando", "letra", "erro"}
@@ -1320,11 +1321,14 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
     # Invalidar traduções existentes para forçar re-tradução com dados atualizados.
     # Sem isso, _traducao_task pula idiomas já traduzidos (idempotência) e o render
     # usa traduções stale baseadas no alinhamento anterior.
-    n_deleted = db.query(TraducaoLetra).filter(
-        TraducaoLetra.edicao_id == edicao_id
-    ).delete()
-    if n_deleted:
-        logger.info(f"[aplicar_corte] {n_deleted} traduções invalidadas para re-tradução edicao_id={edicao_id}")
+    if body and body.preservar_traducoes:
+        logger.info(f"[aplicar_corte] preservar_traducoes=True — mantendo traduções existentes edicao_id={edicao_id}")
+    else:
+        n_deleted = db.query(TraducaoLetra).filter(
+            TraducaoLetra.edicao_id == edicao_id
+        ).delete()
+        if n_deleted:
+            logger.info(f"[aplicar_corte] {n_deleted} traduções invalidadas para re-tradução edicao_id={edicao_id}")
 
     # Instrumental: pular tradução, direto para render (passo 7)
     if edicao.sem_lyrics:
@@ -1340,6 +1344,23 @@ async def _aplicar_corte_impl(edicao_id: int, body: CorteParams, db: Session):
             "video_cortado": edicao.arquivo_video_cortado,
             "traducao": "instrumental — tradução pulada",
         }
+
+    # Se preservou traduções e já existem, pular para montagem
+    if body and body.preservar_traducoes:
+        n_existing = db.query(TraducaoLetra).filter(TraducaoLetra.edicao_id == edicao_id).count()
+        if n_existing > 0:
+            edicao.passo_atual = 7
+            edicao.status = "montagem"
+            edicao.erro_msg = None
+            edicao.task_heartbeat = None
+            edicao.progresso_detalhe = {}
+            db.commit()
+            logger.info(f"[aplicar_corte] Traduções preservadas ({n_existing}) — direto para montagem edicao_id={edicao_id}")
+            return {
+                "janela": janela,
+                "video_cortado": edicao.arquivo_video_cortado,
+                "traducao": f"traduções preservadas ({n_existing})",
+            }
 
     edicao.passo_atual = 6
     edicao.status = "traducao"
@@ -1375,7 +1396,7 @@ _STATUS_PERMITIDOS_TRADUCAO = {"corte", "traducao", "montagem", "erro"}
 # --- Passo 6: Tradução lyrics ---
 @router.post("/edicoes/{edicao_id}/traducao-lyrics")
 async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
-    from app.worker import task_queue
+    from app.worker import enqueue_safe
 
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
@@ -1395,8 +1416,7 @@ async def traduzir_lyrics(edicao_id: int, db: Session = Depends(get_db)):
         db.refresh(edicao)
         raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar tradução")
 
-    logger.info(f"[traducao] Enfileirando edicao_id={edicao_id} queue={task_queue.qsize()}")
-    task_queue.put_nowait((_traducao_task, edicao_id))
+    enqueue_safe(_traducao_task, edicao_id)
     return {"status": "tradução enfileirada"}
 
 
@@ -1614,7 +1634,7 @@ _STATUS_PERMITIDOS_PREVIEW = {"montagem", "revisao", "erro"}
 @router.post("/edicoes/{edicao_id}/renderizar")
 async def renderizar(edicao_id: int, sem_legendas: bool = False):
     from app.database import SessionLocal
-    from app.worker import task_queue
+    from app.worker import task_queue, enqueue_safe
 
     with SessionLocal() as db:
         edicao = db.get(Edicao, edicao_id)
@@ -1636,9 +1656,9 @@ async def renderizar(edicao_id: int, sem_legendas: bool = False):
         _sem = True
         async def _render_sem_legendas(_eid: int):
             await _render_task(_eid, sem_legendas=_sem)
-        task_queue.put_nowait((_render_sem_legendas, edicao_id))
+        enqueue_safe(_render_sem_legendas, edicao_id)
     else:
-        task_queue.put_nowait((_render_task, edicao_id))
+        enqueue_safe(_render_task, edicao_id)
     return {"status": "renderização iniciada", "sem_legendas": sem_legendas}
 
 
@@ -2010,17 +2030,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 tamanho = _Path(output_video).stat().st_size
 
                 # 4. Upload render para R2
-                arquivo_render = output_video  # fallback: path local (sem R2)
                 if r2_base_val:
                     r2_key = f"{r2_prefix_val}/{r2_base_val}/{idioma}/{nome_render}"
-                    try:
-                        storage.upload_file(output_video, r2_key)
-                        arquivo_render = r2_key
-                    except Exception as upload_err:
-                        logger.warning(
-                            f"[{edicao_id}] Upload R2 render {idioma} falhou: {upload_err}, "
-                            f"mantendo path local"
-                        )
+                    storage.upload_file(output_video, r2_key)
+                    arquivo_render = r2_key
+                else:
+                    # Sem R2 configurado — manter path local (dev/teste apenas)
+                    arquivo_render = output_video
 
                 # 5. Cleanup: deletar vídeo local (liberar disco antes do próximo idioma)
                 # REGRA: nunca 2 vídeos renderizados no disco ao mesmo tempo
@@ -2176,7 +2192,7 @@ class AprovarPreviewParams(BaseModel):
 @router.post("/edicoes/{edicao_id}/renderizar-preview")
 async def renderizar_preview(edicao_id: int, sem_legendas: bool = False):
     from app.database import SessionLocal
-    from app.worker import task_queue, _make_preview_wrapper
+    from app.worker import task_queue, _make_preview_wrapper, enqueue_safe
 
     with SessionLocal() as db:
         edicao = db.get(Edicao, edicao_id)
@@ -2201,7 +2217,7 @@ async def renderizar_preview(edicao_id: int, sem_legendas: bool = False):
             db.refresh(edicao)
             raise HTTPException(409, f"Status atual '{edicao.status}' não permite iniciar preview")
 
-    task_queue.put_nowait((_make_preview_wrapper(edicao_id, idioma_preview, sem_legendas=sem_legendas), edicao_id))
+    enqueue_safe(_make_preview_wrapper(edicao_id, idioma_preview, sem_legendas=sem_legendas), edicao_id)
     return {"status": "preview iniciado", "idioma": idioma_preview, "sem_legendas": sem_legendas}
 
 
