@@ -105,13 +105,14 @@ async def cortar_na_janela_overlay(
     cortado_local = str(output_dir / "video_cortado.mp4")
     cru_local = str(output_dir / "video_cru.mp4")
 
-    # Bug A Fix: Usar busca precisa com re-encode para garantir que o corte 
+    # Bug A Fix: Usar busca precisa com re-encode para garantir que o corte
     # comece exatamente no frame solicitado, sem depender de keyframes próximos.
     await run_ffmpeg(
         f'ffmpeg -y -ss {janela_inicio_sec} -to {janela_fim_sec} -i "{local_video}" '
         f'-avoid_negative_ts make_zero '
         f'-vf "setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" '
         f'-c:v libx264 -preset medium -crf 18 '
+        f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
         f'-c:a aac -b:a 192k "{cortado_local}"'
     )
 
@@ -158,11 +159,14 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
     _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
     await run_ffmpeg(
         f'ffmpeg -y -i "{local_video}" '
-        f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease,'
+        f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos,'
+        f'unsharp=5:5:0.5:5:5:0.25,'
         f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
         f'{ass_filter}" '
-        f"-c:v libx264 -preset medium -crf 18 "
-        f'-c:a aac -b:a 192k "{output_path}"'
+        f'-c:v libx264 -preset medium -crf 18 '
+        f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+        f'-c:a aac -b:a 192k '
+        f'-movflags +faststart "{output_path}"'
     )
 
     size = Path(output_path).stat().st_size
