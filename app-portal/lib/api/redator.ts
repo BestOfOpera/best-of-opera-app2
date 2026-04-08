@@ -163,6 +163,12 @@ export const redatorApi = {
       body: JSON.stringify({ custom_prompt: customPrompt || null }),
     }),
 
+  regenerateOverlayEntry: (id: number, entryIndex: number, data: { instruction?: string; brand_slug?: string }) =>
+    request<{ index: number; old_text: string; new_text: string; overlay_json: { timestamp: string; text: string }[] }>(
+      `${BASE()}/projects/${id}/regenerate-overlay-entry/${entryIndex}`,
+      { method: "POST", timeout: 60000, body: JSON.stringify(data) },
+    ),
+
   approveOverlay: (id: number, overlayJson: { timestamp: string; text: string }[]) =>
     request<Project>(`${BASE()}/projects/${id}/approve-overlay`, {
       method: "PUT",
@@ -178,6 +184,10 @@ export const redatorApi = {
       method: "PUT",
       body: JSON.stringify({ youtube_title: title, youtube_tags: tags }),
     }),
+
+  // BO research
+  generateResearchBO: (id: number) =>
+    request<Record<string, any>>(`${BASE()}/projects/${id}/generate-research-bo`, { method: "POST", timeout: 180000 }),
 
   // RC (Reels Classics) endpoints
   generateResearchRC: (id: number) =>

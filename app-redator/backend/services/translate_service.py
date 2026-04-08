@@ -1,10 +1,11 @@
 from __future__ import annotations
 import html
+import logging
 import re
 import requests
-from typing import List
-
 from backend.config import GOOGLE_TRANSLATE_API_KEY
+
+_logger = logging.getLogger(__name__)
 
 ALL_LANGUAGES = ["en", "pt", "es", "de", "fr", "it", "pl"]
 
@@ -95,12 +96,12 @@ def translate_text(text: str, target_lang: str, _max_retries: int = 3) -> str:
             if attempt < _max_retries - 1:
                 import time
                 wait = (attempt + 1) * 5
-                print(f"[TRANSLATE] Retry {attempt+1}/{_max_retries} '{text[:30]}...' "
-                      f"→ {target_lang}: {e}. Aguardando {wait}s...", flush=True)
+                _logger.warning(f"[TRANSLATE] Retry {attempt+1}/{_max_retries} '{text[:30]}...' "
+                               f"→ {target_lang}: {e}. Aguardando {wait}s...")
                 time.sleep(wait)
             else:
-                print(f"[TRANSLATE] FALHA DEFINITIVA '{text[:30]}...' "
-                      f"→ {target_lang}: {e}", flush=True)
+                _logger.error(f"[TRANSLATE] FALHA DEFINITIVA '{text[:30]}...' "
+                              f"→ {target_lang}: {e}")
                 raise
 
 

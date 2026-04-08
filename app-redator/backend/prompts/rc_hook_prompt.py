@@ -8,12 +8,37 @@ Método: Kephart (Role → Context → Task → Constraints → Format → Self-
 """
 
 
-def build_rc_hook_prompt(metadata: dict, research_data: dict) -> str:
+def _build_rc_brand_section(brand_config: dict | None) -> str:
+    """Constrói seção de brand directives (complementar às regras hardcoded)."""
+    if not brand_config:
+        return ""
+    bc = brand_config
+    identity = bc.get("identity_prompt_redator", "")
+    tom = bc.get("tom_de_voz_redator", "")
+    escopo = bc.get("escopo_conteudo", "")
+    if not (identity or tom or escopo):
+        return ""
+    parts = []
+    if identity:
+        parts.append(f"IDENTIDADE: {identity}")
+    if tom:
+        parts.append(f"TOM DE VOZ: {tom}")
+    if escopo:
+        parts.append(f"ESCOPO: {escopo}")
+    return f"""
+═══ DIRETRIZES DA MARCA (complementam as regras abaixo) ═══
+{chr(10).join(parts)}
+═══════════════════════════════════════════════════════════════
+"""
+
+
+def build_rc_hook_prompt(metadata: dict, research_data: dict, brand_config: dict | None = None) -> str:
     """
     Constrói o prompt de geração de ganchos RC.
 
     metadata: dados básicos do vídeo
     research_data: JSON retornado pelo rc_research_prompt
+    brand_config: configuração da marca (opcional, complementar)
     """
 
     artist = metadata.get("artist", "").strip()
@@ -25,6 +50,8 @@ def build_rc_hook_prompt(metadata: dict, research_data: dict) -> str:
     import json
     research_json = json.dumps(research_data, ensure_ascii=False, indent=2)
 
+    brand_section = _build_rc_brand_section(brand_config)
+
     prompt = f"""<role>
 Você é um roteirista de vídeos curtos virais de música clássica. Sua única habilidade que importa agora: escrever a PRIMEIRA FRASE que aparece na tela — a frase que decide se 100% das pessoas vão embora ou se 30% param o scroll para assistir.
 
@@ -32,7 +59,7 @@ Você sabe que um gancho funciona quando provoca uma REAÇÃO FÍSICA — o pole
 
 Você NÃO é um copywriter. Você NÃO vende nada. Você é alguém que encontra o ângulo de uma história que faz ser IMPOSSÍVEL não querer saber o resto.
 </role>
-
+{brand_section}
 <context>
 Canal: REELS CLASSICS — vídeos curtos de música clássica para leigos.
 Público: pessoas que nunca ouviram uma sinfonia. A primeira reação delas a um gancho decide tudo.

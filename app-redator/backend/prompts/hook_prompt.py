@@ -12,6 +12,44 @@ def build_hook_generation_prompt(project, brand_config=None) -> str:
     bc = brand_config or {}
     brand_name = bc.get("brand_name", "")
     max_chars = bc.get("overlay_max_chars", 70)
+    identity = bc.get("identity_prompt_redator", "")
+    tom_de_voz = bc.get("tom_de_voz_redator", "")
+    escopo = bc.get("escopo_conteudo", "")
+
+    brand_block_parts = []
+    if identity:
+        brand_block_parts.append(f"**Brand Identity:** {identity}")
+    if tom_de_voz:
+        brand_block_parts.append(f"**Tone of Voice:** {tom_de_voz}")
+    if escopo:
+        brand_block_parts.append(f"**Content Scope:** {escopo}")
+
+    brand_block = ""
+    if brand_block_parts:
+        brand_block = f"""
+═══════════════════════════════
+BRAND INSTRUCTIONS (follow these as PRIMARY rules)
+═══════════════════════════════
+{chr(10).join(brand_block_parts)}
+
+"""
+
+    # Research data for richer, more specific hooks
+    research_block = ""
+    research_data = getattr(project, "research_data", None)
+    if research_data:
+        import json
+        research_str = json.dumps(research_data, ensure_ascii=False)[:3000] if isinstance(research_data, dict) else str(research_data)[:3000]
+        research_block = f"""
+═══════════════════════════════
+RESEARCH DATA (use for specific, factual hooks)
+═══════════════════════════════
+{research_str}
+
+Use concrete facts from this research to make hooks SPECIFIC and UNFORGETTABLE.
+Hooks that could apply to any classical music video are FAILURES.
+
+"""
 
     fields = (
         f"{_field('Artist', project.artist)}"
@@ -39,13 +77,12 @@ Use this as a STARTING POINT for hook #1. The other 4 hooks MUST explore DIFFERE
     return f"""You are generating scroll-stopping hooks for a short-form music video on "{brand_name}".
 
 A hook is the FIRST subtitle that appears on screen. It must stop the scroll in under 2 seconds of reading.
-
-═══════════════════════════════
+{brand_block}═══════════════════════════════
 VIDEO DATA
 ═══════════════════════════════
 
 {fields}
-{angle_block}
+{research_block}{angle_block}
 ═══════════════════════════════
 RULES
 ═══════════════════════════════

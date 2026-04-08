@@ -32,7 +32,8 @@ def build_rc_overlay_prompt(
     metadata: dict,
     research_data: dict,
     selected_hook: str,
-    hook_fio_narrativo: str = ""
+    hook_fio_narrativo: str = "",
+    brand_config: dict | None = None,
 ) -> str:
     """
     Constrói o prompt de geração de overlay RC.
@@ -41,6 +42,7 @@ def build_rc_overlay_prompt(
     research_data: JSON do rc_research_prompt
     selected_hook: texto do gancho aprovado pelo operador
     hook_fio_narrativo: fio narrativo associado ao gancho (do hooks_json)
+    brand_config: configuração da marca (opcional, complementar)
     """
 
     artist = metadata.get("artist", "").strip()
@@ -60,6 +62,17 @@ def build_rc_overlay_prompt(
     if hook_fio_narrativo:
         fio_block = f"\nFIO NARRATIVO SUGERIDO: {hook_fio_narrativo}"
 
+    # Brand directives (complementares)
+    brand_section = ""
+    if brand_config:
+        bc_parts = []
+        for k, label in [("identity_prompt_redator", "IDENTIDADE"), ("tom_de_voz_redator", "TOM DE VOZ"), ("escopo_conteudo", "ESCOPO")]:
+            v = brand_config.get(k, "")
+            if v:
+                bc_parts.append(f"{label}: {v}")
+        if bc_parts:
+            brand_section = "\n═══ DIRETRIZES DA MARCA (complementam as regras abaixo) ═══\n" + "\n".join(bc_parts) + "\n═══════════════════════════════════════════════════════════════\n"
+
     prompt = f"""<role>
 Você é o roteirista do canal REELS CLASSICS. Escreve as legendas que aparecem sobre vídeos curtos de música clássica.
 
@@ -69,7 +82,7 @@ Sua voz: alguém sentado ao lado de outra pessoa num concerto, sussurrando fatos
 
 Equilíbrio: ~50% educativo (fatos, contexto, história) + ~50% emocional (arrepio, curiosidade, impacto). Nunca 100% de nenhum dos dois.
 </role>
-
+{brand_section}
 <context>
 VÍDEO:
 Compositor: {composer}

@@ -12,6 +12,7 @@ from backend.schemas import ProjectOut, RegenerateRequest, DetectMetadataRespons
 from backend.config import load_brand_config
 from backend.services.claude_service import (
     generate_overlay, generate_post, generate_youtube, generate_hooks,
+    generate_research_bo,
     detect_metadata, detect_metadata_from_text,
     detect_metadata_rc, detect_metadata_from_text_rc,
     generate_research_rc, generate_hooks_rc,
@@ -19,6 +20,23 @@ from backend.services.claude_service import (
 )
 
 router = APIRouter(prefix="/api/projects", tags=["generation"])
+
+
+def _validate_project_metadata(project: Project):
+    """Valida campos obrigatórios antes de gerar conteúdo."""
+    missing = []
+    if not (project.artist or "").strip():
+        missing.append("artist")
+    if not (project.work or "").strip():
+        missing.append("work")
+    if not (project.composer or "").strip():
+        missing.append("composer")
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Campos obrigatórios vazios: {', '.join(missing)}. "
+                   f"Preencha os dados do projeto antes de gerar conteúdo.",
+        )
 
 
 class DetectFromTextRequest(BaseModel):
@@ -76,6 +94,8 @@ def generate_all(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
+
+    _validate_project_metadata(project)
 
     project.status = "generating"
     db.commit()
@@ -139,6 +159,103 @@ def regenerate_overlay(
     db.commit()
     db.refresh(project)
     return project
+
+
+class RegenerateEntryRequest(BaseModel):
+    instruction: str = ""
+    brand_slug: str = ""
+
+
+@router.post("/{project_id}/regenerate-overlay-entry/{entry_index}")
+def regenerate_overlay_entry(
+    project_id: int,
+    entry_index: int,
+    body: RegenerateEntryRequest = RegenerateEntryRequest(),
+    db: Session = Depends(get_db),
+):
+    """Regenera UMA legenda específica do overlay, mantendo as demais."""
+    from backend.services.claude_service import _call_claude, _enforce_line_breaks_rc
+
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    overlay = project.overlay_json or []
+    if entry_index < 0 or entry_index >= len(overlay):
+        raise HTTPException(422, f"Índice {entry_index} fora do range (0-{len(overlay) - 1})")
+
+    entry = overlay[entry_index]
+    instruction = body.instruction
+    brand_slug = body.brand_slug or getattr(project, "brand_slug", "")
+    is_rc = brand_slug == "reels-classics"
+
+    research_data = project.research_data or ""
+    research_str = ""
+    if isinstance(research_data, dict):
+        import json as _json
+        research_str = _json.dumps(research_data, ensure_ascii=False)[:2000]
+    elif isinstance(research_data, str):
+        research_str = research_data[:2000]
+
+    overlay_context = ""
+    for i, e in enumerate(overlay):
+        marker = " ← REGENERAR ESTA" if i == entry_index else ""
+        overlay_context += f"\n[{i + 1}] ({e.get('type', e.get('tipo', 'corpo'))}): {e.get('text', e.get('texto', ''))}{marker}"
+
+    if is_rc:
+        limits = "Máximo 33 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
+    else:
+        limits = "Máximo 70 caracteres total. Se > 35 chars, divida em 2 linhas balanceadas com \\n."
+
+    prompt = f"""Reescreva UMA legenda específica de um overlay de vídeo de música clássica.
+
+CONTEXTO — Overlay completo (para coerência narrativa):
+{overlay_context}
+
+{f"PESQUISA: {research_str}" if research_str else ""}
+
+LEGENDA A REESCREVER:
+Tipo: {entry.get('type', entry.get('tipo', 'corpo'))}
+Texto atual: {entry.get('text', entry.get('texto', ''))}
+
+{f'INSTRUÇÃO DO OPERADOR: {instruction}' if instruction else ''}
+
+REGRAS:
+{limits}
+- Mantenha coerência narrativa com as legendas adjacentes
+- Mantenha o tom e estilo do overlay existente
+- Seja específico a ESTA performance (use fatos da pesquisa)
+- NÃO use emojis, reticências excessivas ou frases genéricas
+
+RESPONDA COM APENAS O NOVO TEXTO (nada mais). Inclua \\n para quebras de linha."""
+
+    try:
+        new_text = _call_claude(prompt, temperature=0.8)
+    except Exception as e:
+        error_str = str(e)
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado.")
+        raise HTTPException(500, f"Falha ao regenerar legenda: {error_str}")
+
+    new_text = new_text.strip().strip('"').strip("'")
+
+    if is_rc:
+        tipo = entry.get("type", entry.get("tipo", "corpo"))
+        new_text = _enforce_line_breaks_rc(new_text, tipo)
+
+    old_text = entry.get("text", entry.get("texto", ""))
+    overlay[entry_index]["text"] = new_text
+    if "texto" in overlay[entry_index]:
+        overlay[entry_index]["texto"] = new_text
+    project.overlay_json = overlay
+    db.commit()
+
+    return {
+        "index": entry_index,
+        "old_text": old_text,
+        "new_text": new_text,
+        "overlay_json": overlay,
+    }
 
 
 @router.post("/{project_id}/regenerate-post", response_model=ProjectOut)
@@ -207,6 +324,8 @@ def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(404, "Project not found")
 
+    _validate_project_metadata(project)
+
     brand_slug = getattr(project, 'brand_slug', None)
     if not brand_slug:
         raise HTTPException(400, "Projeto sem brand_slug definido.")
@@ -220,6 +339,31 @@ def generate_hooks_endpoint(project_id: int, db: Session = Depends(get_db)):
         if "overloaded" in error_str.lower() or "529" in error_str:
             raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
         raise HTTPException(500, f"Hook generation failed: {e}")
+
+
+@router.post("/{project_id}/generate-research-bo")
+def generate_research_bo_endpoint(project_id: int, db: Session = Depends(get_db)):
+    """BO: pesquisa aprofundada sobre a obra/artista. Salva em research_data."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    _validate_project_metadata(project)
+    brand_slug = getattr(project, 'brand_slug', None)
+    if not brand_slug:
+        raise HTTPException(400, "Projeto sem brand_slug definido.")
+    brand_config = load_brand_config(brand_slug)
+    try:
+        result = generate_research_bo(project, brand_config=brand_config)
+        db.commit()
+        logger.info(f"[BO Endpoint] generate-research-bo OK project={project_id}")
+        return {"status": "research_complete", "research_data": result}
+    except Exception as e:
+        db.rollback()
+        error_str = str(e)
+        logger.error(f"[BO Endpoint] generate-research-bo ERRO project={project_id}: {error_str}")
+        if "overloaded" in error_str.lower() or "529" in error_str:
+            raise HTTPException(503, "O serviço de IA está temporariamente sobrecarregado. Tente novamente em alguns segundos.")
+        raise HTTPException(500, f"Erro na pesquisa BO: {error_str}")
 
 
 # ── RC (Reels Classics) endpoints ──────────────────────────────
@@ -259,8 +403,9 @@ def generate_hooks_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.research_data:
         raise HTTPException(400, "Gere a pesquisa primeiro (generate-research-rc)")
+    brand_config = load_brand_config("reels-classics")
     try:
-        result = generate_hooks_rc(project)
+        result = generate_hooks_rc(project, brand_config=brand_config)
         db.commit()
         logger.info(f"[RC Endpoint] generate-hooks-rc OK project={project_id}")
         return {"status": "hooks_complete", "hooks_json": result}
@@ -314,8 +459,9 @@ def generate_overlay_rc_endpoint(project_id: int, db: Session = Depends(get_db))
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.selected_hook:
         raise HTTPException(400, "Selecione um gancho primeiro (select-hook)")
+    brand_config = load_brand_config("reels-classics")
     try:
-        result = generate_overlay_rc(project)
+        result = generate_overlay_rc(project, brand_config=brand_config)
         db.commit()
         logger.info(f"[RC Endpoint] generate-overlay-rc OK project={project_id} legendas={len(result)}")
         return {"status": "overlay_complete", "overlay_json": result}
@@ -341,8 +487,9 @@ def generate_post_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(400, "Este endpoint é exclusivo para Reels Classics")
     if not project.overlay_json:
         raise HTTPException(400, "Gere o overlay primeiro (generate-overlay-rc)")
+    brand_config = load_brand_config("reels-classics")
     try:
-        result = generate_post_rc(project)
+        result = generate_post_rc(project, brand_config=brand_config)
         db.commit()
         logger.info(f"[RC Endpoint] generate-post-rc OK project={project_id} len={len(result)}")
         return {"status": "post_complete", "post_text": result}

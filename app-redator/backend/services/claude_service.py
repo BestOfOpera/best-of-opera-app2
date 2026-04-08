@@ -25,7 +25,6 @@ MODEL = "claude-sonnet-4-6"
 # Common Portuguese words for post-generation leak detection
 _PT_COMMON_WORDS = {"e", "de", "do", "da", "que", "com", "para", "uma", "um", "os", "as"}
 
-import re
 
 def _limpar_texto_overlay(texto: str) -> str:
     """Fix common orthographic issues: stuck words and missing spaces after punctuation."""
@@ -83,16 +82,28 @@ def _check_language_leak(text: str, target_language: str) -> None:
 
 
 def _call_claude(prompt: str, system: str | None = None, temperature: float = 0.8) -> str:
-    kwargs: dict = dict(
-        model=MODEL,
-        max_tokens=2048,
-        temperature=temperature,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    if system:
-        kwargs["system"] = system
-    message = client.messages.create(**kwargs)
-    return message.content[0].text.strip()
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            kwargs: dict = dict(
+                model=MODEL,
+                max_tokens=2048,
+                temperature=temperature,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            if system:
+                kwargs["system"] = system
+            message = client.messages.create(**kwargs)
+            return message.content[0].text.strip()
+        except Exception as e:
+            error_str = str(e)
+            if ("529" in error_str or "overloaded" in error_str.lower()) and attempt < max_retries - 1:
+                wait = (attempt + 1) * 10
+                logger.warning(f"[_call_claude] API overloaded, aguardando {wait}s antes de retry ({attempt+1}/{max_retries})...")
+                import time
+                time.sleep(wait)
+                continue
+            raise
 
 
 def _strip_json_fences(raw: str) -> str:
@@ -493,6 +504,27 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
     all_text = " ".join(item.get("text", "") for item in parsed)
     _check_language_leak(all_text, lang)
     return parsed
+
+
+def generate_research_bo(project, brand_config=None) -> str:
+    """Gera pesquisa profunda para BO. Salva em project.research_data (texto livre)."""
+    from backend.prompts.bo_research_prompt import build_bo_research_prompt
+
+    logger.info(f"[BO Research] Iniciando para project {project.id}")
+    prompt = build_bo_research_prompt(
+        artist=project.artist or "",
+        work=project.work or "",
+        composer=project.composer or "",
+        category=project.category or "",
+        highlights=project.highlights or "",
+        brand_config=brand_config,
+    )
+    logger.info(f"[BO Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
+
+    result = _call_claude(prompt, temperature=0.7)
+    logger.info(f"[BO Research] Completo, {len(result)} chars resultado")
+    project.research_data = result
+    return result
 
 
 def generate_hooks(project, brand_config=None) -> list:
@@ -1075,10 +1107,8 @@ def generate_research_rc(project, brand_config=None) -> dict:
     from backend.prompts.rc_research_prompt import build_rc_research_prompt
 
     _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
-    _rc_logger.info(f"[RC Research] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_research_prompt(metadata)
-    _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
     _rc_logger.info(f"[RC Research] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
@@ -1093,7 +1123,7 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
 
     _rc_logger.info(f"[RC Hooks] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
-    prompt = build_rc_hook_prompt(metadata, project.research_data or {})
+    prompt = build_rc_hook_prompt(metadata, project.research_data or {}, brand_config=brand_config)
     _rc_logger.info(f"[RC Hooks] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     result = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
@@ -1127,7 +1157,8 @@ def generate_overlay_rc(project, brand_config=None) -> list:
 
     prompt = build_rc_overlay_prompt(
         metadata, project.research_data or {},
-        project.selected_hook or "", hook_fio
+        project.selected_hook or "", hook_fio,
+        brand_config=brand_config,
     )
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
@@ -1147,7 +1178,8 @@ def generate_post_rc(project, brand_config=None) -> str:
     _rc_logger.info(f"[RC Post] Iniciando para project {project.id}")
     metadata = _extract_rc_metadata(project)
     prompt = build_rc_post_prompt(
-        metadata, project.research_data or {}, project.overlay_json or []
+        metadata, project.research_data or {}, project.overlay_json or [],
+        brand_config=brand_config,
     )
     _rc_logger.info(f"[RC Post] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 

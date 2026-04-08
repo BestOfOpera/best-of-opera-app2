@@ -11,13 +11,15 @@ Método: Kephart (Role → Context → Task → Constraints → Format → Self-
 def build_rc_post_prompt(
     metadata: dict,
     research_data: dict,
-    overlay_legendas: list
+    overlay_legendas: list,
+    brand_config: dict | None = None,
 ) -> str:
     """
     Constrói o prompt de geração de descrição RC.
 
     metadata: dados básicos do vídeo
     research_data: JSON do rc_research_prompt
+    brand_config: configuração da marca (opcional, complementar)
     overlay_legendas: lista de dicts com as legendas aprovadas do overlay
     """
 
@@ -56,6 +58,17 @@ def build_rc_post_prompt(
     elif orchestra:
         performer_line += f"\n{orchestra}"
 
+    # Brand directives (complementares)
+    brand_section = ""
+    if brand_config:
+        bc_parts = []
+        for k, label in [("identity_prompt_redator", "IDENTIDADE"), ("tom_de_voz_redator", "TOM DE VOZ"), ("escopo_conteudo", "ESCOPO")]:
+            v = brand_config.get(k, "")
+            if v:
+                bc_parts.append(f"{label}: {v}")
+        if bc_parts:
+            brand_section = "\n═══ DIRETRIZES DA MARCA (complementam as regras abaixo) ═══\n" + "\n".join(bc_parts) + "\n═══════════════════════════════════════════════════════════════\n"
+
     prompt = f"""<role>
 Você é o redator-chefe do canal REELS CLASSICS. Escreve as descrições que acompanham os vídeos no Instagram.
 
@@ -63,7 +76,7 @@ Seu trabalho NÃO é repetir o overlay. É COMPLEMENTAR. Quem lê a descrição 
 
 Tom: íntimo, informado, apaixonado mas contido. Como alguém que acabou de assistir a mesma performance ao seu lado e sussurra "você sabia que...?"
 </role>
-
+{brand_section}
 <context>
 DADOS DO VÍDEO:
 Compositor: {composer}

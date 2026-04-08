@@ -50,6 +50,17 @@ interface RequestOptions extends RequestInit {
   timeout?: number
 }
 
+const MAX_503_RETRIES = 2
+
+/** Only retry 503 on idempotent/generation requests — never on approve/delete/create/translate */
+function isSafeToRetry(path: string, method: string | undefined): boolean {
+  const m = (method || "GET").toUpperCase()
+  if (m === "GET") return true
+  if (m !== "POST") return false
+  // POST is safe to retry only for AI generation endpoints
+  return /\/(generate|regenerate|research|detect)/.test(path)
+}
+
 export async function request<T>(path: string, options?: RequestOptions): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
 
@@ -59,35 +70,54 @@ export async function request<T>(path: string, options?: RequestOptions): Promis
   }
 
   const { timeout = 30000, ...fetchOptions } = options ?? {}
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeout)
+  const canRetry = isSafeToRetry(path, fetchOptions.method)
+  const maxAttempts = canRetry ? MAX_503_RETRIES : 0
 
-  let res: Response
-  try {
-    res = await fetch(path, {
-      headers: { ...headers, ...(fetchOptions.headers as any) },
-      ...fetchOptions,
-      signal: controller.signal,
-    })
-  } catch (err: unknown) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new ApiError(408, "Request timeout")
+  for (let attempt = 0; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeout)
+
+    let res: Response
+    try {
+      res = await fetch(path, {
+        headers: { ...headers, ...(fetchOptions.headers as any) },
+        ...fetchOptions,
+        signal: controller.signal,
+      })
+    } catch (err: unknown) {
+      clearTimeout(timer)
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new ApiError(408, "Request timeout")
+      }
+      throw err
+    } finally {
+      clearTimeout(timer)
     }
-    throw err
-  } finally {
-    clearTimeout(timer)
+
+    // Auto-retry on 503 (AI overloaded) — only for safe-to-retry requests
+    if (res.status === 503 && attempt < maxAttempts) {
+      const wait = (attempt + 1) * 15
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("bo:retry", { detail: { wait, attempt: attempt + 1, max: maxAttempts } }))
+      }
+      await new Promise(r => setTimeout(r, wait * 1000))
+      continue
+    }
+
+    if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined") {
+        localStorage.removeItem("bo_auth_token")
+        window.dispatchEvent(new CustomEvent("bo:unauthorized"))
+      }
+      const body = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new ApiError(res.status, body.detail ?? body)
+    }
+    if (res.status === 204) return undefined as T
+    return res.json()
   }
 
-  if (!res.ok) {
-    if (res.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("bo_auth_token")
-      window.dispatchEvent(new CustomEvent("bo:unauthorized"))
-    }
-    const body = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new ApiError(res.status, body.detail ?? body)
-  }
-  if (res.status === 204) return undefined as T
-  return res.json()
+  // Should not reach here, but TypeScript needs it
+  throw new ApiError(503, "Service unavailable after retries")
 }
 
 export async function requestFormData<T>(path: string, body: FormData, timeout = 30000): Promise<T> {
