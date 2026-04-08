@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -13,6 +14,21 @@ from backend.schemas import (
 router = APIRouter(prefix="/api/projects", tags=["approval"])
 
 
+def _check_and_transition(db: Session, project_id: int) -> None:
+    """Transiciona atomicamente para export_ready se todos os campos estiverem aprovados."""
+    db.execute(
+        update(Project)
+        .where(
+            Project.id == project_id,
+            Project.overlay_approved == True,
+            Project.post_approved == True,
+            Project.youtube_approved == True,
+            Project.status != "export_ready",
+        )
+        .values(status="export_ready")
+    )
+
+
 @router.put("/{project_id}/approve-overlay", response_model=ProjectOut)
 def approve_overlay(
     project_id: int, body: ApproveOverlayRequest, db: Session = Depends(get_db)
@@ -23,6 +39,9 @@ def approve_overlay(
 
     project.overlay_json = body.overlay_json
     project.overlay_approved = True
+    db.flush()
+
+    _check_and_transition(db, project_id)
     db.commit()
     db.refresh(project)
     return project
@@ -38,6 +57,9 @@ def approve_post(
 
     project.post_text = body.post_text
     project.post_approved = True
+    db.flush()
+
+    _check_and_transition(db, project_id)
     db.commit()
     db.refresh(project)
     return project
@@ -54,11 +76,9 @@ def approve_youtube(
     project.youtube_title = body.youtube_title
     project.youtube_tags = body.youtube_tags
     project.youtube_approved = True
+    db.flush()
 
-    # If all approved, mark as export_ready
-    if project.overlay_approved and project.post_approved and project.youtube_approved:
-        project.status = "export_ready"
-
+    _check_and_transition(db, project_id)
     db.commit()
     db.refresh(project)
     return project

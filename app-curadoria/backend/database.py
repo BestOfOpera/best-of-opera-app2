@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 if not DATABASE_URL:
-    DATABASE_URL = "postgresql://postgres:PWlhCmhfTQOFywLdRKexzGfKKxEfXGgs@postgres.railway.internal:5432/railway"
-    logger.warning("DATABASE_URL env var not found — using Railway internal fallback")
-else:
-    logger.info("DATABASE_URL loaded from env var")
+    logger.warning(
+        "DATABASE_URL não definido! Usando fallback interno. "
+        "DEFINA DATABASE_URL como env var em produção."
+    )
+    DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/railway"
 
 _pool: Optional[ConnectionPool] = None
 
@@ -83,15 +84,21 @@ def init_db():
             # Migration: add brand_slug to existing cached_videos
             try:
                 c.execute("ALTER TABLE cached_videos ADD COLUMN IF NOT EXISTS brand_slug TEXT NOT NULL DEFAULT 'best-of-opera'")
-            except Exception:
-                pass  # Column already exists
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    pass
+                else:
+                    logger.warning(f"[MIGRATION] cached_videos brand_slug: {e}")
 
             # Migration: update unique constraint to include brand_slug
             try:
                 c.execute("ALTER TABLE cached_videos DROP CONSTRAINT IF EXISTS cached_videos_video_id_category_key")
                 c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_cached_video_category_brand ON cached_videos(video_id, category, brand_slug)")
-            except Exception:
-                pass  # Already migrated
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    pass
+                else:
+                    logger.warning(f"[MIGRATION] cached_videos constraint: {e}")
             c.execute("CREATE INDEX IF NOT EXISTS idx_cached_brand ON cached_videos(brand_slug)")
 
             # Table: playlist_videos
@@ -126,15 +133,21 @@ def init_db():
             # Migration: add brand_slug to existing playlist_videos
             try:
                 c.execute("ALTER TABLE playlist_videos ADD COLUMN IF NOT EXISTS brand_slug TEXT NOT NULL DEFAULT 'best-of-opera'")
-            except Exception:
-                pass  # Column already exists
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    pass
+                else:
+                    logger.warning(f"[MIGRATION] playlist_videos brand_slug: {e}")
 
             # Migration: update unique constraint to include brand_slug
             try:
                 c.execute("ALTER TABLE playlist_videos DROP CONSTRAINT IF EXISTS playlist_videos_video_id_key")
                 c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_playlist_video_brand ON playlist_videos(video_id, brand_slug)")
-            except Exception:
-                pass  # Already migrated
+            except Exception as e:
+                if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                    pass
+                else:
+                    logger.warning(f"[MIGRATION] playlist_videos constraint: {e}")
             c.execute("CREATE INDEX IF NOT EXISTS idx_playlist_brand ON playlist_videos(brand_slug)")
 
             # Table: system_config

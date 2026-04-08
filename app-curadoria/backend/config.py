@@ -9,6 +9,8 @@ DATASET_PATH = Path(os.getenv("DATASET_PATH", "./dataset_v3_categorizado.csv"))
 STATIC_PATH = Path(os.getenv("STATIC_PATH", "./static"))
 PLAYLIST_ID = "PLGjiuPqoIDSnphyXIetV6iwm4-3K-fvKk"
 APP_PASSWORD = os.getenv("APP_PASSWORD", "opera2026")
+if APP_PASSWORD == "opera2026":
+    logger.warning("APP_PASSWORD usando default inseguro — defina via env var em produção")
 PROJECT_ID = os.getenv("PROJECT_ID", "best-of-opera")
 def _resolve_editor_url() -> str:
     """Resolve EDITOR_API_URL: env var > Railway auto-detect > localhost."""

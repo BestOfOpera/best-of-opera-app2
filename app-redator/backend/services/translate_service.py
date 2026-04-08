@@ -44,6 +44,17 @@ RC_CTA = {
     "pl": "Obserwuj nas, najlepsza muzyka klasyczna\ncodziennie na Twoim feedzie. ❤️",
 }
 
+# CTAs fixos para BO (Best of Opera) por idioma — overlay
+BO_CTA = {
+    "pt": "Siga para mais Best of Opera!",
+    "en": "Follow for more Best of Opera!",
+    "es": "¡Sigue para más Best of Opera!",
+    "de": "Folge für mehr Best of Opera!",
+    "fr": "Suivez pour plus de Best of Opera !",
+    "it": "Segui per più Best of Opera!",
+    "pl": "Obserwuj Best of Opera po więcej!",
+}
+
 # CTAs fixos para RC posts (com 👉, sem \n de legenda)
 RC_POST_CTA = {
     "pt": "👉 Siga, o melhor da música clássica, diariamente no seu feed.",
@@ -525,8 +536,11 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
     is_rc = brand_slug == "reels-classics"
     result = []
     for i, entry in enumerate(overlay_json):
-        if entry.get("_is_cta") and is_rc:
-            translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
+        if entry.get("_is_cta"):
+            if is_rc:
+                translated_text = RC_CTA.get(target_lang, RC_CTA["en"])
+            else:
+                translated_text = BO_CTA.get(target_lang, BO_CTA["en"])
         else:
             src_text = entry.get("text", "")
             replacements = {}
@@ -791,8 +805,11 @@ def translate_project_parallel(
                 else:
                     t_text = orig_entry.get("text", "")
 
-                if orig_entry.get("_is_cta") and is_rc:
-                    t_text = RC_CTA.get(lang, RC_CTA.get("en", t_text))
+                if orig_entry.get("_is_cta"):
+                    if is_rc:
+                        t_text = RC_CTA.get(lang, RC_CTA.get("en", t_text))
+                    else:
+                        t_text = BO_CTA.get(lang, BO_CTA.get("en", t_text))
 
                 if not orig_entry.get("_is_cta"):
                     if is_rc:

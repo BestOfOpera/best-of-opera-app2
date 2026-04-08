@@ -182,6 +182,25 @@ def delete_projects_bulk(body: BulkDeleteRequest, db: Session = Depends(get_db))
     return {"deleted": len(projects)}
 
 
+@router.post("/{project_id}/reset")
+def reset_project(project_id: int, db: Session = Depends(get_db)):
+    """Reseta projeto para input_complete. Limpa traduções e flags de aprovação."""
+    project = db.get(Project, project_id)
+    if not project:
+        raise HTTPException(404, "Projeto não encontrado")
+
+    from backend.models import Translation
+    db.query(Translation).filter(Translation.project_id == project_id).delete()
+
+    project.overlay_approved = False
+    project.post_approved = False
+    project.youtube_approved = False
+    project.status = "input_complete"
+
+    db.commit()
+    return {"ok": True, "message": f"Projeto {project_id} resetado para input_complete."}
+
+
 @router.delete("/{project_id}")
 def delete_project(project_id: int, db: Session = Depends(get_db)):
     project = db.get(Project, project_id)
