@@ -184,8 +184,11 @@ class StorageService:
 
         @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
         def _upload():
+            import mimetypes
+            content_type = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
             client = _get_s3_client()
-            client.upload_file(local_path, R2_BUCKET, key)
+            client.upload_file(local_path, R2_BUCKET, key,
+                               ExtraArgs={'ContentType': content_type})
 
         _upload()
 

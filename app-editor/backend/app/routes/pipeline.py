@@ -1686,9 +1686,9 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 logger.error(f"[{edicao_id}] Edição não encontrada, abortando task")
                 return
 
-            if not edicao.arquivo_video_cortado:
+            if not edicao.arquivo_video_cortado and not edicao.arquivo_video_completo:
                 edicao.status = "erro"
-                edicao.erro_msg = "Vídeo cortado não disponível"
+                edicao.erro_msg = "Vídeo não disponível (nem cortado nem completo)"
                 db.commit()
                 return
 
@@ -1723,7 +1723,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 return
 
             # Copiar dados necessários para variáveis locais (fora da sessão)
-            arquivo_video = edicao.arquivo_video_cortado
+            # Single-pass: usar vídeo original + seek (evita duplo re-encoding)
+            _video_completo = edicao.arquivo_video_completo
+            _janela_inicio = edicao.janela_inicio_sec
+            _janela_fim = edicao.janela_fim_sec
+            _usar_single_pass = bool(_video_completo and _janela_inicio is not None and _janela_fim is not None)
+            arquivo_video = _video_completo if _usar_single_pass else edicao.arquivo_video_cortado
             idioma_musica = edicao.idioma
             artista_val = edicao.artista
             musica_val = edicao.musica
@@ -1874,8 +1879,13 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
             except Exception:
                 pass
 
-        # Garantir que o vídeo cortado está disponível localmente (baixa do R2 se necessário)
+        # Garantir que o vídeo está disponível localmente (baixa do R2 se necessário)
+        # Single-pass: usa o vídeo original (evita duplo re-encoding)
         local_video = storage.ensure_local(arquivo_video)
+        if _usar_single_pass:
+            logger.info(f"[{edicao_id}] Single-pass render: original + seek {_janela_inicio}-{_janela_fim}s")
+        else:
+            logger.info(f"[{edicao_id}] Render legacy: usando vídeo cortado")
 
         # Garantir fonte customizada disponível para o FFmpeg (se a marca tiver uma)
         if font_file_r2_key_val:
@@ -1934,9 +1944,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 vw = video_width_val
                 vh = video_height_val
 
+                # Single-pass: seek + PTS reset no comando de render (evita duplo re-encoding)
+                _seek = f'-ss {_janela_inicio} -to {_janela_fim} ' if _usar_single_pass else ''
+                _avoid_neg = '-avoid_negative_ts make_zero ' if _usar_single_pass else ''
+                _pts_vf = 'setpts=PTS-STARTPTS,' if _usar_single_pass else ''
+                _pts_af = ' -af "asetpts=PTS-STARTPTS"' if _usar_single_pass else ''
+
                 # Crop lateral para vídeos widescreen (>4:3): brand doc exige imagem em 40-65% da tela
                 _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
-                _base_vf = f"{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black"
+                _base_vf = f"{_pts_vf}{_crop}scale={vw}:{vh}:force_original_aspect_ratio=decrease,pad={vw}:{vh}:(ow-iw)/2:(oh-ih)/2:black"
 
                 # Logo/watermark: buscar do perfil se configurado
                 _logo_path = None
@@ -1958,19 +1974,26 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         _logo_x = 870
                         _logo_y = 580
                         cmd = (
-                            f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
+                            f'ffmpeg -y {_seek}-i "{local_video}" -i "{_logo_path}" '
+                            f'{_avoid_neg}'
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a -c:v libx264 -preset medium -crf 18 '
-                            f'-c:a aac -b:a 192k "{output_video}"'
+                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 18 '
+                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+                            f'-c:a aac -b:a 192k '
+                            f'-movflags +faststart "{output_video}"'
                         )
                     else:
                         cmd = (
-                            f'ffmpeg -y -i "{local_video}" '
+                            f'ffmpeg -y {_seek}-i "{local_video}" '
+                            f'{_avoid_neg}'
                             f'-vf "{_base_vf}" '
+                            f'{_pts_af} '
                             f'-c:v libx264 -preset medium -crf 18 '
-                            f'-c:a aac -b:a 192k "{output_video}"'
+                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+                            f'-c:a aac -b:a 192k '
+                            f'-movflags +faststart "{output_video}"'
                         )
                 else:
                     # Calcular posição real da imagem para marginv dinâmico (T5)
@@ -2011,23 +2034,31 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         _logo_x = 870
                         _logo_y = 580
                         cmd = (
-                            f'ffmpeg -y -i "{local_video}" -i "{_logo_path}" '
+                            f'ffmpeg -y {_seek}-i "{local_video}" -i "{_logo_path}" '
+                            f'{_avoid_neg}'
                             f'-filter_complex "[0:v]{_base_vf},'
                             f"ass='{ass_escaped}':fontsdir={_fontsdir}[bg];"
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a -c:v libx264 -preset medium -crf 18 '
-                            f'-c:a aac -b:a 192k "{output_video}"'
+                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 18 '
+                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+                            f'-c:a aac -b:a 192k '
+                            f'-movflags +faststart "{output_video}"'
                         )
                     else:
                         # Sem logo: -vf simples (caminho original)
                         _ass_filter = f"ass='{ass_escaped}':fontsdir={_fontsdir}"
                         cmd = (
-                            f'ffmpeg -y -i "{local_video}" '
+                            f'ffmpeg -y {_seek}-i "{local_video}" '
+                            f'{_avoid_neg}'
                             f'-vf "{_base_vf},{_ass_filter}" '
+                            f'{_pts_af} '
                             f'-c:v libx264 -preset medium -crf 18 '
-                            f'-c:a aac -b:a 192k "{output_video}"'
+                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+                            f'-c:a aac -b:a 192k '
+                            f'-movflags +faststart "{output_video}"'
                         )
+                logger.info(f"[{edicao_id}] FFmpeg render cmd: {cmd[:500]}")
                 processo = await asyncio.create_subprocess_shell(
                     cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -2046,6 +2077,14 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                     raise Exception(f"FFmpeg falhou (inicio): {_stderr_full[:1000]} ... (fim): {_stderr_full[-500:]}")
 
                 tamanho = _Path(output_video).stat().st_size
+
+                # Verificação de qualidade do output
+                try:
+                    from app.services.ffmpeg_service import probar_video as _probar_out
+                    _out_w, _out_h = await _probar_out(output_video)
+                    logger.info(f"[{edicao_id}] Output {idioma}: {_out_w}x{_out_h}, {tamanho/1024/1024:.1f}MB")
+                except Exception:
+                    logger.warning(f"[{edicao_id}] ffprobe do output falhou — {tamanho/1024/1024:.1f}MB")
 
                 # 4. Upload render para R2
                 if r2_base_val:
