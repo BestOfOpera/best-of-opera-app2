@@ -54,8 +54,10 @@ export interface Segmento {
 
 export interface OverlaySegmento {
   text: string
-  start?: number
-  end?: number
+  start?: string | number
+  end?: string | number
+  timestamp?: string | number
+  type?: string
   _is_cta?: boolean
   [key: string]: unknown
 }

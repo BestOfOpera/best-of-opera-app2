@@ -111,7 +111,7 @@ async def cortar_na_janela_overlay(
         f'ffmpeg -y -ss {janela_inicio_sec} -to {janela_fim_sec} -i "{local_video}" '
         f'-avoid_negative_ts make_zero '
         f'-vf "setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" '
-        f'-c:v libx264 -preset ultrafast -crf 18 '
+        f'-c:v libx264 -preset medium -crf 18 '
         f'-c:a aac -b:a 192k "{cortado_local}"'
     )
 
@@ -161,8 +161,8 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
         f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease,'
         f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
         f'{ass_filter}" '
-        f"-c:v libx264 -preset medium -crf 23 "
-        f'-c:a aac -b:a 128k "{output_path}"'
+        f"-c:v libx264 -preset medium -crf 18 "
+        f'-c:a aac -b:a 192k "{output_path}"'
     )
 
     size = Path(output_path).stat().st_size

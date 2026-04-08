@@ -172,6 +172,22 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const isProcessing = !!edicao && ["aguardando", "baixando", "corte", "transcricao", "alinhamento", "traducao", "renderizando", "preview"].includes(edicao.status)
   const { isSlowPolling } = useAdaptivePolling(load, isProcessing)
 
+  // Detectar conclusão de re-renders individuais via polling
+  useEffect(() => {
+    if (rendendoIndividuais.size === 0) return
+    for (const idioma of rendendoIndividuais) {
+      const renderConcluido = renders.find(r => r.idioma === idioma && r.status === "concluido")
+      if (renderConcluido && edicao && edicao.status !== "renderizando") {
+        setRendendoIndividuais(prev => {
+          const next = new Set(prev)
+          next.delete(idioma)
+          return next
+        })
+        toast.success(`Render ${idioma.toUpperCase()} concluido!`)
+      }
+    }
+  }, [renders, edicao?.status, rendendoIndividuais])
+
   const handleTraduzir = async () => {
     setTraduzindo(true)
     setError("")
@@ -208,10 +224,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         next.delete(idioma)
         return next
       })
-      await load()
+      toast.info(`Re-render ${idioma.toUpperCase()} enfileirado. Aguardando conclusão...`)
+      await load() // Atualiza status para "renderizando" → ativa polling adaptivo
+      // NÃO limpar rendendoIndividuais aqui — useEffect abaixo detecta conclusão
     } catch (err: unknown) {
       setError(`Erro ao re-renderizar ${idioma.toUpperCase()}: ` + (err instanceof Error ? err.message : "Erro"))
-    } finally {
       setRendendoIndividuais(prev => {
         const next = new Set(prev)
         next.delete(idioma)
@@ -812,12 +829,43 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         </Button>
                       </div>
                     </div>
+                    {/* Header colunas */}
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium border-b mb-1 pb-1">
+                      <span className="w-5 text-right shrink-0">#</span>
+                      <span className="w-[72px] shrink-0">Inicio</span>
+                      <span className="w-[72px] shrink-0">Fim</span>
+                      <span className="flex-1">Texto</span>
+                      <span className="w-6 shrink-0 text-right">Ch</span>
+                      <span className="w-7 shrink-0"></span>
+                    </div>
                     <div className="space-y-1">
                       {segs.map((seg, idx) => (
                         <div key={idx} className="flex items-start gap-2">
                           <span className="text-[10px] text-muted-foreground w-5 pt-2 text-right font-mono shrink-0">
                             {seg._is_cta ? "C" : idx + 1}
                           </span>
+                          <Input
+                            value={String(seg.start ?? seg.timestamp ?? "")}
+                            onChange={(e) => {
+                              const novo = [...segs]
+                              novo[idx] = { ...seg, start: e.target.value, timestamp: e.target.value }
+                              setOverlayData(prev => ({ ...prev, [idioma]: novo }))
+                              setOverlayDirty(prev => ({ ...prev, [idioma]: true }))
+                            }}
+                            className="w-[72px] text-[11px] font-mono shrink-0 h-8 px-1.5"
+                            placeholder="MM:SS"
+                          />
+                          <Input
+                            value={String(seg.end ?? "")}
+                            onChange={(e) => {
+                              const novo = [...segs]
+                              novo[idx] = { ...seg, end: e.target.value }
+                              setOverlayData(prev => ({ ...prev, [idioma]: novo }))
+                              setOverlayDirty(prev => ({ ...prev, [idioma]: true }))
+                            }}
+                            className="w-[72px] text-[11px] font-mono shrink-0 h-8 px-1.5"
+                            placeholder="MM:SS"
+                          />
                           <Textarea
                             value={seg.text}
                             onChange={(e) => {
@@ -832,9 +880,33 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                           <span className="text-[10px] text-muted-foreground w-6 pt-2 text-right shrink-0">
                             {(seg.text || "").length}
                           </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="shrink-0 h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const novo = segs.filter((_, i) => i !== idx)
+                              setOverlayData(prev => ({ ...prev, [idioma]: novo }))
+                              setOverlayDirty(prev => ({ ...prev, [idioma]: true }))
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       ))}
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full h-7 text-xs"
+                      onClick={() => {
+                        const novo = [...segs, { text: "", start: "", end: "", _is_cta: false }]
+                        setOverlayData(prev => ({ ...prev, [idioma]: novo }))
+                        setOverlayDirty(prev => ({ ...prev, [idioma]: true }))
+                      }}
+                    >
+                      + Adicionar legenda
+                    </Button>
                   </div>
                 ))}
               </div>

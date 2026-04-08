@@ -48,7 +48,7 @@ async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
                 headers["Authorization"] = f"Api-Key {COBALT_API_KEY}"
             resp = await client.post(
                 COBALT_API_URL,
-                json={"url": youtube_url, "videoQuality": "1080"},
+                json={"url": youtube_url, "videoQuality": "max"},
                 headers=headers,
             )
         if resp.status_code != 200:
@@ -88,7 +88,7 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
         cmd = [
             'yt-dlp', youtube_url,
             '-o', output_path,
-            '-f', 'bv[ext=mp4][height<=1080]+ba[ext=m4a]/best[ext=mp4]/best',
+            '-f', 'bv[ext=mp4]+ba[ext=m4a]/bv+ba/best[ext=mp4]/best',
             '--merge-output-format', 'mp4',
             '--no-playlist',
             '--quiet',
@@ -1778,6 +1778,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 overlay_segs = overlay.segmentos_reindexado
                 if not overlay_segs:
                     overlay_segs = overlay.segmentos_original
+                    _src_field = "segmentos_original"
+                else:
+                    _src_field = "segmentos_reindexado"
+                _first_txt = (overlay_segs[0].get("text", "")[:60] if overlay_segs else "VAZIO")
+                logger.info(
+                    f"[{edicao_id}] RENDER OVERLAY {idioma}: "
+                    f"campo={_src_field}, segs={len(overlay_segs or [])}, "
+                    f"primeiro='{_first_txt}'"
+                )
                 if not overlay_segs:
                     logger.error(
                         f"[{edicao_id}] Overlay {idioma} existe mas sem segmentos. "
@@ -1944,15 +1953,15 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a -c:v libx264 -preset medium -crf 23 '
-                            f'-c:a aac -b:a 128k "{output_video}"'
+                            f'-map 0:a -c:v libx264 -preset medium -crf 18 '
+                            f'-c:a aac -b:a 192k "{output_video}"'
                         )
                     else:
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" '
                             f'-vf "{_base_vf}" '
-                            f'-c:v libx264 -preset medium -crf 23 '
-                            f'-c:a aac -b:a 128k "{output_video}"'
+                            f'-c:v libx264 -preset medium -crf 18 '
+                            f'-c:a aac -b:a 192k "{output_video}"'
                         )
                 else:
                     # Calcular posição real da imagem para marginv dinâmico (T5)
@@ -1998,8 +2007,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f"ass='{ass_escaped}':fontsdir={_fontsdir}[bg];"
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a -c:v libx264 -preset medium -crf 23 '
-                            f'-c:a aac -b:a 128k "{output_video}"'
+                            f'-map 0:a -c:v libx264 -preset medium -crf 18 '
+                            f'-c:a aac -b:a 192k "{output_video}"'
                         )
                     else:
                         # Sem logo: -vf simples (caminho original)
@@ -2007,8 +2016,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                         cmd = (
                             f'ffmpeg -y -i "{local_video}" '
                             f'-vf "{_base_vf},{_ass_filter}" '
-                            f'-c:v libx264 -preset medium -crf 23 '
-                            f'-c:a aac -b:a 128k "{output_video}"'
+                            f'-c:v libx264 -preset medium -crf 18 '
+                            f'-c:a aac -b:a 192k "{output_video}"'
                         )
                 processo = await asyncio.create_subprocess_shell(
                     cmd,

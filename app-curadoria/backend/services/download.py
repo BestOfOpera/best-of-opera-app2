@@ -81,7 +81,7 @@ def _get_ydl_opts(dl_path: str):
     """Generate yt-dlp options with cookie support and robustness flags (ERR-055)"""
     import yt_dlp
     opts = {
-        'format': 'bv*[height<=1080]+ba*/b[height<=1080]/bv*+ba*/b',
+        'format': 'bv*[ext=mp4]+ba*/bv*+ba*/b',
         'merge_output_format': 'mp4',
         'outtmpl': dl_path,
         'noplaylist': True,
@@ -147,7 +147,7 @@ async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
                 headers["Authorization"] = f"Api-Key {COBALT_API_KEY}"
             resp = await client.post(
                 COBALT_API_URL,
-                json={"url": youtube_url, "videoQuality": "1080"},
+                json={"url": youtube_url, "videoQuality": "max"},
                 headers=headers,
             )
         if resp.status_code != 200:
