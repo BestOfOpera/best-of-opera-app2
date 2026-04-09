@@ -2915,6 +2915,10 @@ async def upload_video_source(
     # 5. Upload para R2 — sobrescreve o original
     prefix = _get_perfil_r2_prefix(edicao, db)
     r2_base = _get_r2_base(edicao)
+    # Desambiguação: sem youtube_video_id, incluir edicao_id para evitar colisão no R2
+    if not edicao.youtube_video_id and f"_{edicao_id}" not in r2_base:
+        r2_base = f"{r2_base}_{edicao_id}"
+        edicao.r2_base = r2_base
     full_base = f"{prefix}/{r2_base}" if prefix else r2_base
     r2_key = f"{full_base}/video/original.mp4"
 

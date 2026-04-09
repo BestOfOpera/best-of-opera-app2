@@ -221,8 +221,9 @@ export function EditorEditingQueue() {
     // Validação: precisa de YouTube URL ou arquivo de vídeo
     if (sourceMode === "youtube" && !form.youtube_url) return
     if (sourceMode === "upload" && !videoFile) return
-    // Vocal: artista, musica e idioma obrigatórios
+    // Artista e música obrigatórios para vocal; upload também exige (evita colisão R2)
     if (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma)) return
+    if (sourceMode === "upload" && (!form.artista || !form.musica)) return
     setSaving(true)
     try {
       const payload = sourceMode === "youtube"
@@ -602,6 +603,19 @@ export function EditorEditingQueue() {
                 />
                 <Label htmlFor="instrumental" className="text-sm">Instrumental (sem letra)</Label>
               </div>
+              {/* Upload: artista+música sempre visíveis (evita colisão R2). Vocal: todos os campos */}
+              {(sourceMode === "upload" && form.eh_instrumental) && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Artista *</Label>
+                    <Input value={form.artista} onChange={e => setForm(f => ({ ...f, artista: e.target.value }))} placeholder="Ex: Orquestra Filarmônica" required />
+                  </div>
+                  <div>
+                    <Label>Música *</Label>
+                    <Input value={form.musica} onChange={e => setForm(f => ({ ...f, musica: e.target.value }))} placeholder="Ex: Abertura de Guilherme Tell" required />
+                  </div>
+                </div>
+              )}
               {!form.eh_instrumental && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -713,7 +727,7 @@ export function EditorEditingQueue() {
                 </div>
               )}
               <div className="flex gap-3">
-                <Button type="submit" disabled={saving || (sourceMode === "youtube" ? !form.youtube_url : !videoFile) || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
+                <Button type="submit" disabled={saving || (sourceMode === "youtube" ? !form.youtube_url : (!videoFile || !form.artista || !form.musica)) || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
                   {saving ? "Criando..." : "Criar Edição"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
