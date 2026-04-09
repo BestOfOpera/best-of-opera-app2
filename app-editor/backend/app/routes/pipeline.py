@@ -1806,6 +1806,12 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                 and _janela_fim is not None
             )
             arquivo_video = _video_completo if _usar_single_pass else edicao.arquivo_video_cortado
+            if not arquivo_video:
+                edicao.status = "erro"
+                edicao.erro_msg = "Vídeo source disponível mas sem janela de corte definida. Aplique o corte primeiro."
+                db.commit()
+                logger.error(f"[{edicao_id}] Render abortado: sem vídeo utilizável (completo={_video_completo}, cortado={edicao.arquivo_video_cortado})")
+                return
             idioma_musica = edicao.idioma
             artista_val = edicao.artista
             musica_val = edicao.musica
@@ -2917,12 +2923,28 @@ async def upload_video_source(
     finally:
         FilePath(local_path).unlink(missing_ok=True)
 
-    # 6. Atualizar edição
+    # 6. Invalidar cache R2 local (sem isso, ensure_local retorna o vídeo antigo)
+    storage.invalidate_cache(r2_key)
+
+    # 7. Invalidar cortado stale (gerado do source antigo)
+    if edicao.arquivo_video_cortado:
+        storage.invalidate_cache(edicao.arquivo_video_cortado)
+    edicao.arquivo_video_cortado = None
+    edicao.arquivo_video_cru = None
+
+    # 8. Invalidar renders existentes (forçar re-render com novo source)
+    n_deleted = db.query(Render).filter(Render.edicao_id == edicao_id).delete()
+
+    # 9. Atualizar edição — novo source + status permite re-render
     edicao.arquivo_video_completo = r2_key
+    edicao.status = "montagem"
     db.commit()
 
-    logger.info(f"[{edicao_id}] Source video substituído via upload manual: {r2_key}")
-    return {"url": r2_key, "tamanho_bytes": tamanho_bytes}
+    logger.info(
+        f"[{edicao_id}] Source video substituído via upload manual: {r2_key} "
+        f"(cortado invalidado, {n_deleted} renders removidos)"
+    )
+    return {"url": r2_key, "tamanho_bytes": tamanho_bytes, "renders_invalidados": n_deleted}
 
 
 @router.get("/edicoes/{edicao_id}/renders")

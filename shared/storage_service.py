@@ -247,6 +247,13 @@ class StorageService:
 
         return self.download_file(key, cached)
 
+    def invalidate_cache(self, key: str):
+        """Remove cache local de um key R2 para forçar re-download."""
+        cached = _local_path_for_key(key)
+        if os.path.exists(cached):
+            os.remove(cached)
+            logger.info(f"[storage] Cache invalidado: {key}")
+
     def get_presigned_url(self, key: str, expires_in: int = 3600) -> str:
         """Gera URL temporária para download direto do R2."""
         if not _r2_configured():

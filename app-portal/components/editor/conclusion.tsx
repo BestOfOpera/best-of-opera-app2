@@ -407,7 +407,11 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     try {
       const result = await editorApi.uploadVideoSource(edicaoId, file)
       setSourceUploaded(result.tamanho_bytes)
-      toast.success("Vídeo source importado com sucesso")
+      await load()
+      toast.success(
+        `Source atualizado (${result.renders_invalidados || 0} renders invalidados). Re-renderize para aplicar.`,
+        { duration: 6000 },
+      )
     } catch (err: unknown) {
       toast.error("Erro ao importar vídeo: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
