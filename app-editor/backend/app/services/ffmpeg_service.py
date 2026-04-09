@@ -111,8 +111,7 @@ async def cortar_na_janela_overlay(
         f'ffmpeg -y -ss {janela_inicio_sec} -to {janela_fim_sec} -i "{local_video}" '
         f'-avoid_negative_ts make_zero '
         f'-vf "setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" '
-        f'-c:v libx264 -preset medium -crf 18 '
-        f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
+        f'-c:v libx264 -preset ultrafast -crf 18 '
         f'-c:a aac -b:a 192k "{cortado_local}"'
     )
 

@@ -1981,10 +1981,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f'-filter_complex "[0:v]{_base_vf}[bg];'
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 18 '
-                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
-                            f'-c:a aac -b:a 192k '
-                            f'-movflags +faststart "{output_video}"'
+                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
                         )
                     else:
                         cmd = (
@@ -1992,10 +1990,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f'{_avoid_neg}'
                             f'-vf "{_base_vf}" '
                             f'{_pts_af} '
-                            f'-c:v libx264 -preset medium -crf 18 '
-                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
-                            f'-c:a aac -b:a 192k '
-                            f'-movflags +faststart "{output_video}"'
+                            f'-c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
                         )
                 else:
                     # Calcular posição real da imagem para marginv dinâmico (T5)
@@ -2042,10 +2038,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f"ass='{ass_escaped}':fontsdir={_fontsdir}[bg];"
                             f'[1:v]scale={_logo_w}:-1[wm];'
                             f'[bg][wm]overlay={_logo_x}:{_logo_y}" '
-                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 18 '
-                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
-                            f'-c:a aac -b:a 192k '
-                            f'-movflags +faststart "{output_video}"'
+                            f'-map 0:a{_pts_af} -c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
                         )
                     else:
                         # Sem logo: -vf simples (caminho original)
@@ -2055,10 +2049,8 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f'{_avoid_neg}'
                             f'-vf "{_base_vf},{_ass_filter}" '
                             f'{_pts_af} '
-                            f'-c:v libx264 -preset medium -crf 18 '
-                            f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
-                            f'-c:a aac -b:a 192k '
-                            f'-movflags +faststart "{output_video}"'
+                            f'-c:v libx264 -preset medium -crf 23 '
+                            f'-c:a aac -b:a 128k "{output_video}"'
                         )
                 logger.info(f"[{edicao_id}] FFmpeg render cmd: {cmd[:500]}")
                 processo = await asyncio.create_subprocess_shell(
