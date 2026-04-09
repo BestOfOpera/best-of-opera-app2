@@ -159,8 +159,7 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
     _crop = "crop=if(gt(iw/ih\\,4/3)\\,ih*4/3\\,iw):ih,"
     await run_ffmpeg(
         f'ffmpeg -y -i "{local_video}" '
-        f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos,'
-        f'unsharp=5:5:0.5:5:5:0.25,'
+        f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease,'
         f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
         f'{ass_filter}" '
         f'-c:v libx264 -preset medium -crf 18 '
