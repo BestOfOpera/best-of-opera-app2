@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Search, Check, RefreshCw, Loader2, ExternalLink, Upload, AlertTriangle } from "lucide-react"
 import { getYoutubeUrl } from "@/lib/utils"
+import { toast } from "sonner"
 
 export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
   const router = useRouter()
@@ -37,7 +38,9 @@ export function EditorValidateLyrics({ edicaoId }: { edicaoId: number }) {
         return
       }
       if (!e.arquivo_video_completo && e.status !== "erro") {
-        editorApi.garantirVideo(edicaoId).catch(() => { })
+        editorApi.garantirVideo(edicaoId).catch((err: unknown) => {
+          toast.error(err instanceof Error ? err.message : "Erro ao baixar vídeo")
+        })
       }
     })
   }, [edicaoId, router])

@@ -202,7 +202,7 @@ async def _auto_corte_task(edicao_id: int):
             if not edicao.corte_original_inicio or not edicao.corte_original_fim:
                 logger.info(f"[auto_corte] corte_original vazio, skip edicao_id={edicao_id}")
                 return
-            if edicao.status not in ("corte", "letra"):
+            if edicao.status not in ("corte", "letra", "alinhamento"):
                 logger.warning(f"[auto_corte] Status '{edicao.status}' não permite corte, skip edicao_id={edicao_id}")
                 return
 
@@ -1129,9 +1129,11 @@ def criar_alinhamento_manual(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
 
-    # Buscar letra_id se existir
+    # Buscar letra_id se existir (Letra é banco global: busca por musica+idioma)
     from app.models.letra import Letra
-    letra = db.query(Letra).filter(Letra.edicao_id == edicao_id).order_by(Letra.id.desc()).first()
+    letra = db.query(Letra).filter(
+        Letra.musica == edicao.musica, Letra.idioma == edicao.idioma
+    ).order_by(Letra.id.desc()).first()
 
     alinhamento = Alinhamento(
         edicao_id=edicao_id,
@@ -2352,6 +2354,9 @@ async def re_renderizar_idioma(edicao_id: int, idioma: str):
         if idioma not in idiomas_validos:
             raise HTTPException(400, f"Idioma '{idioma}' não está nos idiomas válidos: {idiomas_validos}")
 
+        # Capturar status ANTES do update (expire_on_commit invalidaria após commit)
+        status_anterior = edicao.status
+
         # Check-and-set atômico
         result = db.execute(
             update(Edicao)
@@ -2368,13 +2373,16 @@ async def re_renderizar_idioma(edicao_id: int, idioma: str):
             db.refresh(edicao)
             raise HTTPException(409, f"Status atual '{edicao.status}' não permite re-renderizar")
 
-        status_anterior = edicao.status
-
-        # Deletar render anterior
+        # Deletar render anterior (arquivo R2 + record)
         render_existente = db.query(Render).filter(
             Render.edicao_id == edicao_id, Render.idioma == idioma
         ).first()
         if render_existente:
+            if render_existente.arquivo:
+                try:
+                    storage.delete(render_existente.arquivo)
+                except Exception:
+                    logger.warning(f"[{edicao_id}] Falha ao deletar R2 {render_existente.arquivo} (re-render)")
             db.delete(render_existente)
             db.commit()
 

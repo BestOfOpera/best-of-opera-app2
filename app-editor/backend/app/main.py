@@ -1072,7 +1072,7 @@ def _run_migrations():
         with engine.begin() as conn:
             conn.execute(text(
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_traducao_edicao_idioma "
-                "ON editor_traducoes_letras (edicao_id, idioma)"
+                "ON editor_traducoes_letra (edicao_id, idioma)"
             ))
         logger.info("Migration: created unique index uq_traducao_edicao_idioma")
     except Exception as e:
