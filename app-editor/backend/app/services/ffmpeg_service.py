@@ -161,10 +161,8 @@ async def renderizar_video(video_cortado_key: str, ass_file: str, output_path: s
         f'-vf "{_crop}scale=1080:1920:force_original_aspect_ratio=decrease,'
         f'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,'
         f'{ass_filter}" '
-        f'-c:v libx264 -preset medium -crf 18 '
-        f'-profile:v high -level 4.1 -pix_fmt yuv420p -g 30 '
-        f'-c:a aac -b:a 192k '
-        f'-movflags +faststart "{output_path}"'
+        f"-c:v libx264 -preset medium -crf 23 "
+        f'-c:a aac -b:a 128k "{output_path}"'
     )
 
     size = Path(output_path).stat().st_size
