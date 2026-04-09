@@ -1167,9 +1167,12 @@ async def lifespan(app: FastAPI):
     import subprocess as _sp
     try:
         _r = _sp.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
-        print(f"[FFMPEG] {_r.stdout.split(chr(10))[0]}", flush=True)
+        _lines = _r.stdout.strip().split("\n")
+        print(f"[FFMPEG VERSION] {_lines[0]}", flush=True)
+        for _l in _lines[1:4]:
+            print(f"[FFMPEG VERSION] {_l}", flush=True)
     except Exception:
-        print("[FFMPEG] não encontrado", flush=True)
+        print("[FFMPEG VERSION] não encontrado", flush=True)
     # Criar tabelas no startup
     Base.metadata.create_all(bind=engine)
     _run_migrations()

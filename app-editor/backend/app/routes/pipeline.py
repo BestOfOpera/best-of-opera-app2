@@ -2030,7 +2030,16 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
                             f'-c:v libx264 -preset medium -crf 23 '
                             f'-c:a aac -b:a 128k "{output_video}"'
                         )
-                logger.info(f"[{edicao_id}] FFmpeg render cmd: {cmd[:500]}")
+                # ── DIAG TEMPORÁRIO: input do render ──
+                _input_size_mb = _Path(local_video).stat().st_size / 1024 / 1024
+                try:
+                    from app.services.ffmpeg_service import probar_video as _probar_in
+                    _in_w, _in_h = await _probar_in(local_video)
+                    logger.info(f"[{edicao_id}] DIAG RENDER INPUT: {_in_w}x{_in_h}, {_input_size_mb:.1f}MB, file={local_video}")
+                except Exception:
+                    logger.info(f"[{edicao_id}] DIAG RENDER INPUT: ffprobe falhou, {_input_size_mb:.1f}MB, file={local_video}")
+                logger.info(f"[{edicao_id}] DIAG RENDER CMD COMPLETO: {cmd}")
+                # ── FIM DIAG ──
                 processo = await asyncio.create_subprocess_shell(
                     cmd,
                     stdout=asyncio.subprocess.PIPE,
@@ -2050,13 +2059,14 @@ async def _render_task(edicao_id: int, idiomas_renderizar: list = None, is_previ
 
                 tamanho = _Path(output_video).stat().st_size
 
-                # Verificação de qualidade do output
+                # ── DIAG TEMPORÁRIO: output do render ──
                 try:
                     from app.services.ffmpeg_service import probar_video as _probar_out
                     _out_w, _out_h = await _probar_out(output_video)
-                    logger.info(f"[{edicao_id}] Output {idioma}: {_out_w}x{_out_h}, {tamanho/1024/1024:.1f}MB")
+                    logger.info(f"[{edicao_id}] DIAG RENDER OUTPUT: {_out_w}x{_out_h}, {tamanho/1024/1024:.1f}MB, file={output_video}")
                 except Exception:
-                    logger.warning(f"[{edicao_id}] ffprobe do output falhou — {tamanho/1024/1024:.1f}MB")
+                    logger.info(f"[{edicao_id}] DIAG RENDER OUTPUT: ffprobe falhou, {tamanho/1024/1024:.1f}MB")
+                # ── FIM DIAG ──
 
                 # 4. Upload render para R2
                 if r2_base_val:

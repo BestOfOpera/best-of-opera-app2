@@ -105,15 +105,37 @@ async def cortar_na_janela_overlay(
     cortado_local = str(output_dir / "video_cortado.mp4")
     cru_local = str(output_dir / "video_cru.mp4")
 
+    # ── DIAG TEMPORÁRIO: input do corte ──
+    import logging as _logging
+    _log = _logging.getLogger("rc_editor")
+    _input_size_mb = Path(local_video).stat().st_size / 1024 / 1024
+    try:
+        _in_w, _in_h = await probar_video(local_video)
+        _log.info(f"[{video_id}] DIAG CORTE INPUT: {_in_w}x{_in_h}, {_input_size_mb:.1f}MB, file={local_video}")
+    except Exception:
+        _log.info(f"[{video_id}] DIAG CORTE INPUT: ffprobe falhou, {_input_size_mb:.1f}MB, file={local_video}")
+    # ── FIM DIAG ──
+
     # Bug A Fix: Usar busca precisa com re-encode para garantir que o corte
     # comece exatamente no frame solicitado, sem depender de keyframes próximos.
-    await run_ffmpeg(
+    _corte_cmd = (
         f'ffmpeg -y -ss {janela_inicio_sec} -to {janela_fim_sec} -i "{local_video}" '
         f'-avoid_negative_ts make_zero '
         f'-vf "setpts=PTS-STARTPTS" -af "asetpts=PTS-STARTPTS" '
         f'-c:v libx264 -preset ultrafast -crf 18 '
         f'-c:a aac -b:a 192k "{cortado_local}"'
     )
+    _log.info(f"[{video_id}] DIAG CORTE CMD COMPLETO: {_corte_cmd}")
+    await run_ffmpeg(_corte_cmd)
+
+    # ── DIAG TEMPORÁRIO: output do corte ──
+    _output_size_mb = Path(cortado_local).stat().st_size / 1024 / 1024
+    try:
+        _out_w, _out_h = await probar_video(cortado_local)
+        _log.info(f"[{video_id}] DIAG CORTE OUTPUT: {_out_w}x{_out_h}, {_output_size_mb:.1f}MB, file={cortado_local}")
+    except Exception:
+        _log.info(f"[{video_id}] DIAG CORTE OUTPUT: ffprobe falhou, {_output_size_mb:.1f}MB")
+    # ── FIM DIAG ──
 
     shutil.copy(cortado_local, cru_local)
 
