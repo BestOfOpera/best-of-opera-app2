@@ -83,6 +83,7 @@ export interface Render {
   id: number
   edicao_id: number
   idioma: string
+  tipo: string
   status: string
   arquivo: string | null
   tamanho_bytes: number | null
@@ -297,6 +298,13 @@ export const editorApi = {
     const form = new FormData()
     form.append("file", file)
     return requestFormData<{ status: string }>(`${BASE()}/edicoes/${id}/upload-video`, form)
+  },
+  uploadRenderManual: (id: number, idioma: string, file: File) => {
+    const form = new FormData()
+    form.append("file", file)
+    return requestFormData<{ status: string; idioma: string; arquivo: string; tamanho_bytes: number }>(
+      `${BASE()}/edicoes/${id}/renders/${idioma}/upload-render-manual`, form
+    )
   },
   uploadOverlays: (id: number, file: File) => {
     const form = new FormData()

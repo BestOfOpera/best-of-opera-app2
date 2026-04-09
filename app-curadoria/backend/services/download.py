@@ -229,6 +229,19 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
         if not dl_path_actual:
             raise Exception("Download falhou: yt-dlp (bot detection) e cobalt.tools falharam. Use upload manual.")
 
+        # Diagnóstico: logar resolução/codec do vídeo baixado
+        try:
+            _probe = subprocess.run(
+                ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                 '-show_entries', 'stream=width,height,codec_name,bit_rate',
+                 '-of', 'csv=p=0', dl_path_actual],
+                capture_output=True, text=True, timeout=10
+            )
+            _size_mb = os.path.getsize(dl_path_actual) / (1024 * 1024)
+            logger.info(f"[{video_id}] Vídeo baixado: {_probe.stdout.strip()} | {_size_mb:.1f}MB — {dl_path_actual}")
+        except Exception:
+            pass
+
         manager.set_task(video_id, {"status": "processing", "progress": 70, "message": "Enviando para o R2..."})
 
         try:

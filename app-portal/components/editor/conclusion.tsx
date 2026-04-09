@@ -102,6 +102,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [uploadingSource, setUploadingSource] = useState(false)
   const [sourceUploaded, setSourceUploaded] = useState<number | null>(null)
   const sourceFileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingRender, setUploadingRender] = useState<string | null>(null)
+  const renderFileRef = useRef<HTMLInputElement>(null)
+  const uploadIdiomaRef = useRef<string>("")
 
   const isOverlayDesatualizado = (idioma: string): boolean => {
     const overlayTs = overlayTimestamps[idioma]
@@ -254,6 +257,31 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setError("Erro na renderização: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setRenderizando(false)
+    }
+  }
+
+  const handleImportRender = (idioma: string) => {
+    uploadIdiomaRef.current = idioma
+    renderFileRef.current?.click()
+  }
+
+  const onRenderFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = "" // reset para permitir re-selecionar mesmo arquivo
+    const idioma = uploadIdiomaRef.current
+    setUploadingRender(idioma)
+    setError("")
+    try {
+      await editorApi.uploadRenderManual(edicaoId, idioma, file)
+      toast.success(`Render ${idioma.toUpperCase()} importado com sucesso!`)
+      await load()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro"
+      toast.error(`Erro ao importar render ${idioma.toUpperCase()}: ${msg}`)
+      setError(`Erro ao importar render ${idioma.toUpperCase()}: ${msg}`)
+    } finally {
+      setUploadingRender(null)
     }
   }
 
@@ -1149,6 +1177,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </CardContent>
       </Card>
 
+      {/* Hidden file input para importar render manual */}
+      <input type="file" ref={renderFileRef} accept=".mp4" className="hidden" onChange={onRenderFileSelected} />
+
       {/* Renders list */}
       {(renders.length > 0 || edicao.status === "renderizando") && (
         <Card>
@@ -1202,6 +1233,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                     ) : (
                       <>
                         <span className="text-xs">Pendente</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 h-7 text-xs"
+                          onClick={() => handleImportRender(code)}
+                          disabled={uploadingRender === code}
+                        >
+                          {uploadingRender === code
+                            ? <><RefreshCw className="h-3 w-3 animate-spin" /> Importando...</>
+                            : <><Upload className="h-3 w-3" /> Importar</>
+                          }
+                        </Button>
                         {!edicao.eh_instrumental && ["concluido", "preview_pronto", "renderizando", "erro"].includes(edicao.status) && (
                           <Dialog>
                             <DialogTrigger asChild>
@@ -1308,6 +1351,22 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                             </div>
                           </DialogContent>
                         </Dialog>
+                        {render.tipo === "manual" && (
+                          <span className="text-[10px] font-normal text-blue-600 border border-blue-300 rounded px-1.5 py-0.5">manual</span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => handleImportRender(code)}
+                          disabled={uploadingRender === code}
+                          title="Substituir por render importado"
+                        >
+                          {uploadingRender === code
+                            ? <RefreshCw className="h-3 w-3 animate-spin" />
+                            : <Upload className="h-3 w-3" />
+                          }
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -1328,7 +1387,19 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="ml-auto gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
+                          className="gap-1.5 h-7 text-xs"
+                          onClick={() => handleImportRender(code)}
+                          disabled={uploadingRender === code}
+                        >
+                          {uploadingRender === code
+                            ? <><RefreshCw className="h-3 w-3 animate-spin" /> Importando...</>
+                            : <><Upload className="h-3 w-3" /> Importar</>
+                          }
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
                           onClick={() => handleReRenderizarIndividual(code)}
                           disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
                         >

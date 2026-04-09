@@ -303,6 +303,65 @@ async def upload_video(edicao_id: int, file: UploadFile = File(...), db: Session
     return {"status": "ok", "arquivo": r2_key}
 
 
+@router.post("/edicoes/{edicao_id}/renders/{idioma}/upload-render-manual")
+async def upload_render_manual(edicao_id: int, idioma: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Upload manual de render pronto (com legendas). Preserva o arquivo original sem re-encodar."""
+    edicao = db.get(Edicao, edicao_id)
+    if not edicao:
+        raise HTTPException(404, "Edição não encontrada")
+
+    if not file.filename or not file.filename.lower().endswith(".mp4"):
+        raise HTTPException(400, "Arquivo deve ser .mp4")
+
+    # Salvar localmente
+    output_dir = FilePath(STORAGE_PATH) / str(edicao_id) / "renders" / idioma
+    output_dir.mkdir(parents=True, exist_ok=True)
+    local_path = str(output_dir / "render_manual.mp4")
+
+    with open(local_path, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+
+    tamanho = os.path.getsize(local_path)
+
+    # Upload para R2
+    prefix = _get_perfil_r2_prefix(edicao, db)
+    base = edicao.r2_base or check_conflict(edicao.artista, edicao.musica, edicao.youtube_video_id or "", r2_prefix=prefix)
+    full_base = f"{prefix}/{base}" if prefix else base
+    r2_key = f"{full_base}/renders/{idioma}/render_manual.mp4"
+    storage.upload_file(local_path, r2_key)
+
+    # Upsert no editor_renders
+    existing = db.query(Render).filter(
+        Render.edicao_id == edicao_id, Render.idioma == idioma
+    ).first()
+    if existing:
+        existing.tipo = "manual"
+        existing.arquivo = r2_key
+        existing.tamanho_bytes = tamanho
+        existing.status = "concluido"
+        existing.erro_msg = None
+    else:
+        db.add(Render(
+            edicao_id=edicao_id,
+            idioma=idioma,
+            tipo="manual",
+            arquivo=r2_key,
+            tamanho_bytes=tamanho,
+            status="concluido",
+        ))
+    db.commit()
+
+    # Limpar arquivo local
+    try:
+        os.remove(local_path)
+    except OSError:
+        pass
+
+    logger.info(f"[{edicao_id}] Render manual upload: {idioma} → {r2_key} ({tamanho} bytes)")
+    return {"status": "ok", "idioma": idioma, "arquivo": r2_key, "tamanho_bytes": tamanho}
+
+
 def _find_video_in_export(edicao):
     """Procura vídeo já baixado na pasta EXPORT_PATH (ex: iCloud do APP1)."""
     if not EXPORT_PATH:
