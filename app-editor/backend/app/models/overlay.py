@@ -13,3 +13,4 @@ class Overlay(Base):
     segmentos_original = Column(JSON, nullable=False)
     segmentos_reindexado = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

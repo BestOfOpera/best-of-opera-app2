@@ -304,7 +304,7 @@ export const editorApi = {
     return requestFormData<{ status: string; salvos: string[]; erros: Record<string, string>; total_segmentos: number }>(`${BASE()}/edicoes/${id}/upload-overlays`, form)
   },
   listarOverlays: (id: number) =>
-    request<Record<string, { id: number; segmentos: OverlaySegmento[]; segmentos_original: OverlaySegmento[] }>>(`${BASE()}/edicoes/${id}/overlays`),
+    request<Record<string, { id: number; segmentos: OverlaySegmento[]; segmentos_original: OverlaySegmento[]; updated_at: string | null }>>(`${BASE()}/edicoes/${id}/overlays`),
   atualizarOverlay: (id: number, idioma: string, segmentos: OverlaySegmento[]) =>
     request<{ status: string; idioma: string; segmentos_count: number; mensagem: string }>(
       `${BASE()}/edicoes/${id}/overlays/${idioma}`,

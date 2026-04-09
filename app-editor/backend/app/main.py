@@ -1147,6 +1147,18 @@ def _run_migrations():
                     except Exception as e:
                         logger.warning(f"Migration editor_reports/{col_name}: {e}")
 
+    # Migration: updated_at em editor_overlays
+    if "editor_overlays" in insp.get_table_names():
+        overlay_cols = [c["name"] for c in insp.get_columns("editor_overlays")]
+        if "updated_at" not in overlay_cols:
+            with engine.begin() as conn:
+                try:
+                    conn.execute(text("ALTER TABLE editor_overlays ADD COLUMN updated_at TIMESTAMP DEFAULT NOW()"))
+                    conn.execute(text("UPDATE editor_overlays SET updated_at = created_at"))
+                    logger.info("Migration editor_overlays: added column updated_at")
+                except Exception as e:
+                    logger.warning(f"Migration editor_overlays/updated_at: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

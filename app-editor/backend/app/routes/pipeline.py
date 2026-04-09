@@ -2803,6 +2803,7 @@ def listar_renders(edicao_id: int, db: Session = Depends(get_db)):
             "tamanho_bytes": r.tamanho_bytes,
             "status": r.status,
             "erro_msg": r.erro_msg,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
         }
         for r in renders
     ]

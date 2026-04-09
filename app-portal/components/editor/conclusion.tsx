@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import {
   ArrowLeft, Download, Play, RefreshCw, CheckCircle, XCircle,
   ExternalLink, Pencil, RotateCcw, Eye, MessageSquare, Package,
-  Lock, AlertTriangle, Wrench, Trash2,
+  Lock, AlertTriangle, Wrench, Trash2, FolderOutput,
 } from "lucide-react"
 
 const IDIOMAS = [
@@ -91,13 +91,22 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [semLegendas, setSemLegendas] = useState(false)
   const [mostrarConfirmLimpar, setMostrarConfirmLimpar] = useState(false)
   const [limpando, setLimpando] = useState(false)
+  const [exportando, setExportando] = useState(false)
   const [overlayEditOpen, setOverlayEditOpen] = useState(false)
   const [overlayData, setOverlayData] = useState<Record<string, OverlaySegmento[]>>({})
   const [overlayDirty, setOverlayDirty] = useState<Record<string, boolean>>({})
   const [overlayLoading, setOverlayLoading] = useState(false)
   const [savingOverlay, setSavingOverlay] = useState<string | null>(null)
-  const [overlayEditados, setOverlayEditados] = useState<Set<string>>(new Set())
+  const [overlayTimestamps, setOverlayTimestamps] = useState<Record<string, string | null>>({})
   const [preservarTraducoes, setPreservarTraducoes] = useState(false)
+
+  const isOverlayDesatualizado = (idioma: string): boolean => {
+    const overlayTs = overlayTimestamps[idioma]
+    if (!overlayTs) return false
+    const render = renders.find(r => r.idioma === idioma && r.status === "concluido")
+    if (!render?.created_at) return false
+    return new Date(overlayTs).getTime() > new Date(render.created_at).getTime()
+  }
 
   const loadOverlays = async () => {
     setOverlayLoading(true)
@@ -109,8 +118,13 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       }
       setOverlayData(parsed)
       setOverlayDirty({})
+      const ts: Record<string, string | null> = {}
+      for (const [idioma, info] of Object.entries(data)) {
+        ts[idioma] = info.updated_at ?? null
+      }
+      setOverlayTimestamps(ts)
     } catch {
-      // silencioso — overlay edit é opcional
+      toast.error("Erro ao carregar overlays")
     } finally {
       setOverlayLoading(false)
     }
@@ -121,8 +135,14 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     try {
       await editorApi.atualizarOverlay(edicaoId, idioma, overlayData[idioma])
       setOverlayDirty(prev => ({ ...prev, [idioma]: false }))
-      setOverlayEditados(prev => new Set(prev).add(idioma))
-      toast.success(`Overlay ${idioma.toUpperCase()} salvo. Re-aplique o corte e re-renderize para aplicar.`, {
+      // Refresh timestamps do servidor para badge persistente
+      const freshData = await editorApi.listarOverlays(edicaoId)
+      const ts: Record<string, string | null> = {}
+      for (const [lang, info] of Object.entries(freshData)) {
+        ts[lang] = info.updated_at ?? null
+      }
+      setOverlayTimestamps(ts)
+      toast.success(`Overlay ${idioma.toUpperCase()} salvo. Re-renderize para aplicar.`, {
         action: {
           label: `Re-Renderizar ${idioma.toUpperCase()}`,
           onClick: () => handleReRenderizarIndividual(idioma),
@@ -147,6 +167,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setSemLyrics(!!e.sem_lyrics)
       setRenders(r)
       setFilaStatus(fila)
+
+      // Carregar timestamps de overlays para badge persistente (non-blocking)
+      loadOverlays()
 
       // Instrumental em "corte": aplicar corte automaticamente (uma única vez)
       // Se a edição tem janela_inicio/fim definidos (do formulário), usa esses.
@@ -219,11 +242,6 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     setError("")
     try {
       await editorApi.reRenderizar(edicaoId, idioma)
-      setOverlayEditados(prev => {
-        const next = new Set(prev)
-        next.delete(idioma)
-        return next
-      })
       toast.info(`Re-render ${idioma.toUpperCase()} enfileirado. Aguardando conclusão...`)
       await load() // Atualiza status para "renderizando" → ativa polling adaptivo
       // NÃO limpar rendendoIndividuais aqui — useEffect abaixo detecta conclusão
@@ -360,6 +378,18 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setError("Erro ao iniciar pacote: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
       setBaixandoTodos(false)
+    }
+  }
+
+  const handleExportarRenders = async () => {
+    setExportando(true)
+    try {
+      const result = await editorApi.exportarRenders(edicaoId)
+      toast.success(`${result.arquivos_exportados} arquivo(s) exportados para o servidor.`)
+    } catch (err: unknown) {
+      toast.error("Erro ao exportar: " + (err instanceof Error ? err.message : "Erro"))
+    } finally {
+      setExportando(false)
     }
   }
 
@@ -1040,20 +1070,33 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Vídeos Renderizados ({concluidos.length}/{IDIOMAS.length})</CardTitle>
             {todosOk ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100"
-                onClick={handleBaixarTodos}
-                disabled={baixandoTodos}
-              >
-                {baixandoTodos ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
-                {baixandoTodos && pacoteStatus?.status === "gerando"
-                  ? "Gerando ZIP..."
-                  : baixandoTodos
-                    ? "Iniciando..."
-                    : "Baixar Todos"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-green-400 text-green-700 hover:bg-green-100"
+                  onClick={handleBaixarTodos}
+                  disabled={baixandoTodos}
+                >
+                  {baixandoTodos ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Package className="h-3.5 w-3.5" />}
+                  {baixandoTodos && pacoteStatus?.status === "gerando"
+                    ? "Gerando ZIP..."
+                    : baixandoTodos
+                      ? "Iniciando..."
+                      : "Baixar Todos"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="gap-1.5 text-muted-foreground hover:text-foreground"
+                  onClick={handleExportarRenders}
+                  disabled={exportando}
+                  title="Exportar para pasta local do servidor"
+                >
+                  {exportando ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <FolderOutput className="h-3.5 w-3.5" />}
+                  Exportar
+                </Button>
+              </div>
             ) : concluidos.length > 0 ? (
               <span className="text-xs text-muted-foreground">Baixe individualmente</span>
             ) : null}
@@ -1109,16 +1152,16 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                   </div>
                 )
                 return (
-                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${overlayEditados.has(code) ? "bg-amber-50 hover:bg-amber-100 transition" : render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
+                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isOverlayDesatualizado(code) ? "bg-amber-50 hover:bg-amber-100 transition" : render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
                     <span className="text-lg">{flag}</span>
                     <span className="flex-1 font-medium">{label}
-                      {overlayEditados.has(code) && (
+                      {isOverlayDesatualizado(code) && (
                         <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 rounded px-1.5 py-0.5">overlay editado</span>
                       )}
                     </span>
                     {render.status === "concluido" ? (
                       <>
-                        {overlayEditados.has(code) ? (
+                        {isOverlayDesatualizado(code) ? (
                           <AlertTriangle className="h-4 w-4 text-amber-500" />
                         ) : (
                           <CheckCircle className="h-4 w-4 text-green-500" />
