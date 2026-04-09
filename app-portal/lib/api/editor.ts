@@ -83,6 +83,7 @@ export interface Render {
   id: number
   edicao_id: number
   idioma: string
+  tipo?: string
   status: string
   arquivo: string | null
   tamanho_bytes: number | null
@@ -345,6 +346,15 @@ export const editorApi = {
   aprovarPreview: (id: number, params: { aprovado: boolean; notas_revisao?: string }, opts?: { sem_legendas?: boolean }) => {
     const qs = opts?.sem_legendas ? "?sem_legendas=true" : ""
     return request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview${qs}`, { method: "POST", body: JSON.stringify(params) })
+  },
+  uploadRenderManual: (id: number, file: File, idioma: string) => {
+    const form = new FormData()
+    form.append("file", file)
+    return requestFormData<{ id: number; url: string; idioma: string; tamanho_bytes: number }>(
+      `${BASE()}/edicoes/${id}/upload-render-manual?idioma=${encodeURIComponent(idioma)}`,
+      form,
+      300_000, // 5 min timeout para uploads grandes
+    )
   },
   listarRenders: (id: number) =>
     request<Render[]>(`${BASE()}/edicoes/${id}/renders`),
