@@ -200,6 +200,19 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
 
             def _download():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    # Logar formato selecionado ANTES do download (não depende de ffprobe)
+                    try:
+                        info = ydl.extract_info(youtube_url, download=False)
+                        if info:
+                            _fw = info.get('width', '?')
+                            _fh = info.get('height', '?')
+                            _fvc = info.get('vcodec', '?')
+                            _fac = info.get('acodec', '?')
+                            _fid = info.get('format_id', '?')
+                            _ffmt = info.get('format', '?')
+                            logger.info(f"[yt-dlp] Formato selecionado: {_fid} | {_fw}x{_fh} | vcodec={_fvc} acodec={_fac} | {_ffmt}")
+                    except Exception as _info_err:
+                        logger.warning(f"[yt-dlp] extract_info falhou (download continua): {_info_err}")
                     n_errors = ydl.download([youtube_url])
                     if n_errors:
                         raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
@@ -238,9 +251,11 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
                 capture_output=True, text=True, timeout=10
             )
             _size_mb = os.path.getsize(dl_path_actual) / (1024 * 1024)
-            logger.info(f"[{video_id}] Vídeo baixado: {_probe.stdout.strip()} | {_size_mb:.1f}MB — {dl_path_actual}")
-        except Exception:
-            pass
+            logger.info(f"[{video_id}] ffprobe: {_probe.stdout.strip()} | {_size_mb:.1f}MB — {dl_path_actual}")
+            if _probe.returncode != 0:
+                logger.warning(f"[{video_id}] ffprobe stderr: {_probe.stderr.strip()}")
+        except Exception as _probe_err:
+            logger.warning(f"[{video_id}] ffprobe falhou: {_probe_err}")
 
         manager.set_task(video_id, {"status": "processing", "progress": 70, "message": "Enviando para o R2..."})
 
