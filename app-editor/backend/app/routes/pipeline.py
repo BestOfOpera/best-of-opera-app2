@@ -27,6 +27,18 @@ from shared.storage_service import storage, lang_prefix, check_conflict, save_yo
 router = APIRouter(prefix="/api/v1/editor", tags=["pipeline"])
 
 
+@router.get("/diag-ffmpeg")
+async def diag_ffmpeg():
+    import subprocess, os
+    ffv = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+    debian = os.popen('cat /etc/os-release | grep PRETTY').read().strip()
+    return {
+        "ffmpeg_version": ffv.stdout.split('\n')[0],
+        "debian": debian,
+        "dockerfile_base": "python:3.11-slim-bookworm (expected)"
+    }
+
+
 def _capture_sentry(e: BaseException, edicao_id: int, etapa: str, extra: dict = None):
     if isinstance(e, asyncio.CancelledError):
         return
