@@ -108,7 +108,23 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     return new Date(overlayTs).getTime() > new Date(render.created_at).getTime()
   }
 
+  // Carrega timestamps para badge (NÃO sobrescreve overlayData — seguro para polling)
+  const loadOverlayTimestamps = async () => {
+    try {
+      const data = await editorApi.listarOverlays(edicaoId)
+      const ts: Record<string, string | null> = {}
+      for (const [idioma, info] of Object.entries(data)) {
+        ts[idioma] = info.updated_at ?? null
+      }
+      setOverlayTimestamps(ts)
+    } catch { /* timestamps são best-effort */ }
+  }
+
+  // Carrega overlays completos (dados + timestamps). NÃO chamar no polling.
   const loadOverlays = async () => {
+    // Não sobrescrever se operador tem edições pendentes
+    const hasDirty = Object.values(overlayDirty).some(Boolean)
+    if (hasDirty) return
     setOverlayLoading(true)
     try {
       const data = await editorApi.listarOverlays(edicaoId)
@@ -169,7 +185,8 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
       setFilaStatus(fila)
 
       // Carregar timestamps de overlays para badge persistente (non-blocking)
-      loadOverlays()
+      // NÃO chamar loadOverlays() aqui — sobrescreve edições do operador durante polling
+      loadOverlayTimestamps()
 
       // Instrumental em "corte": aplicar corte automaticamente (uma única vez)
       // Se a edição tem janela_inicio/fim definidos (do formulário), usa esses.
@@ -1162,7 +1179,21 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
                     {render.status === "concluido" ? (
                       <>
                         {isOverlayDesatualizado(code) ? (
-                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1.5 h-7 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
+                              onClick={() => handleReRenderizarIndividual(code)}
+                              disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                            >
+                              {rendendoIndividuais.has(code)
+                                ? <RefreshCw className="h-3 w-3 animate-spin" />
+                                : <RefreshCw className="h-3 w-3" />}
+                              Re-Renderizar
+                            </Button>
+                          </>
                         ) : (
                           <CheckCircle className="h-4 w-4 text-green-500" />
                         )}
