@@ -1163,6 +1163,13 @@ def _run_migrations():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Log FFmpeg version no startup (diagnóstico de qualidade)
+    import subprocess as _sp
+    try:
+        _r = _sp.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
+        print(f"[FFMPEG] {_r.stdout.split(chr(10))[0]}", flush=True)
+    except Exception:
+        print("[FFMPEG] não encontrado", flush=True)
     # Criar tabelas no startup
     Base.metadata.create_all(bind=engine)
     _run_migrations()

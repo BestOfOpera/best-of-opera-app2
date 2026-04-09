@@ -1,8 +1,8 @@
-# deploy trigger 2026-04-09
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig curl \
     && rm -rf /var/lib/apt/lists/* \
+    && ffmpeg -version | head -1 \
     && pip install --no-cache-dir yt-dlp \
     && yt-dlp -U
 
