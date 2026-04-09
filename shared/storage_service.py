@@ -35,6 +35,11 @@ from shared.retry import sync_retry
 # Exceções transientes de rede do boto3 (ConnectTimeoutError/ReadTimeoutError subclassam ConnectionError)
 _R2_TRANSIENT = (ConnectionError, OSError)
 
+
+class R2UploadSizeMismatch(Exception):
+    """Upload completou mas tamanho no R2 diverge do local — arquivo corrompido."""
+    pass
+
 logger = logging.getLogger(__name__)
 
 # ─── Configuração R2 via variáveis de ambiente ───
@@ -174,7 +179,7 @@ class StorageService:
     """Interface unificada de storage: R2 em produção, filesystem local em dev."""
 
     def upload_file(self, local_path: str, key: str) -> str:
-        """Upload arquivo local para R2. Retorna o key."""
+        """Upload arquivo local para R2 com verificação de integridade. Retorna o key."""
         if not _r2_configured():
             dest = _fallback_path(key)
             if os.path.abspath(local_path) != os.path.abspath(dest):
@@ -182,33 +187,33 @@ class StorageService:
             logger.debug(f"[storage:local] {local_path} → {dest}")
             return key
 
-        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
-        def _upload():
+        local_size = Path(local_path).stat().st_size
+
+        @sync_retry(max_attempts=3, backoff_base=2.0,
+                     exceptions=_R2_TRANSIENT + (R2UploadSizeMismatch,))
+        def _upload_and_verify():
             import mimetypes
             content_type = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
             client = _get_s3_client()
             client.upload_file(local_path, R2_BUCKET, key,
                                ExtraArgs={'ContentType': content_type})
 
-        _upload()
-
-        # Verificação pós-upload: confirmar que o arquivo existe no R2
-        try:
-            client = _get_s3_client()
+            # Verificação pós-upload: tamanho deve bater
             head = client.head_object(Bucket=R2_BUCKET, Key=key)
             remote_size = head.get("ContentLength", 0)
-            local_size = Path(local_path).stat().st_size
             if remote_size == 0:
-                logger.error(f"[storage:r2] VERIFICAÇÃO FALHOU: arquivo vazio no R2 — key={key}")
-            elif abs(remote_size - local_size) > 1024:
-                logger.warning(
-                    f"[storage:r2] Tamanho divergente: local={local_size}, "
-                    f"remote={remote_size}, key={key}"
+                raise R2UploadSizeMismatch(
+                    f"Arquivo vazio no R2 após upload — key={key}"
                 )
-        except Exception as e:
-            logger.warning(f"[storage:r2] Verificação pós-upload falhou (upload pode ter sido ok): {e}")
+            if abs(remote_size - local_size) > 1024:
+                raise R2UploadSizeMismatch(
+                    f"Tamanho divergente: local={local_size}, "
+                    f"remote={remote_size} (faltam {(local_size - remote_size) / 1024:.0f}KB) — key={key}"
+                )
 
-        logger.info(f"[storage:r2] upload {key} ({Path(local_path).stat().st_size / 1024 / 1024:.1f}MB)")
+        _upload_and_verify()
+
+        logger.info(f"[storage:r2] upload OK {key} ({local_size / 1024 / 1024:.1f}MB)")
         return key
 
     def download_file(self, key: str, local_path: Optional[str] = None) -> str:
