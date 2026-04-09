@@ -128,8 +128,8 @@ class EdicaoUpdate(BaseModel):
 
 class EdicaoOut(BaseModel):
     id: int
-    youtube_url: str
-    youtube_video_id: str
+    youtube_url: Optional[str] = None
+    youtube_video_id: Optional[str] = None
     artista: str
     musica: str
     compositor: Optional[str] = None
