@@ -101,6 +101,14 @@ def _get_ydl_opts(dl_path: str):
         # Player client web — mais compatível com cookies e evita pot_from_server
         # (que requer servidor HTTP separado impossível no Railway)
         'extractor_args': {'youtube': {'player_client': ['web']}},
+        'progress_hooks': [lambda d: logger.info(
+            f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
+            f"{d.get('info_dict',{}).get('height','?')} "
+            f"vcodec={d.get('info_dict',{}).get('vcodec','?')} "
+            f"acodec={d.get('info_dict',{}).get('acodec','?')} "
+            f"format_id={d.get('info_dict',{}).get('format_id','?')} "
+            f"filesize={d.get('info_dict',{}).get('filesize','?')}"
+        ) if d.get('status') == 'finished' else None],
     }
 
     # Cookies support (ERR-055) — base64 preserva TABs que Railway quebra em raw text
@@ -200,19 +208,6 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
 
             def _download():
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    # Logar formato selecionado ANTES do download (não depende de ffprobe)
-                    try:
-                        info = ydl.extract_info(youtube_url, download=False)
-                        if info:
-                            _fw = info.get('width', '?')
-                            _fh = info.get('height', '?')
-                            _fvc = info.get('vcodec', '?')
-                            _fac = info.get('acodec', '?')
-                            _fid = info.get('format_id', '?')
-                            _ffmt = info.get('format', '?')
-                            logger.info(f"[yt-dlp] Formato selecionado: {_fid} | {_fw}x{_fh} | vcodec={_fvc} acodec={_fac} | {_ffmt}")
-                    except Exception as _info_err:
-                        logger.warning(f"[yt-dlp] extract_info falhou (download continua): {_info_err}")
                     n_errors = ydl.download([youtube_url])
                     if n_errors:
                         raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
