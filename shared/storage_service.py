@@ -179,7 +179,7 @@ class StorageService:
     """Interface unificada de storage: R2 em produção, filesystem local em dev."""
 
     def upload_file(self, local_path: str, key: str) -> str:
-        """Upload arquivo local para R2 com verificação de integridade. Retorna o key."""
+        """Upload arquivo local para R2 com verificação de existência. Retorna o key."""
         if not _r2_configured():
             dest = _fallback_path(key)
             if os.path.abspath(local_path) != os.path.abspath(dest):
@@ -189,29 +189,18 @@ class StorageService:
 
         local_size = Path(local_path).stat().st_size
 
-        @sync_retry(max_attempts=3, backoff_base=2.0,
-                     exceptions=_R2_TRANSIENT + (R2UploadSizeMismatch,))
-        def _upload_and_verify():
+        @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
+        def _upload():
             import mimetypes
             content_type = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
             client = _get_s3_client()
             client.upload_file(local_path, R2_BUCKET, key,
                                ExtraArgs={'ContentType': content_type})
 
-            # Verificação pós-upload: tamanho deve bater
-            head = client.head_object(Bucket=R2_BUCKET, Key=key)
-            remote_size = head.get("ContentLength", 0)
-            if remote_size == 0:
-                raise R2UploadSizeMismatch(
-                    f"Arquivo vazio no R2 após upload — key={key}"
-                )
-            if abs(remote_size - local_size) > 1024:
-                raise R2UploadSizeMismatch(
-                    f"Tamanho divergente: local={local_size}, "
-                    f"remote={remote_size} (faltam {(local_size - remote_size) / 1024:.0f}KB) — key={key}"
-                )
+            # Verificação pós-upload: confirmar que o arquivo existe no R2
+            client.head_object(Bucket=R2_BUCKET, Key=key)
 
-        _upload_and_verify()
+        _upload()
 
         logger.info(f"[storage:r2] upload OK {key} ({local_size / 1024 / 1024:.1f}MB)")
         return key
