@@ -357,7 +357,7 @@ export const editorApi = {
   uploadVideoSource: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<{ url: string; tamanho_bytes: number }>(
+    return requestFormData<{ url: string; tamanho_bytes: number; renders_invalidados: number }>(
       `${BASE()}/edicoes/${id}/upload-video-source`,
       form,
       600_000, // 10 min timeout para vídeos grandes
