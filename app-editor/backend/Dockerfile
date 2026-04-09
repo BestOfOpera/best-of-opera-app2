@@ -1,9 +1,10 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fontconfig curl \
+    && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
-    && ffmpeg -version | head -1 \
-    && pip install --no-cache-dir yt-dlp \
+    && pip install --no-cache-dir yt-dlp bgutil-ytdlp-pot-provider \
     && yt-dlp -U
 
 WORKDIR /app
