@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone, timedelta
 from pathlib import Path as FilePath
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import update
@@ -2783,14 +2783,13 @@ def download_pacote(edicao_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/edicoes/{edicao_id}/upload-render-manual")
-async def upload_render_manual(
+@router.post("/edicoes/{edicao_id}/upload-video-source")
+async def upload_video_source(
     edicao_id: int,
     file: UploadFile = File(...),
-    idioma: str = Query("pt"),
     db: Session = Depends(get_db),
 ):
-    """Upload manual de vídeo renderizado (substitui render automático como alternativa)."""
+    """Upload manual do vídeo source (original.mp4) em alta qualidade."""
     # 1. Validar edição
     edicao = db.get(Edicao, edicao_id)
     if not edicao:
@@ -2804,73 +2803,46 @@ async def upload_render_manual(
     # 3. Salvar temporariamente (streaming 1MB chunks)
     output_dir = FilePath(STORAGE_PATH) / str(edicao_id)
     output_dir.mkdir(parents=True, exist_ok=True)
-    local_path = str(output_dir / f"render_manual_{idioma}.mp4")
+    local_path = str(output_dir / "original.mp4")
 
     tamanho_bytes = 0
-    max_bytes = 200 * 1024 * 1024  # 200MB
+    max_bytes = 500 * 1024 * 1024  # 500MB
     try:
         with open(local_path, "wb") as f:
             while chunk := await file.read(1024 * 1024):
                 tamanho_bytes += len(chunk)
                 if tamanho_bytes > max_bytes:
-                    raise HTTPException(400, "Arquivo excede 200MB")
+                    raise HTTPException(400, "Arquivo excede 500MB")
                 f.write(chunk)
     except HTTPException:
-        # Limpar arquivo parcial
         FilePath(local_path).unlink(missing_ok=True)
         raise
 
-    # 4. ffprobe — extrair resolução e duração (validação + log)
+    # 4. ffprobe — log resolução
     try:
         from app.services.ffmpeg_service import probar_video
         w, h = await probar_video(local_path)
-        logger.info(f"[{edicao_id}] Upload manual {idioma}: {w}x{h}, {tamanho_bytes/1024/1024:.1f}MB")
+        logger.info(f"[{edicao_id}] Upload source manual: {w}x{h}, {tamanho_bytes/1024/1024:.1f}MB")
     except Exception as e:
-        logger.warning(f"[{edicao_id}] ffprobe falhou no upload manual: {e}")
+        logger.warning(f"[{edicao_id}] ffprobe falhou no upload source: {e}")
 
-    # 5. Upload para R2
-    r2_base = _get_r2_base(edicao)
+    # 5. Upload para R2 — sobrescreve o original
     prefix = _get_perfil_r2_prefix(edicao, db)
+    r2_base = _get_r2_base(edicao)
     full_base = f"{prefix}/{r2_base}" if prefix else r2_base
-    r2_key = f"{full_base}/renders/{idioma}_manual.mp4"
+    r2_key = f"{full_base}/video/original.mp4"
 
     try:
         storage.upload_file(local_path, r2_key)
     finally:
-        # 6. Limpar arquivo temporário
         FilePath(local_path).unlink(missing_ok=True)
 
-    # 7. Upsert no banco — filtrar por tipo="manual" para NÃO tocar renders automáticos
-    existing = db.query(Render).filter(
-        Render.edicao_id == edicao_id,
-        Render.idioma == idioma,
-        Render.tipo == "manual",
-    ).first()
+    # 6. Atualizar edição
+    edicao.arquivo_video_completo = r2_key
+    db.commit()
 
-    if existing:
-        existing.arquivo = r2_key
-        existing.tamanho_bytes = tamanho_bytes
-        existing.status = "concluido"
-        existing.erro_msg = None
-        db.commit()
-        db.refresh(existing)
-        render_id = existing.id
-    else:
-        novo = Render(
-            edicao_id=edicao_id,
-            idioma=idioma,
-            tipo="manual",
-            arquivo=r2_key,
-            tamanho_bytes=tamanho_bytes,
-            status="concluido",
-        )
-        db.add(novo)
-        db.commit()
-        db.refresh(novo)
-        render_id = novo.id
-
-    url = storage.get_presigned_url(r2_key) if hasattr(storage, "get_presigned_url") else r2_key
-    return {"id": render_id, "url": url, "idioma": idioma, "tamanho_bytes": tamanho_bytes}
+    logger.info(f"[{edicao_id}] Source video substituído via upload manual: {r2_key}")
+    return {"url": r2_key, "tamanho_bytes": tamanho_bytes}
 
 
 @router.get("/edicoes/{edicao_id}/renders")

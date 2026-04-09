@@ -99,9 +99,9 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
   const [savingOverlay, setSavingOverlay] = useState<string | null>(null)
   const [overlayTimestamps, setOverlayTimestamps] = useState<Record<string, string | null>>({})
   const [preservarTraducoes, setPreservarTraducoes] = useState(false)
-  const [uploadingRender, setUploadingRender] = useState<Set<string>>(new Set())
-  const renderFileInputRef = useRef<HTMLInputElement>(null)
-  const uploadIdiomaRef = useRef<string>("pt")
+  const [uploadingSource, setUploadingSource] = useState(false)
+  const [sourceUploaded, setSourceUploaded] = useState<number | null>(null)
+  const sourceFileInputRef = useRef<HTMLInputElement>(null)
 
   const isOverlayDesatualizado = (idioma: string): boolean => {
     const overlayTs = overlayTimestamps[idioma]
@@ -361,41 +361,29 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
     }
   }
 
-  const handleUploadRender = (idioma: string) => {
-    uploadIdiomaRef.current = idioma
-    renderFileInputRef.current?.click()
-  }
-
-  const onRenderFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onSourceFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    e.target.value = "" // reset para permitir re-selecionar mesmo arquivo
+    e.target.value = ""
 
-    const idioma = uploadIdiomaRef.current
     if (!file.name.toLowerCase().endsWith(".mp4")) {
       toast.error("Apenas arquivos .mp4 são aceitos")
       return
     }
-    if (file.size > 200 * 1024 * 1024) {
-      toast.error("Arquivo excede 200MB")
+    if (file.size > 500 * 1024 * 1024) {
+      toast.error("Arquivo excede 500MB")
       return
     }
 
-    setUploadingRender(prev => new Set(prev).add(idioma))
+    setUploadingSource(true)
     try {
-      await editorApi.uploadRenderManual(edicaoId, file, idioma)
-      toast.success(`Render manual (${idioma.toUpperCase()}) importado com sucesso`)
-      // Recarregar renders
-      const r = await editorApi.listarRenders(edicaoId)
-      setRenders(r)
+      const result = await editorApi.uploadVideoSource(edicaoId, file)
+      setSourceUploaded(result.tamanho_bytes)
+      toast.success("Vídeo source importado com sucesso")
     } catch (err: unknown) {
-      toast.error("Erro ao importar render: " + (err instanceof Error ? err.message : "Erro"))
+      toast.error("Erro ao importar vídeo: " + (err instanceof Error ? err.message : "Erro"))
     } finally {
-      setUploadingRender(prev => {
-        const next = new Set(prev)
-        next.delete(idioma)
-        return next
-      })
+      setUploadingSource(false)
     }
   }
 
@@ -565,13 +553,13 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Input oculto para upload de render manual */}
+      {/* Input oculto para upload de vídeo source */}
       <input
-        ref={renderFileInputRef}
+        ref={sourceFileInputRef}
         type="file"
         accept=".mp4,video/mp4"
         className="hidden"
-        onChange={onRenderFileSelected}
+        onChange={onSourceFileSelected}
       />
       <Button variant="ghost" size="sm" asChild className="mb-6 gap-2 text-muted-foreground">
         <Link href="/editor"><ArrowLeft className="h-4 w-4" /> Voltar à fila</Link>
@@ -1130,6 +1118,37 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
         </div>
       )}
 
+      {/* Upload de vídeo source */}
+      <Card className="border-blue-200 bg-blue-50/30">
+        <CardContent className="py-4">
+          <div className="flex items-center gap-3">
+            <Upload className="h-5 w-5 text-blue-600 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">Importar vídeo original (alta qualidade)</p>
+              {sourceUploaded ? (
+                <p className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                  <CheckCircle className="h-3 w-3" /> Vídeo importado ({formatBytes(sourceUploaded)})
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-0.5">Substitui o source usado nos renders. Aceita .mp4 até 500MB.</p>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-100 hover:border-blue-400"
+              onClick={() => sourceFileInputRef.current?.click()}
+              disabled={uploadingSource}
+            >
+              {uploadingSource
+                ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Importando...</>
+                : <><Upload className="h-3.5 w-3.5" /> Importar vídeo</>
+              }
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Renders list */}
       {(renders.length > 0 || edicao.status === "renderizando") && (
         <Card>
@@ -1170,199 +1189,153 @@ export function EditorConclusion({ edicaoId }: { edicaoId: number }) {
           <CardContent>
             <div className="space-y-2">
               {IDIOMAS.map(({ code, flag, label }) => {
-                const autoRender = renders.find(r => r.idioma === code && r.tipo !== "manual")
-                const manualRender = renders.find(r => r.idioma === code && r.tipo === "manual")
-                const render = autoRender
+                const render = renders.find(r => r.idioma === code)
                 const isAtual = edicao.status === "renderizando" && getProgresso(edicao.progresso_detalhe, "render")?.atual === code
-
-                const uploadBtn = (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400 transition-all"
-                    onClick={() => handleUploadRender(code)}
-                    disabled={uploadingRender.has(code)}
-                  >
-                    {uploadingRender.has(code)
-                      ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Importando...</>
-                      : <><Upload className="h-3.5 w-3.5" /> Importar</>
-                    }
-                  </Button>
-                )
-
-                return (
-                  <div key={code} className="space-y-1">
-                    {/* Render automático (ou pendente) */}
-                    {!render ? (
-                      <div className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isAtual ? "bg-blue-50" : "bg-muted/50 text-muted-foreground"}`}>
-                        <span className="text-lg">{flag}</span>
-                        <span className="flex-1">{label}</span>
-                        {isAtual ? (
-                          <span className="text-xs text-blue-600 flex items-center gap-1.5">
-                            <RefreshCw className="h-3 w-3 animate-spin" /> Renderizando...
-                          </span>
-                        ) : (
-                          <>
-                            <span className="text-xs">Pendente</span>
-                            {!edicao.eh_instrumental && ["concluido", "preview_pronto", "renderizando", "erro"].includes(edicao.status) && (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground ml-2 hover:bg-muted/80 transition-colors">
-                                    <span title="Forçar re-tradução/reaquisição"><RefreshCw className="h-3.5 w-3.5" /></span>
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                  <DialogHeader>
-                                    <DialogTitle>Tem certeza?</DialogTitle>
-                                    <DialogDescription>
-                                      O arquivo renderizado mais recente para este idioma será sobrescrito ou enfileirado caso refaça!
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full gap-1.5"
-                                      onClick={() => handleReTraduzirIndividual(code)}
-                                      disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
-                                    >
-                                      {traduzindoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                                      Refazer Tradução (+ Render)
-                                    </Button>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            )}
-                            {uploadBtn}
-                          </>
-                        )}
-                      </div>
+                if (!render) return (
+                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isAtual ? "bg-blue-50" : "bg-muted/50 text-muted-foreground"}`}>
+                    <span className="text-lg">{flag}</span>
+                    <span className="flex-1">{label}</span>
+                    {isAtual ? (
+                      <span className="text-xs text-blue-600 flex items-center gap-1.5">
+                        <RefreshCw className="h-3 w-3 animate-spin" /> Renderizando...
+                      </span>
                     ) : (
-                      <div className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isOverlayDesatualizado(code) ? "bg-amber-50 hover:bg-amber-100 transition" : render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
-                        <span className="text-lg">{flag}</span>
-                        <span className="flex-1 font-medium">{label}
-                          {isOverlayDesatualizado(code) && (
-                            <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 rounded px-1.5 py-0.5">overlay editado</span>
-                          )}
-                        </span>
-                        {render.status === "concluido" ? (
-                          <>
-                            {isOverlayDesatualizado(code) ? (
-                              <>
-                                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                      <>
+                        <span className="text-xs">Pendente</span>
+                        {!edicao.eh_instrumental && ["concluido", "preview_pronto", "renderizando", "erro"].includes(edicao.status) && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground ml-2 hover:bg-muted/80 transition-colors">
+                                <span title="Forçar re-tradução/reaquisição"><RefreshCw className="h-3.5 w-3.5" /></span>
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Tem certeza?</DialogTitle>
+                                <DialogDescription>
+                                  O arquivo renderizado mais recente para este idioma será sobrescrito ou enfileirado caso refaça!
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="flex gap-2">
                                 <Button
-                                  size="sm"
                                   variant="outline"
-                                  className="gap-1.5 h-7 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
-                                  onClick={() => handleReRenderizarIndividual(code)}
-                                  disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                                  size="sm"
+                                  className="w-full gap-1.5"
+                                  onClick={() => handleReTraduzirIndividual(code)}
+                                  disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
                                 >
-                                  {rendendoIndividuais.has(code)
-                                    ? <RefreshCw className="h-3 w-3 animate-spin" />
-                                    : <RefreshCw className="h-3 w-3" />}
-                                  Re-Renderizar
+                                  {traduzindoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                                  Refazer Tradução (+ Render)
                                 </Button>
-                              </>
-                            ) : (
-                              <CheckCircle className="h-4 w-4 text-green-500" />
-                            )}
-                            <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-green-700/60 hover:text-green-800 hover:bg-green-100/60 transition-colors">
-                                  <span title="Ações Avançadas de Recriação"><RefreshCw className="h-3.5 w-3.5" /></span>
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="sm:max-w-[425px]">
-                                <DialogHeader>
-                                  <DialogTitle>Re-processar idioma</DialogTitle>
-                                  <DialogDescription>
-                                    Selecione se deseja apenas gerar um novo vídeo com base atual ({label}), ou se deseja forçar uma refacção/cota de IA para tradução antes. O vídeo atual será substituído.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="flex flex-col gap-2 mt-2">
-                                  <Button
-                                    variant="secondary"
-                                    className="justify-start gap-3 w-full"
-                                    onClick={() => handleReRenderizarIndividual(code)}
-                                    disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
-                                  >
-                                    {rendendoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                                    <div>
-                                      <div className="font-semibold text-left">Somente Refazer Render</div>
-                                      <div className="text-xs text-muted-foreground text-left font-normal">Ideal caso layouts globais tenham mudado.</div>
-                                    </div>
-                                  </Button>
-                                  {!edicao.eh_instrumental && (
-                                    <Button
-                                      variant="outline"
-                                      className="justify-start gap-3 w-full border-red-200 hover:bg-red-50 transition-colors"
-                                      onClick={() => handleReTraduzirIndividual(code)}
-                                      disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
-                                    >
-                                      {traduzindoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                                      <div>
-                                        <div className="font-semibold text-left text-red-600">Re-traduzir Letra (+ Render)</div>
-                                        <div className="text-xs text-muted-foreground text-left font-normal">Gera uma nova versão LLM traduzida & re-renderiza.</div>
-                                      </div>
-                                    </Button>
-                                  )}
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                            {uploadBtn}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-2 border-green-400 text-green-700 hover:bg-green-100 hover:border-green-500 transition-all font-medium"
-                              onClick={() => handleBaixarRender(render.id)}
-                              disabled={baixandoRenders.has(render.id)}
-                            >
-                              {baixandoRenders.has(render.id)
-                                ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Baixando...</>
-                                : <><Download className="h-3.5 w-3.5" /> Baixar</>
-                              }
-                            </Button>
-                          </>
-                        ) : (
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )
+                return (
+                  <div key={code} className={`flex items-center gap-3 py-3 px-4 rounded-lg text-sm ${isOverlayDesatualizado(code) ? "bg-amber-50 hover:bg-amber-100 transition" : render.status === "concluido" ? "bg-green-50 hover:bg-green-100 transition" : "bg-red-50"}`}>
+                    <span className="text-lg">{flag}</span>
+                    <span className="flex-1 font-medium">{label}
+                      {isOverlayDesatualizado(code) && (
+                        <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 rounded px-1.5 py-0.5">overlay editado</span>
+                      )}
+                    </span>
+                    {render.status === "concluido" ? (
+                      <>
+                        {isOverlayDesatualizado(code) ? (
                           <>
-                            <span className="text-xs text-destructive truncate max-w-[150px]">{render.erro_msg}</span>
-                            <XCircle className="h-4 w-4 text-destructive" />
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
                             <Button
                               size="sm"
                               variant="outline"
-                              className="ml-auto gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
+                              className="gap-1.5 h-7 text-xs border-amber-400 text-amber-700 hover:bg-amber-100"
                               onClick={() => handleReRenderizarIndividual(code)}
                               disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
                             >
-                              {rendendoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                              Tentar Novamente
+                              {rendendoIndividuais.has(code)
+                                ? <RefreshCw className="h-3 w-3 animate-spin" />
+                                : <RefreshCw className="h-3 w-3" />}
+                              Re-Renderizar
                             </Button>
-                            {uploadBtn}
                           </>
+                        ) : (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
                         )}
-                      </div>
-                    )}
-
-                    {/* Render manual (sub-row) */}
-                    {manualRender && manualRender.status === "concluido" && (
-                      <div className="flex items-center gap-3 py-2 px-4 ml-6 rounded-lg text-sm bg-blue-50/60 hover:bg-blue-100/60 transition">
-                        <span className="text-[10px] font-medium text-blue-700 border border-blue-300 rounded px-1.5 py-0.5">Manual</span>
-                        <span className="flex-1 text-xs text-muted-foreground">{label}</span>
-                        <span className="text-xs text-muted-foreground">{formatBytes(manualRender.tamanho_bytes)}</span>
+                        <span className="text-xs text-muted-foreground">{formatBytes(render.tamanho_bytes)}</span>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 ml-auto text-green-700/60 hover:text-green-800 hover:bg-green-100/60 transition-colors">
+                              <span title="Ações Avançadas de Recriação"><RefreshCw className="h-3.5 w-3.5" /></span>
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                              <DialogTitle>Re-processar idioma</DialogTitle>
+                              <DialogDescription>
+                                Selecione se deseja apenas gerar um novo vídeo com base atual ({label}), ou se deseja forçar uma refacção/cota de IA para tradução antes. O vídeo atual será substituído.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="flex flex-col gap-2 mt-2">
+                              <Button
+                                variant="secondary"
+                                className="justify-start gap-3 w-full"
+                                onClick={() => handleReRenderizarIndividual(code)}
+                                disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                              >
+                                {rendendoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                <div>
+                                  <div className="font-semibold text-left">Somente Refazer Render</div>
+                                  <div className="text-xs text-muted-foreground text-left font-normal">Ideal caso layouts globais tenham mudado.</div>
+                                </div>
+                              </Button>
+                              {!edicao.eh_instrumental && (
+                                <Button
+                                  variant="outline"
+                                  className="justify-start gap-3 w-full border-red-200 hover:bg-red-50 transition-colors"
+                                  onClick={() => handleReTraduzirIndividual(code)}
+                                  disabled={traduzindoIndividuais.has(code) || sistemaBloqueado}
+                                >
+                                  {traduzindoIndividuais.has(code) ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                                  <div>
+                                    <div className="font-semibold text-left text-red-600">Re-traduzir Letra (+ Render)</div>
+                                    <div className="text-xs text-muted-foreground text-left font-normal">Gera uma nova versão LLM traduzida & re-renderiza.</div>
+                                  </div>
+                                </Button>
+                              )}
+                            </div>
+                          </DialogContent>
+                        </Dialog>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="gap-1.5 h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                          onClick={() => handleBaixarRender(manualRender.id)}
-                          disabled={baixandoRenders.has(manualRender.id)}
+                          className="gap-2 border-green-400 text-green-700 hover:bg-green-100 hover:border-green-500 transition-all font-medium"
+                          onClick={() => handleBaixarRender(render.id)}
+                          disabled={baixandoRenders.has(render.id)}
                         >
-                          {baixandoRenders.has(manualRender.id)
-                            ? <><RefreshCw className="h-3 w-3 animate-spin" /> Baixando...</>
-                            : <><Download className="h-3 w-3" /> Baixar</>
+                          {baixandoRenders.has(render.id)
+                            ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Baixando...</>
+                            : <><Download className="h-3.5 w-3.5" /> Baixar</>
                           }
                         </Button>
-                      </div>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-destructive truncate max-w-[150px]">{render.erro_msg}</span>
+                        <XCircle className="h-4 w-4 text-destructive" />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto gap-1.5 border-red-200 text-red-700 hover:bg-red-100"
+                          onClick={() => handleReRenderizarIndividual(code)}
+                          disabled={rendendoIndividuais.has(code) || sistemaBloqueado}
+                        >
+                          {rendendoIndividuais.has(code) ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                          Tentar Novamente
+                        </Button>
+                      </>
                     )}
                   </div>
                 )

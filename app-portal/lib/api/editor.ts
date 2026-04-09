@@ -83,7 +83,6 @@ export interface Render {
   id: number
   edicao_id: number
   idioma: string
-  tipo?: string
   status: string
   arquivo: string | null
   tamanho_bytes: number | null
@@ -347,13 +346,13 @@ export const editorApi = {
     const qs = opts?.sem_legendas ? "?sem_legendas=true" : ""
     return request<Edicao>(`${BASE()}/edicoes/${id}/aprovar-preview${qs}`, { method: "POST", body: JSON.stringify(params) })
   },
-  uploadRenderManual: (id: number, file: File, idioma: string) => {
+  uploadVideoSource: (id: number, file: File) => {
     const form = new FormData()
     form.append("file", file)
-    return requestFormData<{ id: number; url: string; idioma: string; tamanho_bytes: number }>(
-      `${BASE()}/edicoes/${id}/upload-render-manual?idioma=${encodeURIComponent(idioma)}`,
+    return requestFormData<{ url: string; tamanho_bytes: number }>(
+      `${BASE()}/edicoes/${id}/upload-video-source`,
       form,
-      300_000, // 5 min timeout para uploads grandes
+      600_000, // 10 min timeout para vídeos grandes
     )
   },
   listarRenders: (id: number) =>
