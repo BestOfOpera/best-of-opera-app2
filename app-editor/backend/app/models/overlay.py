@@ -1,5 +1,6 @@
 """Modelo: editor_overlays — overlays do Redator."""
 from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey, func
+from sqlalchemy.orm import deferred
 
 from app.database import Base
 
@@ -13,4 +14,5 @@ class Overlay(Base):
     segmentos_original = Column(JSON, nullable=False)
     segmentos_reindexado = Column(JSON)
     created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    # deferred: NÃO incluir no SELECT padrão — coluna pode não existir se migration falhou
+    updated_at = deferred(Column(DateTime, server_default=func.now(), onupdate=func.now()))

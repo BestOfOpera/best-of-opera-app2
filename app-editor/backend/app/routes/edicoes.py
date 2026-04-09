@@ -216,12 +216,19 @@ def listar_overlays(edicao_id: int, db: Session = Depends(get_db)):
     if not edicao:
         raise HTTPException(404, "Edição não encontrada")
     overlays = db.query(Overlay).filter(Overlay.edicao_id == edicao_id).all()
+
+    def _safe_updated_at(ov):
+        try:
+            return ov.updated_at.isoformat() if ov.updated_at else None
+        except Exception:
+            return None
+
     return {
         ov.idioma: {
             "id": ov.id,
             "segmentos": ov.segmentos_reindexado or ov.segmentos_original,
             "segmentos_original": ov.segmentos_original,
-            "updated_at": ov.updated_at.isoformat() if ov.updated_at else None,
+            "updated_at": _safe_updated_at(ov),
         }
         for ov in overlays
     }
@@ -257,7 +264,10 @@ def update_overlay_idioma(edicao_id: int, idioma: str, payload: dict, db: Sessio
 
     overlay.segmentos_original = segmentos
     overlay.segmentos_reindexado = None  # Forçar re-normalização
-    overlay.updated_at = datetime.now(timezone.utc)
+    try:
+        overlay.updated_at = datetime.now(timezone.utc)
+    except Exception:
+        pass  # Coluna pode não existir se migration não rodou
     db.commit()
 
     logger.info(f"[overlay-edit] edicao={edicao_id} idioma={idioma} atualizado com {len(segmentos)} segmentos")
