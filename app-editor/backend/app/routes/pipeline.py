@@ -2926,24 +2926,35 @@ async def upload_video_source(
     # 6. Invalidar cache R2 local (sem isso, ensure_local retorna o vídeo antigo)
     storage.invalidate_cache(r2_key)
 
-    # 7. Invalidar cortado stale (gerado do source antigo)
-    if edicao.arquivo_video_cortado:
-        storage.invalidate_cache(edicao.arquivo_video_cortado)
-    edicao.arquivo_video_cortado = None
-    edicao.arquivo_video_cru = None
-
-    # 8. Invalidar renders existentes (forçar re-render com novo source)
-    n_deleted = db.query(Render).filter(Render.edicao_id == edicao_id).delete()
-
-    # 9. Atualizar edição — novo source + status permite re-render
+    # 7. Atualizar edição
     edicao.arquivo_video_completo = r2_key
-    edicao.status = "montagem"
-    db.commit()
+    if not edicao.r2_base:
+        edicao.r2_base = r2_base
 
-    logger.info(
-        f"[{edicao_id}] Source video substituído via upload manual: {r2_key} "
-        f"(cortado invalidado, {n_deleted} renders removidos)"
-    )
+    n_deleted = 0
+    is_initial = edicao.status == "aguardando"
+
+    if is_initial:
+        # Upload inicial (criação) — transicionar para próximo passo do pipeline
+        _set_post_download_state(edicao)
+        logger.info(
+            f"[{edicao_id}] Source video via upload inicial: {r2_key} "
+            f"(status → {edicao.status})"
+        )
+    else:
+        # Substituição (conclusão) — invalidar cortado e renders antigos
+        if edicao.arquivo_video_cortado:
+            storage.invalidate_cache(edicao.arquivo_video_cortado)
+        edicao.arquivo_video_cortado = None
+        edicao.arquivo_video_cru = None
+        n_deleted = db.query(Render).filter(Render.edicao_id == edicao_id).delete()
+        edicao.status = "montagem"
+        logger.info(
+            f"[{edicao_id}] Source video substituído via upload manual: {r2_key} "
+            f"(cortado invalidado, {n_deleted} renders removidos)"
+        )
+
+    db.commit()
     return {"url": r2_key, "tamanho_bytes": tamanho_bytes, "renders_invalidados": n_deleted}
 
 

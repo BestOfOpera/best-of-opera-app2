@@ -10,8 +10,8 @@ class Edicao(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     curadoria_video_id = Column(Integer, nullable=True)
-    youtube_url = Column(String(500), nullable=False)
-    youtube_video_id = Column(String(20), nullable=False)
+    youtube_url = Column(String(500), nullable=True)
+    youtube_video_id = Column(String(20), nullable=True)
 
     artista = Column(String(300), nullable=False)
     musica = Column(String(300), nullable=False)

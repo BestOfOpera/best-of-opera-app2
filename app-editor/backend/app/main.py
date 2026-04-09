@@ -1160,6 +1160,15 @@ def _run_migrations():
                 except Exception as e:
                     logger.warning(f"Migration editor_overlays/updated_at: {e}")
 
+    # Migration: youtube_url e youtube_video_id nullable (upload manual de vídeo)
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE editor_edicoes ALTER COLUMN youtube_url DROP NOT NULL"))
+            conn.execute(text("ALTER TABLE editor_edicoes ALTER COLUMN youtube_video_id DROP NOT NULL"))
+        logger.info("Migration: youtube_url e youtube_video_id agora nullable")
+    except Exception as e:
+        logger.warning(f"Migration youtube nullable: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

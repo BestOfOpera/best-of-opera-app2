@@ -4,8 +4,8 @@ function BASE() { return API_URLS.editor + "/api/v1/editor" }
 
 export interface Edicao {
   id: number
-  youtube_url: string
-  youtube_video_id: string
+  youtube_url: string | null
+  youtube_video_id: string | null
   artista: string
   musica: string
   compositor: string

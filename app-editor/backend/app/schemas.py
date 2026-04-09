@@ -94,8 +94,8 @@ class PerfilOut(BaseModel):
 
 # --- Edição ---
 class EdicaoCreate(BaseModel):
-    youtube_url: str
-    youtube_video_id: str
+    youtube_url: Optional[str] = None
+    youtube_video_id: Optional[str] = None
     artista: Optional[str] = None
     musica: Optional[str] = None
     compositor: Optional[str] = None

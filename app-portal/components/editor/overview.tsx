@@ -52,11 +52,13 @@ export function EditorOverview({ edicaoId }: { edicaoId: number }) {
 
   const handleIniciarPipeline = async () => {
     setIniciando(true)
-    // Iniciar download do vídeo (necessário para todas as edições)
-    try {
-      await editorApi.garantirVideo(edicaoId)
-    } catch {
-      // Pode falhar se já estiver baixando — ok, continua
+    // Pular download se vídeo já foi uploadado manualmente
+    if (!edicao?.arquivo_video_completo) {
+      try {
+        await editorApi.garantirVideo(edicaoId)
+      } catch {
+        // Pode falhar se já estiver baixando — ok, continua
+      }
     }
     // Instrumental: pular letra e alinhamento, ir direto para conclusão
     if (edicao?.sem_lyrics) {

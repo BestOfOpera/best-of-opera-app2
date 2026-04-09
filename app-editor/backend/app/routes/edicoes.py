@@ -91,7 +91,7 @@ def criar_edicao(data: EdicaoCreate, db: Session = Depends(get_db)):
 
     # Instrumental: defaults para campos opcionais
     artista = data.artista or "Instrumental"
-    musica = data.musica or data.youtube_url
+    musica = data.musica or data.youtube_url or "Upload Manual"
     idioma = data.idioma or "und"
 
     edicao = Edicao(

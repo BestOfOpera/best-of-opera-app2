@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { editorApi, type Edicao, type RedatorProject } from "@/lib/api/editor"
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { FilterBar } from "@/components/ui/filter-bar"
-import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw } from "lucide-react"
+import { Plus, Trash2, Clock, Clapperboard, Download, Loader2, Globe, CheckCircle2, AlertTriangle, RotateCcw, Upload } from "lucide-react"
 import { useBrand } from "@/lib/brand-context"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -123,6 +123,9 @@ export function EditorEditingQueue() {
   })
   const [saving, setSaving] = useState(false)
   const [zipFile, setZipFile] = useState<File | null>(null)
+  const [sourceMode, setSourceMode] = useState<"youtube" | "upload">("youtube")
+  const [videoFile, setVideoFile] = useState<File | null>(null)
+  const videoFileRef = useRef<HTMLInputElement>(null)
 
   const [showImportar, setShowImportar] = useState(false)
   const [projetosRedator, setProjetosRedator] = useState<RedatorProject[]>([])
@@ -215,15 +218,24 @@ export function EditorEditingQueue() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.youtube_url) return
+    // Validação: precisa de YouTube URL ou arquivo de vídeo
+    if (sourceMode === "youtube" && !form.youtube_url) return
+    if (sourceMode === "upload" && !videoFile) return
     // Vocal: artista, musica e idioma obrigatórios
     if (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma)) return
     setSaving(true)
     try {
-      const novaEdicao = await editorApi.criarEdicao({
-        ...form,
-        perfil_id: selectedBrand?.id
-      } as unknown as Partial<Edicao>)
+      const payload = sourceMode === "youtube"
+        ? { ...form, perfil_id: selectedBrand?.id }
+        : { ...form, youtube_url: undefined, youtube_video_id: undefined, perfil_id: selectedBrand?.id }
+      const novaEdicao = await editorApi.criarEdicao(payload as unknown as Partial<Edicao>)
+
+      // Upload de vídeo source (se modo upload)
+      if (sourceMode === "upload" && videoFile && novaEdicao?.id) {
+        toast.info("Enviando vídeo...")
+        await editorApi.uploadVideoSource(novaEdicao.id, videoFile)
+      }
+
       // Se timestamps de corte foram definidos, salvar na edição via PATCH
       if (novaEdicao?.id && form.eh_instrumental && !form.usar_video_inteiro && form.corte_inicio && form.corte_fim) {
         try {
@@ -252,6 +264,8 @@ export function EditorEditingQueue() {
       setShowForm(false)
       setForm({ youtube_url: "", youtube_video_id: "", artista: "", musica: "", compositor: "", opera: "", categoria: "", idioma: "it", eh_instrumental: false, usar_video_inteiro: true, corte_inicio: "", corte_fim: "" })
       setZipFile(null)
+      setVideoFile(null)
+      setSourceMode("youtube")
       toast.success("Edição criada com sucesso!")
       loadEdicoes()
     } catch (err: unknown) {
@@ -537,16 +551,47 @@ export function EditorEditingQueue() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="col-span-2">
-                <Label>URL do YouTube *</Label>
-                <Input
-                  value={form.youtube_url}
-                  onChange={e => handleUrlChange(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  required
-                />
-                {form.youtube_video_id && (
-                  <span className="text-xs text-muted-foreground mt-1">ID: {form.youtube_video_id}</span>
+              <div className="col-span-2 space-y-2">
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant={sourceMode === "youtube" ? "default" : "outline"}
+                    onClick={() => { setSourceMode("youtube"); setVideoFile(null) }}>
+                    <Globe className="h-3.5 w-3.5 mr-1" /> Link YouTube
+                  </Button>
+                  <Button type="button" size="sm" variant={sourceMode === "upload" ? "default" : "outline"}
+                    onClick={() => { setSourceMode("upload"); setForm(f => ({ ...f, youtube_url: "", youtube_video_id: "" })) }}>
+                    <Upload className="h-3.5 w-3.5 mr-1" /> Upload .mp4
+                  </Button>
+                </div>
+                {sourceMode === "youtube" ? (
+                  <div>
+                    <Label>URL do YouTube *</Label>
+                    <Input
+                      value={form.youtube_url}
+                      onChange={e => handleUrlChange(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      required
+                    />
+                    {form.youtube_video_id && (
+                      <span className="text-xs text-muted-foreground mt-1">ID: {form.youtube_video_id}</span>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <Label>Vídeo .mp4 *</Label>
+                    <Input
+                      ref={videoFileRef}
+                      type="file"
+                      accept=".mp4,video/mp4"
+                      onChange={e => setVideoFile(e.target.files?.[0] || null)}
+                      className="text-sm"
+                    />
+                    {videoFile && (
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(1)} MB)
+                      </span>
+                    )}
+                    <p className="text-xs text-muted-foreground">Até 500MB. Pula download do YouTube.</p>
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -668,7 +713,7 @@ export function EditorEditingQueue() {
                 </div>
               )}
               <div className="flex gap-3">
-                <Button type="submit" disabled={saving || !form.youtube_url || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
+                <Button type="submit" disabled={saving || (sourceMode === "youtube" ? !form.youtube_url : !videoFile) || (!form.eh_instrumental && (!form.artista || !form.musica || !form.idioma))}>
                   {saving ? "Criando..." : "Criar Edição"}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
