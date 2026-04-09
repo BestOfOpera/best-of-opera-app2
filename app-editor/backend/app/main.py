@@ -1,3 +1,4 @@
+# deploy trigger 2026-04-09
 """APP Editor — Best of Opera. Ponto de entrada FastAPI."""
 import asyncio
 import json
