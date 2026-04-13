@@ -781,6 +781,24 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration BO logo: {e}")
 
+    # Migration v10: BO — overlay_pre_formatted=true (evita truncamento de caracteres no render)
+    # Sem este flag, _formatar_overlay() trunca linhas >35 chars com "..." via _truncar_texto().
+    # Com pre_formatted=True, o texto passa intacto (mesmo comportamento do RC).
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                UPDATE editor_perfis SET
+                    overlay_style = jsonb_set(
+                        COALESCE(overlay_style::jsonb, '{}'),
+                        '{overlay_pre_formatted}', 'true'
+                    )::json
+                WHERE sigla = 'BO'
+                  AND (overlay_style->>'overlay_pre_formatted') IS NULL
+            """))
+            logger.info("Migration v10: BO overlay_pre_formatted=true OK")
+    except Exception as e:
+        logger.warning(f"Migration v10 BO overlay_pre_formatted: {e}")
+
     # Cleanup: deletar edições concluídas há mais de 24h (mantém fila de importação limpa)
     try:
         with engine.begin() as conn:

@@ -46,7 +46,22 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/services/claude_service.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''claude_service.py: OK''\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-redator/backend/services/translate_service.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''translate_service.py: OK''\\)\")",
       "Bash(python -c \"import ast; ast.parse\\(open\\(''app-editor/backend/app/services/legendas.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''legendas.py: OK''\\)\")",
-      "Bash(python -c \"import re; t=''enterrá-lo.ela''; print\\(re.sub\\(r''\\(?<!\\\\d\\)\\([.]\\)\\([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ]\\)'', r''\\\\1 \\\\2'', t\\)\\)\")"
+      "Bash(python -c \"import re; t=''enterrá-lo.ela''; print\\(re.sub\\(r''\\(?<!\\\\d\\)\\([.]\\)\\([A-Za-záàãâéêíóõôúçÁÀÃÂÉÊÍÓÕÔÚÇ]\\)'', r''\\\\1 \\\\2'', t\\)\\)\")",
+      "Bash(python -c 'import py_compile; py_compile.compile\\('\\\\''__TRACKED_VAR__'\\\\'', doraise=True\\)')",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app-editor/backend/app/routes/pipeline.py', doraise=True\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app-editor/backend/app/services/ffmpeg_service.py', doraise=True\\)\")",
+      "Bash(node -e \"const icons = require\\('lucide-react'\\); console.log\\('HardDrive:', !!icons.HardDrive\\); console.log\\('HardDriveDownload:', !!icons.HardDriveDownload\\); console.log\\('FolderOutput:', !!icons.FolderOutput\\); console.log\\('FolderUp:', !!icons.FolderUp\\); console.log\\('ServerCog:', !!icons.ServerCog\\);\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app-editor/backend/app/models/overlay.py', doraise=True\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app-editor/backend/app/routes/edicoes.py', doraise=True\\)\")",
+      "Bash(python -c \"import py_compile; py_compile.compile\\('app-editor/backend/app/main.py', doraise=True\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/routes/pipeline.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/routes/pipeline.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-curadoria/backend/services/download.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/routes/pipeline.py', encoding='utf-8'\\).read\\(\\)\\); print\\('pipeline OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-curadoria/backend/services/download.py', encoding='utf-8'\\).read\\(\\)\\); print\\('download OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/routes/edicoes.py', encoding='utf-8'\\).read\\(\\)\\); print\\('edicoes OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('main OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app-editor/backend/app/schemas.py', encoding='utf-8'\\).read\\(\\)\\); print\\('schemas OK'\\)\")"
     ]
   }
 }

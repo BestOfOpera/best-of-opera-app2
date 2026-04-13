@@ -173,19 +173,19 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30, pre_formatted: bool =
     # Converter newlines Python para quebras ASS antes de qualquer lógica
     texto = texto.replace("\n", "\\N")
     if pre_formatted:
-        # Safety net: texto sem quebras mas longo demais → aplicar word-wrap como fallback
-        # (protege contra \n perdido pelo frontend <Input> na aprovação)
+        # Safety net: texto sem quebras mas longo demais → word-wrap sem truncamento
+        # (protege contra \n perdido pelo frontend na aprovação)
         if '\\N' not in texto and len(texto) > max_por_linha:
             logger.warning(
-                f"[RC EDITOR FALLBACK] pre_formatted sem quebra ({len(texto)} chars), "
+                f"[EDITOR FALLBACK] pre_formatted sem quebra ({len(texto)} chars), "
                 f"aplicando word-wrap: {texto[:60]}..."
             )
-            # Fall through para lógica de word-wrap abaixo
+            return quebrar_texto_overlay(texto, max_por_linha * 2)
         else:
             for line in texto.split('\\N'):
                 if len(line.strip()) > 40:
                     logger.warning(
-                        f"[RC EDITOR WARN] Linha com {len(line.strip())} chars no overlay "
+                        f"[EDITOR WARN] Linha com {len(line.strip())} chars no overlay "
                         f"pre_formatted: {line.strip()[:50]}..."
                     )
             return texto
