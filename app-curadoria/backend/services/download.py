@@ -98,9 +98,10 @@ def _get_ydl_opts(dl_path: str):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        # Player client web — mais compatível com cookies e evita pot_from_server
-        # (que requer servidor HTTP separado impossível no Railway)
-        'extractor_args': {'youtube': {'player_client': ['web']}},
+        # mweb = recomendado pelo PO Token Guide (requer bgutil, que auto-gera tokens)
+        # ios  = fallback com formatos H.264 tradicionais (não requer PO Token)
+        # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
+        'extractor_args': {'youtube': {'player_client': ['mweb', 'ios']}},
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
             f"{d.get('info_dict',{}).get('height','?')} "
@@ -138,6 +139,12 @@ def _get_ydl_opts(dl_path: str):
             if os.path.exists(legacy_cookies):
                 opts['cookiefile'] = legacy_cookies
                 logger.info(f"Using legacy cookies from {legacy_cookies}")
+
+    # Proxy residencial (SOCKS5) — contorna bloqueio de IP de datacenter pelo YouTube
+    proxy = os.getenv('YOUTUBE_PROXY')
+    if proxy:
+        opts['proxy'] = proxy
+        logger.info(f"[yt-dlp] Proxy configurado: {proxy[:25]}...")
 
     logger.info(f"[yt-dlp] Formato selecionado: {opts.get('format', 'NENHUM')}")
     return opts
