@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl unzip && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip git && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y --no-install-recommends ffmpeg nodejs && \
     rm -rf /var/lib/apt/lists/* && \
@@ -18,6 +18,11 @@ RUN curl -fsSL https://github.com/denoland/deno/releases/latest/download/deno-x8
 COPY app-curadoria/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install -U yt-dlp
+
+# bgutil script-deno — gera PO Tokens localmente via Deno (sem servidor HTTP)
+RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-pot \
+    && cd /app/bgutil-pot/server \
+    && deno install --allow-scripts=npm:canvas --frozen
 
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/

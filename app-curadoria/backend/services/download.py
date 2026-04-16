@@ -98,10 +98,13 @@ def _get_ydl_opts(dl_path: str):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        # ios = formatos H.264 tradicionais, não requer PO Token
+        # mweb = recomendado pelo PO Token Guide (bgutil script-deno gera tokens)
+        # ios  = fallback H.264 tradicionais (não requer PO Token)
         # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
-        # NÃO usar 'mweb' sem bgutil server rodando (requer PO Token)
-        'extractor_args': {'youtube': {'player_client': ['ios']}},
+        'extractor_args': {
+            'youtube': {'player_client': ['mweb', 'ios']},
+            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot/server'},
+        },
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
             f"{d.get('info_dict',{}).get('height','?')} "
