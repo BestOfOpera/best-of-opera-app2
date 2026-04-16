@@ -98,10 +98,10 @@ def _get_ydl_opts(dl_path: str):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept-Language': 'en-US,en;q=0.9',
         },
-        # mweb = recomendado pelo PO Token Guide (requer bgutil, que auto-gera tokens)
-        # ios  = fallback com formatos H.264 tradicionais (não requer PO Token)
+        # ios = formatos H.264 tradicionais, não requer PO Token
         # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
-        'extractor_args': {'youtube': {'player_client': ['mweb', 'ios']}},
+        # NÃO usar 'mweb' sem bgutil server rodando (requer PO Token)
+        'extractor_args': {'youtube': {'player_client': ['ios']}},
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
             f"{d.get('info_dict',{}).get('height','?')} "
