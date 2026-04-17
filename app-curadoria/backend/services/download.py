@@ -122,7 +122,7 @@ def _get_ydl_opts(dl_path: str):
         # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
         'extractor_args': {
             'youtube': {'player_client': ['mweb', 'ios']},
-            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot'},
+            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot/server'},
         },
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
