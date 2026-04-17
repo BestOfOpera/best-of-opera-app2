@@ -24,20 +24,14 @@ if _deno_path:
     except Exception as e:
         logger.error(f"[download] Deno check failed: {e}")
 logger.info(f"[download] PATH: {os.environ.get('PATH','')}")
-_bgutil_dir = "/app/bgutil-pot/server"
-if os.path.isdir(_bgutil_dir):
-    try:
-        _entries = sorted(os.listdir(_bgutil_dir))
-        logger.info(f"[download] {_bgutil_dir} entries: {_entries}")
-        _build_dir = os.path.join(_bgutil_dir, "build")
-        if os.path.isdir(_build_dir):
-            logger.info(f"[download] {_build_dir} entries: {sorted(os.listdir(_build_dir))}")
-        else:
-            logger.warning(f"[download] {_build_dir} NÃO existe — `deno task build` provavelmente não rodou")
-    except Exception as e:
-        logger.error(f"[download] Listagem {_bgutil_dir} falhou: {e}")
-else:
-    logger.error(f"[download] {_bgutil_dir} NÃO existe — bgutil não foi clonado")
+for _bgutil_dir in ("/app/bgutil-pot", "/app/bgutil-pot/server", "/app/bgutil-pot/server/src"):
+    if os.path.isdir(_bgutil_dir):
+        try:
+            logger.info(f"[download] {_bgutil_dir} entries: {sorted(os.listdir(_bgutil_dir))}")
+        except Exception as e:
+            logger.error(f"[download] Listagem {_bgutil_dir} falhou: {e}")
+    else:
+        logger.warning(f"[download] {_bgutil_dir} NÃO existe")
 
 import database as db
 from config import PROJECTS_DIR, COBALT_API_URL, COBALT_API_KEY, load_brand_config
@@ -128,7 +122,7 @@ def _get_ydl_opts(dl_path: str):
         # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
         'extractor_args': {
             'youtube': {'player_client': ['mweb', 'ios']},
-            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot/server'},
+            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot'},
         },
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
