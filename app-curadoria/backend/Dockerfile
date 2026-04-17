@@ -15,14 +15,23 @@ RUN curl -fsSL https://github.com/denoland/deno/releases/latest/download/deno-x8
     && rm /tmp/deno.zip \
     && deno --version
 
+# PATH explícito — garantia para subprocesses Python (deno, node)
+ENV PATH="/usr/local/bin:${PATH}"
+
 COPY app-curadoria/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install -U yt-dlp
 
 # bgutil script-deno — gera PO Tokens localmente via Deno (sem servidor HTTP)
+# IMPORTANTE: `deno install` resolve deps; `deno task build` compila build/generate_once.js
 RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-pot \
     && cd /app/bgutil-pot/server \
-    && deno install --allow-scripts=npm:canvas --frozen
+    && deno install --allow-scripts=npm:canvas --frozen \
+    && deno task build \
+    && ls -la /app/bgutil-pot/server/ \
+    && ls -la /app/bgutil-pot/server/build/ \
+    && which deno \
+    && echo "PATH=$PATH"
 
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/
