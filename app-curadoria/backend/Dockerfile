@@ -32,6 +32,10 @@ RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.
     && deno install --allow-scripts=npm:canvas --frozen \
     && ls /app/bgutil-pot/server/src/ || true
 
+# Sanity test: imprime as 5 primeiras linhas do deno run generate_once.ts.
+# Expõe erros de módulo/import nos logs de build sem quebrar o deploy.
+RUN cd /app/bgutil-pot/server && deno run --allow-all src/generate_once.ts 2>&1 | head -5 || echo "BGUTIL TEST: script falhou mas build continua"
+
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/
 

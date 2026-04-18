@@ -40,3 +40,13 @@ async def debug_ffmpeg():
     except Exception:
         info["which_ffmpeg"] = "not found"
     return info
+
+
+@router.get("/api/debug/bgutil")
+async def debug_bgutil():
+    r = subprocess.run(
+        ["python3", "test_bgutil.py"],
+        capture_output=True, text=True, timeout=90,
+        cwd="/app",
+    )
+    return {"stdout": r.stdout, "stderr": r.stderr, "rc": r.returncode}
