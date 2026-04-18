@@ -179,7 +179,11 @@ def _get_ydl_opts(dl_path: str):
         # o ping em 127.0.0.1:4416 falha e o plugin cai para o script provider.
         'extractor_args': {
             'youtube': {'player_client': ['mweb', 'ios']},
-            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot/server'},
+            # server_home precisa ser LISTA: o plugin lê via
+            # _configuration_arg(...)[0]. Valor string faz [0] devolver '/'
+            # (primeiro caractere). A CLI --extractor-args envelopa em lista
+            # automaticamente; a Python API não — daí a lista explícita.
+            'youtubepot-bgutilscript': {'server_home': ['/app/bgutil-pot/server']},
         },
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
