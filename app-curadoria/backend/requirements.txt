@@ -5,7 +5,9 @@ python-multipart==0.0.9
 psycopg[binary,pool]>=3.1
 yt-dlp>=2026.1.0
 yt-dlp-ejs
-bgutil-ytdlp-pot-provider
+# bgutil-ytdlp-pot-provider: instalado explicitamente no Dockerfile APÓS o
+# clone + pip install -U yt-dlp (evita dupla instalação → AssertionError
+# "PoTokenProvider BgUtilHTTP already registered").
 imageio-ffmpeg>=0.5.1
 boto3>=1.34.0
 sentry-sdk[fastapi]>=2.0.0
