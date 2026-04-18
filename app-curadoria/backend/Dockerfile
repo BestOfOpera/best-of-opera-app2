@@ -22,20 +22,15 @@ COPY app-curadoria/backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install -U yt-dlp
 
-# bgutil script-deno — gera PO Tokens localmente via Deno (sem servidor HTTP)
+# bgutil script-deno — SÓ o server code (Deno) para gerar PO Tokens.
+# yt-dlp >=2026.03.17 já traz os providers BgUtilHTTP/BgUtilScriptNode
+# embutidos; instalar o pacote PyPI bgutil-ytdlp-pot-provider gera
+# "AssertionError: PoTokenProvider ... already registered" e derruba todos
+# os providers. Os providers nativos leem server_home via extractor_args.
 RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.git /app/bgutil-pot \
     && cd /app/bgutil-pot/server \
     && deno install --allow-scripts=npm:canvas --frozen \
     && ls /app/bgutil-pot/server/src/ || true
-
-# Instala o plugin Python explicitamente APÓS pip install -U yt-dlp da linha 23
-# (evita que um upgrade de yt-dlp deixe a namespace yt_dlp_plugins inconsistente).
-# O pacote instala em site-packages/yt_dlp_plugins/extractor/getpot_bgutil_*.py
-# (hatch wheel packages=["yt_dlp_plugins"] — não existe módulo top-level
-# chamado bgutil_ytdlp_pot_provider).
-RUN pip install -U --no-cache-dir bgutil-ytdlp-pot-provider \
-    && pip show bgutil-ytdlp-pot-provider \
-    && python -c "import yt_dlp_plugins.extractor.getpot_bgutil_script as m; print('bgutil plugin OK:', m.__file__)"
 
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/
