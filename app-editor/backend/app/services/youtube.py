@@ -65,6 +65,9 @@ async def download_video(youtube_url: str, video_id: int, storage_path: str,
         "--write-subs",
         "--no-warnings",
         "--no-progress",
+        # mweb + PO Token via bgutil script-deno → habilita HD sem bot-check
+        "--extractor-args", "youtube:player_client=mweb,ios",
+        "--extractor-args", "youtubepot-bgutilscript:server_home=/app/bgutil-pot/server",
     ]
     if cookies_file:
         cmd.extend(["--cookies", cookies_file])

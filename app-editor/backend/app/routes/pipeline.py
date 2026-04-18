@@ -110,6 +110,9 @@ async def _download_via_ytdlp(youtube_url: str, output_path: str) -> bool:
             '--socket-timeout', '30',
             '--no-check-certificates',
             '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            # mweb + PO Token via bgutil script-deno → habilita HD sem bot-check
+            '--extractor-args', 'youtube:player_client=mweb,ios',
+            '--extractor-args', 'youtubepot-bgutilscript:server_home=/app/bgutil-pot/server',
         ]
         if cookies_file:
             cmd.extend(['--cookies', cookies_file])
