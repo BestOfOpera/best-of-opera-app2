@@ -233,6 +233,57 @@ def _get_ydl_opts(dl_path: str):
     return opts
 
 
+def _build_ydl_cli_args(youtube_url: str, opts: dict) -> list:
+    """Traduz o dict de opts para argv CLI equivalente do yt-dlp.
+    Mantém paridade com _get_ydl_opts: format, outtmpl, retries, headers,
+    extractor_args, cookiefile, proxy.
+    """
+    cmd = ['python3', '-m', 'yt_dlp', '--no-playlist', '--verbose']
+    cmd += ['-f', opts['format']]
+    cmd += ['--merge-output-format', opts['merge_output_format']]
+    cmd += ['-o', opts['outtmpl']]
+    cmd += ['--socket-timeout', str(opts['socket_timeout'])]
+    cmd += ['--retries', str(opts['retries'])]
+    cmd += ['--fragment-retries', str(opts['fragment_retries'])]
+    cmd += ['--extractor-retries', str(opts['extractor_retries'])]
+    if opts.get('nocheckcertificate'):
+        cmd += ['--no-check-certificate']
+    cmd += ['--match-filter', 'duration < 1800']
+    cmd += ['--user-agent', opts['user_agent']]
+    for hn, hv in opts.get('http_headers', {}).items():
+        cmd += ['--add-header', f'{hn}:{hv}']
+    for ns, kvs in opts.get('extractor_args', {}).items():
+        for key, val in kvs.items():
+            val_str = ','.join(map(str, val)) if isinstance(val, (list, tuple)) else str(val)
+            cmd += ['--extractor-args', f'{ns}:{key}={val_str}']
+    if opts.get('cookiefile'):
+        cmd += ['--cookies', opts['cookiefile']]
+    if opts.get('proxy'):
+        cmd += ['--proxy', opts['proxy']]
+    cmd.append(youtube_url)
+    return cmd
+
+
+async def _download_via_ytdlp_cli(youtube_url: str, opts: dict) -> None:
+    """Baixa via subprocess 'python3 -m yt_dlp'.
+    O CLI descobre e ativa o plugin bgutil-script-deno corretamente (validado
+    via /api/debug/bgutil); a Python API no mesmo processo não carrega o
+    plugin consistentemente.
+    """
+    cmd = _build_ydl_cli_args(youtube_url, opts)
+    logger.info(f"[yt-dlp CLI] invocando ({len(cmd)} args): {' '.join(cmd[:12])} ... {cmd[-1]}")
+
+    def _run():
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+
+    r = await asyncio.to_thread(_run)
+    stderr_tail = '\n'.join(r.stderr.splitlines()[-40:])
+    logger.info(f"[yt-dlp CLI] rc={r.returncode}")
+    logger.info(f"[yt-dlp CLI] stderr (tail 40):\n{stderr_tail}")
+    if r.returncode != 0:
+        raise Exception(f"yt-dlp CLI rc={r.returncode}")
+
+
 async def _download_via_cobalt(youtube_url: str, output_path: str) -> bool:
     """Baixa vídeo usando cobalt.tools API. Retorna True se ok, False se falhar."""
     if not COBALT_API_URL:
@@ -291,18 +342,23 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
 
     dl_path_actual = None
     try:
-        # PASSO 1 — yt-dlp (com cookies se configurado)
+        # PASSO 1 — yt-dlp: CLI primeiro (plugin bgutil ativa), Python API fallback
         try:
-            import yt_dlp
             ydl_opts = _get_ydl_opts(dl_path)
 
-            def _download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    n_errors = ydl.download([youtube_url])
-                    if n_errors:
-                        raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
+            try:
+                await _download_via_ytdlp_cli(youtube_url, ydl_opts)
+            except Exception as cli_err:
+                logger.warning(f"[{video_id}] yt-dlp CLI falhou ({cli_err}) — fallback Python API")
+                import yt_dlp
 
-            await asyncio.to_thread(_download)
+                def _download():
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        n_errors = ydl.download([youtube_url])
+                        if n_errors:
+                            raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
+
+                await asyncio.to_thread(_download)
 
             if not os.path.exists(dl_path):
                 import glob as _glob
