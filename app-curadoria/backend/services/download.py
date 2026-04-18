@@ -33,6 +33,41 @@ for _bgutil_dir in ("/app/bgutil-pot", "/app/bgutil-pot/server", "/app/bgutil-po
     else:
         logger.warning(f"[download] {_bgutil_dir} NÃO existe")
 
+# Diagnóstico yt-dlp e bgutil plugin — confirma se está registrado
+try:
+    import yt_dlp
+    logger.info(f"[download] yt-dlp version: {yt_dlp.version.__version__}")
+    try:
+        from yt_dlp.plugins import directories as _plugin_dirs
+        logger.info(f"[download] yt-dlp plugin dirs: {list(_plugin_dirs())}")
+    except Exception as e:
+        logger.error(f"[download] yt-dlp plugin dirs check failed: {e}")
+except Exception as e:
+    logger.error(f"[download] yt-dlp import failed: {e}")
+
+try:
+    import bgutil_ytdlp_pot_provider as _bgutil_mod
+    logger.info(f"[download] bgutil plugin LOADED: module={_bgutil_mod} file={getattr(_bgutil_mod, '__file__', '?')}")
+except ImportError as e:
+    logger.error(f"[download] bgutil plugin NOT INSTALLED: {e}")
+except Exception as e:
+    logger.error(f"[download] bgutil plugin import error: {e}")
+
+# Tenta listar os GetPOT providers registrados via entry_points yt-dlp
+try:
+    import yt_dlp.extractor.youtube.pot._provider as _pot_provider_mod
+    _providers = getattr(_pot_provider_mod, '_POT_PROVIDERS', None) or getattr(_pot_provider_mod, 'POT_PROVIDERS', None)
+    logger.info(f"[download] PO Token providers: {_providers}")
+except Exception as e:
+    logger.warning(f"[download] PO Token providers inspection skipped: {e}")
+
+try:
+    from yt_dlp.plugins import load_plugins
+    _loaded = load_plugins('extractor', 'YoutubeIE')
+    logger.info(f"[download] Plugins carregados para extractor: {sorted(list(_loaded.keys())) if _loaded else 'VAZIO'}")
+except Exception as e:
+    logger.warning(f"[download] load_plugins check skipped: {e}")
+
 import database as db
 from config import PROJECTS_DIR, COBALT_API_URL, COBALT_API_KEY, load_brand_config
 from shared.storage_service import storage, check_conflict, save_youtube_marker
