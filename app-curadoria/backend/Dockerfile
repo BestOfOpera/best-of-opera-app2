@@ -28,6 +28,15 @@ RUN git clone --depth 1 https://github.com/Brainicism/bgutil-ytdlp-pot-provider.
     && deno install --allow-scripts=npm:canvas --frozen \
     && ls /app/bgutil-pot/server/src/ || true
 
+# Instala o plugin Python explicitamente APÓS pip install -U yt-dlp da linha 23
+# (evita que um upgrade de yt-dlp deixe a namespace yt_dlp_plugins inconsistente).
+# O pacote instala em site-packages/yt_dlp_plugins/extractor/getpot_bgutil_*.py
+# (hatch wheel packages=["yt_dlp_plugins"] — não existe módulo top-level
+# chamado bgutil_ytdlp_pot_provider).
+RUN pip install -U --no-cache-dir bgutil-ytdlp-pot-provider \
+    && pip show bgutil-ytdlp-pot-provider \
+    && python -c "import yt_dlp_plugins.extractor.getpot_bgutil_script as m; print('bgutil plugin OK:', m.__file__)"
+
 COPY app-curadoria/backend/ .
 COPY shared/ ./shared/
 

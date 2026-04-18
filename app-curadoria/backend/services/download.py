@@ -45,13 +45,34 @@ try:
 except Exception as e:
     logger.error(f"[download] yt-dlp import failed: {e}")
 
+# Plugin distribui em namespace yt_dlp_plugins (NÃO em bgutil_ytdlp_pot_provider).
+# pyproject.toml: [tool.hatch.build.targets.wheel] packages = ["yt_dlp_plugins"]
+for _mod_name in (
+    "yt_dlp_plugins.extractor.getpot_bgutil",
+    "yt_dlp_plugins.extractor.getpot_bgutil_script",
+    "yt_dlp_plugins.extractor.getpot_bgutil_http",
+):
+    try:
+        import importlib
+        _m = importlib.import_module(_mod_name)
+        logger.info(f"[download] bgutil plugin OK: {_mod_name} -> {getattr(_m, '__file__', '?')}")
+    except ImportError as e:
+        logger.error(f"[download] bgutil plugin NOT INSTALLED ({_mod_name}): {e}")
+    except Exception as e:
+        logger.error(f"[download] bgutil plugin import error ({_mod_name}): {e}")
+
+# Confirma via pip show o metadata da distribuição instalada
 try:
-    import bgutil_ytdlp_pot_provider as _bgutil_mod
-    logger.info(f"[download] bgutil plugin LOADED: module={_bgutil_mod} file={getattr(_bgutil_mod, '__file__', '?')}")
-except ImportError as e:
-    logger.error(f"[download] bgutil plugin NOT INSTALLED: {e}")
+    _ps = subprocess.run(
+        ["pip", "show", "bgutil-ytdlp-pot-provider"],
+        capture_output=True, text=True, timeout=5,
+    )
+    if _ps.returncode == 0:
+        logger.info(f"[download] pip show bgutil-ytdlp-pot-provider:\n{_ps.stdout.strip()}")
+    else:
+        logger.error(f"[download] pip show falhou rc={_ps.returncode} stderr={_ps.stderr.strip()}")
 except Exception as e:
-    logger.error(f"[download] bgutil plugin import error: {e}")
+    logger.error(f"[download] pip show check failed: {e}")
 
 # Tenta listar os GetPOT providers registrados via entry_points yt-dlp
 try:
