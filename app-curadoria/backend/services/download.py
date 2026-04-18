@@ -120,11 +120,14 @@ def _get_ydl_opts(dl_path: str):
         # mweb = recomendado pelo PO Token Guide (bgutil script-deno gera tokens)
         # ios  = fallback H.264 tradicionais (não requer PO Token)
         # NÃO usar 'web' — YouTube migrou para SABR-only (yt-dlp#12482)
+        # extractor_args: sintaxe confirmada no source do plugin bgutil-ytdlp-pot-provider
+        # (plugin/yt_dlp_plugins/extractor/getpot_bgutil.py) — _script_config_arg usa
+        # ie_key='youtubepot-bgutilscript' e lê key='server_home'.
+        # HTTP provider é priorizado pelo plugin; como não subimos servidor HTTP,
+        # o ping em 127.0.0.1:4416 falha e o plugin cai para o script provider.
         'extractor_args': {
-            'youtube': {
-                'player_client': ['mweb', 'ios'],
-                'getpot_bgutil_script_server_home': '/app/bgutil-pot/server',
-            },
+            'youtube': {'player_client': ['mweb', 'ios']},
+            'youtubepot-bgutilscript': {'server_home': '/app/bgutil-pot/server'},
         },
         'progress_hooks': [lambda d: logger.info(
             f"[yt-dlp downloaded] {d.get('info_dict',{}).get('width','?')}x"
