@@ -342,23 +342,11 @@ async def _prepare_video_logic(video_id: str, artist: str, song: str):
 
     dl_path_actual = None
     try:
-        # PASSO 1 — yt-dlp: CLI primeiro (plugin bgutil ativa), Python API fallback
+        # PASSO 1 — yt-dlp via CLI (CLI é o único caminho com plugin bgutil ativo;
+        # a Python API no mesmo processo só entrega 360p por falta de PO Token).
         try:
             ydl_opts = _get_ydl_opts(dl_path)
-
-            try:
-                await _download_via_ytdlp_cli(youtube_url, ydl_opts)
-            except Exception as cli_err:
-                logger.warning(f"[{video_id}] yt-dlp CLI falhou ({cli_err}) — fallback Python API")
-                import yt_dlp
-
-                def _download():
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        n_errors = ydl.download([youtube_url])
-                        if n_errors:
-                            raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
-
-                await asyncio.to_thread(_download)
+            await _download_via_ytdlp_cli(youtube_url, ydl_opts)
 
             if not os.path.exists(dl_path):
                 import glob as _glob

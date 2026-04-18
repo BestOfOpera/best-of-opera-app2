@@ -18,7 +18,7 @@ from services.scoring import calc_score_v7, _process_v7, _rescore_cached, is_pos
 from services.download import (
     manager, download_semaphore, sanitize_filename,
     _get_ydl_opts, _prepare_video_logic, _wrapped_prepare_video,
-    _download_via_cobalt,
+    _download_via_cobalt, _download_via_ytdlp_cli,
 )
 from shared.storage_service import storage, check_conflict, save_youtube_marker
 from worker import task_queue
@@ -431,14 +431,8 @@ async def download_video(
 
     async with download_semaphore:
         try:
-            import yt_dlp
             ydl_opts = _get_ydl_opts(dl_path)
-
-            def _download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([youtube_url])
-
-            await asyncio.to_thread(_download)
+            await _download_via_ytdlp_cli(youtube_url, ydl_opts)
 
             if not os.path.exists(dl_path):
                 import glob as _glob
@@ -540,42 +534,12 @@ async def prepare_video(
     async with download_semaphore:
         dl_path_actual = None
         try:
-            # PASSO 1 — yt-dlp (com cookies se configurado)
+            # PASSO 1 — yt-dlp via CLI (única via com plugin bgutil ativo;
+            # Python API no mesmo processo só entrega 360p por falta de PO Token)
             try:
-                import yt_dlp
                 ydl_opts = _get_ydl_opts(dl_path)
                 logger.info(f"[prepare-video] ydl_opts format: {ydl_opts.get('format', 'NENHUM')}")
-
-                # DEBUG: teste mínimo sem formato
-                try:
-                    import yt_dlp as _ytdlp
-                    logger.info(f"[prepare-video] yt-dlp version: {_ytdlp.version.__version__}")
-                    debug_opts = {'quiet': True, 'no_warnings': False}
-                    cookies_path = ydl_opts.get('cookiefile')
-                    if cookies_path:
-                        debug_opts['cookiefile'] = cookies_path
-                    with _ytdlp.YoutubeDL(debug_opts) as ydl_debug:
-                        info = ydl_debug.extract_info(youtube_url, download=False)
-                        formats = info.get('formats', [])
-                        logger.info(f"[prepare-video] Formatos sem filtro: {len(formats)}")
-                        for f in formats[:5]:
-                            logger.info(f"  {f.get('format_id')} ext={f.get('ext')} "
-                                       f"h={f.get('height')} vc={f.get('vcodec')} ac={f.get('acodec')}")
-                        if not formats:
-                            logger.error("[prepare-video] ZERO formatos! Extrator YouTube quebrado.")
-                            logger.error(f"[prepare-video] Video title: {info.get('title', 'N/A')}")
-                            logger.error(f"[prepare-video] Uploader: {info.get('uploader', 'N/A')}")
-                            logger.error(f"[prepare-video] Availability: {info.get('availability', 'N/A')}")
-                except Exception as e:
-                    logger.error(f"[prepare-video] extract_info falhou: {type(e).__name__}: {e}")
-
-                def _download():
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        n_errors = ydl.download([youtube_url])
-                        if n_errors:
-                            raise Exception(f"yt-dlp reportou {n_errors} erro(s) sem exceção")
-
-                await asyncio.to_thread(_download)
+                await _download_via_ytdlp_cli(youtube_url, ydl_opts)
 
                 if not os.path.exists(dl_path):
                     import glob as _glob
