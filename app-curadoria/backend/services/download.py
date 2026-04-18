@@ -45,21 +45,17 @@ try:
 except Exception as e:
     logger.error(f"[download] yt-dlp import failed: {e}")
 
-# Plugin distribui em namespace yt_dlp_plugins (NÃO em bgutil_ytdlp_pot_provider).
-# pyproject.toml: [tool.hatch.build.targets.wheel] packages = ["yt_dlp_plugins"]
-for _mod_name in (
-    "yt_dlp_plugins.extractor.getpot_bgutil",
-    "yt_dlp_plugins.extractor.getpot_bgutil_script",
-    "yt_dlp_plugins.extractor.getpot_bgutil_http",
-):
-    try:
-        import importlib
-        _m = importlib.import_module(_mod_name)
-        logger.info(f"[download] bgutil plugin OK: {_mod_name} -> {getattr(_m, '__file__', '?')}")
-    except ImportError as e:
-        logger.error(f"[download] bgutil plugin NOT INSTALLED ({_mod_name}): {e}")
-    except Exception as e:
-        logger.error(f"[download] bgutil plugin import error ({_mod_name}): {e}")
+# Checagem de EXISTÊNCIA do plugin — SEM importar.
+# Importar yt_dlp_plugins.extractor.getpot_bgutil* executa side-effects
+# que registram os providers; quando o yt-dlp tenta registrar de novo
+# durante o download, dispara AssertionError "already registered".
+_plugin_dir = '/usr/local/lib/python3.11/site-packages/yt_dlp_plugins/extractor'
+for _pf in ('getpot_bgutil.py', 'getpot_bgutil_script.py', 'getpot_bgutil_http.py'):
+    _pp = os.path.join(_plugin_dir, _pf)
+    if os.path.exists(_pp):
+        logger.info(f"[download] bgutil plugin file OK: {_pp}")
+    else:
+        logger.error(f"[download] bgutil plugin file MISSING: {_pp}")
 
 # Confirma via pip show o metadata da distribuição instalada
 try:
