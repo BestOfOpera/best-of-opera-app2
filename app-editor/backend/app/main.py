@@ -776,6 +776,24 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v11 RC fontsize/gap: {e}")
 
+    # Migration v12: RC — gap_from_image 4→0 + inter_line_gap 2→-10
+    # Aproxima lyrics da imagem (sem gap) e tradução do lyrics (sobreposição parcial).
+    # Guard duplo idempotente: só executa se AMBOS gap_from_image == 4 E inter_line_gap == 2
+    # (estado pós-v11). Após execução, valores ficam 0 e -10 e os guards fecham.
+    # Apenas lyrics_style é afetado (legendas.py lê ambas as chaves de estilos["lyrics"]).
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style = (lyrics_style::jsonb || '{"gap_from_image": 0, "inter_line_gap": -10}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'gap_from_image') = '4'
+                  AND (lyrics_style->>'inter_line_gap') = '2'
+            """))
+            logger.info(f"Migration v12: RC gap_from_image 4→0 + inter_line_gap 2→-10 ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v12 RC gap/inter_line: {e}")
+
     # Verificação de perfil RC no startup
     try:
         with engine.begin() as conn:
