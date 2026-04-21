@@ -741,6 +741,23 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v8/v9 RC: {e}")
 
+    # Migration v10: RC — lyrics/traducao fontsize 48→52 (ajuste de legibilidade)
+    # Guard idempotente: só executa se lyrics_style.fontsize == 48 (estado pós-v7).
+    # Preserva todos os outros campos (fontname=Poppins, italic, bold, alignment,
+    # primarycolor, outline, outlinecolor, shadow, marginv) via merge JSONB com ||.
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style   = (lyrics_style::jsonb   || '{"fontsize": 52}'::jsonb)::json,
+                    traducao_style = (traducao_style::jsonb || '{"fontsize": 52}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'fontsize') = '48'
+            """))
+            logger.info(f"Migration v10: RC lyrics/traducao fontsize 48→52 ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v10 RC fontsize: {e}")
+
     # Verificação de perfil RC no startup
     try:
         with engine.begin() as conn:
