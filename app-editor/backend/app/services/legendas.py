@@ -330,6 +330,13 @@ def gerar_ass(
     subs.info["PlayResX"] = play_res_x
     subs.info["PlayResY"] = play_res_y
 
+    print(f"[RC ASS CHECK] image_top_px={image_top_px} "
+          f"frame_h={int(subs.info.get('PlayResY', '1920'))} "
+          f"lyrics_fs_perfil={estilos.get('lyrics',{}).get('fontsize')} "
+          f"lyrics_mv_perfil={estilos.get('lyrics',{}).get('marginv')} "
+          f"trad_mv_perfil={estilos.get('traducao',{}).get('marginv')}",
+          flush=True)
+
     # Recalcular marginv do overlay, lyrics e traducao baseado na posição real da imagem
     if image_top_px is not None:
         frame_h = int(subs.info.get("PlayResY", "1920"))
@@ -361,6 +368,10 @@ def gerar_ass(
         # Traducao: posiciona logo abaixo das lyrics
         estilos["traducao"] = dict(estilos["traducao"])
         estilos["traducao"]["marginv"] = frame_h - lyrics_marginv + inter_line_gap
+
+    if image_top_px is not None:
+        print(f"[RC ASS OVERRIDE] lyrics_mv_final={estilos['lyrics']['marginv']} "
+              f"trad_mv_final={estilos['traducao']['marginv']}", flush=True)
 
     # Criar estilos
     for nome, config in estilos.items():
