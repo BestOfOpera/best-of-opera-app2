@@ -751,6 +751,28 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"[PERFIL CHECK] Falha ao verificar fontsizes RC: {e}")
 
+    # Verificação de lyrics/traducao do RC no startup (diagnóstico — NÃO altera dado)
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text(
+                "SELECT lyrics_style->>'fontsize'   AS lf, "
+                "       lyrics_style->>'marginv'   AS lm, "
+                "       lyrics_style->>'alignment' AS la, "
+                "       traducao_style->>'fontsize'   AS tf, "
+                "       traducao_style->>'marginv'   AS tm, "
+                "       traducao_style->>'alignment' AS ta "
+                "FROM editor_perfis WHERE sigla = 'RC'"
+            )).first()
+            if row:
+                print(f"[RC LYRICS CHECK] fontsize={row[0]} "
+                      f"marginv={row[1]} "
+                      f"align={row[2]}", flush=True)
+                print(f"[RC TRAD CHECK]   fontsize={row[3]} "
+                      f"marginv={row[4]} "
+                      f"align={row[5]}", flush=True)
+    except Exception as e:
+        logger.warning(f"[RC CHECK] Falha ao verificar lyrics/traducao RC: {e}")
+
     # Migration: BO overlay gap reduzido (30→8px) para legendas mais próximas da imagem
     try:
         with engine.begin() as conn:
