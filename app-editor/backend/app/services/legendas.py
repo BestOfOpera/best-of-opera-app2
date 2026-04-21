@@ -330,12 +330,16 @@ def gerar_ass(
     subs.info["PlayResX"] = play_res_x
     subs.info["PlayResY"] = play_res_y
 
+    gap_from_image = estilos.get("lyrics", {}).get("gap_from_image", 10)
+    inter_line_gap = estilos.get("lyrics", {}).get("inter_line_gap", 6)
+
     print(f"[RC ASS CHECK] image_top_px={image_top_px} "
           f"frame_h={int(subs.info.get('PlayResY', '1920'))} "
           f"lyrics_fs_perfil={estilos.get('lyrics',{}).get('fontsize')} "
           f"lyrics_mv_perfil={estilos.get('lyrics',{}).get('marginv')} "
-          f"trad_mv_perfil={estilos.get('traducao',{}).get('marginv')}",
-          flush=True)
+          f"trad_mv_perfil={estilos.get('traducao',{}).get('marginv')} "
+          f"gap_from_image={gap_from_image} "
+          f"inter_line_gap={inter_line_gap}", flush=True)
 
     # Recalcular marginv do overlay, lyrics e traducao baseado na posição real da imagem
     if image_top_px is not None:
@@ -359,8 +363,6 @@ def gerar_ass(
         # image_top_px == pad_y == altura da barra preta (topo e base são iguais)
         fontsize_lyrics = estilos.get("lyrics", {}).get("fontsize", 30)
         text_height = int(fontsize_lyrics * 1.3)  # altura aproximada de uma linha renderizada
-        gap_from_image = 10  # gap entre borda inferior da imagem e texto
-        inter_line_gap = 6   # gap entre lyrics e traducao
         lyrics_marginv = image_top_px - gap_from_image - text_height
         estilos["lyrics"] = dict(estilos["lyrics"])
         estilos["lyrics"]["marginv"] = lyrics_marginv

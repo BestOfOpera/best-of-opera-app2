@@ -758,6 +758,24 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v10 RC fontsize: {e}")
 
+    # Migration v11: RC — lyrics fontsize 52→58 + gap_from_image=4 + inter_line_gap=2
+    # Guard idempotente: só executa se lyrics_style.fontsize == 52 (estado pós-v10).
+    # Preserva fontname (Poppins), italic, bold, alignment, primarycolor, outline,
+    # outlinecolor, shadow, marginv via merge JSONB com ||. Chaves gap_from_image e
+    # inter_line_gap ficam APENAS em lyrics_style (legendas.py lê de estilos["lyrics"]).
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style   = (lyrics_style::jsonb   || '{"fontsize": 58, "gap_from_image": 4, "inter_line_gap": 2}'::jsonb)::json,
+                    traducao_style = (traducao_style::jsonb || '{"fontsize": 58}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'fontsize') = '52'
+            """))
+            logger.info(f"Migration v11: RC fontsize 52→58 + gap/inter_line ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v11 RC fontsize/gap: {e}")
+
     # Verificação de perfil RC no startup
     try:
         with engine.begin() as conn:
