@@ -1,0 +1,119 @@
+app-redator/backend/main.py:35:            conn.execute(text("ALTER TABLE projects ADD COLUMN hook_category VARCHAR(50) DEFAULT ''"))
+app-redator/backend/main.py:39:            conn.execute(text("ALTER TABLE projects ADD COLUMN brand_slug VARCHAR(50) DEFAULT 'best-of-opera'"))
+app-redator/backend/main.py:55:            conn.execute(text("ALTER TABLE projects ADD COLUMN instrument_formation VARCHAR(255)"))
+app-redator/backend/main.py:57:            conn.execute(text("ALTER TABLE projects ADD COLUMN orchestra VARCHAR(255)"))
+app-redator/backend/main.py:59:            conn.execute(text("ALTER TABLE projects ADD COLUMN conductor VARCHAR(255)"))
+app-redator/backend/main.py:66:            conn.execute(text("ALTER TABLE projects ADD COLUMN r2_folder VARCHAR(500)"))
+app-redator/backend/models.py:22:    youtube_url: Mapped[str] = mapped_column(String(500), default="")
+app-redator/backend/models.py:25:    artist: Mapped[str] = mapped_column(String(255))
+app-redator/backend/models.py:26:    work: Mapped[str] = mapped_column(String(255))
+app-redator/backend/models.py:27:    composer: Mapped[str] = mapped_column(String(255))
+app-redator/backend/models.py:28:    composition_year: Mapped[str] = mapped_column(String(50), default="")
+app-redator/backend/models.py:29:    nationality: Mapped[str] = mapped_column(String(255), default="")
+app-redator/backend/models.py:30:    nationality_flag: Mapped[str] = mapped_column(String(100), default="")
+app-redator/backend/models.py:31:    voice_type: Mapped[str] = mapped_column(String(255), default="")
+app-redator/backend/models.py:32:    birth_date: Mapped[str] = mapped_column(String(255), default="")
+app-redator/backend/models.py:33:    death_date: Mapped[str] = mapped_column(String(255), default="")
+app-redator/backend/models.py:34:    album_opera: Mapped[str] = mapped_column(String(255), default="")
+app-redator/backend/models.py:35:    category: Mapped[str] = mapped_column(String(100), default="")
+app-redator/backend/models.py:37:    hook_category: Mapped[str] = mapped_column(String(50), default="")
+app-redator/backend/models.py:39:    original_duration: Mapped[str] = mapped_column(String(20), default="")
+app-redator/backend/models.py:40:    cut_start: Mapped[str] = mapped_column(String(20), default="")
+app-redator/backend/models.py:41:    cut_end: Mapped[str] = mapped_column(String(20), default="")
+app-redator/backend/models.py:44:    brand_slug: Mapped[str] = mapped_column(String(50), nullable=False)
+app-redator/backend/models.py:48:        String(50), default="input_complete"
+app-redator/backend/models.py:68:    instrument_formation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+app-redator/backend/models.py:69:    orchestra: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+app-redator/backend/models.py:70:    conductor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+app-redator/backend/models.py:78:    r2_folder: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+app-redator/backend/models.py:90:    language: Mapped[str] = mapped_column(String(10))  # pt, es, de, fr, it, pl
+app-editor/backend/app/main.py:45:                nome VARCHAR(100) UNIQUE NOT NULL,
+app-editor/backend/app/main.py:46:                sigla VARCHAR(5) NOT NULL,
+app-editor/backend/app/main.py:47:                slug VARCHAR(50) UNIQUE NOT NULL,
+app-editor/backend/app/main.py:51:                editorial_lang VARCHAR(5) DEFAULT 'pt',
+app-editor/backend/app/main.py:55:                idioma_preview VARCHAR(5) DEFAULT 'pt',
+app-editor/backend/app/main.py:66:                cor_primaria VARCHAR(10) DEFAULT '#1a1a2e',
+app-editor/backend/app/main.py:67:                cor_secundaria VARCHAR(10) DEFAULT '#e94560',
+app-editor/backend/app/main.py:68:                r2_prefix VARCHAR(100) DEFAULT 'editor',
+app-editor/backend/app/main.py:77:                anti_spam_terms VARCHAR(500) DEFAULT '-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords',
+app-editor/backend/app/main.py:78:                playlist_id VARCHAR(100) DEFAULT '',
+app-editor/backend/app/main.py:82:                logo_url VARCHAR(500),
+app-editor/backend/app/main.py:83:                font_name VARCHAR(100),
+app-editor/backend/app/main.py:918:                ("anti_spam_terms", "VARCHAR(500) DEFAULT '-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords'"),
+app-editor/backend/app/main.py:919:                ("playlist_id", "VARCHAR(100) DEFAULT ''"),
+app-editor/backend/app/main.py:923:                ("logo_url", "VARCHAR(500)"),
+app-editor/backend/app/main.py:924:                ("font_name", "VARCHAR(100)"),
+app-editor/backend/app/main.py:925:                ("font_file_r2_key", "VARCHAR(200)"),
+app-editor/backend/app/main.py:1116:                nome VARCHAR(100) NOT NULL,
+app-editor/backend/app/main.py:1117:                email VARCHAR(200) UNIQUE NOT NULL,
+app-editor/backend/app/main.py:1118:                senha_hash VARCHAR(500) NOT NULL,
+app-editor/backend/app/main.py:1119:                role VARCHAR(20) DEFAULT 'operador',
+app-editor/backend/app/main.py:1153:            ("corte_original_inicio", "VARCHAR(20)"),
+app-editor/backend/app/main.py:1154:            ("corte_original_fim", "VARCHAR(20)"),
+app-editor/backend/app/main.py:1156:            ("r2_base", "VARCHAR(500)"),
+app-editor/backend/app/main.py:1243:                ("prioridade", "VARCHAR(20) DEFAULT 'media'"),
+app-editor/backend/app/main.py:1246:                ("colaborador", "VARCHAR(200)"),
+app-editor/backend/app/main.py:1250:                ("resolvido_por", "VARCHAR(200)"),
+app-editor/backend/app/main.py:1251:                ("codigo_err", "VARCHAR(50)"),
+app-editor/backend/app/models/alinhamento.py:16:    rota = Column(String(5))
+app-editor/backend/app/models/alinhamento.py:18:    validado_por = Column(String(100))
+app-editor/backend/app/models/edicao.py:13:    youtube_url = Column(String(500), nullable=True)
+app-editor/backend/app/models/edicao.py:14:    youtube_video_id = Column(String(20), nullable=True)
+app-editor/backend/app/models/edicao.py:16:    artista = Column(String(300), nullable=False)
+app-editor/backend/app/models/edicao.py:17:    musica = Column(String(300), nullable=False)
+app-editor/backend/app/models/edicao.py:18:    compositor = Column(String(300))
+app-editor/backend/app/models/edicao.py:19:    opera = Column(String(300))
+app-editor/backend/app/models/edicao.py:20:    categoria = Column(String(50))
+app-editor/backend/app/models/edicao.py:21:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/edicao.py:26:    status = Column(String(30), default="aguardando", index=True)
+app-editor/backend/app/models/edicao.py:34:    corte_original_inicio = Column(String(20))
+app-editor/backend/app/models/edicao.py:35:    corte_original_fim = Column(String(20))
+app-editor/backend/app/models/edicao.py:37:    arquivo_video_completo = Column(String(500))
+app-editor/backend/app/models/edicao.py:38:    arquivo_video_cortado = Column(String(500))
+app-editor/backend/app/models/edicao.py:39:    arquivo_audio_completo = Column(String(500))
+app-editor/backend/app/models/edicao.py:40:    arquivo_video_cru = Column(String(500))
+app-editor/backend/app/models/edicao.py:42:    rota_alinhamento = Column(String(5))
+app-editor/backend/app/models/edicao.py:45:    r2_base = Column(String(500), nullable=True)  # ex: "Pavarotti - Nessun Dorma"
+app-editor/backend/app/models/edicao.py:49:    editado_por = Column(String(100))
+app-editor/backend/app/models/letra.py:11:    musica = Column(String(300), nullable=False)
+app-editor/backend/app/models/letra.py:12:    compositor = Column(String(300))
+app-editor/backend/app/models/letra.py:13:    opera = Column(String(300))
+app-editor/backend/app/models/letra.py:14:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/letra.py:16:    fonte = Column(String(50))
+app-editor/backend/app/models/letra.py:17:    validado_por = Column(String(100))
+app-editor/backend/app/models/login_history.py:13:    ip_address = Column(String(45), nullable=True)
+app-editor/backend/app/models/login_history.py:14:    user_agent = Column(String(500), nullable=True)
+app-editor/backend/app/models/overlay.py:13:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/perfil.py:11:    nome = Column(String(100), unique=True, nullable=False)       # "Best of Opera"
+app-editor/backend/app/models/perfil.py:12:    sigla = Column(String(5), nullable=False)                     # "BO"
+app-editor/backend/app/models/perfil.py:13:    slug = Column(String(50), unique=True, nullable=False)        # "best-of-opera"
+app-editor/backend/app/models/perfil.py:20:    editorial_lang = Column(String(5), default="pt")
+app-editor/backend/app/models/perfil.py:26:    idioma_preview = Column(String(5), default="pt")
+app-editor/backend/app/models/perfil.py:56:    anti_spam_terms = Column(String(500), default="-karaoke -piano -tutorial -lesson -reaction -review -lyrics -chords")
+app-editor/backend/app/models/perfil.py:57:    playlist_id = Column(String(100), default="")
+app-editor/backend/app/models/perfil.py:66:    logo_url = Column(String(500))
+app-editor/backend/app/models/perfil.py:67:    font_name = Column(String(100))
+app-editor/backend/app/models/perfil.py:68:    font_file_r2_key = Column(String(200))
+app-editor/backend/app/models/perfil.py:72:    cor_primaria = Column(String(10), default="#1a1a2e")
+app-editor/backend/app/models/perfil.py:73:    cor_secundaria = Column(String(10), default="#e94560")
+app-editor/backend/app/models/perfil.py:76:    r2_prefix = Column(String(100), default="editor")
+app-editor/backend/app/models/post.py:12:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/render.py:12:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/render.py:13:    tipo = Column(String(20), nullable=False)
+app-editor/backend/app/models/render.py:14:    arquivo = Column(String(500))
+app-editor/backend/app/models/render.py:16:    status = Column(String(20), default="pendente")
+app-editor/backend/app/models/report.py:13:    tipo = Column(String(50), nullable=False)  # "bug", "melhoria", "sugestao", "qualidade", "outro"
+app-editor/backend/app/models/report.py:14:    titulo = Column(String(300), nullable=False)
+app-editor/backend/app/models/report.py:16:    screenshot_r2_key = Column(String(500), nullable=True)  # key R2 do screenshot (legado)
+app-editor/backend/app/models/report.py:17:    status = Column(String(20), default="novo")  # "novo", "analise", "resolvido"
+app-editor/backend/app/models/report.py:18:    prioridade = Column(String(20), default="media")  # "baixa", "media", "alta"
+app-editor/backend/app/models/report.py:23:    colaborador = Column(String(200), nullable=True)  # nome de quem reportou
+app-editor/backend/app/models/report.py:27:    resolvido_por = Column(String(200), nullable=True)  # nome de quem resolveu
+app-editor/backend/app/models/report.py:28:    codigo_err = Column(String(50), nullable=True)  # ex: ERR-066
+app-editor/backend/app/models/seo.py:12:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/seo.py:13:    titulo = Column(String(300))
+app-editor/backend/app/models/traducao_letra.py:12:    idioma = Column(String(10), nullable=False)
+app-editor/backend/app/models/usuario.py:10:    nome = Column(String(100), nullable=False)
+app-editor/backend/app/models/usuario.py:11:    email = Column(String(200), unique=True, nullable=False, index=True)
+app-editor/backend/app/models/usuario.py:12:    senha_hash = Column(String(500), nullable=False)
+app-editor/backend/app/models/usuario.py:13:    role = Column(String(20), default="operador")  # "admin" ou "operador"

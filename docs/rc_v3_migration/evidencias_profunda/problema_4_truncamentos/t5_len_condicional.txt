@@ -1,0 +1,14 @@
+app-redator/backend/prompts/overlay_prompt.py:72:        if len(stripped) > 2 and stripped[0] not in "abcdefghijklmnopqrstuvwxyz\"'" and ":" in stripped[:40]:
+app-redator/backend/prompts/post_prompt.py:137:Exactly {hashtag_count} hashtags. #BestOfOpera MUST be first. Format: #BestOfOpera #[VoiceType] #[Composer] #[RelevantTopic].{" You MUST also include: " + hashtags_str + "." if len(hashtags) > 1 else ""}{" Add " + str(hashtag_count - len(hashtags)) + " more relevant ones." if len(hashtags) < hashtag_count else ""}
+app-redator/backend/prompts/rc_automation_prompt.py:65:    if len(post_clean) > 500:
+app-redator/backend/routers/translation.py:190:                    elif len(t_text) > 70:
+app-redator/backend/services/claude_service.py:473:        if len(parsed) > 1 and narrative_ceiling > 0:
+app-redator/backend/services/claude_service.py:642:    tags = lines[-1] if len(lines) > 1 else ""
+app-redator/backend/services/claude_service.py:1005:            if fim_narrativo > cta_inicio_ideal and len(narrativas) > 3:
+app-redator/backend/services/claude_service.py:1058:            if len(linha) > 42:
+app-redator/backend/services/translate_service.py:1005:                    elif len(t_text) > 70:
+app-editor/backend/app/routes/admin_perfil.py:264:    if len(content) > 10 * 1024 * 1024:
+app-editor/backend/app/routes/importar.py:270:                if len(txt) > 35 and "\n" not in txt and not s.get("_is_cta"):
+app-editor/backend/app/services/genius.py:207:        if stripped.endswith("Lyrics") and len(stripped) > 20:
+app-editor/backend/app/services/legendas.py:466:    todos_iguais = len(overlay_filtrado) > 1 and len(set(overlay_starts)) <= 1
+app-curadoria/backend/database.py:400:        "cache_initialized": len(categories) > 0 or playlist_count > 0

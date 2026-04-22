@@ -1,0 +1,187 @@
+app-redator/backend/prompts/hook_prompt.py:129:  {{"angle": "performer", "hook": "...", "thread": "..."}},
+app-redator/backend/prompts/hook_prompt.py:130:  {{"angle": "context", "hook": "...", "thread": "..."}},
+app-redator/backend/prompts/hook_prompt.py:131:  {{"angle": "visual", "hook": "...", "thread": "..."}},
+app-redator/backend/prompts/hook_prompt.py:132:  {{"angle": "paradox", "hook": "...", "thread": "..."}}
+app-redator/backend/prompts/overlay_prompt.py:77:        narrative = narrative[:max_chars].rsplit(" ", 1)[0] + "..."
+app-redator/backend/prompts/rc_automation_prompt.py:66:        post_summary = post_clean[:500].rstrip() + "..."
+app-redator/backend/prompts/rc_automation_prompt.py:218:    "texto_completo": "Comente \\"KEYWORD\\" e receba...",
+app-redator/backend/prompts/rc_overlay_prompt.py:480:A BLOQUEAR: "...o pianista some. Fica só a música."
+app-redator/backend/prompts/rc_overlay_prompt.py:578:"...o pianista some. Fica só a música." [VAZIO]
+app-redator/backend/prompts/rc_post_prompt.py:111:- Primeira frase de P1 é a ÚNICA visível no feed antes de "mais..." — deve ser forte o suficiente para o leitor expandir
+app-redator/backend/prompts/rc_post_prompt.py:208:- PRIMEIRA FRASE é a única visível no feed antes do "mais..." — deve ser suficientemente forte para o leitor expandir
+app-redator/backend/prompts/rc_post_prompt.py:294:- Primeira frase de P1 forte para "mais..."
+app-redator/backend/prompts/rc_post_prompt.py:327:A BLOQUEAR: "...o pianista some. Fica só a música."
+app-redator/backend/prompts/rc_post_prompt.py:419:  "hashtags": ["#...", "#...", "#...", "#..."],
+app-redator/backend/prompts/rc_post_prompt.py:450:3. PRIMEIRA FRASE DE P1: faz o leitor tocar em "mais..."? Se só soa "ok", reescrever.
+app-redator/backend/prompts/rc_research_prompt.py:115:IMPORTANTE: Cada resposta deve conter um VERBO DE AÇÃO. Não "estava doente" (estado). Sim "lutava contra uma doença que o impedia de..." (ação com consequência).
+app-redator/backend/prompts/rc_research_prompt.py:232:  ERRADO: "situacao_pessoal": "Chopin estava em Paris desde 1831, onde havia se estabelecido após fugir da Polônia durante a revolução. Vivia numa situação financeiramente estável graças às aulas..."
+app-redator/backend/prompts/rc_research_prompt.py:292:      "resumo_cadeia": "E1: verbo → E2: verbo → E3: verbo → ...",
+app-redator/backend/services/claude_service.py:678:                _rc_logger.warning(f"[RC _call_claude_api] API overloaded, aguardando {wait}s antes de retry...")
+app-redator/backend/services/claude_service.py:726:    _rc_logger.info("[RC _call_claude_json] Limpeza falhou. Fazendo retry com nova chamada...")
+app-redator/backend/services/translate_service.py:113:                               f"→ {target_lang}: {e}. Aguardando {wait}s...")
+app-redator/backend/services/translate_service.py:781:    {{ "index": 2, "text": "..." }}
+app-redator/backend/services/translate_service.py:841:    Retorna {"overlay": [...], "post": "...", "verificacoes": {...}} ou None se falhar.
+app-redator/frontend/src/components/RegenerateButton.tsx:35:            placeholder="Adicione instruções personalizadas..."
+app-redator/frontend/src/pages/NewProject.tsx:310:              placeholder="https://www.youtube.com/watch?v=..."
+app-redator/frontend/src/pages/NewProject.tsx:374:                  placeholder="Escreva seu ângulo criativo..."
+app-editor/backend/app/main.py:876:    # Sem este flag, _formatar_overlay() trunca linhas >35 chars com "..." via _truncar_texto().
+app-editor/backend/app/routes/edicoes.py:293:      [{"text": "...", "start": 0.0, "end": 3.0, "type": "corpo"}, ...]
+app-editor/backend/app/routes/pipeline.py:507:            logger.info(f"[{edicao_id}] Vídeo não está no R2, pedindo à curadoria para baixar...")
+app-editor/backend/app/routes/pipeline.py:554:            logger.info(f"[{edicao_id}] Tentando cobalt.tools para {youtube_video_id}...")
+app-editor/backend/app/routes/pipeline.py:600:            logger.info(f"[{edicao_id}] Tentando yt-dlp para {youtube_video_id}...")
+app-editor/backend/app/routes/pipeline.py:951:        logger.info(f"[{edicao_id}] Passo 1: Mapeamento estrutural do áudio...")
+app-editor/backend/app/routes/pipeline.py:1001:        logger.info(f"[{edicao_id}] Passo 2: Transcrição GUIADA (texto fiel à letra)...")
+app-editor/backend/app/routes/pipeline.py:1054:            logger.info(f"[{edicao_id}] Passo 3: Merge (cega {len(segmentos_cegos)} × guiada {len(segmentos_guiados)})...")
+app-editor/backend/app/routes/pipeline.py:1063:                logger.info(f"[{edicao_id}] Merge fraco (rota C), tentando alinhamento guiada direta...")
+app-editor/backend/app/routes/pipeline.py:1077:                f"Tentando completação..."
+app-editor/backend/app/routes/pipeline.py:1589:                logger.info(f"[{edicao_id}] Traduzindo para {idioma}...")
+app-editor/backend/app/routes/pipeline.py:1638:                    logger.info(f"[{edicao_id}] Retry tradução {idioma}...")
+app-editor/backend/app/services/gemini.py:354:  {{"index": 1, "start": "01:25,300", "end": "01:29,800", "text": "primeiro verso..."}},
+app-editor/backend/app/services/gemini.py:416:  {{"index": 1, "original": "...", "traducao": "..."}},
+app-editor/backend/app/services/legendas.py:181:                f"aplicando word-wrap: {texto[:60]}..."
+app-editor/backend/app/services/legendas.py:189:                        f"pre_formatted: {line.strip()[:50]}..."
+app-editor/backend/app/services/legendas.py:251:        return "..."
+app-editor/backend/app/services/legendas.py:261:        return cortado[:ultimo_espaco].rstrip() + "..."
+app-editor/backend/app/services/legendas.py:264:    return cortado.rstrip() + "..."
+app-editor/backend/app/services/translate_service.py:65:      [{"index": 1, "original": "...", "traducao": "..."}, ...]
+app-editor/backend/app/worker.py:29:            logger.info("[worker] Aguardando próxima task na fila...")
+app-editor/backend/tests/verify_fix.py:11:        return "..."
+app-editor/backend/tests/verify_fix.py:21:        return cortado[:ultimo_espaco].rstrip() + "..."
+app-editor/backend/tests/verify_fix.py:24:    return cortado.rstrip() + "..."
+app-curadoria/backend/config.py:71:      - Completo: {"key": {"name": "...", "emoji": "...", "desc": "...", "seeds": [...]}}
+app-curadoria/backend/main.py:54:        logger.info("Cache empty — auto-populating with V7 seeds...")
+app-curadoria/backend/routes/curadoria.py:34:    logger.info("Starting V7 initial cache population...")
+app-curadoria/backend/routes/curadoria.py:68:    logger.info(f"Refreshing playlist for {slug} (playlist_id={pl_id})...")
+app-curadoria/backend/routes/curadoria.py:558:                logger.info(f"[prepare-video] Tentando cobalt.tools para {video_id}...")
+app-curadoria/backend/services/download.py:130:                manager.set_task(video_id, {"status": "processing", "progress": 0, "message": "Iniciando download..."})
+app-curadoria/backend/services/download.py:230:        logger.info(f"[yt-dlp] Proxy configurado: {proxy[:25]}...")
+app-curadoria/backend/services/download.py:341:    manager.set_task(video_id, {"status": "processing", "progress": 30, "message": "Fazendo download (yt-dlp)..."})
+app-curadoria/backend/services/download.py:365:            logger.info(f"[{video_id}] Tentando cobalt.tools como fallback...")
+app-curadoria/backend/services/download.py:366:            manager.set_task(video_id, {"status": "processing", "progress": 40, "message": "Fallback cobalt.tools..."})
+app-curadoria/backend/services/download.py:389:        manager.set_task(video_id, {"status": "processing", "progress": 70, "message": "Enviando para o R2..."})
+app-curadoria/backend/services/download.py:415:    manager.set_task(video_id, {"status": "processing", "progress": 10, "message": "Baixando do YouTube..."})
+app-portal/app/(app)/admin/marcas/nova/page.tsx:259:                                <Input value={formData.playlist_id || ""} onChange={e => handleChange("playlist_id", e.target.value)} className="bg-background font-mono text-sm" placeholder="PL..." />
+app-portal/app/(app)/admin/marcas/nova/page.tsx:341:                                placeholder="Ex: Best of Opera tem 6M+ seguidores e transforma desconhecidos da ópera em fãs apaixonados..."
+app-portal/app/(app)/admin/marcas/nova/page.tsx:351:                                placeholder="Ex: Íntimo e revelador. Frases curtas. Cria tensão antes de soltar. Tom de bastidores exclusivos..."
+app-portal/app/(app)/admin/marcas/nova/page.tsx:361:                                placeholder="Ex: Foco exclusivo nesta performance — este artista, esta peça, este momento..."
+app-portal/app/(app)/admin/marcas/nova/page.tsx:507:                        {loading ? "Salvando..." : "Criar Marca"}
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:379:                                <Input id="perfil-playlist-id" value={formData.playlist_id || ""} onChange={e => handleChange("playlist_id", e.target.value)} className="bg-background font-mono text-sm" placeholder="PL..." />
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:499:                                placeholder="Ex: Best of Opera tem 6M+ seguidores e transforma desconhecidos da ópera em fãs apaixonados..."
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:509:                                placeholder="Ex: Íntimo e revelador. Frases curtas. Cria tensão antes de soltar. Tom de bastidores exclusivos..."
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:519:                                placeholder="Ex: Foco exclusivo nesta performance — este artista, esta peça, este momento..."
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:714:                        {saving ? "Salvando..." : "Salvar Configurações"}
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:787:                            {resetting ? "Resetando..." : "Confirmar Reset"}
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:811:                            {saving ? "Salvando..." : "Confirmar e Salvar"}
+app-portal/app/(app)/admin/usuarios/page.tsx:140:                                placeholder="Buscar por nome ou email..."
+app-portal/app/(app)/admin/usuarios/page.tsx:329:                                {submitting ? "Salvando..." : "Salvar Colaborador"}
+app-portal/app/alterar-senha/page.tsx:95:            {submitting ? "Salvando..." : "Definir senha e entrar"}
+app-portal/app/dashboard/page.tsx:222:                                {projeto.progresso_detalhe ? JSON.stringify(projeto.progresso_detalhe).slice(0, 40) + "..." : "sem rastro"}
+app-portal/app/dashboard/projeto/[id]/page.tsx:155:                                                    step.status === "em_andamento" ? "Processando no Worker..." : "Aguardando etapas anteriores"}
+app-portal/app/dashboard/reports/page.tsx:378:                            {submitting ? "Sincronizando..." : "Enviar Report Final"}
+app-portal/app/dashboard/reports/[id]/page.tsx:125:                                            placeholder="Explique como foi resolvido..."
+app-portal/app/login/page.tsx:72:            {loading ? "Entrando..." : "Entrar"}
+app-portal/components/calendario/add-modal.tsx:112:          placeholder="Buscar por artista ou obra..."
+app-portal/components/curadoria/dashboard.tsx:91:    setMsg(catKey ? `Buscando ${catKey}...` : q ? `Buscando "${q}"...` : "Carregando ranking...")
+app-portal/components/curadoria/dashboard.tsx:135:    setMsg("Carregando playlist do banco...")
+app-portal/components/curadoria/dashboard.tsx:155:    setMsg("Buscando playlist completa no YouTube e salvando no banco...")
+app-portal/components/curadoria/dashboard.tsx:160:      setMsg("Busca completa iniciada em background. Aguarde alguns segundos...")
+app-portal/components/curadoria/dashboard.tsx:188:    setMsg("Buscando metadados do vídeo...")
+app-portal/components/curadoria/dashboard.tsx:196:      setMsg("Vídeo encontrado! Abrindo detalhes...")
+app-portal/components/curadoria/dashboard.tsx:250:            {apiOk === true ? "API OK" : apiOk === false ? "Offline" : "..."}
+app-portal/components/curadoria/dashboard.tsx:260:          placeholder="Buscar artista, música ou estilo..."
+app-portal/components/curadoria/dashboard.tsx:284:                placeholder="Cole o link do YouTube aqui..."
+app-portal/components/curadoria/search-results.tsx:37:            <Input placeholder="Filtrar resultados..." className="w-64 pl-9" />
+app-portal/components/curadoria/video-card.tsx:89:                {r.label.length > 18 ? r.label.slice(0, 18) + "..." : r.label}
+app-portal/components/curadoria/video-detail-modal.tsx:392:                    {uploading ? "Enviando..." : "Upload manual"}
+app-portal/components/curadoria/video-detail-modal.tsx:415:                {downloading ? "Baixando..." : "Download local"}
+app-portal/components/curadoria/video-detail-modal.tsx:423:                {preparing ? "Preparando..." : "Preparar para Edicao"}
+app-portal/components/editor/conclusion.tsx:626:            {edicao.status === "aguardando" && "Aguardando início do pipeline..."}
+app-portal/components/editor/conclusion.tsx:627:            {edicao.status === "baixando" && "Baixando vídeo do YouTube..."}
+app-portal/components/editor/conclusion.tsx:628:            {edicao.status === "corte" && "Cortando vídeo..."}
+app-portal/components/editor/conclusion.tsx:629:            {edicao.status === "transcricao" && "Transcrevendo áudio..."}
+app-portal/components/editor/conclusion.tsx:630:            {edicao.status === "alinhamento" && "Alinhando legenda..."}
+app-portal/components/editor/conclusion.tsx:646:              ? "Gerando pacote ZIP..."
+app-portal/components/editor/conclusion.tsx:648:                ? "Iniciando..."
+app-portal/components/editor/conclusion.tsx:654:                ? "Empacotando vídeos — isso pode levar alguns minutos..."
+app-portal/components/editor/conclusion.tsx:655:                : "Verificando status do pacote..."}
+app-portal/components/editor/conclusion.tsx:713:              {desbloqueando ? "Desbloqueando..." : "Desbloquear Edição"}
+app-portal/components/editor/conclusion.tsx:780:              {aprovando ? "Renderizando..." : "Aprovar e Renderizar Todos"}
+app-portal/components/editor/conclusion.tsx:792:                placeholder="Descreva o que precisa ser ajustado..."
+app-portal/components/editor/conclusion.tsx:801:                {aprovando ? "Enviando..." : "Enviar Revisão"}
+app-portal/components/editor/conclusion.tsx:857:                  {reaplicando ? "Reaplicando..." : "Reaplicar Corte"}
+app-portal/components/editor/conclusion.tsx:1041:          {reaplicando ? "Recalculando..." : "Refazer Corte"}
+app-portal/components/editor/conclusion.tsx:1065:                {traduzindo ? "Tentando..." : "🔄 Tentar novamente"}
+app-portal/components/editor/conclusion.tsx:1073:            {renderizando || isPreview ? "Renderizando preview..." : "Renderizar Preview"}
+app-portal/components/editor/conclusion.tsx:1085:            {renderizando || edicao.status === "renderizando" ? "Renderizando..." : "Re-renderizar Todos"}
+app-portal/components/editor/conclusion.tsx:1108:                {desbloqueando ? "Desbloqueando..." : "Desbloquear Edição"}
+app-portal/components/editor/conclusion.tsx:1121:                {traduzindo ? "Tentando..." : "🔄 Tentar novamente"}
+app-portal/components/editor/conclusion.tsx:1203:                    ? "Gerando ZIP..."
+app-portal/components/editor/conclusion.tsx:1205:                      ? "Iniciando..."
+app-portal/components/editor/conclusion.tsx:1465:              {limpando ? "Limpando..." : "Sim, Limpar Tudo"}
+app-portal/components/editor/editing-queue.tsx:26:  baixando: { label: "Baixando...", variant: "outline" },
+app-portal/components/editor/editing-queue.tsx:33:  renderizando: { label: "Renderizando...", variant: "outline" },
+app-portal/components/editor/editing-queue.tsx:40:  generating: { label: "Gerando...", variant: "outline" },
+app-portal/components/editor/editing-queue.tsx:42:  translating: { label: "Traduzindo...", variant: "outline" },
+app-portal/components/editor/editing-queue.tsx:236:        toast.info("Enviando vídeo...")
+app-portal/components/editor/editing-queue.tsx:412:              {bulkDeleting ? "Removendo..." : `Excluir (${selectedIds.size})`}
+app-portal/components/editor/editing-queue.tsx:443:                {loadingRedator ? "Carregando..." : "Atualizar"}
+app-portal/components/editor/editing-queue.tsx:572:                      placeholder="https://www.youtube.com/watch?v=..."
+app-portal/components/editor/editing-queue.tsx:731:                  {saving ? "Criando..." : "Criar Edição"}
+app-portal/components/editor/editing-queue.tsx:779:                  placeholder="ex: ru, cs, hu..."
+app-portal/components/editor/editing-queue.tsx:909:              {limpando ? "Limpando..." : "Sim, Limpar Tudo"}
+app-portal/components/editor/editing-queue.tsx:916:        searchPlaceholder="Buscar artista, música, compositor..."
+app-portal/components/editor/overview.tsx:15:  baixando: { label: "Baixando...", variant: "outline" },
+app-portal/components/editor/overview.tsx:22:  renderizando: { label: "Renderizando...", variant: "outline" },
+app-portal/components/editor/validate-alignment.tsx:288:        {criandoManual ? "Criando..." : "Inserir letra manualmente"}
+app-portal/components/editor/validate-alignment.tsx:305:                {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
+app-portal/components/editor/validate-alignment.tsx:320:                    {retranscrevendo ? "Retranscrevendo..." : "Retranscrever"}
+app-portal/components/editor/validate-alignment.tsx:333:                    inicializando: "Inicializando...",
+app-portal/components/editor/validate-alignment.tsx:334:                    upload_gemini: "Enviando áudio para o Gemini...",
+app-portal/components/editor/validate-alignment.tsx:335:                    transcricao_cega: "Mapeando estrutura do áudio...",
+app-portal/components/editor/validate-alignment.tsx:336:                    transcricao_guiada: "Transcrevendo com a letra...",
+app-portal/components/editor/validate-alignment.tsx:337:                    completando: "Finalizando transcrição...",
+app-portal/components/editor/validate-alignment.tsx:568:                          placeholder="Texto do segmento..."
+app-portal/components/editor/validate-alignment.tsx:642:                  placeholder="Texto do segmento..."
+app-portal/components/editor/validate-alignment.tsx:688:          {cortando ? "Aplicando corte..." : salvando ? "Salvando..." : "Aprovar Alinhamento e Continuar"}
+app-portal/components/editor/validate-lyrics.tsx:129:                    {uploading ? "Enviando..." : "Enviar vídeo manualmente"}
+app-portal/components/editor/validate-lyrics.tsx:166:              {uploading ? "Enviando..." : "Subir vídeo"}
+app-portal/components/editor/validate-lyrics.tsx:197:              {buscando ? "Buscando..." : jaTemLetra ? "Buscar Novamente" : "Buscar Letra"}
+app-portal/components/editor/validate-lyrics.tsx:216:            placeholder="Cole ou busque a letra original aqui..."
+app-portal/components/editor/validate-lyrics.tsx:224:              {salvando ? "Salvando..." : "Aprovar Letra e Continuar"}
+app-portal/components/finalizados/finalizado-card.tsx:249:                {baixandoZip ? "Gerando pacote..." : "Baixar ZIP completo"}
+app-portal/components/finalizados/finalizados-list.tsx:106:        searchPlaceholder="Buscar artista, obra, compositor..."
+app-portal/components/redator/approve-automation-rc.tsx:102:              {generating ? "Gerando automacao..." : "Gerar automacao"}
+app-portal/components/redator/approve-automation-rc.tsx:132:            {regenerating ? "Regenerando..." : "Regenerar"}
+app-portal/components/redator/approve-automation-rc.tsx:172:              placeholder="https://..."
+app-portal/components/redator/approve-automation-rc.tsx:202:        {approving ? "Aprovando..." : "Aprovar e Continuar para Exportar"}
+app-portal/components/redator/approve-hooks-rc.tsx:165:              {stage === "researching" ? "Pesquisando sobre a obra..." : "Gerando ganchos..."}
+app-portal/components/redator/approve-hooks-rc.tsx:170:                : "Criando ganchos a partir da pesquisa. Quase lá..."}
+app-portal/components/redator/approve-hooks-rc.tsx:224:          {regenerating ? "Regenerando..." : "Regenerar"}
+app-portal/components/redator/approve-hooks-rc.tsx:309:            placeholder="Escreva seu angulo criativo..."
+app-portal/components/redator/approve-overlay.tsx:207:              {regenerating ? "Regenerando..." : "Regenerar"}
+app-portal/components/redator/approve-overlay.tsx:304:                        placeholder="Instrucao para a IA (opcional): ex. 'mais emocional', 'mencionar a estreia'..."
+app-portal/components/redator/approve-overlay.tsx:312:                        {regeneratingEntry ? "..." : "Regenerar"}
+app-portal/components/redator/approve-overlay.tsx:337:              placeholder="Observacoes para a IA reformular o overlay: ex. 'tom mais dramatico', 'focar na historia do compositor', 'menos artificial'..."
+app-portal/components/redator/approve-overlay.tsx:349:              {regeneratingAll ? "Reformulando..." : "Reformular"}
+app-portal/components/redator/approve-overlay.tsx:361:        {saving ? (isRC ? "Gerando descricao..." : "Salvando...") : (isRC ? "Aprovar e Gerar Descricao" : "Aprovar e Continuar para o Post")}
+app-portal/components/redator/approve-post.tsx:140:              {generatingPost ? "Gerando descricao..." : "Gerar descricao"}
+app-portal/components/redator/approve-post.tsx:152:              {regenerating ? "Regenerando..." : "Regenerar"}
+app-portal/components/redator/approve-post.tsx:184:        {saving ? (isRC ? "Gerando automacao..." : "Salvando...") : (isRC ? "Aprovar e Gerar Automacao" : "Aprovar e Continuar para YouTube")}
+app-portal/components/redator/approve-youtube.tsx:102:              {regenerating ? "Regenerando..." : "Regenerar"}
+app-portal/components/redator/approve-youtube.tsx:146:        {translating ? "Traduzindo para 6 idiomas..." : saving ? "Salvando..." : "Aprovar e Traduzir"}
+app-portal/components/redator/export-page.tsx:194:              {exporting ? "Exportando..." : "Exportar para Pasta"}
+app-portal/components/redator/export-page.tsx:206:            {savingToCloud ? "Salvando..." : "Salvar Arquivos"}
+app-portal/components/redator/export-page.tsx:230:              {importandoEditor ? "Importando ao Editor..." : "Avançar para Editor"}
+app-portal/components/redator/export-page.tsx:239:          {translating ? "Traduzindo..." : hasTranslations ? "Retraduzir tudo" : "Traduzir para 7 idiomas"}
+app-portal/components/redator/export-page.tsx:244:            {retranslating ? "Retraduzindo..." : `Retraduzir ${LANGUAGES.find(l => l.code === activeLang)?.name}`}
+app-portal/components/redator/export-page.tsx:290:                            <Button size="xs" onClick={() => handleSave("post")} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+app-portal/components/redator/export-page.tsx:319:                            <Button size="xs" onClick={() => handleSave("yt")} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+app-portal/components/redator/export-page.tsx:367:                              <Button size="xs" onClick={() => handleSave("overlay")} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+app-portal/components/redator/new-project.tsx:383:                      {detecting ? "Detectando..." : detected ? "Re-detectar" : "Detectar Metadados"}
+app-portal/components/redator/new-project.tsx:402:              <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+app-portal/components/redator/new-project.tsx:450:                    <Textarea value={hook} onChange={(e) => setHook(e.target.value)} placeholder="Escreva seu angulo criativo..." className="min-h-[80px]" />
+app-portal/components/redator/new-project.tsx:590:                        <Input value={instrumentFormation} onChange={(e) => setInstrumentFormation(e.target.value)} placeholder="Piano solo, Quarteto de cordas, Orquestra sinfonica..." />
+app-portal/components/redator/new-project.tsx:616:              ? (isEditMode ? "Salvando..." : isRC ? "Criando projeto..." : "Criando & Gerando Conteúdo...")
+app-portal/components/redator/project-list.tsx:218:              {deleting ? "Removendo..." : `Excluir (${totalSelected})`}
+app-portal/components/redator/project-list.tsx:275:        searchPlaceholder="Buscar artista, obra, compositor..."
+app-portal/components/ui/filter-bar.tsx:36:  searchPlaceholder = "Buscar...",

@@ -1,0 +1,16 @@
+90:                max_tokens=2048,
+173:        max_tokens=1024,
+239:        max_tokens=1024,
+339:        max_tokens=1024,
+360:        max_tokens=1024,
+659:def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, temperature: float) -> str:
+667:                model=MODEL, max_tokens=max_tokens, temperature=temperature,
+686:def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
+688:    _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
+691:    raw = _call_claude_api_with_retry(system, prompt, max_tokens, temperature)
+729:        prompt, max_tokens, temperature,
+1152:    result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
+1167:    result = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
+1217:    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
+1238:    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
+1258:    result = _call_claude_json(prompt, max_tokens=1000, temperature=0.5)

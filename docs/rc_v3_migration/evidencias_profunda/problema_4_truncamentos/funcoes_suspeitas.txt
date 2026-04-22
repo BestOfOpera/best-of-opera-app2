@@ -1,0 +1,6 @@
+app-redator/backend/services/claude_service.py:110:def _strip_json_fences(raw: str) -> str:
+app-redator/backend/services/claude_service.py:574:def _sanitize_post(text: str) -> str:
+app-redator/backend/services/claude_service.py:611:def _strip_markdown_preamble(text: str) -> str:
+app-redator/backend/services/claude_service.py:768:def _sanitize_rc(texto: str) -> str:
+app-editor/backend/app/routes/pipeline.py:143:def _sanitize_filename(s: str) -> str:
+app-curadoria/backend/config.py:67:def _normalize_categories(data: dict) -> dict:

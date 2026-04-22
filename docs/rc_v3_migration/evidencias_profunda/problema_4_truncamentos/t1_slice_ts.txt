@@ -1,0 +1,9 @@
+app-portal/app/(app)/admin/usuarios/[id]/page.tsx:82:  const last14Days = (sessions?.by_day || []).slice(0, 14).reverse()
+app-portal/app/(app)/admin/usuarios/[id]/page.tsx:134:                const dayLabel = new Date(day.date + "T00:00:00").toLocaleDateString("pt-BR", { weekday: "short" }).slice(0, 3)
+app-portal/app/(app)/admin/usuarios/[id]/page.tsx:160:            (logins.logins || []).slice(0, 20).map((login: any, i: number) => (
+app-portal/app/(app)/admin/usuarios/[id]/page.tsx:178:            {(sessions.sessions || []).slice(0, 10).map((s: any, i: number) => (
+app-portal/app/dashboard/page.tsx:222:                                {projeto.progresso_detalhe ? JSON.stringify(projeto.progresso_detalhe).slice(0, 40) + "..." : "sem rastro"}
+app-portal/components/calendario/project-card.tsx:44:    project.scheduled_date < new Date().toISOString().slice(0, 10) &&
+app-portal/components/curadoria/video-card.tsx:84:            {reasons.slice(0, 4).map((r, i) => (
+app-portal/components/curadoria/video-card.tsx:89:                {r.label.length > 18 ? r.label.slice(0, 18) + "..." : r.label}
+app-portal/components/dashboard/activity-timeline.tsx:82:      setItems(combined.slice(0, 10))

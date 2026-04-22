@@ -1,0 +1,11 @@
+app-portal/app/(app)/admin/marcas/nova/page.tsx:188:                            <Input required value={formData.sigla || ""} onChange={e => handleChange("sigla", e.target.value)} maxLength={4} className="bg-background uppercase font-bold" placeholder="AB" />
+app-portal/app/(app)/admin/marcas/nova/page.tsx:208:                                    maxLength={7}
+app-portal/app/(app)/admin/marcas/nova/page.tsx:228:                                    maxLength={7}
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:276:                            <Input id="perfil-sigla" required value={formData.sigla || ""} onChange={e => handleChange("sigla", e.target.value)} maxLength={4} className="bg-background uppercase font-bold" />
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:299:                                    maxLength={7}
+app-portal/app/(app)/admin/marcas/[id]/page.tsx:320:                                    maxLength={7}
+app-portal/components/admin/style-track-config.tsx:143:                                maxLength={7}
+app-portal/components/admin/style-track-config.tsx:161:                                maxLength={7}
+app-portal/components/editor/editing-queue.tsx:780:                  maxLength={10}
+app-portal/components/redator/new-project.tsx:471:                <Input value={cutStart} onChange={(e) => setCutStart(e.target.value)} placeholder="01:15" className={cn("font-mono", cutStart && !isValidMMSS(cutStart) && "border-destructive")} maxLength={5} />
+app-portal/components/redator/new-project.tsx:476:                <Input value={cutEnd} onChange={(e) => setCutEnd(e.target.value)} placeholder="02:45" className={cn("font-mono", cutEnd && !isValidMMSS(cutEnd) && "border-destructive")} maxLength={5} />
