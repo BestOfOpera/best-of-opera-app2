@@ -1,0 +1,9 @@
+overlay_audit presente: True
+overlay_audit tipo: JSON
+overlay_json presente: True
+total cols: 42
+idempotente 3x: OK
+projeto gravado id= 1
+overlay_audit roundtrip: {'fio_unico_identificado': 'teste', 'cortes_aplicados': []}
+overlay_json roundtrip: [{'text': 'hello', 'timestamp': '00:00'}]
+COMMIT_1_SMOKE: PASS

@@ -97,3 +97,41 @@ PROMPT 2 sugeriu mensagens em inglês (padrão convencional commits em inglês).
 - Se regressão crítica: rollback seguindo seção "Rollback plan" do RELATORIO_EXECUCAO.md (cada commit é revert-isolado)
 
 **Risco assumido pelo operador.** Este registro serve como trilha de auditoria caso haja necessidade de post-mortem futuro.
+
+---
+
+## 2026-04-22 · Refactor `overlay-sentinel-restructure` (PROMPT 6B)
+
+Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de campo `overlay_audit` separado. Motivado pelo `RELATORIO_INVESTIGACAO_REGRESSAO.md` (Bloco A) que identificou essa decisão como causa-raiz da tela "Ocorreu um erro inesperado" no portal.
+
+**Branch:** `refactor/overlay-sentinel-restructure` a partir de `main` @ `90add64`.
+
+### Decisões técnicas fixadas (PROMPT 6B, seção 4 do plano revisado)
+
+- **D1 — Shape do retorno de `_process_overlay_rc`:** tupla `(legendas: list, audit: dict)` — pythônica, callsite já usa `overlay_json = _process_overlay_rc(...)`, mudança para `legendas, audit = …` é mínima.
+- **D2 — Schema do `overlay_audit`:** dict livre persistido como `Mapped[Optional[str]] = mapped_column(JSON, nullable=True)`, mesmo padrão de `research_data`, `hooks_json`, `automation_json`.
+- **D3 — Testes:** infraestrutura de testes automatizados é inexistente no repo; criação de `pytest`/`vitest` está fora do escopo. Validação por: (a) script E2E sintético `scripts/e2e_shape_compat.py`, (b) smoke manual via Python REPL após cada commit backend, (c) `npx tsc --noEmit` + `npm run lint && npm run build` no portal, (d) staging Railway antes do merge.
+- **D4 — Migration de dados legados:** SQL one-shot que **descarta** o sentinel do array `overlay_json` sem popular `overlay_audit` — `cortes_aplicados` histórico não tem valor editorial. `overlay_audit` fica NULL para projetos antigos.
+- **D5 — Coluna em `Translation`:** não adicionar. `translate_service` nunca persistiu sentinel em traduções (item-por-item rebuild com só `timestamp` + `text`). `overlay_audit` só faz sentido no projeto raiz.
+- **D6 — `generation.py:regenerate-overlay-entry`:** consumer #9 (não listado no catálogo original do PROMPT 6B; achado por grep nesta sessão). Vai no Commit 3 junto com os outros consumers. Cuidado extra: além de filtro, faz **re-persistência** do `raw_overlay` completo (linha 258 atual) — após refactor, persistência fica trivial pois `project.overlay_json` é sempre lista limpa.
+
+### Divergências entre catálogo do PROMPT 6B e código real (registrar para auditoria)
+
+1. **9 consumers, não 8.** Grep revelou `routers/generation.py:187-190` (regenerate-overlay-entry) como consumer não listado. Introduzido pelo commit `d8b6d27` da Fase 3 (hardening posterior ao P4).
+2. **Projeto NÃO usa Alembic.** Migrations auto-aplicadas em `main.py:_run_migrations()` no startup (padrão idempotente com `ALTER TABLE ADD COLUMN`). Commit 1 segue esse padrão, não Alembic.
+3. **Zero infra de testes no repo.** Sem `tests/`, sem `pytest.ini`, sem jest/vitest. `package.json` do portal não tem `type-check` nem `test`. Plano de validação ajustado em D3.
+4. **Linhas do catálogo divergem do código em ±1 linha** em alguns pontos (ex: `rc_automation_prompt.py` catálogo :50, real :51). Não-material.
+
+### Commit 1 — `refactor(db): adiciona coluna overlay_audit`
+
+**Arquivos:**
+- `app-redator/backend/models.py:53` — adicionada linha `overlay_audit: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)` logo após `overlay_json`
+- `app-redator/backend/main.py:67-69` — adicionado bloco idempotente `if "overlay_audit" not in cols: ALTER TABLE projects ADD COLUMN overlay_audit JSON` (marcado como v17)
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_1.log` — validado:
+- coluna `overlay_audit` criada com tipo `JSON`
+- total 42 colunas em `projects`
+- idempotência 3x (não falha ao re-executar)
+- roundtrip de dados: gravar dict em `overlay_audit` e recuperar intacto
+
+**Não tocou:** `Translation` model, `schemas.py` (vai no Commit 4), nenhum consumer (vai no Commit 3).

@@ -50,6 +50,7 @@ class Project(Base):
 
     # Generated content
     overlay_json: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
+    overlay_audit: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)
     post_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     youtube_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     youtube_tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
