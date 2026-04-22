@@ -1,0 +1,4 @@
+CASO 1 ok: 4 legendas homogêneas + audit com 3 campos
+CASO 2 ok: audit={} quando response não traz fields
+CASO 3 ok: _is_audit_meta ausente da serialização de legendas
+COMMIT_2_SMOKE: PASS

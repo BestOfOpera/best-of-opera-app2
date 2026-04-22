@@ -1,0 +1,10 @@
+[RC WARN] Legendas 2 e 3 compartilham >60% palavras (possível repetição)
+[RC WARN] Apenas 4 legendas narrativas (esperado ≥8)
+C1 _validate_overlay_rc: OK
+C2 rc_post_prompt loop: OK (4 narrativas)
+C3 rc_automation_prompt loop: OK (4 temas)
+C4 generate_srt: OK (20 linhas)
+C5-7-8 translate_service: OK (_is_audit_meta ausente)
+C9 generation.py: OK (_is_audit_meta e raw_overlay ausentes)
+C9 fluxo in-place: OK
+COMMIT_3_SMOKE: PASS

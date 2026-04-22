@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Download, FolderOpen, Copy, Loader2, CloudUpload, CheckCircle2, ArrowRight } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { redatorApi, type Project, type ExportData } from "@/lib/api/redator"
+import { redatorApi, sanitizeOverlay, type Project, type ExportData } from "@/lib/api/redator"
 import { editorApi } from "@/lib/api/editor"
 import { BrandSelector } from "@/components/brand-selector"
 
@@ -350,7 +350,7 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Overlay</span>
                           {!editingOverlay && (
-                            <Button variant="ghost" size="xs" onClick={() => { setEditingOverlay(true); setEditOverlay([...exportData.overlay_json!]) }}>Editar</Button>
+                            <Button variant="ghost" size="xs" onClick={() => { setEditingOverlay(true); setEditOverlay(sanitizeOverlay(exportData.overlay_json)) }}>Editar</Button>
                           )}
                         </div>
                         {editingOverlay ? (
@@ -370,7 +370,7 @@ export function RedatorExportPage({ projectId }: { projectId: number }) {
                           </div>
                         ) : (
                           <div className="rounded-lg bg-muted/30 p-3 text-xs font-mono space-y-1">
-                            {exportData.overlay_json.map((entry, i) => (
+                            {sanitizeOverlay(exportData.overlay_json).map((entry, i) => (
                               <p key={i}><span className="text-primary font-semibold">[{entry.timestamp}]</span> {entry.text}</p>
                             ))}
                           </div>

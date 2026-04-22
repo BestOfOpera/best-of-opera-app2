@@ -1,0 +1,22 @@
+Total statements executáveis: 6
+  #1: SELECT
+  #2: SELECT
+  #3: UPDATE
+  #4: SELECT
+  #5: SELECT
+  #6: SELECT
+SELECTs: 5  UPDATEs: 1  outros: 0
+UPDATE escopo confirmado: WHERE brand_slug = 'reels-classics'
+invariantes de segurança OK (sem DROP/DELETE/TRUNCATE/ALTER)
+decisão D4 confirmada: UPDATE NÃO popula overlay_audit
+pós-validação global confirmada
+
+Sanity parse via sqlparse (cada statement tokenizado com sucesso):
+  #1 SELECT: 157 tokens
+  #2 SELECT: 157 tokens
+  #3 UPDATE: 211 tokens
+  #4 SELECT: 95 tokens
+  #5 SELECT: 83 tokens
+  #6 SELECT: 64 tokens
+
+COMMIT_7_SMOKE: PASS

@@ -64,6 +64,9 @@ def _run_migrations():
         # v16 — R2 folder reference
         if "r2_folder" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN r2_folder VARCHAR(500)"))
+        # v17 — RC overlay audit metadata (refactor overlay-sentinel-restructure)
+        if "overlay_audit" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN overlay_audit JSON"))
 
 
 _run_migrations()
