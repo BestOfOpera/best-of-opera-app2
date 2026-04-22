@@ -304,3 +304,21 @@ COMMIT;  -- ou ROLLBACK;
 2. Se auditoria aprovar: validação em staging Railway com 1 projeto RC novo + 1 projeto RC legado + stress test com 2 projetos adicionais.
 3. Se staging passar: merge em main (aprovação explícita do operador) → deploy automático → execução supervisionada de `scripts/migrate_overlay_sentinel.sql`.
 4. Pós-migração: confirmar via SQL que `SELECT COUNT(*) FROM projects WHERE overlay_json::text LIKE '%_is_audit_meta%'` = 0.
+
+---
+
+## Divergência vs D3(a) — aceita conscientemente
+
+Decisão editorial D3(a) exigia `scripts/e2e_shape_compat.py` como substituto de infraestrutura de testes ausente. Script não foi criado na sessão de execução. Auditor Claude independente detectou e apresentou como bloqueador formal com duas opções (criar script OU aceitar divergência com coverage redundante documentado).
+
+Operador escolheu aceitar a ausência pelos seguintes motivos:
+
+- Auditor reconstituiu o bug original do projeto #355 em ambiente Node e confirmou imunidade em cenário legado e novo
+- 7 smoke logs per-commit cobrem caminho específico de cada mudança
+- `tsc --noEmit` EXIT=0 valida contratos TypeScript
+- Grep final paranoico retorna apenas 2 matches justificados
+- Cobertura cruzada por técnicas independentes oferece mais garantia do que script E2E único
+
+Referência: commit de auditoria `f41bb51` em `claude/audit-overlay-refactor-6O5ph`, relatório em `docs/rc_v3_migration/RELATORIO_AUDITORIA_REFACTOR.md`.
+
+Contrapartida assumida: próximo refactor de shape do overlay (se houver) deve criar o script E2E **antes** de iniciar, não depois.
