@@ -231,7 +231,87 @@ Esta é intervenção do editor em timing — viola Princípio 2 mas de forma ma
 
 ## Problema 3 — Quebra de linhas (qualidade)
 
-> Pendente. Será preenchido no próximo commit.
+### 3.1 Algoritmo atual
+
+`_enforce_line_breaks_rc` em [claude_service.py:819-887](app-redator/backend/services/claude_service.py:819) é um **word-wrapper greedy** de 35 linhas. Estrutura:
+
+1. **Fix palavras coladas pós-pontuação** ([claude_service.py:829](app-redator/backend/services/claude_service.py:829)): regex `([.!?,;:])([A-Zà-ú])` → insere espaço. Corrige "fim.Começo" → "fim. Começo".
+2. **Expansão de limite por idioma** ([claude_service.py:833-836](app-redator/backend/services/claude_service.py:833)): DE/PL → +5 (teto 43), FR/IT/ES → +3 (teto 41), PT/EN → sem expansão.
+3. **Short-circuit se já OK** ([claude_service.py:843-845](app-redator/backend/services/claude_service.py:843)): se todas as linhas já respeitam limite e quantidade, retorna original.
+4. **Word-wrap greedy** ([claude_service.py:855-877](app-redator/backend/services/claude_service.py:855)):
+   - Split texto em palavras
+   - Itera acumulando "linha_atual"; quando não cabe, flush para `novas_linhas` e começa nova
+   - **Early-break em pontuação**: se `len ≥ 25` e último char ∈ `{,.;:}`, força flush mesmo que ainda caberia mais
+   - **Truncamento quando max_linhas atingido**: `break` + descarte de `" ".join(palavras[idx:])` com log warning
+5. **Segundo corte** ([claude_service.py:880](app-redator/backend/services/claude_service.py:880)): `novas_linhas[:max_linhas]` sem log
+6. **Log de reformatação** se resultado ≠ original ([claude_service.py:884-885](app-redator/backend/services/claude_service.py:884))
+
+`_enforce_line_breaks_bo` em [claude_service.py:890-929](app-redator/backend/services/claude_service.py:890) é o mesmo algoritmo **sem o log warning** na etapa 4.
+
+Callsite em `_process_overlay_rc` em [claude_service.py:949](app-redator/backend/services/claude_service.py:949). Demais callsites mapeados no Problema 1 (6 ocorrências).
+
+### 3.2 Casos patológicos
+
+Reconstituição completa em [casos_patologicos.md](docs/rc_v3_migration/evidencias_profunda/problema_3_linebreaks/casos_patologicos.md). Resumo executivo:
+
+| Caso | Texto | Comportamento | Problema detectado |
+|------|-------|---------------|---------------------|
+| A | "pavarotti redefiniu a opera italiana no exterior" (48c, 7p) | Quebra 36:11 | Desbalanceamento 3.3:1 (2 palavras na linha 2) |
+| B | "o tenor chorou. a plateia aplaudiu. a música tocou mais uma vez suave." (~71c) | Quebra 35:34 | Balanceado por acaso via early-break, **mas editorialmente deveriam ser 3 legendas, não 1 de 2 linhas** |
+| C | "aquele momento foi inesquecível pra ele" (39c, 6p) | Quebra 35:3 | ANTI-PADRÃO EXATO do operador: 1 palavra isolada na linha 2 |
+| D | Gancho "a noite em que Pavarotti quase perdeu a voz no meio" (51c, max_linhas=2) | Quebra 37:13 | Desbalanceamento 2.8:1 |
+| E | Reconstituição `esquece....` (120c, 22p) | **Descarta 7+ palavras** | Mecanismo R1 (corte silencioso com log) |
+
+Cada caso demonstra que o algoritmo atual é mecânico — "cabe/não cabe" — sem noção de qualidade editorial.
+
+### 3.3 Ausência de regras de qualidade — confirmada por grep
+
+**Balanceamento:** grep `balanc` em `app-redator/` retorna apenas [generation.py:215](app-redator/backend/routers/generation.py:215) — é instrução ao LLM no prompt ("divida em 2 linhas balanceadas"), não enforcement no código. **Código não avalia razão de tamanhos.**
+
+**Unidades sintáticas:** apenas parcial — early-break em pontuação final ([claude_service.py:860-864](app-redator/backend/services/claude_service.py:860)) quando `len ≥ 25`. Não há detecção de preposições/artigos isolados, não há preferência por quebra em conjunções.
+
+**Split em múltiplas legendas:** grep `split_into_multiple|extra_legenda|dividir` em app-redator retorna apenas [rc_overlay_prompt.py:385](app-redator/backend/prompts/rc_overlay_prompt.py:385) — instrução declarativa ao LLM ("Se alguma dura >6s: dividir em duas ou encurtar texto"), não operação do código. Se o LLM ignora a instrução e gera legenda muito longa, o pós-processador trunca (R1) em vez de dividir.
+
+### 3.4 Reconstituição do bug `[RC LineBreak] Texto truncado: sobrou 'esquece....'`
+
+Rastreamento em [casos_patologicos.md §Caso E](docs/rc_v3_migration/evidencias_profunda/problema_3_linebreaks/casos_patologicos.md). Cadeia exata:
+
+1. LLM gera legenda do tipo "corpo" com texto de 120+ chars em ~22 palavras (excede 3 linhas × 38 = 114 chars teórico, mas a fragmentação real depende de onde caem os espaços)
+2. `_process_overlay_rc` ([claude_service.py:949](app-redator/backend/services/claude_service.py:949)) chama `_enforce_line_breaks_rc` sobre cada legenda
+3. Word-wrap greedy preenche linha 1 (~36 chars), linha 2 (~36 chars), linha 3 (~30 chars)
+4. Próxima palavra após linha 3: `"esquece"` — não cabe na linha 3 atual
+5. Fluxo entra no `else` da linha 865: tenta começar linha 4
+6. Check `len(novas_linhas) >= max_linhas` ([claude_service.py:869](app-redator/backend/services/claude_service.py:869)): 3 ≥ 3 → TRUE
+7. `resto = " ".join(palavras[idx:])` começando em `"esquece"`
+8. Log: `[RC LineBreak] Texto truncado: sobrou 'esquece do tempo lá fora enquanto ele c...'` (50 chars + ...)
+9. `truncado=True; break` — descarte silencioso
+10. `novas_linhas[:max_linhas]` garante 3 linhas (redundante aqui, defensivo)
+
+**Conteúdo perdido:** aproximadamente 40-60 chars / 7-10 palavras por ocorrência. Em produção, isso significa que o operador vê um overlay que termina abruptamente no meio de uma ideia, e não tem como saber (exceto inspecionando logs que ele nunca vê).
+
+### 3.5 Proposta de algoritmo melhorado (sem implementar)
+
+Requisitos derivados dos princípios editoriais + feedback do operador:
+
+| # | Regra | Racional |
+|---|-------|----------|
+| 1 | **Nunca truncar conteúdo** | Princípio Editorial 1. Se legenda excede capacidade em 3 linhas de 38 chars, levantar exceção ou emitir alerta visível no portal. |
+| 2 | **Balanceamento** | Após word-wrap greedy, avaliar razão max/min das linhas. Se > 2:1, tentar re-distribuir palavra-a-palavra. |
+| 3 | **Evitar palavra isolada** | Se linha N tem ≤ 2 palavras E N > 1, mover palavra final da linha N-1 para linha N (empurrar). |
+| 4 | **Unidades sintáticas** | Proibir quebra após artigo/preposição curta (`a`, `o`, `de`, `em`, `no`, `na`, `do`, `da`). Preferir quebra antes. |
+| 5 | **Split em 2 legendas quando excede** | Se texto tem capacidade para 2 legendas (tempo_narrativo permite), gerar legenda extra em vez de truncar. Requer sinalização de re-distribuição de timestamps. |
+| 6 | **Alerta visual no portal** | Se algoritmo não conseguir preservar texto integral em 3 linhas com balanceamento razoável, marcar legenda com flag visual `_needs_editorial_review` e mostrar no editor. Operador decide: editar texto, aceitar quebra imperfeita, ou solicitar regeração. |
+| 7 | **Zero truncamento silencioso** | Remover o `break` + descarte em [claude_service.py:869-873](app-redator/backend/services/claude_service.py:869) e o slice em [:880](app-redator/backend/services/claude_service.py:880). Substituir por raise ou retorno com flag de erro. |
+
+Implementação ordenada por risco/valor:
+1. (7) Remover truncamento silencioso — **trivial, ~10 linhas, risco zero**.
+2. (1+6) Converter truncamento em alerta — ~30 linhas, requer UI no portal.
+3. (3) Evitar palavra isolada — heurística pós-wrap, ~20 linhas.
+4. (2) Balanceamento — pós-processador, ~30 linhas.
+5. (4) Unidades sintáticas — lista de stop-words, ~15 linhas.
+6. (5) Split em 2 legendas — **MAIS COMPLEXO**, envolve re-alocação de timestamps. Considerar fase separada.
+
+
 
 ## Problema 4 — Erradicação sistêmica de truncamento
 
