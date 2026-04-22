@@ -1,8 +1,9 @@
 # Relatório de Auditoria Independente — Refactor `overlay-sentinel-restructure`
 
-**Branch auditada:** `refactor/overlay-sentinel-restructure`
+**Branch auditada:** `refactor/overlay-sentinel-restructure` @ `cef5836` (pós Opção B)
 **Base:** `origin/main @ 90add64` (merge Fase 3)
-**Commits auditados:** 7 (2c8daa0 → 57408c9), +560/-68 linhas, 22 arquivos
+**Commits auditados:** 7 originais (2c8daa0 → 57408c9) + 1 de registro de divergência (`cef5836`)
+**Diff original:** +560/-68 linhas, 22 arquivos
 **Auditor:** Claude (sessão fresh, sem contexto da execução)
 **Data:** 2026-04-22
 **Branch de auditoria:** `claude/audit-overlay-refactor-6O5ph`
@@ -12,13 +13,15 @@
 
 ## Veredito final
 
-### 🟡 REPROVADO COM 1 BLOQUEADOR FORMAL
+### ✅ APROVADO COM RESSALVA DOCUMENTADA
+
+**Atualização (operador escolheu Opção B):** o bloqueador formal original (ausência de `scripts/e2e_shape_compat.py` exigido por D3(a)) foi **aceito conscientemente** pelo operador via commit `cef5836` na branch `refactor/overlay-sentinel-restructure`, que adiciona a seção *"Divergência vs D3(a) — aceita conscientemente"* ao `NOTAS_EXECUCAO.md` justificando a decisão com base na cobertura redundante já existente (7 smokes per-commit + reconstituição do bug original nesta auditoria + `tsc` clean + grep paranoico). A contrapartida registrada é que o próximo refactor de shape do overlay deve criar o E2E **antes** de iniciar, não depois.
 
 Todos os 7 commits **individualmente OK**. Todas as validações de código (tipos, imports, grep global, smoke dos consumers, reconstituição do bug original, script SQL) **passam**. O refactor **resolve estruturalmente** a regressão visual do projeto #355 e é imune em ambos os cenários (projetos legados e projetos novos).
 
-**O bloqueador é formal, não funcional:** o artefato `scripts/e2e_shape_compat.py` exigido pela decisão D3(a) do PROMPT 6B **não foi criado**. A cobertura funcional equivalente está distribuída nos 7 smokes per-commit e na reconstituição manual do bug que fiz nesta auditoria — mas o artefato explicitamente exigido pela decisão editorial não existe no repo.
+**Ressalva documentada:** o artefato `scripts/e2e_shape_compat.py` nunca foi criado. Divergência registrada formalmente em `docs/rc_v3_migration/NOTAS_EXECUCAO.md` (seção final) e referenciada neste relatório. Coverage funcional é garantido pelos 7 smokes per-commit + reconstituição manual do bug original + `tsc --noEmit EXIT=0`.
 
-Decisão operacional cabe ao operador: pedir à execução criar o E2E e re-auditar (rigor máximo), ou aceitar a ausência como divergência documentada de D3 dado que as outras validações cobrem equivalentemente o comportamento crítico.
+Operador tem autorização para fazer merge manual em `main`.
 
 ---
 
@@ -63,9 +66,12 @@ Decisão operacional cabe ao operador: pedir à execução criar o E2E e re-audi
 
 ---
 
-## 4. Bloqueador formal
+## 4. Ressalva documentada (ex-bloqueador formal, resolvido via Opção B)
 
-### Bloqueador 1 — `scripts/e2e_shape_compat.py` ausente (D3(a))
+### Ressalva 1 — `scripts/e2e_shape_compat.py` não criado (D3(a))
+
+**Status original:** bloqueador formal.
+**Status após Opção B:** ressalva documentada, aceita pelo operador.
 
 **Onde:** `scripts/` (não existe no repo em nenhuma branch)
 **Evidência:**
@@ -78,34 +84,26 @@ migrate_r2_to_brand_prefix.py
 railway-env.sh
 ```
 
-O NOTAS_EXECUCAO.md declara explicitamente em D3:
+O `NOTAS_EXECUCAO.md` declarava D3(a):
 > "**D3 — Testes:** [...] Validação por: **(a) script E2E sintético `scripts/e2e_shape_compat.py`**, (b) smoke manual via Python REPL após cada commit backend, (c) `npx tsc --noEmit` + `npm run lint && npm run build` no portal, (d) staging Railway antes do merge."
 
 A execução entregou (b) e (c) — 7 smokes per-commit + tsc/lint/build — mas **não entregou (a)**.
 
-**Impacto funcional prático:** baixo. As validações equivalentes existem:
-- 7 smokes per-commit cobrem cada componente individualmente
-- Minha reconstituição manual do bug original em Node.js (nesta auditoria) prova imunidade ponta-a-ponta
-- `tsc --noEmit EXIT=0` garante que os types propagam corretamente através de todos os boundaries
+**Resolução formal:** commit `cef5836` na branch `refactor/overlay-sentinel-restructure` adicionou ao `NOTAS_EXECUCAO.md` a seção *"Divergência vs D3(a) — aceita conscientemente"*, registrando:
 
-**Impacto formal:** alto. O PROMPT 6B_AUDIT (seção 4.2) é explícito:
-> "Se o script não existir: é bloqueador (D3 exigiu criação)."
+- Ausência detectada pelo auditor e escalada como bloqueador formal com duas opções
+- Operador escolheu aceitar a ausência baseado em cobertura redundante:
+  - Reconstituição do bug #355 em Node (legado + novo, ambos imunes)
+  - 7 smokes per-commit per-caminho
+  - `tsc --noEmit` EXIT=0 validando contratos TS
+  - Grep final paranoico com apenas 2 matches justificados
+  - Cobertura cruzada > script E2E único
+- Referência: commit de auditoria `f41bb51` + relatório atual
+- Contrapartida assumida: próximo refactor de shape do overlay deve criar o E2E **antes** de iniciar, não depois
 
-**Ação corretiva sugerida (duas opções para o operador):**
+**Impacto funcional residual:** nenhum. As validações equivalentes cobrem todos os caminhos críticos do refactor.
 
-**Opção A — rigor máximo (recomendada se houver dúvida):**
-Sessão de execução cria `scripts/e2e_shape_compat.py` cobrindo:
-1. Mock de response do LLM com campos de auditoria
-2. Chamar `_process_overlay_rc` + destructure
-3. Iterar pelos 9 consumers (ou os "puros backend" — validate, srt, post_prompt, automation_prompt, translate_overlay_json, validate_translation, translate_one_claude, translate_project_parallel; `generation.py` é endpoint)
-4. Simular serialização `ProjectOut` + confirmar shape recebido pelo frontend
-5. Assert que nenhum item do array final contém `_is_audit_meta`
-6. Assert que `overlay_audit` é dict populado independente
-
-Re-auditoria incremental (só D3) depois de criado.
-
-**Opção B — aceitar a ausência como divergência documentada:**
-Operador registra em NOTAS_EXECUCAO.md uma seção "D3(a) omitida intencionalmente — coverage equivalente em commit_*.log + auditoria independente" e avança ao merge. A decisão é do operador porque o risco prático é baixo dado o coverage redundante confirmado por mim.
+**Impacto formal residual:** divergência documentada. Auditor e operador concordam sobre a aceitação consciente da ausência.
 
 ---
 
@@ -125,29 +123,33 @@ O prompt do operador listava como "campos que antes estavam no sentinel": `corte
 
 ---
 
-## 6. Consequências do veredito
+## 6. Caminho para produção (Opção B escolhida)
 
-### Se o operador optar pela Opção A (criar E2E, re-auditar)
-1. Sessão de execução re-aberta para criar `scripts/e2e_shape_compat.py`
-2. Commit adicional na branch `refactor/overlay-sentinel-restructure`
-3. Push
-4. Re-auditoria focada apenas no novo commit (rápida, ~5 min)
-5. Após aprovação: merge em main
+Operador pode prosseguir ao merge manual. Sequência:
 
-### Se o operador optar pela Opção B (aceitar ausência)
-1. Merge direto da branch atual em `main`:
+1. **Merge da refactor branch em main:**
    ```
    git checkout main && git pull origin main
    git merge --no-ff refactor/overlay-sentinel-restructure -m "Merge refactor overlay-sentinel-restructure — resolve regressão visual RC pós-Fase 3"
    git push origin main
    ```
-2. Railway faz deploy automático (~2-3 min)
-3. Executar migration SQL em produção manualmente:
+   A branch refactor está em `cef5836` (com a seção de divergência D3(a) incluída).
+
+2. **Railway auto-deploy** a partir de `main` (~2-3 min).
+
+3. **Executar migration SQL em produção manualmente:**
    ```
    psql <URL_PROD> -f scripts/migrate_overlay_sentinel.sql
    ```
-   Recomendado dentro de `BEGIN; \i ... ; -- revisar ; COMMIT;`
-4. Validar em produção:
+   Recomendado dentro de transação explícita:
+   ```sql
+   BEGIN;
+   \i scripts/migrate_overlay_sentinel.sql
+   -- revisar output dos 6 SELECTs
+   COMMIT;  -- ou ROLLBACK se algo inesperado
+   ```
+
+4. **Validar em produção:**
    - `SELECT COUNT(*) FROM projects WHERE overlay_json::text LIKE '%_is_audit_meta%';` → esperado **0**
    - `SELECT COUNT(*) FILTER (WHERE overlay_audit IS NULL) AS rc_sem, COUNT(*) FILTER (WHERE overlay_audit IS NOT NULL) AS rc_com FROM projects WHERE brand_slug = 'reels-classics';` → `rc_com = 0` imediatamente após SQL (projetos antigos ficam sem audit por D4)
    - Abrir projeto #355 no portal e confirmar overlay renderiza sem tela de erro
@@ -159,17 +161,18 @@ O prompt do operador listava como "campos que antes estavam no sentinel": `corte
 
 **Alta** em cada um dos 7 commits individualmente. **Alta** no grep final (o teste definitivo da premissa estrutural: exatamente 2 matches justificados). **Alta** na cobertura de bug original. **Alta** no script SQL (seguro, idempotente, escopo estrito, D4 respeitada).
 
-A única razão do veredito não ser APROVADO é a ausência formal de D3(a). Se o operador considerar que a cobertura equivalente (7 smokes + minha reconstituição + tsc clean) é suficiente para satisfazer o espírito de D3, o refactor pode avançar ao merge com risco operacional baixo.
+**Posição final após Opção B:** a lacuna formal D3(a) foi **documentada e aceita pelo operador** em commit `cef5836`. Confirmo que a cobertura equivalente (7 smokes + reconstituição + tsc clean) satisfaz o espírito de D3 — o que mudou é a **formalização** da aceitação, agora rastreável no repo. Auditor e operador concordam que o risco operacional é baixo.
 
-Minha função como auditor paranoico é apontar a lacuna formal. A decisão sobre severidade prática é do operador.
+Minha função como auditor paranoico foi apontar a lacuna formal. A decisão de aceitar a divergência é do operador, e está registrada.
 
 ---
 
 ## 8. Referências
 
-- Branch auditada: `origin/refactor/overlay-sentinel-restructure`
-- Commits: `git log origin/main..origin/refactor/overlay-sentinel-restructure`
-- Relatório da execução: `docs/rc_v3_migration/NOTAS_EXECUCAO.md`
+- Branch auditada: `origin/refactor/overlay-sentinel-restructure` @ `cef5836`
+- Commits: `git log origin/main..origin/refactor/overlay-sentinel-restructure` (7 originais + commit `cef5836` de divergência)
+- Commit de divergência D3(a) aceita: `cef5836` — "docs: registra divergência D3(a) aceita pelo operador"
+- Relatório da execução: `docs/rc_v3_migration/NOTAS_EXECUCAO.md` (seção final: "Divergência vs D3(a) — aceita conscientemente")
 - Investigação original: `docs/rc_v3_migration/RELATORIO_INVESTIGACAO.md` (Bloco A)
 - Smokes da execução: `docs/rc_v3_migration/smoke_test_results/commit_{1..7}.log`
 - Logs da auditoria: `docs/rc_v3_migration/auditoria_logs/`
@@ -184,4 +187,4 @@ Minha função como auditor paranoico é apontar a lacuna formal. A decisão sob
 
 ---
 
-*Relatório emitido por auditor independente, sem contexto da sessão de execução. Critério binário (APROVADO/REPROVADO) aplicado. Bloqueador único documentado com ação corretiva sugerida em duas opções. Operador tem a palavra final sobre severidade prática.*
+*Relatório emitido por auditor independente, sem contexto da sessão de execução. Veredito original REPROVADO com 1 bloqueador formal (D3(a) ausente). Operador escolheu Opção B: aceitar a divergência com base em cobertura redundante documentada, registrando a decisão no commit `cef5836` da refactor branch. Veredito final: **APROVADO com ressalva documentada**. Operador tem autorização para merge manual em `main`.*
