@@ -135,3 +135,20 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 - roundtrip de dados: gravar dict em `overlay_audit` e recuperar intacto
 
 **Não tocou:** `Translation` model, `schemas.py` (vai no Commit 4), nenhum consumer (vai no Commit 3).
+
+### Commit 2 — `refactor(claude_service): _process_overlay_rc retorna (legendas, audit)`
+
+**Arquivos:**
+- `app-redator/backend/services/claude_service.py:932-943` — assinatura muda para `tuple[list, dict]`; docstring documenta contrato explícito.
+- `app-redator/backend/services/claude_service.py:1035-1047` — sentinel `_is_audit_meta` removido do array; audit virou dict local construído no mesmo bloco de quando `response` traz campos de auditoria. Log mantido, só ajustado (`audit_item` → `audit`).
+- `app-redator/backend/services/claude_service.py:1051` — `return overlay_json, audit` (antes `return overlay_json`).
+- `app-redator/backend/services/claude_service.py:1223-1229` — `generate_overlay_rc` desempacota tupla e persiste em dois campos: `project.overlay_json = legendas`, `project.overlay_audit = audit or None`. Preserva retorno de `list` (assinatura pública do wrapper não muda).
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_2.log` — 3 casos:
+- Caso 1: response com campos de auditoria → tupla `(list, dict)`, lista homogênea (todos itens têm `text` + `timestamp`), audit populado.
+- Caso 2: response sem campos de auditoria → audit `{}` (para wrapper armazenar NULL).
+- Caso 3: serialização JSON de `legendas` não contém a string `_is_audit_meta` em lugar nenhum.
+
+**Nota sobre contagem de legendas no smoke test Caso 1:** input tem 5 legendas, output tem 4. Diferença é pré-existente — `_enforce_line_breaks_rc` ou sanitização descartou uma (não relacionado ao refactor; mesma lógica antes e depois).
+
+**Consumers em seguida:** `_validate_overlay_rc` ainda tem filtro interno de `_is_audit_meta` (linhas 1051-1055) — vai virar no-op nesta versão porque o sentinel nunca mais está na lista, mas só removido formalmente no Commit 3. Idem para os outros 8 consumers.
