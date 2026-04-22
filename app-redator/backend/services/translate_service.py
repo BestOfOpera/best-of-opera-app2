@@ -594,6 +594,51 @@ _LANG_NAMES = {
     "fr": "French", "it": "Italian", "pl": "Polish",
 }
 
+# Vocabulário banido por idioma (extraído do anexo rc_translation_prompt_v3.py, F6.5).
+# Equivalentes ao vocabulário banido em PT — evitar em qualquer parte da tradução.
+_BANNED_VOCAB_BY_LANG = {
+    "en": (
+        "timeless masterpiece, transcendent beauty, breathtaking performance, "
+        "virtuosic genius, soul-stirring, hauntingly beautiful, prepare to be moved, "
+        "an invitation to, not just music it's, once-in-a-lifetime, epic journey, "
+        "profound experience, incomparable, legendary, iconic (as empty adjective)"
+    ),
+    "es": (
+        "obra maestra atemporal, belleza trascendente, virtuosismo incomparable, "
+        "prepárate para emocionarte, una experiencia inolvidable, imperdible, "
+        "impresionante (como adjetivo vago), magistral, sublime, una invitación a, "
+        "no es solo música"
+    ),
+    "de": (
+        "zeitloses Meisterwerk, unvergleichliche Schönheit, atemberaubend, "
+        "virtuose Meisterschaft, eine wahre Offenbarung, unvergesslich, "
+        "eine Einladung zu, nicht nur Musik sondern, magistral, episch, ergreifend"
+    ),
+    "fr": (
+        "chef-d'œuvre intemporel, beauté transcendante, virtuosité incomparable, "
+        "à couper le souffle, une véritable révélation, une invitation à, "
+        "ce n'est pas seulement de la musique, inoubliable, époustouflant, sublime, magistral"
+    ),
+    "it": (
+        "capolavoro senza tempo, bellezza trascendente, virtuosismo incomparabile, "
+        "mozzafiato, un'esperienza indimenticabile, un invito a, non è solo musica, "
+        "magistrale, sublime, epico"
+    ),
+    "pl": (
+        "ponadczasowe arcydzieło, niezrównana wirtuozeria, zapierające dech w piersiach, "
+        "prawdziwe objawienie, niezapomniane, zaproszenie do, to nie tylko muzyka, "
+        "magistralne, sublime, epicki"
+    ),
+}
+
+# Limite de chars por linha por idioma no overlay traduzido.
+# Base 38 para PT/EN; margens para idiomas verbosos (F6.2).
+_OVERLAY_LINE_LIMIT = {
+    "pt": 38, "en": 38,
+    "fr": 41, "it": 41, "es": 41,
+    "de": 43, "pl": 43,
+}
+
 
 def _build_translation_prompt(
     overlay_entries: list,
@@ -604,31 +649,63 @@ def _build_translation_prompt(
     research_data: str = "",
     protected_names: list | None = None,
 ) -> str:
-    """Monta prompt de tradução para o Claude.
-    Traduz overlay + post storytelling juntos para manter coerência narrativa."""
+    """Monta prompt de tradução para o Claude (v3 — Opção C).
+
+    Traduz overlay + post storytelling juntos para manter coerência narrativa.
+    Incorpora regras do anexo rc_translation_prompt_v3.py (F6.1-F6.9):
+    - Regra 38 chars por linha como hard limit com reformulação não-corte
+    - Vocabulário banido por idioma (F6.5)
+    - Rastreamento de linhas reformuladas e excedentes (F6.6)
+    - PT intocável é tratado via early-return em translate_one_claude (F6.3)
+    """
     lang_name = _LANG_NAMES.get(target_lang, target_lang)
     is_rc = brand_slug == "reels-classics"
+    base_limit = _OVERLAY_LINE_LIMIT.get(target_lang, 38)
+    banned_vocab = _BANNED_VOCAB_BY_LANG.get(target_lang, "")
 
     if is_rc:
-        overlay_rules = (
-            "OVERLAY RULES:\n"
-            "- Maximum 38 characters per line (counting spaces) — hard limit\n"
-            "- 'gancho' and 'fechamento': exactly 2 lines, separated by \\n\n"
-            "- 'corpo': 2 or 3 lines, separated by \\n\n"
-            "- 'cta': DO NOT translate — return EXACTLY as given\n"
-            "- Balance line lengths (similar length per line)\n"
-            "- German/Polish: maximum 43 characters per line (ceiling)\n"
-            "- French/Italian/Spanish: maximum 41 characters per line (ceiling)"
-        )
+        overlay_rules = f"""OVERLAY RULES (hard constraints):
+- Maximum 38 characters per line (base reference — PT/EN)
+- Verbose language ceiling for {lang_name}: {base_limit} characters per line
+- 'gancho' and 'fechamento': exactly 2 lines, separated by \\n
+- 'corpo': 2 or 3 lines, separated by \\n
+- 'cta': DO NOT translate — return EXACTLY as given (fixed CTA is applied post-LLM per language)
+- Balance line lengths (similar length per line; ~30% max difference)
+- Keep the SAME number of lines per subtitle as the source PT"""
+
+        line_length_rule = f"""LINE LENGTH RULE — 38 characters per line target, {base_limit} hard ceiling for {lang_name}.
+
+When a translated line exceeds {base_limit} characters:
+- FORBIDDEN: shorten by cutting words, abbreviating names, or omitting information
+- FORBIDDEN: "simplify for the audience" — that is a euphemism for cutting
+- REQUIRED: reformulate the sentence using synonyms, alternative word order,
+  or different syntactic construction, always preserving the FULL meaning of the PT source
+- Portuguese is the reference for meaning. Never drop information that exists in PT.
+- If after TWO reformulation attempts the line still exceeds {base_limit} chars
+  (e.g. unavoidable long compound words in German/Polish), do NOT truncate.
+  Keep the full line as-is and register it in
+  verificacoes.legendas_com_linha_excedendo_38_chars[{target_lang!r}]
+  with the reason in verificacoes.alertas.
+
+Semantic integrity is sacred. 38-char limit is a form constraint, not a content one."""
     else:
         overlay_rules = (
             "OVERLAY RULES:\n"
             "- Maximum 70 characters total per subtitle\n"
             "- If subtitle > 35 characters: split into 2 lines with \\n\n"
-            "- Balance 2 lines (max 30% length difference)\n"
-            "- German/Polish: maximum 40 characters per line\n"
-            "- French/Italian/Spanish: maximum 38 characters per line"
+            "- Balance 2 lines (max 30% length difference)"
         )
+        line_length_rule = ""
+
+    # Vocabulário banido (F6.5) — evitar clichês de "press release musical" no idioma-alvo
+    banned_block = ""
+    if banned_vocab:
+        banned_block = f"""
+BANNED VOCABULARY IN {lang_name.upper()} (avoid in any part of translation):
+{banned_vocab}
+
+These are clichés of "musical press release" in {lang_name} — equivalent of PT banned vocabulary.
+Prefer concrete, specific, oral language instead."""
 
     # Montar overlay como lista legível
     overlay_text = ""
@@ -653,6 +730,12 @@ def _build_translation_prompt(
 
     prompt = f"""You are a professional translator specializing in classical music content for social media.
 
+CORE PRINCIPLE:
+Translation is NOT literal. It is PRESERVATION OF EFFECT in the target language.
+If a PT sentence gives goosebumps, the {lang_name} version must give goosebumps.
+If PT sounds like whispering at a concert, {lang_name} must sound like whispering at a concert in {lang_name}.
+The linguistic path may be completely different; the effect on the reader must be the same.
+
 BRAND VOICE:
 {identity[:500] if identity else "Poetic, evocative, respectful of classical music tradition."}
 
@@ -670,12 +753,16 @@ MUSICAL CONTEXT:
 
 {overlay_rules}
 
+{line_length_rule}
+{banned_block}
+
 POST RULES:
 - Maintain the EXACT same structure (line breaks, bullet separators •, emojis)
 - Translate narrative/storytelling sections naturally
 - Translate hashtags to the target language (keep # prefix, no spaces inside)
-- Keep emoji positions unchanged
-- CTA lines with 👉: use culturally appropriate translation
+- Keep emoji positions unchanged (🎻, 🔥, 👉, ❤️, etc.)
+- CTA lines with 👉: a fixed localized CTA is applied post-LLM — preserve position but content is replaced
+- Save-CTA (specific to the video, comes before Follow-CTA without • between them): translate preserving specificity
 - Credit labels (Voice type:, Compositor:, etc.): keep the label format, translate only values
 
 ═══════════════════════════════════════════
@@ -693,14 +780,54 @@ RESPOND IN JSON FORMAT ONLY:
     {{ "index": 1, "text": "translated text with\\nline breaks" }},
     {{ "index": 2, "text": "..." }}
   ],
-  "post": "full translated post text preserving structure"
+  "post": "full translated post text preserving structure",
+  "verificacoes": {{
+    "linhas_reformuladas": 0,
+    "legendas_com_linha_excedendo_38_chars": [
+      {{ "legenda_index": 0, "linha": "", "chars": 0, "motivo": "" }}
+    ],
+    "alertas": []
+  }}
 }}
 
-CRITICAL: Respect character limits per line. Use \\n for line breaks in overlay.
-Each overlay entry MUST match the index from the input (1-based).
-CTA entries must be returned EXACTLY as given (not translated)."""
+If no reformulation was needed, set linhas_reformuladas to 0 and leave
+legendas_com_linha_excedendo_38_chars as empty array.
+If all lines fit within limit, alertas stays empty.
+
+CRITICAL RULES:
+- Respect character limits per line; reformulate rather than cut (see LINE LENGTH RULE).
+- Use \\n for line breaks in overlay; match the same number of lines as PT source.
+- Each overlay entry MUST match the index from the input (1-based).
+- CTA entries must be returned EXACTLY as given (a fixed CTA is applied post-LLM per language).
+- Never drop factual information. 38-char limit is form, not content."""
 
     return prompt
+
+
+def validate_translation(translated_overlay: list, target_lang: str) -> list[dict]:
+    """Verifica linhas excedentes após tradução (v3, F6.6).
+
+    Retorna lista de dicts com excedentes não-reformulados, no formato:
+    [{legenda_index, linha, chars, motivo}]. Lista vazia = tudo dentro do limite.
+
+    Limite por idioma: PT/EN=38, FR/IT/ES=41, DE/PL=43.
+    """
+    limite = _OVERLAY_LINE_LIMIT.get(target_lang, 38)
+    excedidos = []
+    for entry in translated_overlay or []:
+        if entry.get("_is_cta") or entry.get("_is_audit_meta"):
+            continue
+        idx = entry.get("index", 0)
+        texto = entry.get("text", "")
+        for linha in texto.split("\n"):
+            if len(linha) > limite:
+                excedidos.append({
+                    "legenda_index": idx,
+                    "linha": linha,
+                    "chars": len(linha),
+                    "motivo": f"reformulacao_impossivel_em_{target_lang}",
+                })
+    return excedidos
 
 
 def translate_one_claude(
@@ -711,13 +838,42 @@ def translate_one_claude(
     project,
 ) -> dict | None:
     """Traduz overlay + post para 1 idioma via Claude.
-    Retorna {"overlay": [...], "post": "..."} ou None se falhar.
-    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de enviar ao LLM."""
+    Retorna {"overlay": [...], "post": "...", "verificacoes": {...}} ou None se falhar.
+
+    v3 (F6.3): se target_lang == "pt", retorna imediatamente cópia idêntica do input
+    sem chamar LLM. PT é intocável — já foi aprovado pelo operador.
+
+    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de enviar ao LLM.
+    Pós-tradução, valida limites de caracteres e registra excedentes em alertas (F6.6).
+    """
     from backend.services.claude_service import _call_claude_json
     from backend.config import load_brand_config
 
     # Filtrar sentinel de auditoria v3.1 — não é entrada traduzível
     overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
+
+    # F6.3: PT intocável — retornar input byte-a-byte sem chamar LLM
+    if target_lang == "pt":
+        _translate_logger.info(f"[CLAUDE] PT intocável — cópia direta (F6.3), sem LLM")
+        pt_overlay = []
+        for i, entry in enumerate(overlay_json):
+            # Reformatar para o shape do response de Claude: {index, text, ...}
+            item = {"index": i + 1, "text": entry.get("text", "")}
+            if entry.get("_is_cta"):
+                item["_is_cta"] = True
+            if "type" in entry:
+                item["type"] = entry["type"]
+            pt_overlay.append(item)
+        return {
+            "overlay": pt_overlay,
+            "post": post_text or "",
+            "verificacoes": {
+                "pt_copiado_identico": True,
+                "linhas_reformuladas": 0,
+                "legendas_com_linha_excedendo_38_chars": [],
+                "alertas": [],
+            },
+        }
 
     try:
         brand_config = None
@@ -758,6 +914,25 @@ def translate_one_claude(
                 f"[CLAUDE] Resposta inválida para {target_lang}: {str(result)[:100]}"
             )
             return None
+
+        # F6.6: validar linhas excedentes pós-LLM e registrar em verificacoes.alertas
+        excedidos = validate_translation(result["overlay"], target_lang)
+        verificacoes = result.setdefault("verificacoes", {})
+        if excedidos:
+            existing = verificacoes.setdefault("legendas_com_linha_excedendo_38_chars", [])
+            # Merge com o que o LLM já reportou (dedupe simples por texto)
+            existing_lines = {e.get("linha") for e in existing if isinstance(e, dict)}
+            for exc in excedidos:
+                if exc["linha"] not in existing_lines:
+                    existing.append(exc)
+            alertas = verificacoes.setdefault("alertas", [])
+            alerta_msg = f"[{target_lang}] {len(excedidos)} linha(s) excederam limite mesmo após reformulação (mantidas íntegras — Regra 2: nunca cortar)"
+            if alerta_msg not in alertas:
+                alertas.append(alerta_msg)
+            _translate_logger.warning(
+                f"[CLAUDE] {target_lang}: {len(excedidos)} linha(s) excederam limite; mantidas (sem corte). "
+                f"Primeira: '{excedidos[0]['linha'][:60]}' ({excedidos[0]['chars']} chars)"
+            )
 
         return result
 
