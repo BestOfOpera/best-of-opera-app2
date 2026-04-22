@@ -1050,10 +1050,10 @@ def _process_overlay_rc(response: dict, project) -> tuple[list, dict]:
 
 def _validate_overlay_rc(overlay_json: list):
     """Valida qualidade do overlay e loga warnings. Não bloqueia.
-    Filtra o sentinel _is_audit_meta (metadados v3.1) e _is_cta (CTA fixo)."""
+    Filtra o CTA fixo (não tem conteúdo editorial para validar)."""
     narrativas = [
         item for item in overlay_json
-        if not item.get("_is_cta") and not item.get("_is_audit_meta")
+        if not item.get("_is_cta")
     ]
 
     # 1. Verificar overflow residual

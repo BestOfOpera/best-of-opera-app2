@@ -15,10 +15,8 @@ def generate_srt(overlay_json: list[dict], cut_end: str = None) -> str:
 
     Cada overlay dura até 1s antes do próximo.
     O último overlay vai até cut_end (fim do corte) ou +10s.
-    Filtra sentinels de auditoria v3.1 (_is_audit_meta) que não têm timestamp.
     """
-    # Filtrar entradas de auditoria (v3.1: dict com _is_audit_meta=True no final da lista)
-    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
+    overlay_json = overlay_json or []
 
     lines = []
     for i, entry in enumerate(overlay_json):

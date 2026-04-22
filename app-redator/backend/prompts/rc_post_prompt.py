@@ -46,12 +46,12 @@ def build_rc_post_prompt(
     import json
     research_json = json.dumps(research_data, ensure_ascii=False, indent=2)
 
-    # Extrai textos do overlay para anti-repetição, ignorando CTA e sentinels v3.1
+    # Extrai textos do overlay para anti-repetição, ignorando CTA
     overlay_textos = []
     for leg in overlay_legendas or []:
         if not isinstance(leg, dict):
             continue
-        if leg.get("_is_audit_meta") or leg.get("_is_cta"):
+        if leg.get("_is_cta"):
             continue
         texto = leg.get("texto", leg.get("text", ""))
         tipo = leg.get("tipo", leg.get("type", "corpo"))

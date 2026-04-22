@@ -536,8 +536,7 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
 
     is_rc = brand_slug == "reels-classics"
-    # Filtrar sentinel de auditoria v3.1 (_is_audit_meta) — não é entrada real
-    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
+    overlay_json = overlay_json or []
     result = []
     for i, entry in enumerate(overlay_json):
         if entry.get("_is_cta"):
@@ -815,7 +814,7 @@ def validate_translation(translated_overlay: list, target_lang: str) -> list[dic
     limite = _OVERLAY_LINE_LIMIT.get(target_lang, 38)
     excedidos = []
     for entry in translated_overlay or []:
-        if entry.get("_is_cta") or entry.get("_is_audit_meta"):
+        if entry.get("_is_cta"):
             continue
         idx = entry.get("index", 0)
         texto = entry.get("text", "")
@@ -843,14 +842,12 @@ def translate_one_claude(
     v3 (F6.3): se target_lang == "pt", retorna imediatamente cópia idêntica do input
     sem chamar LLM. PT é intocável — já foi aprovado pelo operador.
 
-    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de enviar ao LLM.
     Pós-tradução, valida limites de caracteres e registra excedentes em alertas (F6.6).
     """
     from backend.services.claude_service import _call_claude_json
     from backend.config import load_brand_config
 
-    # Filtrar sentinel de auditoria v3.1 — não é entrada traduzível
-    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
+    overlay_json = overlay_json or []
 
     # F6.3: PT intocável — retornar input byte-a-byte sem chamar LLM
     if target_lang == "pt":
@@ -952,12 +949,10 @@ def translate_project_parallel(
     Idiomas que falharem no Claude caem para Google Translate (fallback).
 
     Retorna: { "en": {"data": {...}, "source": "claude"|"google"}, ... }
-    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de processar.
     """
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
 
-    # Filtrar sentinel de auditoria v3.1 — não é entrada traduzível
-    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
+    overlay_json = overlay_json or []
 
     is_rc = brand_slug == "reels-classics"
 

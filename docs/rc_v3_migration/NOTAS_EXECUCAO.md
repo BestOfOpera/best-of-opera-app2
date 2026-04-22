@@ -152,3 +152,28 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 **Nota sobre contagem de legendas no smoke test Caso 1:** input tem 5 legendas, output tem 4. Diferença é pré-existente — `_enforce_line_breaks_rc` ou sanitização descartou uma (não relacionado ao refactor; mesma lógica antes e depois).
 
 **Consumers em seguida:** `_validate_overlay_rc` ainda tem filtro interno de `_is_audit_meta` (linhas 1051-1055) — vai virar no-op nesta versão porque o sentinel nunca mais está na lista, mas só removido formalmente no Commit 3. Idem para os outros 8 consumers.
+
+### Commit 3 — `refactor(consumers): remove filtros de _is_audit_meta (9 pontos)`
+
+**Arquivos tocados (7 arquivos, 9 pontos de filtro):**
+- `app-redator/backend/services/claude_service.py:~1053` — `_validate_overlay_rc` mantém filtro de `_is_cta` apenas (docstring ajustada)
+- `app-redator/backend/prompts/rc_post_prompt.py:~54` — `build_rc_post_prompt` loop de `overlay_textos`: removido `leg.get("_is_audit_meta")` do OR, comentário atualizado
+- `app-redator/backend/prompts/rc_automation_prompt.py:~51` — idem no loop de `overlay_temas`
+- `app-redator/backend/services/srt_service.py:18-21` — removidas 3 linhas (comentário, filtro list-comp) e docstring ajustada; agora `overlay_json = overlay_json or []`
+- `app-redator/backend/services/translate_service.py:540` — `translate_overlay_json`: list-comp trocada por `overlay_json = overlay_json or []`; comentário removido
+- `app-redator/backend/services/translate_service.py:817` — `validate_translation`: OR simplificado para só `_is_cta`
+- `app-redator/backend/services/translate_service.py:846-852` — `translate_one_claude`: docstring e filtro
+- `app-redator/backend/services/translate_service.py:955-960` — `translate_project_parallel`: docstring e filtro
+- `app-redator/backend/routers/generation.py:187-190, 258-260` — **consumer #9, NÃO listado no catálogo do PROMPT 6B**. Era caso delicado: filtrava para obter `overlay` mas persistia `raw_overlay` com sentinel preservado. Pós-refactor: `project.overlay_json` já é lista limpa, `raw_overlay` deixa de existir, variável única `overlay`, persistência trivial (`project.overlay_json = overlay`). Mutação in-place continua correta pois não há mais dois nomes para a mesma lista.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_3.log` — 9 subcasos:
+- C1: `_validate_overlay_rc` não quebra com lista homogênea (warnings pré-existentes sobre #legendas baixo são esperados pelo teste mínimo)
+- C2-C3: loops de `rc_post_prompt` e `rc_automation_prompt` filtram só CTA; 4 narrativas de 5 total
+- C4: `generate_srt` produz 20 linhas SRT corretas
+- C5-C8: `translate_service` source inspecionado; zero menções a `_is_audit_meta`
+- C9a: `generation.py` source inspecionado; zero menções a `_is_audit_meta` **e** zero a `raw_overlay`
+- C9b: fluxo de `regenerate-overlay-entry` simulado — índice 2 mutado in-place, outras legendas (gancho, CTA) intactas
+
+**Grep confirma:** `grep -rn "_is_audit_meta" --include="*.py" .` retorna zero resultados em todo o código Python após este commit.
+
+**Ponto de atenção para Commit 4:** o endpoint GET `/api/projects/{id}` ainda não expõe `overlay_audit`. Frontend atual ainda não conhece o campo. Fluxo segue quebrado para projetos antigos (banco ainda tem sentinel no array) — não é problema deste commit; projetos novos gerados pós-Commit 2 já têm lista limpa.
