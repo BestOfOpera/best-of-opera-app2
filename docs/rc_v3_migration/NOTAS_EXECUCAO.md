@@ -224,3 +224,28 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 4. Abrir um projeto RC pré-existente (#355 ou similar) — o `sanitizeOverlay` no frontend filtra o sentinel antigo; tela deve renderizar também.
 5. Executar `scripts/migrate_overlay_sentinel.sql` (Commit 7) no banco.
 6. Confirmar que projetos antigos agora têm `overlay_json` sem sentinel.
+
+### Commit 6 — `refactor(editor): remove filtro morto em importar.py:253-256`
+
+**Histórico do filtro (git blame):**
+- Origem: commit `^ef10797` (jmancini800, 2026-04-09) — antes da Fase 3, **não** foi introduzido para lidar com o sentinel.
+- Objetivo editorial original: filtrar legendas sem texto vindas do redator.
+- Efeito colateral feliz pós-Fase 3: absorvia o sentinel `_is_audit_meta` porque sentinel não tem `text`.
+
+**Decisão editorial 3 do PROMPT 6B (luz verde explícita):** remover. Shape garantido pelo backend do redator após `refactor/overlay-sentinel-restructure`. Validação editorial anti-corrupção vive no redator, não no editor. Editor consome como é.
+
+**Arquivo tocado:**
+- `app-editor/backend/app/routes/importar.py:247-265` — removida list-comprehension `segmentos_validos = [s for s in segmentos if s.get("text","").strip() or s.get("_is_cta")]` e o check-and-skip `if not segmentos_validos`. `segmentos` passa direto para `db.add(Overlay(..., segmentos_original=segmentos))`. Mantido:
+  - Check inicial de overlay vazio (linha 249) — sem mudança semântica.
+  - Log info com contagem e textos (ajustado para usar `segmentos` direto).
+  - Loop de diagnóstico RC para warnings de quebra de linha (linhas 263-270) — já usava `segmentos` cru, sem mudança.
+  - Novo comentário explicativo referenciando o refactor.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_6.log`:
+- Parse AST do arquivo — OK.
+- Função `importar_do_redator` ainda presente.
+- `_is_audit_meta` e `segmentos_validos` ausentes do arquivo.
+- Simulação do fluxo com overlay limpo: 3 legendas → 3 textos logados.
+- Check de overlay vazio continua disparando warning+continue.
+
+**Trade-off registrado:** se o redator um dia devolver overlay malformado (itens sem `text`), o editor vai gravar esses itens em `Overlay.segmentos_original`. Antes do refactor, o filtro mascararia isso em silêncio. Agora o problema vira visível — o que é o comportamento correto segundo o Princípio Editorial 2 ("nunca cortar silenciosamente"). Se acontecer, é bug do redator a ser investigado, não algo para o editor compensar.
