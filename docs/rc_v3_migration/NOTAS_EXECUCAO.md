@@ -249,3 +249,58 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 - Check de overlay vazio continua disparando warning+continue.
 
 **Trade-off registrado:** se o redator um dia devolver overlay malformado (itens sem `text`), o editor vai gravar esses itens em `Overlay.segmentos_original`. Antes do refactor, o filtro mascararia isso em silêncio. Agora o problema vira visível — o que é o comportamento correto segundo o Princípio Editorial 2 ("nunca cortar silenciosamente"). Se acontecer, é bug do redator a ser investigado, não algo para o editor compensar.
+
+### Commit 7 — `feat(db): script SQL de migração de dados legados`
+
+**Arquivo criado:**
+- `scripts/migrate_overlay_sentinel.sql` — script one-shot, 6 statements executáveis.
+
+**Conteúdo:**
+1. **SELECT pré-validação**: conta projetos RC com sentinel no array.
+2. **SELECT amostra**: lista até 20 projetos afetados (id, artist, work, array_len_antes) para inspeção manual.
+3. **UPDATE** (única operação mutadora): remove items com `_is_audit_meta=true` do array `overlay_json`. Uso de `jsonb_agg` sobre `jsonb_array_elements` filtrado. `COALESCE(..., '[]'::jsonb)` para evitar `overlay_json = NULL` se por algum motivo todas as legendas virem como sentinel (defesa impossível mas custo zero). `WHERE brand_slug = 'reels-classics'` explicitamente — **não toca em projetos de outras marcas**.
+4. **SELECT pós-validação global**: `COUNT(*)` em toda a tabela (sem filtro de brand_slug) de projetos ainda com sentinel. Esperado: 0. Detecta vazamento para outras marcas.
+5. **SELECT pós-validação escopo**: confirma que `overlay_audit` continua NULL para projetos RC (decisão D4: não popular).
+6. **SELECT por marca**: smoke de escopo — projetos BO e outros não tocados.
+
+**Não executar nesta sessão.** Script commitado apenas. Execução em produção é manual, supervisionada pelo operador, SOMENTE após merge + deploy + staging validado.
+
+Modelo de execução recomendada (documentado no header do SQL):
+```
+BEGIN;
+\i scripts/migrate_overlay_sentinel.sql
+-- revisar output dos SELECTs antes de COMMIT
+COMMIT;  -- ou ROLLBACK;
+```
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_7.log`:
+- `sqlparse`: 6 statements executáveis parseados (5 SELECTs + 1 UPDATE, 0 outros).
+- Tokenização OK em todos (contagens 64 a 211 tokens).
+- UPDATE escopo confirmado: `WHERE brand_slug = 'reels-classics'`.
+- Invariantes de segurança: sem DROP, DELETE, TRUNCATE, ALTER TABLE.
+- Decisão D4 confirmada: UPDATE NÃO seta `overlay_audit`.
+- Pós-validação global presente (checa qualquer marca ainda com sentinel).
+
+**Limitação do smoke:** não foi possível executar o SQL contra Postgres real (sandbox sem acesso à Railway; SQLite não suporta `jsonb_agg`). Validação real em staging Railway é obrigatória.
+
+---
+
+## 2026-04-22 · Refactor concluído (commits 1-7 pushados)
+
+**Branch:** `refactor/overlay-sentinel-restructure`
+**Commits:**
+| # | SHA | Título |
+|---|---|---|
+| 1 | `2c8daa0` | refactor(db): adiciona coluna overlay_audit |
+| 2 | `73f5ebe` | refactor(claude_service): _process_overlay_rc retorna (legendas, audit) |
+| 3 | `8f98eb7` | refactor(consumers): remove filtros de _is_audit_meta (9 pontos) |
+| 4 | `f0b8d1e` | refactor(api): ProjectOut expõe overlay_audit |
+| 5 | `93673d7` | refactor(portal): types TS + approve-overlay.tsx |
+| 6 | `a5228e0` | refactor(editor): remove filtro morto em importar.py |
+| 7 | (a criar) | feat(db): script SQL de migração de dados legados |
+
+**Próximos passos (fora desta sessão):**
+1. Auditoria independente via PROMPT 6B_AUDIT em sessão Claude Code fresh.
+2. Se auditoria aprovar: validação em staging Railway com 1 projeto RC novo + 1 projeto RC legado + stress test com 2 projetos adicionais.
+3. Se staging passar: merge em main (aprovação explícita do operador) → deploy automático → execução supervisionada de `scripts/migrate_overlay_sentinel.sql`.
+4. Pós-migração: confirmar via SQL que `SELECT COUNT(*) FROM projects WHERE overlay_json::text LIKE '%_is_audit_meta%'` = 0.
