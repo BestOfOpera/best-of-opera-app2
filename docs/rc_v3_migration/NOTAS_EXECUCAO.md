@@ -70,3 +70,30 @@ PROMPT 2 sugeriu mensagens em inglês (padrão convencional commits em inglês).
 **Tradeoff aceito:** se algum consumidor novo for adicionado no futuro iterando overlay_json sem filtrar `_is_audit_meta`, pode acontecer log estranho (ex: "legenda sem texto"). Mitigação: nomenclatura `_is_audit_meta` explícita + este registro.
 
 **Registrado para contra-argumento:** se operador prefere shape dict a despeito do custo, reverter este patch e aplicar versão dict-based + adaptar os 14 consumidores.
+
+### 2026-04-22 · BYPASS EXPLÍCITO · merge direto em `main` sem rodar checklist de staging
+
+**Contexto:** operador autorizou merge da `feature/rc-v3-v3.1-migration` em `main` **sem rodar os 6 itens do checklist "Pending before merge"** que estavam listados no corpo do PR #1 (Draft) e no RELATORIO_EXECUCAO.md seção "Critérios de aceitação":
+
+1. ❌ E2E HTTP real em staging (Beethoven/Roman Kim — 6 endpoints de geração + translate)
+2. ❌ Regressão narrativa (inspeção humana do overlay_json contra as 6 regras v3.1)
+3. ❌ Validar tradução em DE, FR, PL (idiomas com margem maior, edge cases de reformulação)
+4. ❌ Verificar frontend `app-portal/components/redator/approve-post.tsx` renderiza `save_cta` antes de `follow_cta`
+5. ❌ Verificar que Editor recebe `overlay_json` com sentinel `_is_audit_meta` e não processa como legenda visível no ASS/burn-in
+6. ❌ Run de stress (5 projetos seguidos)
+
+**Autorização literal do operador:**
+> *"Opção B. Bypass autorizado. Faça merge da feature/rc-v3-v3.1-migration em main e push. Risco meu. Registra no NOTAS_EXECUCAO.md que foi bypass explícito sem rodar os 6 itens do checklist."*
+
+**Implicações do bypass:**
+- Código v3/v3.1 vai para produção (deploy Railway automático a partir de `main`) sem validação end-to-end com LLM real
+- Regressões narrativas (caso exista) só aparecerão nos primeiros projetos pós-deploy
+- Possível comportamento inesperado do Editor ao receber `_is_audit_meta` no `overlay_json` — não foi testado contra o fluxo `/api/v1/editor/importar`
+- Frontend pode não renderizar `save_cta` se `approve-post.tsx` tiver lógica que ignore campos novos (improvável, mas não validado)
+
+**Plano de monitoramento pós-deploy sugerido (operador):**
+- Observar logs `rc_pipeline` e `translate_claude` no Railway nas primeiras horas pós-deploy
+- Gerar um projeto Beethoven/Roman Kim logo após deploy e validar output manualmente
+- Se regressão crítica: rollback seguindo seção "Rollback plan" do RELATORIO_EXECUCAO.md (cada commit é revert-isolado)
+
+**Risco assumido pelo operador.** Este registro serve como trilha de auditoria caso haja necessidade de post-mortem futuro.
