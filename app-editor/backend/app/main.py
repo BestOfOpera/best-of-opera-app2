@@ -794,6 +794,22 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v12 RC gap/inter_line: {e}")
 
+    # Migration v13: RC — inter_line_gap -10→-25 (aproximar mais tradução do lyrics)
+    # Guard idempotente: só executa se lyrics_style.inter_line_gap == -10 (estado pós-v12).
+    # Após execução fica -25 e o guard fecha. Sobreposição maior entre lyrics e tradução.
+    # Apenas lyrics_style é afetado (legendas.py lê inter_line_gap de estilos["lyrics"]).
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style = (lyrics_style::jsonb || '{"inter_line_gap": -25}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'inter_line_gap') = '-10'
+            """))
+            logger.info(f"Migration v13: RC inter_line_gap -10→-25 ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v13 RC inter_line_gap: {e}")
+
     # Verificação de perfil RC no startup
     try:
         with engine.begin() as conn:
