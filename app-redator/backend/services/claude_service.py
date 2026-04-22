@@ -1087,14 +1087,24 @@ def _validate_overlay_rc(overlay_json: list):
 
 def _format_post_rc(response: dict) -> str:
     """Monta post_text formatado a partir do JSON do LLM.
-    Formato Instagram: \\n simples entre todas as linhas, • como separador visual."""
+    Formato Instagram: \\n simples entre todas as linhas, • como separador visual.
+
+    v3: consome save_cta (novo) e follow_cta (renomeado de cta).
+    Retrocompatível: aceita schema v2 (campo 'cta' se 'follow_cta' ausente).
+    """
     h1 = response.get("header_linha1", "")
     h2 = response.get("header_linha2", "")
     h3 = response.get("header_linha3", "")
     p1 = response.get("paragrafo1", "")
     p2 = response.get("paragrafo2", "")
     p3 = response.get("paragrafo3", "")
-    cta = response.get("cta", "👉 Siga, o melhor da música clássica, diariamente no seu feed.")
+    save_cta = response.get("save_cta", "")
+    # Retrocompat: novo schema usa 'follow_cta'; v2 usava 'cta'
+    follow_cta = (
+        response.get("follow_cta")
+        or response.get("cta")
+        or "👉 Siga, o melhor da música clássica, diariamente no seu feed."
+    )
     hashtags = response.get("hashtags", [])
 
     lines = [h1]
@@ -1112,7 +1122,13 @@ def _format_post_rc(response: dict) -> str:
         lines.append("•")
         lines.append(p3)
     lines.append("•")
-    lines.append(cta)
+    if save_cta:
+        # v3: save_cta específico seguido imediatamente do follow_cta fixo, sem "•" entre eles
+        lines.append(save_cta)
+        lines.append(follow_cta)
+    else:
+        # Retrocompat com v2 (sem save_cta): só follow_cta / cta legado
+        lines.append(follow_cta)
     lines.append("•")
     lines.append("•")
     lines.append("•")
