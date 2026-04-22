@@ -1184,6 +1184,13 @@ def generate_overlay_rc(project, brand_config=None) -> list:
     brand_config é mantido na assinatura por compatibilidade de callsite em
     routers/generation.py, mas não é mais passado ao prompt v3.1 (que descarta
     brand_section por design editorial — overlay RC é específico ao canal).
+
+    TODO (SPEC-009 multi-brand, baixa prioridade): se no futuro outro brand_slug
+    precisar reutilizar o prompt de overlay, reintroduzir `brand_section` no
+    `build_rc_overlay_prompt` (seguindo o padrão de hook/post/research/automation
+    que continuam recebendo brand_config). Hoje o endpoint RC valida
+    brand_slug == "reels-classics" antes de chamar esta função, então a remoção
+    é segura. Ver docs/rc_v3_migration/NOTAS_EXECUCAO.md "P4 · brand_config removido".
     """
     from backend.prompts.rc_overlay_prompt import build_rc_overlay_prompt
 
