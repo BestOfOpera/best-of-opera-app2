@@ -816,10 +816,11 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
-def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, lang: str = "pt") -> str:
+def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
     """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
     Se o LLM não gerou \\n, adiciona word-wrap inteligente.
-    Idiomas verbosos (de, fr, it, pl, es) ganham margem extra de 3 chars."""
+    Limite base v3.1: 38 chars/linha. Idiomas verbosos ganham margem:
+    DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41). PT/EN: 38 exato."""
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
 
@@ -830,9 +831,9 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
     # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
     # Idiomas verbosos: DE/PL expandem mais (~20-30%), margem maior
     if lang in ("de", "pl"):
-        max_chars_linha = min(max_chars_linha + 5, 40)
+        max_chars_linha = min(max_chars_linha + 5, 43)
     elif lang in ("fr", "it", "es"):
-        max_chars_linha = min(max_chars_linha + 3, 38)
+        max_chars_linha = min(max_chars_linha + 3, 41)
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
 
@@ -1023,19 +1024,39 @@ def _process_overlay_rc(response: dict, project) -> list:
 
             _rc_logger.info(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)")
 
+    # Anexar metadados de auditoria v3.1 como sentinel no final da lista.
+    # Decisão 3 do PROMPT 2 (Opção A): apenas persistir — sem UI, sem log estruturado.
+    # Shape preservada como lista (não dict) para compatibilidade com ~14 consumidores
+    # que iteram overlay_json. Consumidores que precisam filtrar devem checar _is_audit_meta.
+    audit_fields = ("fio_unico_identificado", "pontes_planejadas", "verificacoes")
+    if any(field in response for field in audit_fields):
+        audit_item = {
+            "_is_audit_meta": True,
+            "fio_unico_identificado": response.get("fio_unico_identificado", ""),
+            "pontes_planejadas": response.get("pontes_planejadas", []),
+            "verificacoes": response.get("verificacoes", {}),
+        }
+        overlay_json.append(audit_item)
+        cortes = audit_item["verificacoes"].get("cortes_aplicados", [])
+        _rc_logger.info(f"[RC Overlay v3.1] Auditoria persistida: fio='{audit_item['fio_unico_identificado'][:60]}', {len(audit_item['pontes_planejadas'])} pontes, {len(cortes)} cortes")
+
     return overlay_json
 
 
 def _validate_overlay_rc(overlay_json: list):
-    """Valida qualidade do overlay e loga warnings. Não bloqueia."""
-    narrativas = [item for item in overlay_json if not item.get("_is_cta")]
+    """Valida qualidade do overlay e loga warnings. Não bloqueia.
+    Filtra o sentinel _is_audit_meta (metadados v3.1) e _is_cta (CTA fixo)."""
+    narrativas = [
+        item for item in overlay_json
+        if not item.get("_is_cta") and not item.get("_is_audit_meta")
+    ]
 
     # 1. Verificar overflow residual
     for i, item in enumerate(overlay_json):
         texto = item.get("text", "")
         for j, linha in enumerate(texto.split("\n")):
-            if len(linha) > 40:
-                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)")
+            if len(linha) > 42:
+                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~38)")
 
     # 2. Anti-repetição (palavras compartilhadas entre legendas)
     stop_words = {"a", "o", "e", "de", "da", "do", "em", "que", "um", "uma", "no", "na", "com", "por", "para", "se", "não", "é"}
@@ -1066,14 +1087,24 @@ def _validate_overlay_rc(overlay_json: list):
 
 def _format_post_rc(response: dict) -> str:
     """Monta post_text formatado a partir do JSON do LLM.
-    Formato Instagram: \\n simples entre todas as linhas, • como separador visual."""
+    Formato Instagram: \\n simples entre todas as linhas, • como separador visual.
+
+    v3: consome save_cta (novo) e follow_cta (renomeado de cta).
+    Retrocompatível: aceita schema v2 (campo 'cta' se 'follow_cta' ausente).
+    """
     h1 = response.get("header_linha1", "")
     h2 = response.get("header_linha2", "")
     h3 = response.get("header_linha3", "")
     p1 = response.get("paragrafo1", "")
     p2 = response.get("paragrafo2", "")
     p3 = response.get("paragrafo3", "")
-    cta = response.get("cta", "👉 Siga, o melhor da música clássica, diariamente no seu feed.")
+    save_cta = response.get("save_cta", "")
+    # Retrocompat: novo schema usa 'follow_cta'; v2 usava 'cta'
+    follow_cta = (
+        response.get("follow_cta")
+        or response.get("cta")
+        or "👉 Siga, o melhor da música clássica, diariamente no seu feed."
+    )
     hashtags = response.get("hashtags", [])
 
     lines = [h1]
@@ -1091,7 +1122,13 @@ def _format_post_rc(response: dict) -> str:
         lines.append("•")
         lines.append(p3)
     lines.append("•")
-    lines.append(cta)
+    if save_cta:
+        # v3: save_cta específico seguido imediatamente do follow_cta fixo, sem "•" entre eles
+        lines.append(save_cta)
+        lines.append(follow_cta)
+    else:
+        # Retrocompat com v2 (sem save_cta): só follow_cta / cta legado
+        lines.append(follow_cta)
     lines.append("•")
     lines.append("•")
     lines.append("•")
@@ -1142,24 +1179,38 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
 
 
 def generate_overlay_rc(project, brand_config=None) -> list:
-    """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json."""
+    """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json.
+
+    brand_config é mantido na assinatura por compatibilidade de callsite em
+    routers/generation.py, mas não é mais passado ao prompt v3.1 (que descarta
+    brand_section por design editorial — overlay RC é específico ao canal).
+
+    TODO (SPEC-009 multi-brand, baixa prioridade): se no futuro outro brand_slug
+    precisar reutilizar o prompt de overlay, reintroduzir `brand_section` no
+    `build_rc_overlay_prompt` (seguindo o padrão de hook/post/research/automation
+    que continuam recebendo brand_config). Hoje o endpoint RC valida
+    brand_slug == "reels-classics" antes de chamar esta função, então a remoção
+    é segura. Ver docs/rc_v3_migration/NOTAS_EXECUCAO.md "P4 · brand_config removido".
+    """
     from backend.prompts.rc_overlay_prompt import build_rc_overlay_prompt
 
     _rc_logger.info(f"[RC Overlay] Iniciando para project {project.id}, hook='{(project.selected_hook or '')[:50]}'")
     metadata = _extract_rc_metadata(project)
 
-    # Buscar fio narrativo do hook selecionado
+    # Buscar fio narrativo + tipo do hook selecionado (v3.1 usa hook_tipo em vez de brand_config)
     hook_fio = ""
+    hook_tipo = ""
     if project.hooks_json and project.selected_hook:
         for h in (project.hooks_json or {}).get("ganchos", []):
             if h.get("texto") == project.selected_hook:
                 hook_fio = h.get("fio_narrativo", "")
+                hook_tipo = h.get("tipo", "")
                 break
 
     prompt = build_rc_overlay_prompt(
         metadata, project.research_data or {},
         project.selected_hook or "", hook_fio,
-        brand_config=brand_config,
+        hook_tipo=hook_tipo,
     )
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 

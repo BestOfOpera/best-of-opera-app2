@@ -184,7 +184,10 @@ def regenerate_overlay_entry(
     if not project:
         raise HTTPException(404, "Project not found")
 
-    overlay = project.overlay_json or []
+    # Filtrar sentinel de auditoria v3.1 (_is_audit_meta) — o índice vem do
+    # frontend baseado nas legendas reais visíveis; audit_meta não é legenda.
+    raw_overlay = project.overlay_json or []
+    overlay = [e for e in raw_overlay if not (isinstance(e, dict) and e.get("_is_audit_meta"))]
     if entry_index < 0 or entry_index >= len(overlay):
         raise HTTPException(422, f"Índice {entry_index} fora do range (0-{len(overlay) - 1})")
 
@@ -207,7 +210,7 @@ def regenerate_overlay_entry(
         overlay_context += f"\n[{i + 1}] ({e.get('type', e.get('tipo', 'corpo'))}): {e.get('text', e.get('texto', ''))}{marker}"
 
     if is_rc:
-        limits = "Máximo 33 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
+        limits = "Máximo 38 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
     else:
         limits = "Máximo 70 caracteres total. Se > 35 chars, divida em 2 linhas balanceadas com \\n."
 
@@ -248,17 +251,20 @@ RESPONDA COM APENAS O NOVO TEXTO (nada mais). Inclua \\n para quebras de linha."
         new_text = _enforce_line_breaks_rc(new_text, tipo)
 
     old_text = entry.get("text", entry.get("texto", ""))
+    # Mutação in-place: overlay[entry_index] é a mesma referência em raw_overlay
     overlay[entry_index]["text"] = new_text
     if "texto" in overlay[entry_index]:
         overlay[entry_index]["texto"] = new_text
-    project.overlay_json = overlay
+    # Persistir raw_overlay (que inclui o sentinel _is_audit_meta se existir),
+    # não `overlay` filtrado — senão perderíamos os metadados de auditoria v3.1.
+    project.overlay_json = raw_overlay
     db.commit()
 
     return {
         "index": entry_index,
         "old_text": old_text,
         "new_text": new_text,
-        "overlay_json": overlay,
+        "overlay_json": overlay,  # retorno ao frontend: view sem sentinel
     }
 
 
