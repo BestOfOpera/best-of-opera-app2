@@ -177,3 +177,17 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 **Grep confirma:** `grep -rn "_is_audit_meta" --include="*.py" .` retorna zero resultados em todo o código Python após este commit.
 
 **Ponto de atenção para Commit 4:** o endpoint GET `/api/projects/{id}` ainda não expõe `overlay_audit`. Frontend atual ainda não conhece o campo. Fluxo segue quebrado para projetos antigos (banco ainda tem sentinel no array) — não é problema deste commit; projetos novos gerados pós-Commit 2 já têm lista limpa.
+
+### Commit 4 — `refactor(api): ProjectOut expõe overlay_audit`
+
+**Arquivo tocado:**
+- `app-redator/backend/schemas.py:116` — adicionado campo `overlay_audit: Optional[dict] = None` logo após `overlay_json` no `ProjectOut`. Default None para compatibilidade com projetos antigos que não têm o campo populado.
+
+**NÃO tocado:** `TranslationOut` (decisão D5: traduções nunca persistiram sentinel; `overlay_audit` é metadata em PT sem sentido em outras línguas). `ProjectIn`, `ProjectUpdate`, `ApproveOverlayRequest` — `overlay_audit` é somente-saída; é preenchido pelo backend em `generate_overlay_rc`, operador não submete dict de auditoria direto.
+
+**Handler `get_project` (`routers/projects.py:226-231`) não foi alterado.** FastAPI serializa automaticamente o campo do ORM via `model_config = {"from_attributes": True}` (validado pelo Caso 3 do smoke). O endpoint passa a devolver `overlay_audit` como parte da response sem mudança de código — só de schema.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_4.log` — 3 casos:
+- Caso 1: `overlay_audit` populado → `model_dump` serializa dict corretamente.
+- Caso 2: `overlay_audit` não passado → default `None` → serializa `null`.
+- Caso 3: `model_validate(MockProject(), from_attributes=True)` → herda campo do ORM (prova que FastAPI `response_model=ProjectOut` vai funcionar sem tocar no handler).
