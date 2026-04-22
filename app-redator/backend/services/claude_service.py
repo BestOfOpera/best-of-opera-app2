@@ -1024,12 +1024,32 @@ def _process_overlay_rc(response: dict, project) -> list:
 
             _rc_logger.info(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)")
 
+    # Anexar metadados de auditoria v3.1 como sentinel no final da lista.
+    # Decisão 3 do PROMPT 2 (Opção A): apenas persistir — sem UI, sem log estruturado.
+    # Shape preservada como lista (não dict) para compatibilidade com ~14 consumidores
+    # que iteram overlay_json. Consumidores que precisam filtrar devem checar _is_audit_meta.
+    audit_fields = ("fio_unico_identificado", "pontes_planejadas", "verificacoes")
+    if any(field in response for field in audit_fields):
+        audit_item = {
+            "_is_audit_meta": True,
+            "fio_unico_identificado": response.get("fio_unico_identificado", ""),
+            "pontes_planejadas": response.get("pontes_planejadas", []),
+            "verificacoes": response.get("verificacoes", {}),
+        }
+        overlay_json.append(audit_item)
+        cortes = audit_item["verificacoes"].get("cortes_aplicados", [])
+        _rc_logger.info(f"[RC Overlay v3.1] Auditoria persistida: fio='{audit_item['fio_unico_identificado'][:60]}', {len(audit_item['pontes_planejadas'])} pontes, {len(cortes)} cortes")
+
     return overlay_json
 
 
 def _validate_overlay_rc(overlay_json: list):
-    """Valida qualidade do overlay e loga warnings. Não bloqueia."""
-    narrativas = [item for item in overlay_json if not item.get("_is_cta")]
+    """Valida qualidade do overlay e loga warnings. Não bloqueia.
+    Filtra o sentinel _is_audit_meta (metadados v3.1) e _is_cta (CTA fixo)."""
+    narrativas = [
+        item for item in overlay_json
+        if not item.get("_is_cta") and not item.get("_is_audit_meta")
+    ]
 
     # 1. Verificar overflow residual
     for i, item in enumerate(overlay_json):
@@ -1143,24 +1163,31 @@ def generate_hooks_rc(project, brand_config=None) -> dict:
 
 
 def generate_overlay_rc(project, brand_config=None) -> list:
-    """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json."""
+    """Gera overlay para RC. Calcula timestamps. Salva em project.overlay_json.
+
+    brand_config é mantido na assinatura por compatibilidade de callsite em
+    routers/generation.py, mas não é mais passado ao prompt v3.1 (que descarta
+    brand_section por design editorial — overlay RC é específico ao canal).
+    """
     from backend.prompts.rc_overlay_prompt import build_rc_overlay_prompt
 
     _rc_logger.info(f"[RC Overlay] Iniciando para project {project.id}, hook='{(project.selected_hook or '')[:50]}'")
     metadata = _extract_rc_metadata(project)
 
-    # Buscar fio narrativo do hook selecionado
+    # Buscar fio narrativo + tipo do hook selecionado (v3.1 usa hook_tipo em vez de brand_config)
     hook_fio = ""
+    hook_tipo = ""
     if project.hooks_json and project.selected_hook:
         for h in (project.hooks_json or {}).get("ganchos", []):
             if h.get("texto") == project.selected_hook:
                 hook_fio = h.get("fio_narrativo", "")
+                hook_tipo = h.get("tipo", "")
                 break
 
     prompt = build_rc_overlay_prompt(
         metadata, project.research_data or {},
         project.selected_hook or "", hook_fio,
-        brand_config=brand_config,
+        hook_tipo=hook_tipo,
     )
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 

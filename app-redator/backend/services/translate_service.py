@@ -536,6 +536,8 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
 
     is_rc = brand_slug == "reels-classics"
+    # Filtrar sentinel de auditoria v3.1 (_is_audit_meta) — não é entrada real
+    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
     result = []
     for i, entry in enumerate(overlay_json):
         if entry.get("_is_cta"):
@@ -709,9 +711,13 @@ def translate_one_claude(
     project,
 ) -> dict | None:
     """Traduz overlay + post para 1 idioma via Claude.
-    Retorna {"overlay": [...], "post": "..."} ou None se falhar."""
+    Retorna {"overlay": [...], "post": "..."} ou None se falhar.
+    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de enviar ao LLM."""
     from backend.services.claude_service import _call_claude_json
     from backend.config import load_brand_config
+
+    # Filtrar sentinel de auditoria v3.1 — não é entrada traduzível
+    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
 
     try:
         brand_config = None
@@ -771,8 +777,12 @@ def translate_project_parallel(
     Idiomas que falharem no Claude caem para Google Translate (fallback).
 
     Retorna: { "en": {"data": {...}, "source": "claude"|"google"}, ... }
+    Filtra sentinel de auditoria v3.1 (_is_audit_meta) antes de processar.
     """
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+
+    # Filtrar sentinel de auditoria v3.1 — não é entrada traduzível
+    overlay_json = [e for e in (overlay_json or []) if not e.get("_is_audit_meta")]
 
     is_rc = brand_slug == "reels-classics"
 
