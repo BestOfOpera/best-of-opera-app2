@@ -138,7 +138,96 @@ Ordem sugerida, ativar cada um na sessão PROMPT 10:
 
 ## Problema 2 — Timestamps / Durações
 
-> Pendente. Será preenchido no próximo commit.
+### 2.1 Algoritmo atual — dois paths paralelos
+
+A investigação identificou **duas funções independentes** de cálculo de duração/timestamp, usadas por paths distintos de geração de overlay. Documentação detalhada em [duas_formulas_duracao.md](docs/rc_v3_migration/evidencias_profunda/problema_2_timestamps/duas_formulas_duracao.md).
+
+**Path A — `generate_overlay`** ([claude_service.py:367-507](app-redator/backend/services/claude_service.py:367)):
+- Usado por endpoints legacy [routers/generation.py:118,155](app-redator/backend/routers/generation.py:118) (BO, RC antigo)
+- Fórmula: `duracao = (palavras × 0.35) + 4.0`
+- Função interna `_calcular_duracao_leitura` em [claude_service.py:434-445](app-redator/backend/services/claude_service.py:434)
+- **Clamp: 5.0-8.0s**
+- Inclui **redistribuição de gap** entre narrativas para evitar esticamento da última ([claude_service.py:470-485](app-redator/backend/services/claude_service.py:470))
+- CTA recebe `end=vid_duration` explícito ([claude_service.py:500](app-redator/backend/services/claude_service.py:500))
+
+**Path B — `generate_overlay_rc`** ([claude_service.py:1181-1223](app-redator/backend/services/claude_service.py:1181)):
+- Usado por endpoint RC v3/v3.1 [routers/generation.py:463](app-redator/backend/services/generation.py:463)
+- Fórmula inline em `_process_overlay_rc`: `dur = palavras / 2.5`
+- **Clamp: 4.0-7.0s** ([claude_service.py:960](app-redator/backend/services/claude_service.py:960))
+- Compressão proporcional com mesmo clamp 4-7 quando narrativa excede ([claude_service.py:1009](app-redator/backend/services/claude_service.py:1009))
+- CTA posicionado em `cta_secs` com `cta_duracao = max(5.0, duracao_video × 0.13)`. Sem `end` explícito
+
+### 2.2 Valores de clamp vs pedido do operador
+
+Operador pediu **4.0-6.0s**. Nenhum dos dois paths está alinhado.
+
+| Path | Mínimo atual | Máximo atual | Delta vs pedido |
+|------|--------------|--------------|-----------------|
+| A | 5.0s | 8.0s | +1s mínimo, +2s máximo |
+| B | 4.0s | 7.0s | 0s mínimo ✓, +1s máximo |
+| Pedido | 4.0s | 6.0s | referência |
+
+Path B exige apertar apenas o teto (7→6). Path A exige apertar piso (5→4) e teto (8→6), além de rever a fórmula (que nasce em 4 + 0.35×palavras, já tendendo a 5 para textos com 3+ palavras). O cap de redistribuição em 12.0s ([claude_service.py:483](app-redator/backend/services/claude_service.py:483)) também fica fora do novo limite.
+
+### 2.3 Evidência por projeto real — distribuição esperada
+
+Simulação com texto típico de overlay RC (não executada em runtime, calculada por leitura):
+
+| Texto exemplo | Palavras | Path B (atual 4-7) | Path B alvo (4-6) |
+|---------------|----------|---------------------|---------------------|
+| "Pavarotti transformou a ópera" | 4 | 4.0s (clamp mínimo, calc=1.6) | 4.0s |
+| "uma das árias mais difíceis jamais escritas" | 8 | 4.0s (clamp, calc=3.2) | 4.0s |
+| "o compositor escreveu em três semanas sob encomenda da corte" | 11 | 4.4s | 4.4s |
+| "ela cantava essa ária todas as noites da mesma forma" | 11 | 4.4s | 4.4s |
+| "fechou os olhos para conseguir atingir aquela nota impossível" | 10 | 4.0s (clamp, calc=4.0) | 4.0s |
+| "a performance deste Pavarotti na Scala em 1972 redefiniu a ópera italiana para sempre" | 16 | 6.4s | 6.0s (**clamp apertaria para 6**) |
+| texto longo 20 palavras | 20 | 7.0s (clamp, calc=8.0) | 6.0s (clamp) |
+
+**Distribuição efetiva no projeto típico:** a maioria das legendas RC tem 7-12 palavras → Path B gera 4.0-4.8s (concentrado no piso). Apenas legendas >15 palavras atingem 6-7s. O clamp operante na prática é quase sempre o piso (4.0s), o teto (7.0s) raramente aciona exceto em legendas longas patológicas.
+
+### 2.4 Tratamento da última legenda — ambas leituras editoriais
+
+A frase do operador "duração dinâmica 4-6s, com exceção da última legenda" comporta duas leituras. Ambas estão presentes no código, em paths diferentes:
+
+**Leitura A — "última" = CTA (estende até fim do vídeo):**
+- Path A: CTA recebe `end=vid_duration` explícito — **implementado** ✓
+- Path B: CTA sem `end` no JSON; SRT/editor usam `cut_end` automaticamente para última entry ([srt_service.py:37-38](app-redator/backend/services/srt_service.py:37), [legendas.py:491](app-editor/backend/app/services/legendas.py:491)) — **implementado por efeito colateral**, coerente ✓
+
+**Leitura B — "última" = última legenda narrativa (não-CTA):**
+- Path A: **redistribui gap entre TODAS as narrativas** para evitar última esticada ([claude_service.py:470-485](app-redator/backend/services/claude_service.py:470)). Se o operador quer "última pode estender", este código faz o CONTRÁRIO.
+- Path B: nenhum tratamento especial. Última narrativa segue clamp 4-7 normal e termina quando CTA começa.
+
+**Esta ambiguidade é decisão editorial pendente, não achado técnico.** O relatório registra as duas leituras e o comportamento atual de cada path, deixando a escolha para o operador. Possibilidades:
+- (i) Operador quer Leitura A: comportamento atual está correto em ambos paths.
+- (ii) Operador quer Leitura B: Path A tem código oposto ao desejado (remover redistribuição); Path B precisa adicionar tratamento (última narrativa estende até início do CTA).
+- (iii) Operador quer ambas: CTA estende até fim + última narrativa absorve qualquer sobra de tempo entre ela mesma e o CTA.
+
+### 2.5 Achado colateral — R7 (CRÍTICO NOVO): max_tokens sem detecção de stop_reason
+
+Todas as 10 chamadas de `_call_claude_json` / `_call_claude_api_with_retry` em [claude_service.py](app-redator/backend/services/claude_service.py) configuram `max_tokens` (1000 a 8192) sem verificar `response.stop_reason == "max_tokens"`. Grep por `stop_reason` em `claude_service.py` retorna zero matches.
+
+Impacto: se o LLM gera overlay com 20 legendas mas atinge `max_tokens=4096` antes de fechar o JSON, a resposta é truncada pelo próprio modelo. O código (a) cai em retry de JSON inválido (melhor caso), ou (b) aceita JSON válido mas com menos legendas que o pedido como se fosse output completo (pior caso). O operador recebe overlay incompleto sem aviso.
+
+**Categoria: T6 (Ajuste A do feedback).** Severidade: **CRÍTICA** — conteúdo editorial em caminho principal. Detalhamento completo em [evidencias_profunda/problema_4_truncamentos/t6_claude_service_stop_reason.txt](docs/rc_v3_migration/evidencias_profunda/problema_4_truncamentos/t6_claude_service_stop_reason.txt) (arquivo será gerado em Problema 4).
+
+### 2.6 Achado colateral — Editor força mínimo 2s por evento ASS
+
+[legendas.py:493-502](app-editor/backend/app/services/legendas.py:493) força `event.end = event.start + 2000` se a duração ficou abaixo de 2s. Para RC (que tem clamp 4-7s), isso é **no-op** — 4 > 2. Mas se alguma entrada editorial tiver `end` definido abaixo de 2s (ex: bug de upstream), o editor silenciosamente infla para 2s.
+
+Esta é intervenção do editor em timing — viola Princípio 2 mas de forma mais suave (não trunca conteúdo, só ajusta duração mínima). Registrado para triagem editorial.
+
+### 2.7 Proposta de remediação (sem implementar)
+
+| # | Ação | Arquivo:linha | Observação |
+|---|------|----------------|------------|
+| A | Apertar clamp Path B para 4.0-6.0 | [claude_service.py:960](app-redator/backend/services/claude_service.py:960) + [claude_service.py:1009](app-redator/backend/services/claude_service.py:1009) | Trocar `min(7.0, ...)` por `min(6.0, ...)`. Duas linhas. |
+| B | Rever fórmula e clamp Path A se ainda em uso | [claude_service.py:434-445](app-redator/backend/services/claude_service.py:434) | Se Path A não é mais usado (endpoints legacy), deprecar. Se em uso, alinhar fórmula/clamp com Path B. |
+| C | Cap de redistribuição Path A | [claude_service.py:483](app-redator/backend/services/claude_service.py:483) | 12.0 → 6.0 |
+| D | Decidir Leitura A vs B da "última legenda" | ambos paths | **Decisão editorial pendente.** Só depois remediar código. |
+| E | Implementar `stop_reason` check em `_call_claude_api_with_retry` | [claude_service.py:659-683](app-redator/backend/services/claude_service.py:659) | R7. Ler `response.stop_reason` da SDK, se `== "max_tokens"` lançar exceção e regenerar com max_tokens maior ou alertar operador. |
+| F | Editor: avaliar necessidade do clamp 2s mínimo | [legendas.py:493-502](app-editor/backend/app/services/legendas.py:493) | Se redator sempre garante ≥4s, editor clamp é dead code. Remover para coerência com Princípio 2. |
+
+
 
 ## Problema 3 — Quebra de linhas (qualidade)
 

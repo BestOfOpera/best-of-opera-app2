@@ -1,0 +1,4 @@
+app-redator/backend/services/claude_service.py:444:        duracao = (palavras * 0.35) + 4.0
+app-redator/backend/services/claude_service.py:960:            dur = max(4.0, min(7.0, round(dur, 1)))
+app-redator/backend/services/claude_service.py:964:            dur = max(4.0, tempo_narrativo - timestamp_sec)
+app-redator/backend/services/claude_service.py:1009:                dur_por_legenda = max(4.0, min(7.0, dur_por_legenda))

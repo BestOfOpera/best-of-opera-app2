@@ -1,0 +1,5 @@
+app-redator/backend/routers/generation.py:118:        project.overlay_json = generate_overlay(project, brand_config=brand_config)
+app-redator/backend/routers/generation.py:155:        project.overlay_json = generate_overlay(project, body.custom_prompt, brand_config=brand_config)
+app-redator/backend/routers/generation.py:463:def generate_overlay_rc_endpoint(project_id: int, db: Session = Depends(get_db)):
+app-redator/backend/services/claude_service.py:367:def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=None) -> list[dict]:
+app-redator/backend/services/claude_service.py:1181:def generate_overlay_rc(project, brand_config=None) -> list:

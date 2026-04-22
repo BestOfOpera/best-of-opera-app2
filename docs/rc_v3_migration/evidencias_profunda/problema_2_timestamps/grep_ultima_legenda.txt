@@ -1,0 +1,17 @@
+app-redator/backend/services/claude_service.py:74:    last = sentences[-1].lower()
+app-redator/backend/services/claude_service.py:474:            last_narrative_secs = _ts_to_secs(parsed[-1]["timestamp"])
+app-redator/backend/services/claude_service.py:475:            duracao_ultima = _calcular_duracao_leitura(parsed[-1].get("text", ""))
+app-redator/backend/services/claude_service.py:476:            gap = narrative_ceiling - (last_narrative_secs + duracao_ultima)
+app-redator/backend/services/claude_service.py:495:            cta_ts = _secs_to_ts(_ts_to_secs(parsed[-1]["timestamp"]) + interval_secs)
+app-redator/backend/services/claude_service.py:642:    tags = lines[-1] if len(lines) > 1 else ""
+app-redator/backend/services/claude_service.py:861:                    and linha_atual[-1] in ",.;:"
+app-redator/backend/services/claude_service.py:914:                    and linha_atual[-1] in ",.;:"
+app-redator/backend/services/claude_service.py:990:            ultimo_ts = narrativas[-1]["timestamp"]
+app-redator/backend/services/claude_service.py:991:            u_parts = ultimo_ts.split(":")
+app-redator/backend/services/claude_service.py:992:            ultimo_sec = int(u_parts[0]) * 60 + int(u_parts[1]) if len(u_parts) == 2 else 0
+app-redator/backend/services/claude_service.py:995:            ultimo_dur = 5.0
+app-redator/backend/services/claude_service.py:1000:                ultimo_dur = ultimo_sec - pen_sec
+app-redator/backend/services/claude_service.py:1002:            fim_narrativo = ultimo_sec + ultimo_dur
+app-redator/backend/services/translate_service.py:313:        last = paragraphs[-1].strip()
+app-redator/backend/services/translate_service.py:375:                last_char = instrument_part[-1]
+app-redator/backend/services/translate_service.py:435:    last_bullet = bullet_indices[-1]
