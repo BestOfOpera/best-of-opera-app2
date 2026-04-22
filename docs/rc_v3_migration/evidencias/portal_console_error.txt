@@ -1,0 +1,65 @@
+STATUS: AGUARDANDO CAPTURA DO OPERADOR
+
+Nesta sessão (PROMPT 5A, iPad) eu NÃO tenho acesso a:
+  - Navegador com DevTools
+  - API de produção (bloqueada por "Host not in allowlist" do Railway edge)
+  - Sentry MCP (token ausente em ~/.claude/settings.json)
+
+-----------------------------------------------------------------------
+INSTRUÇÃO DE CAPTURA (quando o operador abrir um desktop):
+-----------------------------------------------------------------------
+
+1. Abrir https://portal-production-4304.up.railway.app em Chrome/Firefox/Safari
+   desktop. Fazer login.
+
+2. Abrir DevTools (F12 ou Cmd+Opt+I). Ir na aba "Console". Deixar filtro em
+   "Errors" ou "All".
+
+3. Navegar para: /redator/projeto/355/overlay
+
+4. Aguardar a tela "Ocorreu um erro inesperado" aparecer.
+
+5. No console, procurar a linha que começa com "Global Error Boundary caught:"
+   (o próprio app-portal/app/error.tsx:19 imprime esse prefixo). Logo abaixo
+   virá o Error object com stack completo.
+
+6. Clicar com botão direito no Error → "Copy object" (Chrome) ou expandir o
+   stack e copiar manualmente. Colar neste arquivo substituindo esta seção.
+
+-----------------------------------------------------------------------
+STACK TRACE ESPERADO (hipótese declarada, reconstituição estática):
+-----------------------------------------------------------------------
+
+TypeError: Cannot read properties of undefined (reading 'split')
+    at RedatorApproveOverlay (app-portal/components/redator/approve-overlay.tsx:250:...)
+    at Array.map (<anonymous>)
+    at RedatorApproveOverlay (app-portal/components/redator/approve-overlay.tsx:216:...)
+    at renderWithHooks (react-dom/cjs/react-dom.development.js)
+    ...
+
+Linha 250 do approve-overlay.tsx, exato:
+  const longest = Math.max(...(entry.text.split("\n").map((l: string) => l.length)), 0)
+
+Motivo: quando `entry` é o sentinel `_is_audit_meta` (anexado em
+claude_service.py:1031-1039 e não filtrado pelo GET /api/projects/{id} em
+routers/projects.py:226-231), `entry.text` é `undefined`. A propriedade `.split`
+não existe em `undefined`, TypeError → Error Boundary → tela
+"Ocorreu um erro inesperado" (string literal em app-portal/app/error.tsx:29).
+
+-----------------------------------------------------------------------
+ALTERNATIVA: consulta via Sentry (se o operador preferir):
+-----------------------------------------------------------------------
+
+1. Acessar https://arias-conteudo-k2.sentry.io/issues/?project=python-fastapi
+   (confirmar se o projeto front do portal tem seu próprio slug — pode ser
+   distinto de "python-fastapi"; verificar NEXT_PUBLIC_SENTRY_DSN do serviço
+   "curadoria (portal)" em dados-relevantes/sentry-access.md).
+
+2. Filtrar por data a partir de 2026-04-22 04:55 UTC (merge da Fase 3).
+
+3. Procurar por evento com:
+    - mensagem: "Cannot read properties of undefined (reading 'split')"
+    - breadcrumb: URL contém "/redator/projeto/355/overlay"
+    - tag: release do portal após o merge
+
+4. Copiar o stack exato aqui.
