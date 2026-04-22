@@ -1,0 +1,421 @@
+
+> app-design@0.1.0 lint
+> eslint
+
+
+/home/user/best-of-opera-app2/app-portal/app/(app)/admin/marcas/[id]/page.tsx
+   10:16   warning  'CardContent' is defined but never used                                                                        @typescript-eslint/no-unused-vars
+   18:43   warning  'Eye' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+   18:100  warning  'Video' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+   43:96   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+   76:13   warning  'isAdmin' is assigned a value but never used                                                                   @typescript-eslint/no-unused-vars
+   89:8    warning  React Hook useEffect has a missing dependency: 'loadPerfil'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   97:23   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  106:55   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  110:11   warning  'handleJSONChange' is assigned a value but never used                                                          @typescript-eslint/no-unused-vars
+  118:18   warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  151:23   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  165:23   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  188:23   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  202:23   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  359:55   error    Unexpected any. Specify a different type                                                                       @typescript-eslint/no-explicit-any
+  398:50   warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  415:50   warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+  427:114  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  427:124  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  427:128  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  427:134  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  427:137  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  427:143  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                react/no-unescaped-entities
+  434:46   warning  'err' is defined but never used                                                                                @typescript-eslint/no-unused-vars
+
+/home/user/best-of-opera-app2/app-portal/app/(app)/admin/marcas/nova/page.tsx
+    9:16   warning  'CardContent' is defined but never used                          @typescript-eslint/no-unused-vars
+   16:102  warning  'Plus' is defined but never used                                 @typescript-eslint/no-unused-vars
+   40:96   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+   72:13   warning  'isAdmin' is assigned a value but never used                     @typescript-eslint/no-unused-vars
+  106:55   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  110:11   warning  'handleJSONChange' is assigned a value but never used            @typescript-eslint/no-unused-vars
+  118:18   warning  'err' is defined but never used                                  @typescript-eslint/no-unused-vars
+  149:23   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  270:105  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  270:115  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  270:119  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  270:125  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  270:128  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  270:134  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  277:46   warning  'err' is defined but never used                                  @typescript-eslint/no-unused-vars
+  529:65   error    Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/(app)/admin/marcas/page.tsx
+  31:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/(app)/admin/usuarios/[id]/page.tsx
+   22:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   23:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   83:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/(app)/admin/usuarios/page.tsx
+   10:41  warning  'CardTitle' is defined but never used        @typescript-eslint/no-unused-vars
+   10:52  warning  'CardDescription' is defined but never used  @typescript-eslint/no-unused-vars
+   52:23  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   86:32  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+   93:23  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  110:23  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/alterar-senha/page.tsx
+  42:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/page.tsx
+    7:29  warning  'CardHeader' is defined but never used                                                                             @typescript-eslint/no-unused-vars
+    7:41  warning  'CardTitle' is defined but never used                                                                              @typescript-eslint/no-unused-vars
+   40:8   warning  React Hook useEffect has a missing dependency: 'fetchDashboard'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+   66:17  warning  'b' is defined but never used                                                                                      @typescript-eslint/no-unused-vars
+  159:86  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  160:19  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  260:79  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+  260:98  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                    react/no-unescaped-entities
+  270:19  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+  279:19  error    Unexpected any. Specify a different type                                                                           @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/producao/page.tsx
+    7:10  warning  'Badge' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+    8:10  warning  'TrendingUp' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+    8:47  warning  'AlertCircle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   17:9   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/producao/page.tsx:17:9
+  15 |
+  16 |     useEffect(() => {
+> 17 |         setLoading(true)
+     |         ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  18 |         editorApi.dashboardProducao(selectedBrand?.id)
+  19 |             .then(setData)
+  20 |             .catch(console.error)  react-hooks/set-state-in-effect
+  106:58  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  107:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/projeto/[id]/page.tsx
+  59:8  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/reports/[id]/page.tsx
+  38:8   warning  React Hook useEffect has a missing dependency: 'fetchReport'. Either include it or remove the dependency array                                                                                                                                                                           react-hooks/exhaustive-deps
+  46:18  warning  'err' is defined but never used                                                                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+  54:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  93:45  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/user/best-of-opera-app2/app-portal/app/dashboard/reports/page.tsx
+   12:27   warning  'CheckCircle2' is defined but never used                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   12:54   warning  'Camera' is defined but never used                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   46:8    warning  React Hook useEffect has a missing dependency: 'fetchReports'. Either include it or remove the dependency array                                                                                                                                                                          react-hooks/exhaustive-deps
+   55:23   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  180:54   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  181:19   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  211:24   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  212:32   error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  319:117  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  330:129  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  361:41   warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/user/best-of-opera-app2/app-portal/app/login/page.tsx
+  25:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/_deprecated/pipeline-stepper.tsx
+  171:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/admin/brand-preview.tsx
+    6:10  warning  'cn' is defined but never used            @typescript-eslint/no-unused-vars
+  111:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  118:46  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:48  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/admin/style-track-config.tsx
+   23:20  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:58  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  238:38  warning  'err' is defined but never used           @typescript-eslint/no-unused-vars
+
+/home/user/best-of-opera-app2/app-portal/components/app-sidebar.tsx
+   11:64   warning  'FileCheck' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   11:92   warning  'Send' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   11:117  warning  'Music' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   11:124  warning  'AlignLeft' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   11:146  warning  'Settings' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+  105:5    error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/components/app-sidebar.tsx:105:5
+  103 |
+  104 |   useEffect(() => {
+> 105 |     fetchCounts()
+      |     ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  106 |     const interval = setInterval(fetchCounts, 60_000)
+  107 |     return () => clearInterval(interval)
+  108 |   }, [fetchCounts])  react-hooks/set-state-in-effect
+
+/home/user/best-of-opera-app2/app-portal/components/brand-selector.tsx
+  44:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/components/brand-selector.tsx:44:5
+  42 |   // Busca inicial e ao mudar seleção (mantendo lógica original)
+  43 |   useEffect(() => {
+> 44 |     fetchData()
+     |     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  45 |   }, [fetchData])
+  46 |
+  47 |   // Retry automático silencioso após 5s na primeira falha  react-hooks/set-state-in-effect
+
+/home/user/best-of-opera-app2/app-portal/components/calendario/calendar-view.tsx
+  59:6  warning  React Hook useMemo has a missing dependency: 'searchParams'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/best-of-opera-app2/app-portal/components/curadoria/dashboard.tsx
+  159:13  warning  'res' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/user/best-of-opera-app2/app-portal/components/curadoria/downloads.tsx
+   7:29  warning  'CardHeader' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+   7:41  warning  'CardTitle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  26:5   error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/components/curadoria/downloads.tsx:26:5
+  24 |
+  25 |   useEffect(() => {
+> 26 |     setLoading(true)
+     |     ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  27 |     curadoriaApi.downloads(effectiveBrand)
+  28 |       .then(data => setDownloads(data.downloads || []))
+  29 |       .catch(() => {})  react-hooks/set-state-in-effect
+
+/home/user/best-of-opera-app2/app-portal/components/curadoria/video-card.tsx
+  42:11  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/user/best-of-opera-app2/app-portal/components/curadoria/video-detail-modal.tsx
+    9:43  warning  'CheckCircle2' is defined but never used                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+    9:94  warning  'Clock' is defined but never used                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+  103:6   warning  React Hook useEffect has a missing dependency: 'video'. Either include it or remove the dependency array                                                                                                                                                         react-hooks/exhaustive-deps
+  109:16  warning  The ref value 'abortRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'abortRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+/home/user/best-of-opera-app2/app-portal/components/dashboard/cross-app-kpis.tsx
+  47:21  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/components/dashboard/cross-app-kpis.tsx:47:21
+  45 |   }, [selectedBrand])
+  46 |
+> 47 |   useEffect(() => { fetchData() }, [fetchData])
+     |                     ^^^^^^^^^ Avoid calling setState() directly within an effect
+  48 |
+  49 |   const cards = [
+  50 |     { label: "Redação", value: data.redator, sub: "em andamento", icon: PenTool, href: "/redator", color: "text-yellow-500" },  react-hooks/set-state-in-effect
+
+/home/user/best-of-opera-app2/app-portal/components/dashboard/reports/floating-button.tsx
+  3:10  warning  'useState' is defined but never used     @typescript-eslint/no-unused-vars
+  5:18  warning  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/user/best-of-opera-app2/app-portal/components/dashboard/reports/report-card.tsx
+   15:23  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   21:27  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   27:25  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   43:23  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+   97:33  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                          react/no-unescaped-entities
+   97:52  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                                                                                                                                                                                                          react/no-unescaped-entities
+  123:33  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/user/best-of-opera-app2/app-portal/components/editor/conclusion.tsx
+   90:10  warning  'semLyrics' is assigned a value but never used                                                             @typescript-eslint/no-unused-vars
+  216:31  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+  235:6   warning  React Hook useEffect has a missing dependency: 'edicao'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  580:9   warning  'erroRelatedToRender' is assigned a value but never used                                                   @typescript-eslint/no-unused-vars
+
+/home/user/best-of-opera-app2/app-portal/components/editor/editing-queue.tsx
+  175:43  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  190:44  error    Unexpected any. Specify a different type                                                                              @typescript-eslint/no-explicit-any
+  203:6   warning  React Hook useEffect has a missing dependency: 'buildFilterParams'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  289:7   warning  Expected an assignment or function call and instead saw an expression                                                 @typescript-eslint/no-unused-expressions
+
+/home/user/best-of-opera-app2/app-portal/components/editor/validate-alignment.tsx
+  105:31  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  126:6   warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/user/best-of-opera-app2/app-portal/components/redator/approve-automation-rc.tsx
+   7:10  warning  'Textarea' is defined but never used      @typescript-eslint/no-unused-vars
+  27:50  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/approve-hooks-rc.tsx
+   55:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   66:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   88:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   95:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  131:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  212:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/approve-overlay.tsx
+   69:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:16  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  159:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/approve-post.tsx
+  48:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  85:16  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  85:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/approve-youtube.tsx
+  44:19  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+  55:11  error  'p' is never reassigned. Use 'const' instead  prefer-const
+  68:19  error  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/export-page.tsx
+    9:10  warning  'Download' is defined but never used                                                                         @typescript-eslint/no-unused-vars
+   13:10  warning  'BrandSelector' is defined but never used                                                                    @typescript-eslint/no-unused-vars
+   71:45  warning  React Hook useEffect has a missing dependency: 'loadLang'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  116:19  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  129:19  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  150:19  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  190:29  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+  202:27  error    Unexpected any. Specify a different type                                                                     @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/redator/new-project.tsx
+   69:10  warning  'thumbnailUrl' is assigned a value but never used                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  131:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  144:6   warning  React Hook useEffect has a missing dependency: 'applyR2Info'. Either include it or remove the dependency array                                                                                                                                                                           react-hooks/exhaustive-deps
+  193:6   warning  React Hook useEffect has a missing dependency: 'applyR2Info'. Either include it or remove the dependency array                                                                                                                                                                           react-hooks/exhaustive-deps
+  212:6   warning  React Hook useEffect has missing dependencies: 'interpreters.length' and 'isMulti'. Either include them or remove the dependency array                                                                                                                                                   react-hooks/exhaustive-deps
+  260:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  338:19  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                 @typescript-eslint/no-explicit-any
+  388:19  warning  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/user/best-of-opera-app2/app-portal/components/redator/project-list.tsx
+  127:43  error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+  132:6   warning  React Hook useCallback has a missing dependency: 'selectedBrand.r2_prefix'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  161:55  warning  Expected an assignment or function call and instead saw an expression                                                         @typescript-eslint/no-unused-expressions
+  164:59  warning  Expected an assignment or function call and instead saw an expression                                                         @typescript-eslint/no-unused-expressions
+  339:56  error    Unexpected any. Specify a different type                                                                                      @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/components/ui/filter-bar.tsx
+  65:6  warning  React Hook useEffect has missing dependencies: 'onSearchChange' and 'searchValue'. Either include them or remove the dependency array. If 'onSearchChange' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+/home/user/best-of-opera-app2/app-portal/lib/api/base.ts
+  83:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/lib/api/editor.ts
+  234:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  235:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  236:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  253:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  255:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  256:20  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  257:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  258:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  259:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  260:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/lib/api/redator.ts
+   84:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  237:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  243:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  250:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  254:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/lib/auth-context.tsx
+   9:9   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:17  warning  '_token' is defined but never used        @typescript-eslint/no-unused-vars
+  20:33  warning  '_redirectTo' is defined but never used   @typescript-eslint/no-unused-vars
+  25:36  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/home/user/best-of-opera-app2/app-portal/lib/brand-context.tsx
+  26:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/home/user/best-of-opera-app2/app-portal/lib/brand-context.tsx:26:5
+  24 |   useEffect(() => {
+  25 |     const id = localStorage.getItem(STORAGE_KEY)
+> 26 |     setSavedBrandId(id)
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  27 |   }, [])
+  28 |
+  29 |   const setSelectedBrand = useCallback((brand: Perfil | null) => {  react-hooks/set-state-in-effect
+
+/home/user/best-of-opera-app2/app-portal/lib/hooks/use-polling.ts
+   7:3  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/home/user/best-of-opera-app2/app-portal/lib/hooks/use-polling.ts:7:3
+   5 | export function usePolling(callback: () => Promise<void>, intervalMs: number, enabled: boolean) {
+   6 |   const savedCallback = useRef(callback)
+>  7 |   savedCallback.current = callback
+     |   ^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+   8 |
+   9 |   useEffect(() => {
+  10 |     if (!enabled) return  react-hooks/refs
+  33:3  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+/home/user/best-of-opera-app2/app-portal/lib/hooks/use-polling.ts:33:3
+  31 | ): { isSlowPolling: boolean } {
+  32 |   const savedCallback = useRef(callback)
+> 33 |   savedCallback.current = callback
+     |   ^^^^^^^^^^^^^^^^^^^^^ Cannot update ref during render
+  34 |   const [isSlowPolling, setIsSlowPolling] = useState(false)
+  35 |
+  36 |   useEffect(() => {                                react-hooks/refs
+
+/home/user/best-of-opera-app2/app-portal/lib/utils.ts
+  28:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 213 problems (136 errors, 77 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

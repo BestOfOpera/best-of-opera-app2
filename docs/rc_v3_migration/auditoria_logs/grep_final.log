@@ -1,0 +1,2 @@
+app-portal/lib/api/redator.ts:16: * produção, o banco pode ter _is_audit_meta dentro de overlay_json.
+app-portal/lib/api/redator.ts:23:      typeof e === "object" && e !== null && !(e as { _is_audit_meta?: boolean })._is_audit_meta

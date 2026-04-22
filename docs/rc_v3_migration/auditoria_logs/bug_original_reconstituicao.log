@@ -1,0 +1,10 @@
+Projeto legado: antes sanitize = 3 itens
+Projeto legado: após sanitize = 2 itens
+  entry text='Primeira legenda' longest=16
+  entry text='Segunda' longest=7
+
+Projeto novo: antes sanitize = 2 itens
+Projeto novo: após sanitize = 2 itens (idempotente)
+overlay_audit separado = {"fio_unico_identificado":"x","pontes_planejadas":[],"verificacoes":{}}
+
+CRASH_TEST: PASS (nenhum TypeError em .split)

@@ -1,0 +1,15 @@
+SELECTs: 5
+UPDATEs: 1
+DELETEs: 0
+DROPs: 0
+ALTERs: 0
+INSERTs: 0
+TRUNCATEs: 0
+UPDATE WHERE brand_slug = reels-classics: OK
+UPDATE NÃO mexe em overlay_audit (D4 respeitada): OK
+Zero DROP/DELETE/TRUNCATE/ALTER: OK
+
+Idempotência lógica: UPDATE só atinge rows com EXISTS sentinel — 2ª exec é no-op
+
+Total: 5 SELECT + 1 UPDATE = 6 statements (conforme esperado)
+SQL_SYNTACTIC_CHECK: PASS

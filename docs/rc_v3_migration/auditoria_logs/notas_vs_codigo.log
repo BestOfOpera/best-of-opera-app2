@@ -1,0 +1,9 @@
+[OK ] 9 consumers removidos (zero hits em .py)
+[OK ] Sem Alembic (D3 declaração)
+[FAIL] Zero infra de testes
+       detalhe: True
+[OK ] D5 TranslationOut sem overlay_audit
+[OK ] D2 ProjectOut com overlay_audit
+[OK ] D1 _process_overlay_rc retorna tupla
+
+Cruzamento NOTAS × código: FAIL
