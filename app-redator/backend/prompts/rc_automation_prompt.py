@@ -43,14 +43,17 @@ def build_rc_automation_prompt(
     }
     genero_descritivo = genre_map.get(category, "do repertório clássico")
 
-    # Extrai contexto do overlay
+    # Extrai contexto do overlay (filtra _is_cta e sentinel _is_audit_meta v3.1)
     overlay_temas = []
     for leg in overlay_legendas:
-        if isinstance(leg, dict):
-            texto = leg.get("texto", leg.get("text", ""))
-            tipo = leg.get("tipo", leg.get("type", "corpo"))
-            if tipo != "cta" and texto:
-                overlay_temas.append(texto)
+        if not isinstance(leg, dict):
+            continue
+        if leg.get("_is_audit_meta") or leg.get("_is_cta"):
+            continue
+        texto = leg.get("texto", leg.get("text", ""))
+        tipo = leg.get("tipo", leg.get("type", "corpo"))
+        if tipo != "cta" and texto:
+            overlay_temas.append(texto)
     overlay_resumo = " | ".join(overlay_temas[:5])
 
     obra_ref = work
