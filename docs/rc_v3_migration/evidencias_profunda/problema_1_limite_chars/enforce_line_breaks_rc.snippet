@@ -1,0 +1,34 @@
+app-redator/backend/services/claude_service.py:819-887
+
+FUNÇÃO: _enforce_line_breaks_rc(texto, tipo, max_chars_linha=38, lang="pt")
+PARÂMETRO DEFAULT: 38 chars/linha (v3.1)
+IDIOMAS VERBOSOS: DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41), PT/EN: 38 exato
+
+COMPORTAMENTO DE TRUNCAMENTO (linhas 865-880):
+─────────────────────────────────────────────────
+    else:
+        if linha_atual:
+            novas_linhas.append(linha_atual)
+        # Se já atingiu max de linhas, truncar e avisar
+        if len(novas_linhas) >= max_linhas:
+            resto = " ".join(palavras[idx:])
+            _rc_logger.warning(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'")
+            truncado = True
+            break
+        linha_atual = palavra
+
+if not truncado and linha_atual:
+    novas_linhas.append(linha_atual)
+
+# Garantir max_linhas
+novas_linhas = novas_linhas[:max_linhas]
+─────────────────────────────────────────────────
+
+PROBLEMAS DETECTADOS:
+- Linha 869-873: quando atinge max_linhas, faz `break` e descarta `resto` (palavras restantes).
+  Log warning é emitido mas o texto é PERDIDO. Viola Princípio 1.
+- Linha 880: `novas_linhas[:max_linhas]` é SEGUNDO corte silencioso, sem log warning.
+  Se o build acima já terminou sem atingir max_linhas mas por algum motivo gerou mais,
+  este slice remove sem avisar.
+- Comportamento correto segundo princípios editoriais: rejeitar+regenerar ou alertar +
+  preservar. Nunca descartar.

@@ -1,0 +1,131 @@
+./app-editor/backend/app/main.py:59:                overlay_max_chars INTEGER DEFAULT 70,
+./app-editor/backend/app/main.py:60:                overlay_max_chars_linha INTEGER DEFAULT 35,
+./app-editor/backend/app/main.py:61:                lyrics_max_chars INTEGER DEFAULT 43,
+./app-editor/backend/app/main.py:62:                traducao_max_chars INTEGER DEFAULT 100,
+./app-editor/backend/app/main.py:154:                overlay_max_chars, overlay_max_chars_linha, overlay_interval_secs,
+./app-editor/backend/app/main.py:155:                lyrics_max_chars, traducao_max_chars,
+./app-editor/backend/app/main.py:323:                overlay_max_chars, overlay_max_chars_linha,
+./app-editor/backend/app/main.py:324:                lyrics_max_chars, traducao_max_chars,
+./app-editor/backend/app/main.py:363:        # Backfill: corrigir overlay_max_chars do RC (Content Bible v3.4: 66/33)
+./app-editor/backend/app/main.py:366:                overlay_max_chars = 66,
+./app-editor/backend/app/main.py:367:                overlay_max_chars_linha = 33
+./app-editor/backend/app/main.py:368:            WHERE sigla = 'RC' AND overlay_max_chars = 70
+./app-editor/backend/app/main.py:370:        logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
+./app-editor/backend/app/main.py:738:                UPDATE editor_perfis SET overlay_max_chars = 99
+./app-editor/backend/app/main.py:739:                WHERE sigla = 'RC' AND overlay_max_chars != 99
+./app-editor/backend/app/models/perfil.py:34:    overlay_max_chars = Column(Integer, default=70)
+./app-editor/backend/app/models/perfil.py:35:    overlay_max_chars_linha = Column(Integer, default=35)
+./app-editor/backend/app/models/perfil.py:36:    lyrics_max_chars = Column(Integer, default=43)
+./app-editor/backend/app/models/perfil.py:37:    traducao_max_chars = Column(Integer, default=100)
+./app-editor/backend/app/routes/admin_perfil.py:122:    overlay_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:123:    overlay_max_chars_linha: int
+./app-editor/backend/app/routes/admin_perfil.py:124:    lyrics_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:125:    traducao_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:166:    overlay_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:167:    overlay_max_chars_linha: int
+./app-editor/backend/app/routes/admin_perfil.py:168:    lyrics_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:169:    traducao_max_chars: int
+./app-editor/backend/app/routes/admin_perfil.py:433:        overlay_max_chars=original.overlay_max_chars,
+./app-editor/backend/app/routes/admin_perfil.py:434:        overlay_max_chars_linha=original.overlay_max_chars_linha,
+./app-editor/backend/app/routes/admin_perfil.py:435:        lyrics_max_chars=original.lyrics_max_chars,
+./app-editor/backend/app/routes/admin_perfil.py:436:        traducao_max_chars=original.traducao_max_chars,
+./app-editor/backend/app/routes/admin_perfil.py:488:        overlay_max_chars=perfil.overlay_max_chars,
+./app-editor/backend/app/routes/admin_perfil.py:489:        overlay_max_chars_linha=perfil.overlay_max_chars_linha,
+./app-editor/backend/app/routes/admin_perfil.py:490:        lyrics_max_chars=perfil.lyrics_max_chars,
+./app-editor/backend/app/routes/admin_perfil.py:491:        traducao_max_chars=perfil.traducao_max_chars,
+./app-editor/backend/app/routes/pipeline.py:1754:            gerar_ass, OVERLAY_MAX_CHARS, OVERLAY_MAX_CHARS_LINHA, LYRICS_MAX_CHARS, TRADUCAO_MAX_CHARS
+./app-editor/backend/app/routes/pipeline.py:1832:                    overlay_max_chars=perfil.overlay_max_chars or OVERLAY_MAX_CHARS,
+./app-editor/backend/app/routes/pipeline.py:1833:                    overlay_max_chars_linha=perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA,
+./app-editor/backend/app/routes/pipeline.py:1834:                    lyrics_max_chars=perfil.lyrics_max_chars or LYRICS_MAX_CHARS,
+./app-editor/backend/app/routes/pipeline.py:1835:                    traducao_max_chars=perfil.traducao_max_chars or TRADUCAO_MAX_CHARS,
+./app-editor/backend/app/schemas.py:23:    overlay_max_chars: int = 70
+./app-editor/backend/app/schemas.py:24:    overlay_max_chars_linha: int = 35
+./app-editor/backend/app/schemas.py:25:    lyrics_max_chars: int = 43
+./app-editor/backend/app/schemas.py:26:    traducao_max_chars: int = 100
+./app-editor/backend/app/schemas.py:50:    overlay_max_chars: Optional[int] = None
+./app-editor/backend/app/schemas.py:51:    overlay_max_chars_linha: Optional[int] = None
+./app-editor/backend/app/schemas.py:52:    lyrics_max_chars: Optional[int] = None
+./app-editor/backend/app/schemas.py:53:    traducao_max_chars: Optional[int] = None
+./app-editor/backend/app/schemas.py:78:    overlay_max_chars: int
+./app-editor/backend/app/schemas.py:79:    overlay_max_chars_linha: int
+./app-editor/backend/app/schemas.py:80:    lyrics_max_chars: int
+./app-editor/backend/app/schemas.py:81:    traducao_max_chars: int
+./app-editor/backend/app/services/legendas.py:48:OVERLAY_MAX_CHARS = 70
+./app-editor/backend/app/services/legendas.py:49:OVERLAY_MAX_CHARS_LINHA = 35
+./app-editor/backend/app/services/legendas.py:50:LYRICS_MAX_CHARS = 43
+./app-editor/backend/app/services/legendas.py:51:TRADUCAO_MAX_CHARS = 100
+./app-editor/backend/app/services/legendas.py:109:def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str:
+./app-editor/backend/app/services/legendas.py:110:    """Quebra texto em 2 linhas equilibradas se exceder max_chars.
+./app-editor/backend/app/services/legendas.py:113:    if len(texto) <= max_chars:
+./app-editor/backend/app/services/legendas.py:134:def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2) -> str:
+./app-editor/backend/app/services/legendas.py:135:    """Quebra texto longo em linhas de até max_chars, máximo max_linhas.
+./app-editor/backend/app/services/legendas.py:143:    if len(texto_limpo) <= max_chars:
+./app-editor/backend/app/services/legendas.py:146:    # Word-wrap em linhas de até max_chars
+./app-editor/backend/app/services/legendas.py:153:        if len(candidata) <= max_chars:
+./app-editor/backend/app/services/legendas.py:241:def _truncar_texto(texto: str, max_chars: int) -> str:
+./app-editor/backend/app/services/legendas.py:242:    """Trunca texto que excede max_chars, cortando no último espaço.
+./app-editor/backend/app/services/legendas.py:245:    if len(texto) <= max_chars:
+./app-editor/backend/app/services/legendas.py:249:    limite = max_chars - 3
+./app-editor/backend/app/services/legendas.py:315:            print(f"[RC RENDER] Perfil: gancho_fs={_ov_cfg.get('gancho_fontsize')} corpo_fs={_ov_cfg.get('corpo_fontsize')} cta_fs={_ov_cfg.get('cta_fontsize')} max_chars_linha={perfil.overlay_max_chars_linha} max_chars={perfil.overlay_max_chars}", flush=True)
+./app-editor/backend/app/services/legendas.py:316:        overlay_max_linha = perfil.overlay_max_chars_linha or OVERLAY_MAX_CHARS_LINHA
+./app-editor/backend/app/services/legendas.py:317:        lyrics_max = perfil.lyrics_max_chars or LYRICS_MAX_CHARS
+./app-editor/backend/app/services/legendas.py:318:        traducao_max = perfil.traducao_max_chars or TRADUCAO_MAX_CHARS
+./app-editor/backend/app/services/legendas.py:323:        overlay_max_linha = OVERLAY_MAX_CHARS_LINHA
+./app-editor/backend/app/services/legendas.py:324:        lyrics_max = LYRICS_MAX_CHARS
+./app-editor/backend/app/services/legendas.py:325:        traducao_max = TRADUCAO_MAX_CHARS
+./app-editor/backend/app/services/perfil_service.py:44:        "overlay_max_chars": perfil.overlay_max_chars or 70,
+./app-editor/backend/app/services/perfil_service.py:45:        "overlay_max_chars_linha": perfil.overlay_max_chars_linha or 35,
+./app-editor/backend/app/services/perfil_service.py:54:        "overlay_max_chars": 70, "overlay_max_chars_linha": 35,
+./app-editor/backend/tests/test_multi_brand.py:89:        overlay_max_chars_linha=35,
+./app-editor/backend/tests/test_multi_brand.py:90:        lyrics_max_chars=43,
+./app-editor/backend/tests/test_multi_brand.py:91:        traducao_max_chars=100,
+./app-editor/backend/tests/verify_fix.py:1:def _truncar_texto(texto: str, max_chars: int) -> str:
+./app-editor/backend/tests/verify_fix.py:2:    """Trunca texto que excede max_chars, cortando no último espaço.
+./app-editor/backend/tests/verify_fix.py:5:    if len(texto) <= max_chars:
+./app-editor/backend/tests/verify_fix.py:9:    limite = max_chars - 3
+./app-portal/app/(app)/admin/marcas/nova/page.tsx:450:                                <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/nova/page.tsx:454:                                <Input type="number" value={formData.overlay_max_chars_linha || 25} onChange={e => handleChange("overlay_max_chars_linha", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/nova/page.tsx:458:                                <Input type="number" value={formData.lyrics_max_chars || 40} onChange={e => handleChange("lyrics_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/nova/page.tsx:462:                                <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/[id]/page.tsx:618:                                <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/[id]/page.tsx:622:                                <Input type="number" value={formData.overlay_max_chars_linha || 25} onChange={e => handleChange("overlay_max_chars_linha", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/[id]/page.tsx:626:                                <Input type="number" value={formData.lyrics_max_chars || 40} onChange={e => handleChange("lyrics_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/app/(app)/admin/marcas/[id]/page.tsx:630:                                <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+./app-portal/lib/api/editor.ts:237:  overlay_max_chars: number
+./app-portal/lib/api/editor.ts:238:  overlay_max_chars_linha: number
+./app-portal/lib/api/editor.ts:239:  lyrics_max_chars: number
+./app-portal/lib/api/editor.ts:240:  traducao_max_chars: number
+./app-redator/backend/prompts/hook_prompt.py:14:    max_chars = bc.get("overlay_max_chars", 70)
+./app-redator/backend/prompts/hook_prompt.py:92:2. Maximum {max_chars} characters (this is a hard technical limit).
+./app-redator/backend/prompts/overlay_prompt.py:45:def _extract_narrative(post_text: str, max_chars: int = 500) -> str:
+./app-redator/backend/prompts/overlay_prompt.py:48:    Retorna texto truncado em max_chars.
+./app-redator/backend/prompts/overlay_prompt.py:76:    if len(narrative) > max_chars:
+./app-redator/backend/prompts/overlay_prompt.py:77:        narrative = narrative[:max_chars].rsplit(" ", 1)[0] + "..."
+./app-redator/backend/prompts/overlay_prompt.py:104:    max_chars = bc.get("overlay_max_chars", 70)
+./app-redator/backend/prompts/overlay_prompt.py:105:    max_chars_line = bc.get("overlay_max_chars_linha", 35)
+./app-redator/backend/prompts/overlay_prompt.py:125:        narrative = _extract_narrative(post_text, max_chars=300)
+./app-redator/backend/prompts/overlay_prompt.py:229:1. Maximum {max_chars} characters per subtitle.
+./app-redator/backend/prompts/overlay_prompt.py:233:   - Maximum {max_chars} characters in total per subtitle.
+./app-redator/backend/prompts/overlay_prompt.py:234:   - If a subtitle has more than {max_chars_line} characters, split it into 2 lines using \\n.
+./app-redator/backend/prompts/overlay_prompt.py:235:   - Each line: maximum {max_chars_line} characters.
+./app-redator/backend/routers/translation.py:191:                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+./app-redator/backend/services/claude_service.py:379:    max_chars = bc_pre.get("overlay_max_chars", 70)
+./app-redator/backend/services/claude_service.py:383:            if len(leg["text"]) > max_chars:
+./app-redator/backend/services/claude_service.py:385:                    f"[generate_overlay] Texto com {len(leg['text'])} chars (max {max_chars}): "
+./app-redator/backend/services/claude_service.py:545:    max_chars = (brand_config or {}).get("overlay_max_chars", 70)
+./app-redator/backend/services/claude_service.py:549:        over_limit = len(hook_text) > max_chars
+./app-redator/backend/services/claude_service.py:819:def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
+./app-redator/backend/services/claude_service.py:820:    """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
+./app-redator/backend/services/claude_service.py:834:        max_chars_linha = min(max_chars_linha + 5, 43)
+./app-redator/backend/services/claude_service.py:836:        max_chars_linha = min(max_chars_linha + 3, 41)
+./app-redator/backend/services/claude_service.py:843:    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+./app-redator/backend/services/claude_service.py:857:        if len(teste) <= max_chars_linha:
+./app-redator/backend/services/claude_service.py:890:def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
+./app-redator/backend/services/claude_service.py:899:    todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
+./app-redator/backend/services/claude_service.py:911:        if len(teste) <= max_chars_linha:
+./app-redator/backend/services/translate_service.py:529:                           max_chars: int = 70,
+./app-redator/backend/services/translate_service.py:560:            elif max_chars and len(translated_text) > max_chars:
+./app-redator/backend/services/translate_service.py:562:                max_linha = max_chars // 2
+./app-redator/backend/services/translate_service.py:563:                translated_text = _enforce_line_breaks_bo(translated_text, max_chars_linha=max_linha, max_linhas=2)
+./app-redator/backend/services/translate_service.py:1006:                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+./app-redator/backend/services/translate_service.py:1024:                overlay_json, lang, brand_slug, max_chars=70, protected_names=protected_names

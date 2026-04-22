@@ -1,0 +1,21 @@
+app-redator/backend/prompts/rc_overlay_prompt.py:16:+ Limite de caracteres por linha corrigido 33 → 38
+app-redator/backend/prompts/rc_overlay_prompt.py:400:- **38 CARACTERES POR LINHA como REFERÊNCIA** (não 33 — limite corrigido). Na geração PT original, é referência flexível — pode ultrapassar um pouco se a frase exige, para evitar alucinação por truncamento forçado. O limite vira REGRA DURA apenas na etapa de tradução (rc-translation), onde cada linha traduzida deve caber em 38 chars, reformulando se necessário.
+app-redator/backend/prompts/rc_overlay_prompt.py:655:- Linhas ~38 caracteres como referência (pode ultrapassar se a frase natural exige — evitar forçar truncamento que gera alucinação; o limite é regra dura apenas em tradução)
+app-redator/backend/routers/generation.py:213:        limits = "Máximo 38 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
+app-redator/backend/services/claude_service.py:819:def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
+app-redator/backend/services/claude_service.py:822:    Limite base v3.1: 38 chars/linha. Idiomas verbosos ganham margem:
+app-redator/backend/services/claude_service.py:823:    DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41). PT/EN: 38 exato."""
+app-redator/backend/services/claude_service.py:1059:                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~38)")
+app-redator/backend/services/translate_service.py:557:                # RC v3.1: re-wrap com limite de 38 chars/linha (margens por idioma aplicadas dentro da função)
+app-redator/backend/services/translate_service.py:559:                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 38, lang=target_lang)
+app-redator/backend/services/translate_service.py:635:# Base 38 para PT/EN; margens para idiomas verbosos (F6.2).
+app-redator/backend/services/translate_service.py:637:    "pt": 38, "en": 38,
+app-redator/backend/services/translate_service.py:656:    - Regra 38 chars por linha como hard limit com reformulação não-corte
+app-redator/backend/services/translate_service.py:663:    base_limit = _OVERLAY_LINE_LIMIT.get(target_lang, 38)
+app-redator/backend/services/translate_service.py:668:- Maximum 38 characters per line (base reference — PT/EN)
+app-redator/backend/services/translate_service.py:676:        line_length_rule = f"""LINE LENGTH RULE — 38 characters per line target, {base_limit} hard ceiling for {lang_name}.
+app-redator/backend/services/translate_service.py:690:Semantic integrity is sacred. 38-char limit is a form constraint, not a content one."""
+app-redator/backend/services/translate_service.py:802:- Never drop factual information. 38-char limit is form, not content."""
+app-redator/backend/services/translate_service.py:813:    Limite por idioma: PT/EN=38, FR/IT/ES=41, DE/PL=43.
+app-redator/backend/services/translate_service.py:815:    limite = _OVERLAY_LINE_LIMIT.get(target_lang, 38)
+app-redator/backend/services/translate_service.py:1004:                        t_text = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
