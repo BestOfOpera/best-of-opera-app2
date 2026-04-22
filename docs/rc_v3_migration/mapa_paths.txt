@@ -1,0 +1,106 @@
+# Mapa de Paths RC-relevantes — Best of Opera App2
+# Gerado em 2026-04-22 como parte do PROMPT 1 (investigação)
+# Formato: <path relativo da raiz do repo>  —  <descrição em 1 linha>
+
+# ═══ PROMPTS RC (ALVO DO PATCH) ═══
+app-redator/backend/prompts/rc_research_prompt.py  —  Etapa 1: build_rc_research_prompt(metadata) — 333 linhas, schema 8 seções
+app-redator/backend/prompts/rc_hook_prompt.py  —  Etapa 2: build_rc_hook_prompt(metadata, research_data, brand_config) — gera 5 ganchos ranqueados
+app-redator/backend/prompts/rc_overlay_prompt.py  —  Etapa 3: build_rc_overlay_prompt — ALVO v3.1 (38 chars, fio dinâmico, cortes_aplicados)
+app-redator/backend/prompts/rc_post_prompt.py  —  Etapa 4: build_rc_post_prompt — schema atual sem hook_seo/save_cta/follow_cta
+app-redator/backend/prompts/rc_automation_prompt.py  —  Etapa 5: build_rc_automation_prompt — ALVO v3 (post_text usado + estratégias A/B/C)
+app-redator/backend/prompts/__init__.py  —  vazio (marker package)
+
+# ═══ PROMPTS BO (fora escopo direto, mas cohabitam) ═══
+app-redator/backend/prompts/bo_research_prompt.py  —  Best of Opera research (fora escopo)
+app-redator/backend/prompts/hook_helper.py  —  detect_hook_language + helpers compartilhados BO/RC
+app-redator/backend/prompts/hook_prompt.py  —  BO hooks
+app-redator/backend/prompts/overlay_prompt.py  —  BO overlay
+app-redator/backend/prompts/post_prompt.py  —  BO post
+app-redator/backend/prompts/youtube_prompt.py  —  BO YouTube title/tags
+
+# ═══ ROUTERS FASTAPI ═══
+app-redator/backend/routers/generation.py  —  endpoints /generate-*-rc (todos os 5 dispatchers RC) + regenerate-overlay-entry com 33 chars hardcoded linha 210
+app-redator/backend/routers/translation.py  —  endpoint /translate e /retranslate/{lang}; consome translate_service
+app-redator/backend/routers/projects.py  —  CRUD projetos
+app-redator/backend/routers/approval.py  —  toggles de approved flags
+app-redator/backend/routers/calendar.py  —  scheduled_date
+app-redator/backend/routers/export.py  —  export ZIP/R2
+app-redator/backend/routers/health.py  —  healthcheck
+app-redator/backend/routers/__init__.py  —  vazio
+
+# ═══ SERVICES (NÚCLEO DE PIPELINE) ═══
+app-redator/backend/services/claude_service.py  —  1210 linhas: LLM, sanitize, line-breaks (33 chars default), format_post, process_overlay; MODEL=claude-sonnet-4-6
+app-redator/backend/services/translate_service.py  —  857 linhas: Google Translate + Claude translation (paralelo 6 idiomas); RC_CTA/RC_POST_CTA hardcoded; _build_translation_prompt inline linha 594
+app-redator/backend/services/srt_service.py  —  50 linhas: generate_srt(overlay_json, cut_end) → SRT string
+app-redator/backend/services/export_service.py  —  save_texts_to_r2 + build_export_zip
+app-redator/backend/services/__init__.py  —  vazio
+
+# ═══ SCHEMAS, MODELS, DATABASE ═══
+app-redator/backend/schemas.py  —  Pydantic request/response API (ProjectOut, TranslationOut, ApprovePostRequest); SEM validação do JSON interno
+app-redator/backend/models.py  —  SQLAlchemy Project + Translation; RC fields: research_data, hooks_json, selected_hook, automation_json, instrument_formation, orchestra, conductor
+app-redator/backend/database.py  —  engine + Base + get_db (SQLAlchemy 2.x DeclarativeBase)
+app-redator/backend/config.py  —  env vars + HOOK_CATEGORIES + load_brand_config (HTTP cache 5min)
+app-redator/backend/main.py  —  FastAPI bootstrap + _run_migrations() DIY + _recover_stuck_projects
+
+# ═══ FRONTEND (NEXT.JS) ═══
+app-portal/components/redator/approve-post.tsx  —  Componente principal de edição/aprovação de post_text (textarea + preview)
+app-portal/components/redator/export-page.tsx  —  Preview de export com post_text
+app-portal/components/finalizados/finalizado-card.tsx  —  Card de projetos finalizados com seletor idioma + copy post
+app-portal/lib/api/redator.ts  —  API client TypeScript: interfaces Project, approvePost, etc
+app-portal/package.json  —  Next.js 16.1.6, React 19.2.3, Tailwind 4, Radix UI
+
+# ═══ ANEXOS v3/v3.1 (REFERÊNCIA — NÃO ESTÃO NO PIPELINE) ═══
+docs/rc_v3_migration/rc_overlay_prompt_v3_1.py  —  ANEXO D.3: build_rc_overlay_prompt v3.1 (698 linhas, 38 chars, cortes_aplicados, fio dinâmico)
+docs/rc_v3_migration/rc_automation_prompt_v3.py  —  ANEXO D.2: build_rc_automation_prompt v3 (233 linhas, post_text usado, estratégias A/B/C)
+docs/rc_v3_migration/rc_translation_prompt_v3.py  —  ANEXO D.1: build_rc_translation_prompt v3 (513 linhas) — FUNÇÃO NOVA SEM CALLER NO REPO
+docs/rc_v3_migration/rc-overlay_SKILL.md  —  SKILL referência app Claude (cross-check comportamento esperado)
+docs/rc_v3_migration/rc-post_SKILL.md  —  SKILL post: descarta F4.2 hook_seo, adiciona save_cta
+docs/rc_v3_migration/rc-research_SKILL.md  —  SKILL research (F1.1, F1.2)
+docs/rc_v3_migration/rc-hooks_SKILL.md  —  SKILL hooks (F2.1, F2.2 — campo analise_diversidade.todos_diferentes)
+docs/rc_v3_migration/rc-automation_SKILL.md  —  SKILL automation (F5.1, F5.2)
+docs/rc_v3_migration/rc-translation_SKILL.md  —  SKILL translation (F6.1-F6.9, CTAs com pronome)
+docs/rc_v3_migration/RELATORIO_LOTE_D.md  —  Contexto dos 3 patches v3/v3.1
+docs/rc_v3_migration/RELATORIO_LOTES_A_B_C_F.md  —  Contexto das 6 SKILLs; F4.2 descartada
+docs/rc_v3_migration/README.md  —  README do pacote da Fase 3
+docs/rc_v3_migration/PROMPT_1_INVESTIGACAO.md  —  Este prompt (instrução desta sessão)
+docs/rc_v3_migration/PROMPT_2_EXECUCAO.md  —  Prompt da próxima sessão (NÃO LIDO NESTA INVESTIGAÇÃO — evitar viés)
+docs/rc_v3_migration/RELATORIO_INVESTIGACAO.md  —  ESTE RELATÓRIO (entregável principal)
+docs/rc_v3_migration/mapa_paths.txt  —  este arquivo
+
+# ═══ EDITOR (OVERLAY BURN-IN) ═══
+app-editor/backend/app/services/legendas.py  —  gerar_ass(overlay, lyrics, traducao) + ESTILOS_PADRAO (TeX Gyre Schola 40px; overlay_max_chars_linha=35)
+app-editor/backend/app/routes/pipeline.py  —  /importar (recebe overlay_json), _render_task (FFmpeg burn-in libx264), preview endpoints
+app-editor/CLAUDE.md  —  regras de worker/task do editor (try/except BaseException, idempotência)
+
+# ═══ SHARED ═══
+shared/storage_service.py  —  abstração R2 (upload_text, project_base, lang_prefix)
+
+# ═══ DEPLOY & CONFIG ═══
+app-redator/Dockerfile  —  multistage Node 18 (frontend) + Python 3.11 (backend)
+app-redator/railway.json  —  Railway deploy config (numReplicas=1, ON_FAILURE restart max 3)
+app-redator/Procfile  —  uvicorn backend.main:app (fallback)
+app-redator/requirements.txt  —  fastapi==0.115.6, sqlalchemy==2.0.36, anthropic==0.42.0, pydantic==2.10.3, sentry-sdk
+
+# ═══ DOCS RC-RELACIONADOS (CONTEXTO) ═══
+docs/PRD-004-reels-classics-visual.md  —  visual RC
+docs/PRD-007-rc-bo-configuracoes-fonte-overlay.md  —  config fonte
+docs/PRD-008-rc-workflow-plataforma.md  —  workflow RC
+docs/PRD-009-isolamento-marcas-pipeline-configuravel.md  —  multi-brand
+docs/PRD-010-cta-idiomas-hooks-configuravel.md  —  CTA por marca (EM EXECUÇÃO)
+docs/SPEC-004-reels-classics-visual.md  —  SPEC visual
+docs/SPEC-006-model-update-overlay-interval.md  —  modelo Claude 4-5→4-6 (CONCLUÍDO)
+docs/SPEC-007-correcoes-perfis-bo-rc.md  —  correções perfis
+docs/SPEC-008-rc-workflow-plataforma.md  —  workflow plataforma
+docs/SPEC-009-isolamento-marcas-pipeline-configuravel.md  —  multi-brand
+docs/SPEC-010-cta-idiomas-hooks-configuravel.md  —  CTA por marca (EM EXECUÇÃO — BLOCO 1 concluído, 2/3/4 pendentes)
+CLAUDE.md  —  instruções gerais do projeto (armadilhas conhecidas, workflow PRD/SPEC)
+app-editor/CLAUDE.md  —  instruções específicas do editor
+
+# ═══ OUTROS (NÃO LIDOS INTEGRALMENTE MAS MAPEADOS) ═══
+app-redator/backend/__init__.py  —  vazio
+app-redator/frontend/  —  SPA legado (Vite? React?) buildado pelo Dockerfile e servido via StaticFiles; papel exato no RC não confirmado nesta investigação
+.claude/  —  config Claude Code
+dados-relevantes/  —  credenciais, configs ativas (NÃO lido nesta sessão)
+arquivo/  —  planos concluídos (ignorado por escopo)
+
+# Fim do mapa
