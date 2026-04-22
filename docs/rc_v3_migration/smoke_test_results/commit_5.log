@@ -1,0 +1,58 @@
+Commit 5 smoke test results (portal/frontend)
+==============================================
+
+## npx tsc --noEmit
+EXIT=0
+(TypeScript zero errors)
+
+## npm run lint
+Antes (baseline pré-refactor): 137 errors + 77 warnings totais no projeto.
+Depois (pós-refactor): 137 errors + 77 warnings totais.
+
+Breakdown nos 3 arquivos tocados:
+- app-portal/lib/api/redator.ts:
+  - Antes: 9 errors (21, 81, 84, 234, 238, 240, 247, 249, 251)
+  - Depois: 8 errors (84, 87, 237, 241, 243, 250, 252, 254)
+  - Diferença: -1 erro (removi `(e: any)` em sanitizeOverlay usando type predicate).
+    As outras linhas mudaram de número porque inseri ~14 linhas de types novos
+    (OverlayEntry/OverlayAudit/sanitizeOverlay) no topo do arquivo.
+
+- app-portal/components/redator/approve-overlay.tsx:
+  - Antes: 5 errors + 1 warning (pré-existentes)
+  - Depois: 5 errors + 1 warning (idênticos)
+  - Zero diferença.
+
+- app-portal/components/redator/export-page.tsx:
+  - Antes: 5 errors + 3 warnings (pré-existentes)
+  - Depois: 5 errors + 3 warnings (idênticos)
+  - Zero diferença.
+
+Conclusão: -1 erro de lint, zero erros introduzidos.
+
+## npm run build
+FALHA AMBIENTAL: sandbox sem acesso à internet para fonts.google.com
+Erros reportados:
+  next/font: error: Failed to fetch `Inter` from Google Fonts.
+  next/font: error: Failed to fetch `Playfair Display` from Google Fonts.
+
+NÃO é erro de código — é network egress bloqueado. Processos anteriores:
+  - Turbopack SSR compilation: passou
+  - Type-check: passou
+  - Route collection: passou
+
+Build final só quebrou ao tentar prefetch de fonts externos em SSR.
+Esse passo só roda em ambiente com internet (Railway deploy, dev local com rede).
+
+Validação adicional manual necessária em staging (branch-deploy Railway).
+
+## Caso crítico validado manualmente (smoke mental)
+Projeto RC legado (banco com sentinel no array):
+  1. sanitizeOverlay(p.overlay_json) filtra o sentinel → overlay UI limpa
+  2. approve-overlay.tsx:250 agora usa (entry.text || "").split("\n")
+     → não crasha mesmo se algum item malformado passar do filtro
+  3. export-page.tsx usa sanitizeOverlay em ambos os pontos (view e edit)
+     → sentinel não aparece na lista visível
+  4. handleApprove envia overlay filtrado de volta ao backend → banco não
+     re-recebe sentinel (regressão do loop de corrupção)
+
+COMMIT_5_SMOKE: PASS (com ressalva de build ambiental)

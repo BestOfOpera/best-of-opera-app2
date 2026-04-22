@@ -191,3 +191,36 @@ Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de 
 - Caso 1: `overlay_audit` populado → `model_dump` serializa dict corretamente.
 - Caso 2: `overlay_audit` não passado → default `None` → serializa `null`.
 - Caso 3: `model_validate(MockProject(), from_attributes=True)` → herda campo do ORM (prova que FastAPI `response_model=ProjectOut` vai funcionar sem tocar no handler).
+
+### Commit 5 — `refactor(portal): types TS + approve-overlay.tsx adaptados ao novo shape`
+
+**Arquivos tocados:**
+- `app-portal/lib/api/redator.ts`:
+  - Novos types nomeados `OverlayEntry` e `OverlayAudit` (antes: tipo inline repetido 7x no arquivo).
+  - Nova função `sanitizeOverlay(raw: unknown): OverlayEntry[]` com type predicate (sem `any`).
+  - `Project.overlay_audit: OverlayAudit | null` adicionado.
+  - 7 ocorrências do tipo inline substituídas por `OverlayEntry[]`.
+- `app-portal/components/redator/approve-overlay.tsx`:
+  - Importa `sanitizeOverlay`, `OverlayEntry`.
+  - `useState<OverlayEntry[]>` (antes: inline).
+  - **6 pontos de entrada de dados do backend** agora usam `sanitizeOverlay(…)`: useEffect inicial, `handleRegenerate` (2x), `handleRegenerateEntry`, `handleRegenerateAll` (2x).
+  - Linha 250 (onde acontecia o crash original reportado no Bloco A): `(entry.text || "").split("\n")` — fallback defensivo custo-zero.
+- `app-portal/components/redator/export-page.tsx`:
+  - Importa `sanitizeOverlay`.
+  - `setEditOverlay([...exportData.overlay_json!])` → `setEditOverlay(sanitizeOverlay(exportData.overlay_json))`.
+  - `exportData.overlay_json.map(...)` → `sanitizeOverlay(exportData.overlay_json).map(...)` (view readonly).
+
+**Por que o filtro defensivo `sanitizeOverlay` no frontend mesmo depois do Commit 2 garantir lista limpa:** projetos RC gerados pré-Commit 2 continuam com `_is_audit_meta` dentro de `overlay_json` no banco até o SQL do Commit 7 rodar em produção. `sanitizeOverlay` é transitório — vira no-op após esse deploy. Mantido como segurança (custo zero, elimina risco de regressão visual residual).
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_5.log` — detalhado:
+- `npx tsc --noEmit`: EXIT=0, zero erros TS.
+- `npm run lint`: 137 errors + 77 warnings totais (idêntico ao pré-refactor). Nos 3 arquivos tocados: zero novos erros, -1 erro em `redator.ts` (removi `any` via type predicate).
+- `npm run build`: falhou AMBIENTALMENTE por impossibilidade de baixar Google Fonts (sandbox sem egress para `fonts.google.com`). Compilação TS/Turbopack e coleta de rotas passaram. Validação de build completo será feita em staging Railway.
+
+**Para staging (próximos passos, fora do escopo desta sessão):**
+1. Merge só após auditoria independente (PROMPT 6B_AUDIT) aprovar.
+2. Em Railway dashboard, apontar `main` environment temporariamente para `refactor/overlay-sentinel-restructure`.
+3. Criar projeto RC novo e abrir `/redator/projeto/{id}/overlay` — tela deve renderizar sem erro.
+4. Abrir um projeto RC pré-existente (#355 ou similar) — o `sanitizeOverlay` no frontend filtra o sentinel antigo; tela deve renderizar também.
+5. Executar `scripts/migrate_overlay_sentinel.sql` (Commit 7) no banco.
+6. Confirmar que projetos antigos agora têm `overlay_json` sem sentinel.

@@ -2,6 +2,50 @@ import { request, requestFormData, API_URLS } from "./base"
 
 function BASE() { return API_URLS.redator + "/api" }
 
+export interface OverlayEntry {
+  timestamp: string
+  text: string
+  _is_cta?: boolean
+  end?: string
+  type?: string
+}
+
+/**
+ * Guard defensivo para projetos RC gerados pré-refactor
+ * overlay-sentinel-restructure: enquanto o SQL de migração não roda em
+ * produção, o banco pode ter _is_audit_meta dentro de overlay_json.
+ * Projetos novos já vêm limpos do backend.
+ */
+export function sanitizeOverlay(raw: unknown): OverlayEntry[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (e): e is OverlayEntry =>
+      typeof e === "object" && e !== null && !(e as { _is_audit_meta?: boolean })._is_audit_meta
+  )
+}
+
+export interface OverlayAudit {
+  fio_unico_identificado?: string
+  pontes_planejadas?: string[]
+  verificacoes?: {
+    total_legendas?: number
+    fio_unico_respeitado?: boolean
+    pontes_causais_inseridas?: string[]
+    ancoragens_causais?: string[]
+    ancoragens_descritivas?: string[]
+    cenas_especificas?: string[]
+    gancho_fechamento_ecoam?: string
+    paralelismos_encontrados?: number
+    metaforas_sensoriais?: number
+    travessoes?: number
+    cortes_aplicados?: Array<{
+      tipo: string
+      texto_candidato: string
+      motivo: string
+    }>
+  }
+}
+
 export interface Project {
   id: number
   created_at: string
@@ -27,7 +71,8 @@ export interface Project {
   cut_start: string
   cut_end: string
   status: string
-  overlay_json: { timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[] | null
+  overlay_json: OverlayEntry[] | null
+  overlay_audit: OverlayAudit | null
   post_text: string | null
   youtube_title: string | null
   youtube_tags: string | null
@@ -54,7 +99,7 @@ export interface Translation {
   id: number
   project_id: number
   language: string
-  overlay_json: { timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[] | null
+  overlay_json: OverlayEntry[] | null
   post_text: string | null
   youtube_title: string | null
   youtube_tags: string | null
@@ -88,7 +133,7 @@ export interface R2AvailableItem {
 
 export interface ExportData {
   language: string
-  overlay_json: { timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[] | null
+  overlay_json: OverlayEntry[] | null
   post_text: string | null
   youtube_title: string | null
   youtube_tags: string | null
@@ -166,12 +211,12 @@ export const redatorApi = {
     }),
 
   regenerateOverlayEntry: (id: number, entryIndex: number, data: { instruction?: string; brand_slug?: string }) =>
-    request<{ index: number; old_text: string; new_text: string; overlay_json: { timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[] }>(
+    request<{ index: number; old_text: string; new_text: string; overlay_json: OverlayEntry[] }>(
       `${BASE()}/projects/${id}/regenerate-overlay-entry/${entryIndex}`,
       { method: "POST", timeout: 60000, body: JSON.stringify(data) },
     ),
 
-  approveOverlay: (id: number, overlayJson: { timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[]) =>
+  approveOverlay: (id: number, overlayJson: OverlayEntry[]) =>
     request<Project>(`${BASE()}/projects/${id}/approve-overlay`, {
       method: "PUT",
       body: JSON.stringify({ overlay_json: overlayJson }),
