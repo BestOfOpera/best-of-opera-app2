@@ -816,10 +816,11 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
-def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, lang: str = "pt") -> str:
+def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
     """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
     Se o LLM não gerou \\n, adiciona word-wrap inteligente.
-    Idiomas verbosos (de, fr, it, pl, es) ganham margem extra de 3 chars."""
+    Limite base v3.1: 38 chars/linha. Idiomas verbosos ganham margem:
+    DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41). PT/EN: 38 exato."""
     if tipo == "cta":
         return texto  # CTA é fixo, não tocar
 
@@ -830,9 +831,9 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 33, la
     # Idiomas verbosos expandem ~10-20% na tradução — margem extra evita truncamento
     # Idiomas verbosos: DE/PL expandem mais (~20-30%), margem maior
     if lang in ("de", "pl"):
-        max_chars_linha = min(max_chars_linha + 5, 40)
+        max_chars_linha = min(max_chars_linha + 5, 43)
     elif lang in ("fr", "it", "es"):
-        max_chars_linha = min(max_chars_linha + 3, 38)
+        max_chars_linha = min(max_chars_linha + 3, 41)
 
     max_linhas = 2 if tipo in ("gancho", "fechamento") else 3
 
@@ -1034,8 +1035,8 @@ def _validate_overlay_rc(overlay_json: list):
     for i, item in enumerate(overlay_json):
         texto = item.get("text", "")
         for j, linha in enumerate(texto.split("\n")):
-            if len(linha) > 40:
-                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~33)")
+            if len(linha) > 42:
+                _rc_logger.warning(f"[RC WARN] Legenda {i+1}, linha {j+1}: {len(linha)} chars (max ~38)")
 
     # 2. Anti-repetição (palavras compartilhadas entre legendas)
     stop_words = {"a", "o", "e", "de", "da", "do", "em", "que", "um", "uma", "no", "na", "com", "por", "para", "se", "não", "é"}

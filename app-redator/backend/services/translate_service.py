@@ -550,9 +550,9 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
             if replacements:
                 translated_text = _restore_proper_names(translated_text, replacements)
             if is_rc:
-                # RC: re-wrap com limite rígido de 33 chars/linha
+                # RC v3.1: re-wrap com limite de 38 chars/linha (margens por idioma aplicadas dentro da função)
                 tipo = entry.get("type", "corpo")
-                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 33, lang=target_lang)
+                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 38, lang=target_lang)
             elif max_chars and len(translated_text) > max_chars:
                 # BO/outros: re-wrap em 2 linhas em vez de truncar
                 max_linha = max_chars // 2
@@ -608,13 +608,13 @@ def _build_translation_prompt(
     if is_rc:
         overlay_rules = (
             "OVERLAY RULES:\n"
-            "- Maximum 33 characters per line (counting spaces)\n"
+            "- Maximum 38 characters per line (counting spaces) — hard limit\n"
             "- 'gancho' and 'fechamento': exactly 2 lines, separated by \\n\n"
             "- 'corpo': 2 or 3 lines, separated by \\n\n"
             "- 'cta': DO NOT translate — return EXACTLY as given\n"
             "- Balance line lengths (similar length per line)\n"
-            "- German/Polish: maximum 40 characters per line\n"
-            "- French/Italian/Spanish: maximum 38 characters per line"
+            "- German/Polish: maximum 43 characters per line (ceiling)\n"
+            "- French/Italian/Spanish: maximum 41 characters per line (ceiling)"
         )
     else:
         overlay_rules = (
@@ -814,7 +814,7 @@ def translate_project_parallel(
                 if not orig_entry.get("_is_cta"):
                     if is_rc:
                         tipo = orig_entry.get("type", "corpo")
-                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                        t_text = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
                     elif len(t_text) > 70:
                         t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
 

@@ -207,7 +207,7 @@ def regenerate_overlay_entry(
         overlay_context += f"\n[{i + 1}] ({e.get('type', e.get('tipo', 'corpo'))}): {e.get('text', e.get('texto', ''))}{marker}"
 
     if is_rc:
-        limits = "Máximo 33 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
+        limits = "Máximo 38 caracteres por linha. Use \\n para quebras de linha. Máximo 3 linhas (2 para gancho/fechamento)."
     else:
         limits = "Máximo 70 caracteres total. Se > 35 chars, divida em 2 linhas balanceadas com \\n."
 
