@@ -322,3 +322,30 @@ Operador escolheu aceitar a ausência pelos seguintes motivos:
 Referência: commit de auditoria `f41bb51` em `claude/audit-overlay-refactor-6O5ph`, relatório em `docs/rc_v3_migration/RELATORIO_AUDITORIA_REFACTOR.md`.
 
 Contrapartida assumida: próximo refactor de shape do overlay (se houver) deve criar o script E2E **antes** de iniciar, não depois.
+
+---
+
+## Fechamento — Refactor overlay-sentinel-restructure em produção
+
+**Data/hora do merge:** 2026-04-22 17:42:49 UTC
+
+**Commit de merge em `main`:** `52e9858` — "Merge refactor overlay-sentinel-restructure — resolve regressão visual RC pós-Fase 3" (8 commits da branch integrados via `--no-ff`, topologia de bubble preservada)
+
+**Deploy Railway:** ✅ concluído com sucesso após o push (confirmado pelo operador no painel Railway). Ambos os serviços (`app-redator` backend + `app-portal` frontend) deployaram sem erro. Coluna `overlay_audit` criada automaticamente via `_run_migrations()` v17 no startup do redator.
+
+**Migration SQL de dados legados: NÃO EXECUTADA — decisão consciente do operador.**
+
+- Script `scripts/migrate_overlay_sentinel.sql` foi desenvolvido, auditado (syntactic parse OK, escopo `WHERE brand_slug = 'reels-classics'` estrito, D4 respeitada) e **preservado no repo** para uso futuro se necessário.
+- Motivo da decisão: projetos RC pré-refactor no banco de produção eram **testes descartáveis** da Fase 3, não conteúdo editorial que precisasse ser recuperado. Valor editorial de limpar o sentinel do array em projetos legados é zero.
+- Fases 3 e 4 do PROMPT 7 puladas integralmente em consequência.
+- Consequência residual esperada: se algum projeto RC legado ainda existir no banco com sentinel no array, será filtrado em runtime pela função `sanitizeOverlay` no frontend (`app-portal/lib/api/redator.ts`), que foi mantida exatamente como defense-in-depth transitória/permanente para essa classe de dados. Nenhuma tela de erro, nenhuma regressão visual.
+
+**Branches preservadas como histórico auditável:**
+
+- `refactor/overlay-sentinel-restructure` — execução do refactor (7 commits atômicos + 1 commit de divergência)
+- `claude/audit-overlay-refactor-6O5ph` — auditoria independente (veredito REPROVADO → APROVADO com ressalva após Opção B do operador)
+- `claude/investigate-overlay-regression-Csutr` — investigação original do Bloco A que diagnosticou os 4 elos da causa-raiz
+
+Nenhuma dessas branches precisa ser deletada. Servem como trilha auditável completa do ciclo: **diagnóstico → refactor → auditoria → merge**.
+
+**Estado final da Fase 3 RC v3/v3.1:** 100% das remediações em produção. Bug do projeto #355 resolvido estruturalmente; nunca mais poderá aparecer com o shape novo do backend (`overlay_json` é lista homogênea, `overlay_audit` é campo separado), e o frontend tem defesa residual via `sanitizeOverlay` contra qualquer dado legado remanescente.
