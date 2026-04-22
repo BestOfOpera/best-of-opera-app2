@@ -34,14 +34,15 @@ def _restore_proper_names(text: str, replacements: dict[str, str]) -> str:
     return text
 
 # CTAs fixos para RC (Reels Classics) por idioma — overlay (com \n para legendas)
+# Tabela canônica v3 (F6.8 Opção A — pronome explícito em DE/FR/IT/PL)
 RC_CTA = {
     "pt": "Siga, o melhor da música clássica,\ndiariamente no seu feed. ❤️",
-    "en": "Follow for the best of classical music,\ndaily on your feed. ❤️",
-    "es": "Sigue, lo mejor de la música clásica,\na diario en tu feed. ❤️",
-    "de": "Folge uns für die beste klassische Musik,\ntäglich in deinem Feed. ❤️",
-    "fr": "Suis-nous pour le meilleur\nde la musique classique. ❤️",
-    "it": "Seguici per il meglio della musica classica,\nogni giorno nel tuo feed. ❤️",
-    "pl": "Obserwuj nas, najlepsza muzyka klasyczna\ncodziennie na Twoim feedzie. ❤️",
+    "en": "Follow for the best of\nclassical music on your feed ❤️",
+    "es": "Síguenos para lo mejor de\nla música clásica en tu feed ❤️",
+    "de": "Folge uns für das Beste der\nklassischen Musik in deinem Feed ❤️",
+    "fr": "Suis-nous pour le meilleur de\nla musique classique dans ton feed ❤️",
+    "it": "Seguici per il meglio della\nmusica classica nel tuo feed ❤️",
+    "pl": "Obserwuj nas, by poznać najlepsze\nz muzyki klasycznej ❤️",
 }
 
 # CTAs fixos para BO (Best of Opera) por idioma — overlay
@@ -56,14 +57,15 @@ BO_CTA = {
 }
 
 # CTAs fixos para RC posts (com 👉, sem \n de legenda)
+# Tabela canônica v3 (F6.8 Opção A — pronome explícito em DE/FR/IT/PL)
 RC_POST_CTA = {
     "pt": "👉 Siga, o melhor da música clássica, diariamente no seu feed.",
-    "en": "👉 Follow for the best of classical music, daily on your feed.",
-    "es": "👉 Sigue, lo mejor de la música clásica, a diario en tu feed.",
-    "de": "👉 Folge uns für die beste klassische Musik, täglich in deinem Feed.",
-    "fr": "👉 Suis-nous pour le meilleur de la musique classique.",
-    "it": "👉 Seguici per il meglio della musica classica, ogni giorno nel tuo feed.",
-    "pl": "👉 Obserwuj nas, najlepsza muzyka klasyczna codziennie na Twoim feedzie.",
+    "en": "👉 Follow for the best of classical music daily on your feed.",
+    "es": "👉 Síguenos para lo mejor de la música clásica en tu feed.",
+    "de": "👉 Folge uns für das Beste der klassischen Musik in deinem Feed.",
+    "fr": "👉 Suis-nous pour le meilleur de la musique classique dans ton feed.",
+    "it": "👉 Seguici per il meglio della musica classica nel tuo feed.",
+    "pl": "👉 Obserwuj nas po najlepsze utwory muzyki klasycznej.",
 }
 
 TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
