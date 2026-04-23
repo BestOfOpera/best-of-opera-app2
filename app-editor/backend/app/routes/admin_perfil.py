@@ -212,6 +212,14 @@ def _validar_campos(data: dict) -> None:
         raise HTTPException(status_code=422, detail="cor_secundaria deve ser hex #RRGGBB")
     if "idiomas_alvo" in data and data["idiomas_alvo"] and not _idiomas_validos(data["idiomas_alvo"]):
         raise HTTPException(status_code=422, detail="idiomas_alvo deve conter codigos de 2 letras")
+    if "anti_spam_terms" in data and data["anti_spam_terms"]:
+        _ast = data["anti_spam_terms"]
+        if len(_ast) > 500:
+            logger.warning(
+                f"[T9 AntiSpam Overflow] anti_spam_terms recebido com {len(_ast)} "
+                f"chars (limite VARCHAR(500)). Valor: {_ast[:80]!r}... — "
+                f"DB poderá rejeitar ou truncar conforme configuração."
+            )
 
 
 def _protegido(perfil: Perfil, force: bool = False) -> None:
