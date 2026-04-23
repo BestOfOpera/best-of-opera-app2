@@ -10,6 +10,7 @@ import { Check, RefreshCw, Trash2, Plus, Loader2, ChevronUp, ChevronDown, Sparkl
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { redatorApi, sanitizeOverlay, type Project, type OverlayEntry } from "@/lib/api/redator"
+import { RC_MAX_CHARS_PER_LINE } from "@/lib/redator/constants"
 import { toast } from "sonner"
 
 function parseTimestamp(ts: string): number {
@@ -248,10 +249,10 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
                     {(() => {
                       if (isRC) {
                         const longest = Math.max(...((entry.text || "").split("\n").map((l: string) => l.length)), 0)
-                        const over = longest > 33
+                        const over = longest > RC_MAX_CHARS_PER_LINE
                         return (
                           <span className={`text-[10px] tabular-nums w-14 text-right pt-2 ${over ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                            {longest}/33 lin
+                            {longest}/{RC_MAX_CHARS_PER_LINE} lin
                           </span>
                         )
                       }
