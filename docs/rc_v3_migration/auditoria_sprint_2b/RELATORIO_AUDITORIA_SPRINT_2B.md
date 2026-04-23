@@ -10,7 +10,13 @@
 
 ## Sumário executivo
 
-(Preenchido ao final.)
+Auditoria independente **pré-merge** do Sprint 2B validou os 10 commits da branch `claude/execucao-sprint-2b-20260423-1537` (1 CRÍTICO + 6 MÉDIAS + 1 documental + 2 artefatos Fase 1/2 + 1 relatório) contra o escopo declarado no PROMPT 10B_AUDIT. Todas 5 frentes (A–E) foram aprovadas com **zero bloqueador**. O reforço obrigatório de 5 pontos confirmou a conformidade sem detectar edge cases adicionais.
+
+Os três riscos identificados no plano como pontos de ênfase máxima foram verificados e passaram: (a) **R-audit-01** tem `re.IGNORECASE` consistente entre `re.findall` e `re.sub`, com o `re.sub` destrutivo preservado e warning `[Sanitize RC Strip]` antes; (b) **T9-spam** é puramente app-layer em `admin_perfil.py:_validar_campos` — zero `ALTER TABLE`/`CREATE TABLE`/`DROP TABLE`/`ADD COLUMN` no diff de código, schema `VARCHAR(500)` em `main.py:77` e `:922` intocado; (c) **transferidos BO** (R-audit-02 `_sanitize_post` e P2-PathA-2 `min(12.0)` em `generate_overlay`) não tiveram nenhum hunk — confirmação dupla pelo fato de que o único hunk em `claude_service.py` é `@@ -852,6 +852,16 @@ def _sanitize_rc`.
+
+A reanálise P3-Prob declara 0 APLICAR, 3 JÁ RESOLVIDAS (regras 1, 5, 7) e 4 OBSOLETAS/DÉBITO (regras 2, 3, 4, 6). Validação cruzada com o código confirma: `_enforce_line_breaks_rc` não tem hunks (0 APLICAR real, não apenas declarado); justificativas citam estruturas concretas (`R1-b`, `MAX_CONTINUACOES=5`, `resto` tupla) que existem no código; a flag `_needs_editorial_review` da Regra 6 de fato **não existe** em nenhum arquivo `.py|.tsx`, justificando a classificação OBSOLETA. Os 5 novos prefixes Sprint 2B aparecem com exatamente 1 match cada no código, zero colisão com os 12 prefixes preservados de Sprint 1/2A.
+
+Detectadas **2 observações não-bloqueadoras**, ambas documentais: (1) numerações de linha em `REANALISE_P3_PROB.md` ficaram desatualizadas em +10 linhas após o commit `539a9b0` (R-audit-01) — referências conceituais corretas, apenas numeração drift; (2) 3 das 8 decisões editoriais estão aplicadas via práticas observáveis (agrupamento P1-UI1+UI2 em 1 commit, R6 vs C1 em commits separados, T9-spam app-layer) mas não destacadas em linha única da tabela "Decisões do operador aplicadas". Nenhuma afeta correção do código — são débitos de clarificação documental para limpeza pós-merge.
 
 ---
 
@@ -537,3 +543,47 @@ shared/storage_service.py: OK
 Zero bloqueador detectado após reforço. As 2 observações não-bloqueadoras já registradas (drift de linhas no REANALISE, 3 decisões em práticas observáveis) permanecem como débitos documentais menores, sem impacto em correção do código.
 
 ---
+
+## Veredito final
+
+### Decisão binária
+
+# **APROVADO**
+
+Sprint 2B está pronto para merge em `main` e deploy Railway. A etapa de cortes/truncamentos RC + infra compartilhada, iniciada no Sprint 1 e continuada no Sprint 2A, **pode ser declarada fechada** após o merge.
+
+### Justificativa
+
+- **5 frentes APROVADAS** (A, B, C, D, E), cada uma com evidência executada concreta.
+- **Zero bloqueador** detectado nas 5 frentes nem no reforço obrigatório de 5 pontos.
+- **8/8 patches** (7 code + 1 doc) CONFIRMADOS com grep semântico + leitura de contexto.
+- **Escopo 100% respeitado**: transferidos BO intocados, P3-Prob com 0 APLICAR real (não apenas declarado), schema DB intocado, Sprint 1/2A preservados, zero teste automatizado criado, audit Sprint 2A não materializado conforme decisão B1.
+- **Princípios editoriais 1-4 honrados** em todos os patches.
+- **5 novos prefixes únicos** sem colisão com os 12 prefixes preservados de Sprint 1/2A.
+- **Justificativa P3-Prob defensável por evidência**: `_needs_editorial_review` confirmado ausente no código.
+
+### Bloqueadores
+
+**Nenhum.**
+
+### Observações não-bloqueadoras (débitos documentais)
+
+1. **Drift de linhas em `REANALISE_P3_PROB.md`** — cita linhas 951-961 e 970-975 (pré R-audit-01); código atual está em 964-971 e 980-985 após commit `539a9b0` adicionar +10 linhas acima. Referências conceituais (R1-b, R2, MAX_CONTINUACOES=5) corretas e localizáveis no código. **Ação sugerida**: atualizar numerações em passada de limpeza pós-merge, sem urgência.
+
+2. **3 de 8 decisões editoriais em práticas observáveis** — a tabela "Decisões do operador aplicadas" lista 5 decisões explicitamente (B1, B2, B3, aprovação agrupamentos + T9-spam investigação, P3-Prob default). As decisões remanescentes (agrupamento P1-UI1+UI2 em 1 commit, R6 vs C1 separados, T9-spam em app-layer) estão aplicadas via commits e mencionadas em "Filtragem BO" e "Cenário α", mas não em linha explícita da tabela. **Ação sugerida**: adicionar 3 linhas à tabela em passada documental pós-merge, sem urgência.
+
+### Recomendação ao operador
+
+Sprint 2B fechou a etapa de cortes/truncamentos RC + infra compartilhada com rigor cirúrgico exemplar. Os três riscos críticos identificados no plano de auditoria (R-audit-01 com IGNORECASE consistente, T9-spam sem tocar schema, transferidos BO intocados) foram verificados e passaram com evidência executada. A reanálise P3-Prob sob default parcimônia é defensável — a verificação cruzada de `_needs_editorial_review` no código confirma que implementar Regra 6 exigiria expansão cross-stack vedada pelo §7, e a classificação OBSOLETA é objetivamente correta. O relatório de execução é coerente, completo, e documenta adequadamente os 7 débitos e a descoberta arqueológica sobre P2-PathA-1 no Sprint 2A anterior.
+
+Autorizo push da branch de auditoria `claude/audit-execucao-sprint-2b-20260423-1653` sob comando explícito, seguido de merge de `claude/execucao-sprint-2b-20260423-1537` em `main` (e subsequente deploy Railway automático). Após 48h de estabilização, a etapa de cortes/truncamentos RC + infra compartilhada pode ser formalmente declarada fechada. A sessão paralela BO continua seu trabalho independente em pipeline BO (`_enforce_line_breaks_bo`, migration 70/35→76/38, reavaliação P2-PathA-1, renomeação `generate_post`→`generate_post_bo`, e os 2 findings transferidos R-audit-02 e P2-PathA-2) sem conflito.
+
+### Metadados
+
+- **Comandos executados**: ~35 (git log/show/diff, grep, ls, wc, AST parse, cat via Read).
+- **Arquivos lidos diretamente**: 12 (5 artefatos Sprint 2B + 6 arquivos de código + 1 auditoria prévia).
+- **Commits incrementais desta auditoria**: 6 (Frente A, Frente B, Frente C, Frente D, Frente E, Reforço) + 1 veredito final = 7.
+- **Branch**: `claude/audit-execucao-sprint-2b-20260423-1653` (criada de `origin/claude/execucao-sprint-2b-20260423-1537@39cb77c`).
+- **Duração aproximada**: ~45 min (incluindo exploração inicial + 5 frentes + reforço + veredito).
+- **Push**: **não executado** — aguarda autorização explícita do operador.
+- **Modificações em código de produção**: zero. **Modificações em docs fora de `auditoria_sprint_2b/`**: zero.
