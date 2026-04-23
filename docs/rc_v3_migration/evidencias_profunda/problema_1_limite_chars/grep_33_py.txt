@@ -1,0 +1,4 @@
+app-redator/backend/prompts/rc_overlay_prompt.py:16:+ Limite de caracteres por linha corrigido 33 → 38
+app-redator/backend/prompts/rc_overlay_prompt.py:400:- **38 CARACTERES POR LINHA como REFERÊNCIA** (não 33 — limite corrigido). Na geração PT original, é referência flexível — pode ultrapassar um pouco se a frase exige, para evitar alucinação por truncamento forçado. O limite vira REGRA DURA apenas na etapa de tradução (rc-translation), onde cada linha traduzida deve caber em 38 chars, reformulando se necessário.
+app-redator/backend/routers/translation.py:189:                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+app-redator/backend/services/translate_service.py:533:    RC: aplica re-wrap pós-tradução (≤33 chars/linha).

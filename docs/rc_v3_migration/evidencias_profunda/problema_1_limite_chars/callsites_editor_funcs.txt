@@ -1,0 +1,20 @@
+app-editor/backend/app/main.py:876:    # Sem este flag, _formatar_overlay() trunca linhas >35 chars com "..." via _truncar_texto().
+app-editor/backend/app/services/legendas.py:109:def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str:
+app-editor/backend/app/services/legendas.py:134:def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2) -> str:
+app-editor/backend/app/services/legendas.py:169:def _formatar_overlay(texto: str, max_por_linha: int = 30, pre_formatted: bool = False) -> str:
+app-editor/backend/app/services/legendas.py:183:            return quebrar_texto_overlay(texto, max_por_linha * 2)
+app-editor/backend/app/services/legendas.py:202:                    l = _truncar_texto(l, max_por_linha)
+app-editor/backend/app/services/legendas.py:235:        linha1 = _truncar_texto(linha1, max_por_linha)
+app-editor/backend/app/services/legendas.py:237:        linha2 = _truncar_texto(linha2, max_por_linha)
+app-editor/backend/app/services/legendas.py:241:def _truncar_texto(texto: str, max_chars: int) -> str:
+app-editor/backend/app/services/legendas.py:512:        texto = _formatar_overlay(texto, overlay_max_linha, pre_formatted=_pre_fmt)
+app-editor/backend/app/services/legendas.py:653:        texto = _truncar_texto(texto, lyrics_max)
+app-editor/backend/app/services/legendas.py:670:                texto_trad = _truncar_texto(texto_trad, traducao_max)
+app-editor/backend/tests/verify_fix.py:1:def _truncar_texto(texto: str, max_chars: int) -> str:
+app-editor/backend/tests/verify_fix.py:26:def _formatar_overlay(texto: str, max_por_linha: int = 35) -> str:
+app-editor/backend/tests/verify_fix.py:39:                    l = _truncar_texto(l, max_por_linha)
+app-editor/backend/tests/verify_fix.py:47:        return _truncar_texto(texto, max_por_linha)
+app-editor/backend/tests/verify_fix.py:72:        linha1 = _truncar_texto(linha1, max_por_linha)
+app-editor/backend/tests/verify_fix.py:74:        linha2 = _truncar_texto(linha2, max_por_linha)
+app-editor/backend/tests/verify_fix.py:84:    res1 = _formatar_overlay(texto1, LIMIT)
+app-editor/backend/tests/verify_fix.py:99:        res = _truncar_texto(c, LIMIT)

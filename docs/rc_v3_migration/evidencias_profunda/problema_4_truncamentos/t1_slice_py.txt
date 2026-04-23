@@ -1,0 +1,73 @@
+app-redator/backend/prompts/hook_prompt.py:42:        research_str = json.dumps(research_data, ensure_ascii=False)[:3000] if isinstance(research_data, dict) else str(research_data)[:3000]
+app-redator/backend/prompts/overlay_prompt.py:72:        if len(stripped) > 2 and stripped[0] not in "abcdefghijklmnopqrstuvwxyz\"'" and ":" in stripped[:40]:
+app-redator/backend/prompts/rc_automation_prompt.py:57:    overlay_resumo = " | ".join(overlay_temas[:5])
+app-redator/backend/prompts/rc_automation_prompt.py:66:        post_summary = post_clean[:500].rstrip() + "..."
+app-redator/backend/routers/generation.py:51:    logger.info(f"[Detect Text] brand_slug='{body.brand_slug}' title='{body.title[:80]}' url='{body.youtube_url[:60]}'")
+app-redator/backend/routers/generation.py:78:        logger.info(f"[Detect Screenshot] file={file.filename} size={len(image_bytes)} type={media_type} url='{youtube_url[:60]}' brand='{brand_slug}'")
+app-redator/backend/routers/generation.py:203:        research_str = _json.dumps(research_data, ensure_ascii=False)[:2000]
+app-redator/backend/routers/generation.py:205:        research_str = research_data[:2000]
+app-redator/backend/services/claude_service.py:386:                    f"'{leg['text'][:50]}...'"
+app-redator/backend/services/claude_service.py:502:        logger.info(f"[generate_overlay] CTA fixo: '{cta_text.strip()[:50]}' @ {cta_ts} end={cta_entry.get('end', 'auto')} (video={vid_duration}s)")
+app-redator/backend/services/claude_service.py:547:    for item in parsed[:5]:
+app-redator/backend/services/claude_service.py:698:        _rc_logger.info(f"[RC _call_claude_json] JSON inválido. Primeiros 200: {raw[:200]}")
+app-redator/backend/services/claude_service.py:871:                _rc_logger.warning(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'")
+app-redator/backend/services/claude_service.py:1041:        _rc_logger.info(f"[RC Overlay v3.1] Auditoria persistida: fio='{audit_item['fio_unico_identificado'][:60]}', {len(audit_item['pontes_planejadas'])} pontes, {len(cortes)} cortes")
+app-redator/backend/services/claude_service.py:1197:    _rc_logger.info(f"[RC Overlay] Iniciando para project {project.id}, hook='{(project.selected_hook or '')[:50]}'")
+app-redator/backend/services/translate_service.py:80:        "q": text[:200],
+app-redator/backend/services/translate_service.py:112:                _logger.warning(f"[TRANSLATE] Retry {attempt+1}/{_max_retries} '{text[:30]}...' "
+app-redator/backend/services/translate_service.py:116:                _logger.error(f"[TRANSLATE] FALHA DEFINITIVA '{text[:30]}...' "
+app-redator/backend/services/translate_service.py:740:{identity[:500] if identity else "Poetic, evocative, respectful of classical music tradition."}
+app-redator/backend/services/translate_service.py:743:{tom[:300] if tom else "Elegant, emotional, culturally informed."}
+app-redator/backend/services/translate_service.py:752:{str(research_data)[:1500] if research_data else "Classical music performance."}
+app-redator/backend/services/translate_service.py:914:                f"[CLAUDE] Resposta inválida para {target_lang}: {str(result)[:100]}"
+app-redator/backend/services/translate_service.py:934:                f"Primeira: '{excedidos[0]['linha'][:60]}' ({excedidos[0]['chars']} chars)"
+app-editor/backend/app/routes/auth.py:102:        user_agent=(request.headers.get("user-agent") or "")[:500],
+app-editor/backend/app/routes/auth.py:331:            for s in sessions[:50]
+app-editor/backend/app/routes/edicoes.py:322:            f"primeiros bytes={content[:20]!r})"
+app-editor/backend/app/routes/importar.py:273:                        f"edicao={edicao.id} seg={idx_s} text='{txt[:50]}...'"
+app-editor/backend/app/routes/pipeline.py:67:            logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")
+app-editor/backend/app/routes/pipeline.py:133:            logger.info(f"[YT-DLP STDERR COMPLETO] {_stderr_full[:2000]}")
+app-editor/backend/app/routes/pipeline.py:134:            logger.warning(f"[yt-dlp] Falhou (inicio): {_stderr_full[:500]} ... (fim): {_stderr_full[-500:]}")
+app-editor/backend/app/routes/pipeline.py:548:                    logger.warning(f"[{edicao_id}] Curadoria retornou {resp.status_code}: {resp.text[:300]}")
+app-editor/backend/app/routes/pipeline.py:666:            erro_msg = f"Erro inesperado: {str(e)[:500]}"
+app-editor/backend/app/routes/pipeline.py:1156:            erro_msg = f"Transcrição falhou: {repr(e)[:500]}"
+app-editor/backend/app/routes/pipeline.py:1695:            erro_msg = f"Erro inesperado: {str(e)[:500]}"
+app-editor/backend/app/routes/pipeline.py:1884:                _first_txt = (overlay_segs[0].get("text", "")[:60] if overlay_segs else "VAZIO")
+app-editor/backend/app/routes/pipeline.py:2158:                    logger.info(f"[FFMPEG STDERR COMPLETO] {_stderr_full[:2000]}")
+app-editor/backend/app/routes/pipeline.py:2159:                    raise Exception(f"FFmpeg falhou (inicio): {_stderr_full[:1000]} ... (fim): {_stderr_full[-500:]}")
+app-editor/backend/app/routes/pipeline.py:2246:                falhas.append(f"{idioma}: {str(e)[:200]}")
+app-editor/backend/app/routes/pipeline.py:2261:                        existing.erro_msg = str(e)[:500]
+app-editor/backend/app/routes/pipeline.py:2265:                            status="erro", erro_msg=str(e)[:500],
+app-editor/backend/app/routes/pipeline.py:2310:            erro_msg = f"Erro inesperado: {str(e)[:500]}"
+app-editor/backend/app/routes/pipeline.py:2591:                        _e.erro_msg = f"Re-tradução {idioma} falhou: {str(exc)[:300]}"
+app-editor/backend/app/routes/pipeline.py:2808:        _set_pacote_status(edicao_id, "erro", erro=str(e)[:500])
+app-editor/backend/app/services/legendas.py:181:                f"aplicando word-wrap: {texto[:60]}..."
+app-editor/backend/app/services/legendas.py:189:                        f"pre_formatted: {line.strip()[:50]}..."
+app-editor/backend/app/services/legendas.py:199:            for l in linhas[:2]:
+app-editor/backend/app/services/legendas.py:422:            f"[legendas]   seg[{idx}]: text='{seg.get('text', '')[:50]}' "
+app-editor/backend/app/services/legendas.py:594:                f"text='{texto_original[:60]}' start={event.start}ms end={event.end}ms "
+app-editor/backend/app/services/legendas.py:646:        logger.info(f"[legendas] Lyrics segment: pos={i} idx={idx} {start_ms}-{end_ms}ms '{text[:30]}...'")
+app-editor/backend/app/services/legendas.py:655:            logger.warning(f"[legendas] Lyrics truncado: '{texto_original[:50]}' ({len(texto_original)}→{len(texto)})")
+app-editor/backend/app/services/legendas.py:672:                    logger.warning(f"[legendas] Tradução truncado: '{texto_trad_original[:50]}' ({len(texto_trad_original)}→{len(texto_trad)})")
+app-editor/backend/app/worker.py:62:                            edicao.erro_msg = f"Falha no worker: {str(e)[:500]}"
+app-editor/backend/tests/verify_fix.py:36:            for l in linhas[:2]:
+app-curadoria/backend/routes/curadoria.py:139:    logger.info(f"V7 category '{category}' seed {next_seed}/{total_seeds}: {seed_query[:50]}...")
+app-curadoria/backend/routes/curadoria.py:254:                        pub = sn.get("publishedAt", "")[:10]
+app-curadoria/backend/routes/curadoria.py:255:                        yr = int(pub[:4]) if pub else 0
+app-curadoria/backend/routes/health.py:32:        info["ffmpeg_version"] = r.stdout.split("\n")[0] if r.returncode == 0 else f"ERROR: {r.stderr[:200]}"
+app-curadoria/backend/routes/health.py:35:    info["nix_ffmpeg"] = _glob.glob("/nix/store/*/bin/ffmpeg")[:5]
+app-curadoria/backend/services/download.py:117:    return s[:200] if s else 'video'
+app-curadoria/backend/services/download.py:230:        logger.info(f"[yt-dlp] Proxy configurado: {proxy[:25]}...")
+app-curadoria/backend/services/download.py:274:    logger.info(f"[yt-dlp CLI] invocando ({len(cmd)} args): {' '.join(cmd[:12])} ... {cmd[-1]}")
+app-curadoria/backend/services/download.py:303:            logger.warning(f"[cobalt] HTTP {resp.status_code}: {resp.text[:300]}")
+app-curadoria/backend/services/youtube.py:91:            logger.warning(f"YT search error {r1.status_code}: {r1.text[:200]}")
+app-curadoria/backend/services/youtube.py:123:            pub = sn.get("publishedAt", "")[:10]
+app-curadoria/backend/services/youtube.py:124:            yr = int(pub[:4]) if pub else 0
+app-curadoria/backend/services/youtube.py:164:                logger.warning(f"YT playlist error {r1.status_code}: {r1.text[:200]}")
+app-curadoria/backend/services/youtube.py:206:            pub = sn.get("publishedAt", "")[:10]
+app-curadoria/backend/services/youtube.py:207:            yr = int(pub[:4]) if pub else 0
+app-curadoria/backend/test_bgutil.py:17:    print(f"STDOUT: {result.stdout[:500]}")
+app-curadoria/backend/test_bgutil.py:18:    print(f"STDERR: {result.stderr[:500]}")
+app-curadoria/backend/test_bgutil.py:36:    print(f"STDOUT (primeiros 2000): {result.stdout[:2000]}")
+app-curadoria/backend/test_bgutil.py:37:    print(f"STDERR (primeiros 2000): {result.stderr[:2000]}")
+shared/storage_service.py:64:    return s[:200] if s else 'unknown'

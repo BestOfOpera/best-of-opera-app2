@@ -1,0 +1,39 @@
+app-editor/backend/app/main.py:60:                overlay_max_chars_linha INTEGER DEFAULT 35,
+app-editor/backend/app/main.py:61:                lyrics_max_chars INTEGER DEFAULT 43,
+app-editor/backend/app/main.py:166:                70, 35, 10, 43, 100, 1080, 1920,
+app-editor/backend/app/main.py:333:                66, 33, 43, 100, 1080, 1920,
+app-editor/backend/app/main.py:363:        # Backfill: corrigir overlay_max_chars do RC (Content Bible v3.4: 66/33)
+app-editor/backend/app/main.py:367:                overlay_max_chars_linha = 33
+app-editor/backend/app/main.py:370:        logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
+app-editor/backend/app/main.py:736:            # RC usa 3 linhas × 33 chars = 99 chars total (não 66 que é BO 2×33)
+app-editor/backend/app/main.py:876:    # Sem este flag, _formatar_overlay() trunca linhas >35 chars com "..." via _truncar_texto().
+app-editor/backend/app/models/perfil.py:35:    overlay_max_chars_linha = Column(Integer, default=35)
+app-editor/backend/app/models/perfil.py:36:    lyrics_max_chars = Column(Integer, default=43)
+app-editor/backend/app/routes/importar.py:270:                if len(txt) > 35 and "\n" not in txt and not s.get("_is_cta"):
+app-editor/backend/app/schemas.py:24:    overlay_max_chars_linha: int = 35
+app-editor/backend/app/schemas.py:25:    lyrics_max_chars: int = 43
+app-editor/backend/app/services/gemini.py:139:REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+app-editor/backend/app/services/gemini.py:140:Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+app-editor/backend/app/services/gemini.py:151:  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "queste sacre antiche piante"}}
+app-editor/backend/app/services/gemini.py:241:REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+app-editor/backend/app/services/gemini.py:242:Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+app-editor/backend/app/services/gemini.py:253:  {{"index": 2, "start": "01:30,200", "end": "01:35,400", "text": "Tu pure, o Principessa,"}}
+app-editor/backend/app/services/gemini.py:343:REGRA DE FORMATAÇÃO: Cada segmento de texto deve ter NO MÁXIMO 43 caracteres.
+app-editor/backend/app/services/gemini.py:344:Se uma frase for mais longa que 43 caracteres, divida em dois segmentos com timestamps proporcionais.
+app-editor/backend/app/services/legendas.py:49:OVERLAY_MAX_CHARS_LINHA = 35
+app-editor/backend/app/services/legendas.py:50:LYRICS_MAX_CHARS = 43
+app-editor/backend/app/services/legendas.py:220:    # Guarda: menor linha >= 35% do total
+app-editor/backend/app/services/legendas.py:222:    if min(len(linha1), len(linha2)) < total * 0.35:
+app-editor/backend/app/services/legendas.py:228:                    if min(len(l1), len(l2)) >= (len(l1) + len(l2)) * 0.35:
+app-editor/backend/app/services/perfil_service.py:45:        "overlay_max_chars_linha": perfil.overlay_max_chars_linha or 35,
+app-editor/backend/app/services/perfil_service.py:54:        "overlay_max_chars": 70, "overlay_max_chars_linha": 35,
+app-editor/backend/tests/test_multi_brand.py:69:        "fontname": "Playfair Display", "fontsize": 43,
+app-editor/backend/tests/test_multi_brand.py:89:        overlay_max_chars_linha=35,
+app-editor/backend/tests/test_multi_brand.py:90:        lyrics_max_chars=43,
+app-editor/backend/tests/verify_fix.py:26:def _formatar_overlay(texto: str, max_por_linha: int = 35) -> str:
+app-editor/backend/tests/verify_fix.py:57:    # Guarda: menor linha >= 35% do total
+app-editor/backend/tests/verify_fix.py:59:    if min(len(linha1), len(linha2)) < total * 0.35:
+app-editor/backend/tests/verify_fix.py:65:                    if min(len(l1), len(l2)) >= (len(l1) + len(l2)) * 0.35:
+app-editor/backend/tests/verify_fix.py:79:    # Limite 35
+app-editor/backend/tests/verify_fix.py:80:    LIMIT = 35
+app-editor/backend/tests/verify_fix.py:100:        print(f"Truncamento Manual (35): '{c}' -> '{res}' (len={len(res)})")

@@ -1,0 +1,7 @@
+./app-editor/backend/app/main.py:147:        curadoria_filters_val = _json.dumps({"duracao_max": 900})
+./app-editor/backend/app/models/perfil.py:55:    curadoria_filters = Column(JSON, default=dict)       # filtros (duracao_max, etc)
+./app-editor/backend/tests/test_perfil_unificado.py:47:        curadoria_filters={"duracao_max": 600},
+./app-editor/backend/tests/test_perfil_unificado.py:59:    assert perfil.curadoria_filters["duracao_max"] == 600
+./app-editor/backend/tests/test_perfil_unificado.py:80:        curadoria_filters={"duracao_max": 900},
+./app-editor/backend/tests/test_perfil_unificado.py:131:        curadoria_filters={"duracao_max": 900},
+./app-editor/backend/tests/test_perfil_unificado.py:155:    assert config["filters"]["duracao_max"] == 900

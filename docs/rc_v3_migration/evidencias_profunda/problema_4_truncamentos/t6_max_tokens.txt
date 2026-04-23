@@ -1,0 +1,17 @@
+app-redator/backend/services/claude_service.py:90:                max_tokens=2048,
+app-redator/backend/services/claude_service.py:173:        max_tokens=1024,
+app-redator/backend/services/claude_service.py:239:        max_tokens=1024,
+app-redator/backend/services/claude_service.py:339:        max_tokens=1024,
+app-redator/backend/services/claude_service.py:360:        max_tokens=1024,
+app-redator/backend/services/claude_service.py:659:def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, temperature: float) -> str:
+app-redator/backend/services/claude_service.py:667:                model=MODEL, max_tokens=max_tokens, temperature=temperature,
+app-redator/backend/services/claude_service.py:686:def _call_claude_json(prompt: str, max_tokens: int = 2000, temperature: float = 0.5) -> dict:
+app-redator/backend/services/claude_service.py:688:    _rc_logger.info(f"[RC _call_claude_json] Enviando {len(prompt)} chars, max_tokens={max_tokens}, temp={temperature}")
+app-redator/backend/services/claude_service.py:691:    raw = _call_claude_api_with_retry(system, prompt, max_tokens, temperature)
+app-redator/backend/services/claude_service.py:729:        prompt, max_tokens, temperature,
+app-redator/backend/services/claude_service.py:1152:    result = _call_claude_json(prompt, max_tokens=8192, temperature=0.7)
+app-redator/backend/services/claude_service.py:1167:    result = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
+app-redator/backend/services/claude_service.py:1217:    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
+app-redator/backend/services/claude_service.py:1238:    response = _call_claude_json(prompt, max_tokens=4096, temperature=0.7)
+app-redator/backend/services/claude_service.py:1258:    result = _call_claude_json(prompt, max_tokens=1000, temperature=0.5)
+app-redator/backend/services/translate_service.py:910:        result = _call_claude_json(prompt=prompt, max_tokens=2048, temperature=0.3)

@@ -1,0 +1,20 @@
+13:def _protect_proper_names(text: str, names: list[str]) -> tuple[str, dict[str, str]]:
+29:def _restore_proper_names(text: str, replacements: dict[str, str]) -> str:
+75:def detect_language(text: str) -> str:
+88:def get_target_languages(source_lang: str) -> list[str]:
+93:def translate_text(text: str, target_lang: str, _max_retries: int = 3) -> str:
+121:def extract_post_section2(post_text: str) -> tuple:
+238:def _translate_credit_labels(section3_and_rest: str, target_lang: str) -> str:
+251:def _translate_credit_values(credits: str, target_lang: str) -> str:
+272:def _split_credits_cta_hashtags(after_text: str) -> tuple[str, str, str]:
+322:def _translate_hashtags(hashtag_line: str, target_lang: str) -> str:
+345:def _translate_header_rc(header_lines: list, target_lang: str) -> list:
+391:def _translate_post_fallback(post_text: str, target_lang: str,
+486:def translate_post_text(post_text: str, target_lang: str,
+527:def translate_overlay_json(overlay_json: list, target_lang: str,
+573:def translate_tags(tags: str, target_lang: str) -> str:
+643:def _build_translation_prompt(
+807:def validate_translation(translated_overlay: list, target_lang: str) -> list[dict]:
+833:def translate_one_claude(
+944:def translate_project_parallel(
+971:    def _translate_one(lang: str) -> tuple[str, dict | None, str]:

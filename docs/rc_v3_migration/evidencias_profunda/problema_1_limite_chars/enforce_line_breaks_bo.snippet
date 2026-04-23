@@ -1,0 +1,32 @@
+app-redator/backend/services/claude_service.py:890-929
+
+FUNÇÃO: _enforce_line_breaks_bo(texto, max_chars_linha=35, max_linhas=2)
+PARÂMETRO DEFAULT: 35 chars/linha, 2 linhas (diferente de RC!)
+
+COMPORTAMENTO DE TRUNCAMENTO (linhas 918-928):
+─────────────────────────────────────────────────
+    else:
+        if linha_atual:
+            novas_linhas.append(linha_atual)
+        if len(novas_linhas) >= max_linhas:
+            break
+        linha_atual = palavra
+
+if linha_atual and len(novas_linhas) < max_linhas:
+    novas_linhas.append(linha_atual)
+
+novas_linhas = novas_linhas[:max_linhas]
+return "\n".join(novas_linhas)
+─────────────────────────────────────────────────
+
+PROBLEMAS DETECTADOS (PIOR QUE RC):
+- Linha 921: `break` quando atinge max_linhas — palavras restantes são DESCARTADAS
+  SEM NENHUM LOG WARNING. BO trunca em SILÊNCIO ABSOLUTO.
+- Linha 928: `novas_linhas[:max_linhas]` — segundo corte silencioso, sem log.
+- Truncamento em BO é MAIS grave que em RC porque invisível até no log técnico.
+- Operador nunca descobrirá que conteúdo BO foi cortado exceto por comparação manual.
+
+CALLSITES DE _enforce_line_breaks_bo (quando BO é afetado):
+- app-redator/backend/routers/translation.py:191 (BO em fluxo regenerate translation)
+- app-redator/backend/services/translate_service.py:563 (BO fallback > 70 chars)
+- app-redator/backend/services/translate_service.py:1006 (BO Claude path > 70 chars)

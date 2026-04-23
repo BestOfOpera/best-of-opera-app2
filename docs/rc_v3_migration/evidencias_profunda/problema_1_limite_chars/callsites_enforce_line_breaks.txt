@@ -1,0 +1,15 @@
+app-redator/backend/routers/generation.py:181:    from backend.services.claude_service import _call_claude, _enforce_line_breaks_rc
+app-redator/backend/routers/generation.py:251:        new_text = _enforce_line_breaks_rc(new_text, tipo)
+app-redator/backend/routers/translation.py:170:        from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+app-redator/backend/routers/translation.py:189:                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+app-redator/backend/routers/translation.py:191:                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+app-redator/backend/services/claude_service.py:819:def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
+app-redator/backend/services/claude_service.py:890:def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
+app-redator/backend/services/claude_service.py:892:    Usa mesma lógica de _enforce_line_breaks_rc, adaptada para BO."""
+app-redator/backend/services/claude_service.py:949:        texto = _enforce_line_breaks_rc(texto, tipo)
+app-redator/backend/services/translate_service.py:536:    from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+app-redator/backend/services/translate_service.py:559:                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 38, lang=target_lang)
+app-redator/backend/services/translate_service.py:563:                translated_text = _enforce_line_breaks_bo(translated_text, max_chars_linha=max_linha, max_linhas=2)
+app-redator/backend/services/translate_service.py:957:    from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
+app-redator/backend/services/translate_service.py:1004:                        t_text = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
+app-redator/backend/services/translate_service.py:1006:                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
