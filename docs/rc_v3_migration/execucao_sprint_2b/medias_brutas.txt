@@ -1,0 +1,17 @@
+# Extração bruta das MÉDIAS da §4.2 (RELATORIO_INVESTIGACAO_PROFUNDA.md)
+# Fonte: linhas 380-418 do relatório (tabela consolidada unificada Ajuste C)
+# Data extração: 2026-04-23
+
+| # | App | Path:linha | Categoria | Conteúdo afetado | Gatilho | Severidade | Princípio violado | Remediação | Detalhe |
+|---|-----|-----------|-----------|------------------|---------|------------|-------------------|------------|---------|
+| R6 | shared | [storage_service.py:64](shared/storage_service.py:64) | T1 | Nome pasta R2 | `s[:200]` | MÉDIA | 1 | (c) levantar erro se nome > 200 | §4.3.6 |
+| P1-UI1 | portal | [admin/marcas/nova/page.tsx:450-462](app-portal/app/(app)/admin/marcas/nova/page.tsx:450) | UI default | Config perfil | Defaults 50/25/40/60 | MÉDIA | 4 (UX) | (c) puxar defaults do backend ou remover UI | §1.4 |
+| P1-UI2 | portal | [admin/marcas/[id]/page.tsx:618-630](app-portal/app/(app)/admin/marcas/[id]/page.tsx:618) | UI default | Config perfil | idem P1-UI1 | MÉDIA | 4 | idem | §1.4 |
+| P2-PathA-2 | redator-BO | [claude_service.py:483](app-redator/backend/services/claude_service.py:483) | clamp | Duração redistribuição Path A | `min(12.0, duracao)` | MÉDIA | editorial | idem | §2.2 |
+| P4-008 | redator-RC | [rc_automation_prompt.py:57](app-redator/backend/prompts/rc_automation_prompt.py:57) | T2 | Overlay temas → prompt automation | `overlay_temas[:5]` | MÉDIA | 1 | (c) alertar se overlay > 5 entries ou incluir todas | §4.3 redator-RC |
+| C1 | curadoria | [download.py:117](app-curadoria/backend/services/download.py:117) | T1 | Nome filename download | `s[:200]` | MÉDIA | 1 | (c) erro se > 200 | §4.3 curadoria |
+| T9-spam | editor | [main.py:77](app-editor/backend/app/main.py:77) | VARCHAR | `anti_spam_terms` config | `VARCHAR(500)` DB | MÉDIA (raro) | 4 | (c) alertar operador em admin UI | §4.3 editor |
+
+# Total: 7 MÉDIAS catalogadas na §4.2.
+# Nota: texto do relatório (linha 423) afirma "3 MÉDIOS" mas a tabela contém 7.
+# Discrepância é artefato do relatório original; PROMPT 10B §1.2 confirma 7 candidatas.
