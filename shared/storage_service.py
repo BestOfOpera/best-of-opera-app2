@@ -194,6 +194,22 @@ class StorageService:
 
         local_size = Path(local_path).stat().st_size
 
+        # Baseline de qualidade: registra width/height/bitrate junto do upload.
+        # Soft — se ffprobe falhar, o upload continua.
+        probe_info = ""
+        if local_path.lower().endswith('.mp4'):
+            try:
+                import subprocess as _sp
+                _p = _sp.run(
+                    ['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                     '-show_entries', 'stream=width,height,bit_rate',
+                     '-of', 'csv=p=0', local_path],
+                    capture_output=True, text=True, timeout=10,
+                )
+                probe_info = f" probe={_p.stdout.strip()}"
+            except Exception as _e:
+                probe_info = f" probe=FAIL({_e})"
+
         @sync_retry(max_attempts=3, backoff_base=2.0, exceptions=_R2_TRANSIENT)
         def _upload():
             import mimetypes
@@ -207,7 +223,7 @@ class StorageService:
 
         _upload()
 
-        logger.info(f"[storage:r2] upload OK {key} ({local_size / 1024 / 1024:.1f}MB)")
+        logger.info(f"[storage:r2] upload OK {key} ({local_size / 1024 / 1024:.1f}MB){probe_info}")
         return key
 
     def download_file(self, key: str, local_path: Optional[str] = None) -> str:
