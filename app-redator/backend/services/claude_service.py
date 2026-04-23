@@ -1022,7 +1022,13 @@ def _process_overlay_rc(response: dict, project) -> tuple[list, dict]:
             else:
                 palavras = len(texto.split())
                 dur = palavras / 2.5  # ~2.5 palavras/segundo
-                dur = max(4.0, min(7.0, round(dur, 1)))
+                # R4: clamp editorial 4.0-6.0s (era 4.0-7.0). Princípio 4.
+                dur_raw = round(dur, 1)
+                if dur_raw < 4.0 or dur_raw > 6.0:
+                    _rc_logger.warning(
+                        f"[RC Clamp] Duração {dur_raw:.2f}s fora do range editorial 4-6s, ajustando"
+                    )
+                dur = max(4.0, min(6.0, dur_raw))
 
             # Ajustar se estourar o tempo narrativo
             if tipo != "cta" and tempo_narrativo > 0 and timestamp_sec + dur > tempo_narrativo:
