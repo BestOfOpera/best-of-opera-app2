@@ -566,7 +566,102 @@ Nos 6 callsites SDK (109, 192, 266, 374, 403, 719), o check `if message.stop_rea
 
 ## Frente E — Coerência do relatório de execução
 
-(Pendente.)
+### E.1 — Todos os 7 findings mencionados
+
+**Contagem por finding:**
+| Finding | Matches | Seção dedicada |
+|---|---|---|
+| R1/R1-b | 14 | `### R1-b` @ linha 75 |
+| R2 | 6 | `### R2` @ linha 98 |
+| R3 | 5 | `### R3` @ linha 115 |
+| R4 | 7 | `### R4` @ linha 132 |
+| R5 | 4 | `### R5` @ linha 148 |
+| R7 | 7 | `### R7` @ linha 165 |
+| P1-Trans | 4 | `### P1-Trans` @ linha 206 |
+
+**7/7 findings mencionados com seção dedicada** ✓
+
+### E.2 — Débitos Sprint 2 catalogados
+
+Tabela explícita em linha 225 com **8 itens** de débito:
+1. Contrato com exception dedicada para overflow (origem R2)
+2. Regeneração via LLM nos callsites de tradução (origem R1-b)
+3. Retry automático com regeneração (origem R7)
+4. Refactor `_enforce_line_breaks_bo` para preservação tuple (origem R3)
+5. Wrapper unificado para check stop_reason (origem R7, oportunidade arquitetural)
+6. Correção da documentação do conflito nominal (descoberta pós-leitura)
+7. R-audit-01 e R-audit-02 (auditoria PROMPT 9, fora do Sprint 1)
+8. 14 ALTAS + 5 MÉDIAS remanescentes (auditoria PROMPT 9 §4.2)
+
+**8 débitos catalogados** — volume adequado à complexidade da execução ✓
+
+### E.3 — Conflito nominal documentado
+
+**Em 2 localizações:**
+- Seção dedicada "`### Conflito nominal — wrapper em linha 666`" @ linha 59-69
+- Item 6 da tabela de débitos @ linha 232
+
+**Conteúdo:**
+```
+PROMPT 10A §1.2 e reconciliação descrevem a função da linha 666 como
+`_call_claude_json`. Código real: `_call_claude_api_with_retry` (def @659).
+`_call_claude_json` é função diferente (def @686) que chama
+`_call_claude_api_with_retry` internamente nas linhas 691 e 727.
+```
+
+Documentação clara e com evidência de linha ✓
+
+### E.4 — Data e branch corretos
+
+**Comandos:**
+```
+grep -n "claude/execucao-sprint-1\|2026-04-23\|6e169ad" RELATORIO_EXECUCAO_SPRINT_1.md
+```
+
+- **Data:** `2026-04-23T04:56Z` ✓ (bate com hoje 2026-04-23)
+- **Branch:** `claude/execucao-sprint-1-20260423-0137` ✓ (match com branch auditada)
+- **Base:** `main @ 6e169ad` ✓ (match com §1.1 do PROMPT 10A_AUDIT)
+
+### E.5 — Estrutura: cada finding tem patch + LOC + princípio + teste manual
+
+**Seções de findings (7):** `### R1-b`, `### R2`, `### R3`, `### R4`, `### R5`, `### R7`, `### P1-Trans`
+
+**Princípios honrados (7 matches, 1 por finding):**
+| Finding | Princípios | Linha |
+|---|---|---|
+| R1-b | 1 + 4 | 79 |
+| R2 | 1 | 102 |
+| R3 | 1 | 119 |
+| R4 | 4 | 136 |
+| R5 | 4 | 152 |
+| R7 | 1 + 4 | 169 |
+| P1-Trans | 4 | 210 |
+
+**LOC (8 matches ≥ 7 findings):** todos os 7 findings têm LOC explícito (total +8 inclui 1 linha de contexto adicional) ✓
+
+**Testes manuais descritivos (6 matches):** R1, R2, R3, R4, R7, P1-Trans têm "Teste manual descritivo" dedicado. **R5 não tem seção dedicada** — o texto diz "mesma alteração de R4 aplicada ao clamp duplicado" (linha 156), sugerindo que o teste de R4 se aplica. Observação documental menor, não bloqueadora.
+
+**Outras seções estruturais:**
+- `## Resumo executivo` (linha 13)
+- `## Descoberta durante execução` (linha 37)
+- `## Findings executados` (linha 73)
+- `## Débitos identificados` (linha 223)
+- `## Impedimentos para automação de teste` (linha 238)
+- `## Conformidade com PROMPT 10A v2` (linha 262)
+- `## Próximo passo` (linha 289)
+
+Relatório completo, organizado e auditável ✓
+
+### Veredito Frente E
+
+**APROVADA** ✓
+
+- ❌ Finding ausente do relatório? **NÃO** (7/7)
+- ❌ Débitos não catalogados? **NÃO** (8 itens em tabela)
+- ❌ Conflito nominal omitido? **NÃO** (2 localizações com evidência)
+- ❌ Relatório <100 linhas? **NÃO** (304 linhas)
+
+**Observação não-bloqueadora:** R5 não tem seção dedicada de "Teste manual descritivo" — aceitável porque R5 é sibling cirúrgico de R4 (mesmo padrão de clamp). Débito documental se desejar padronização absoluta.
 
 ---
 
