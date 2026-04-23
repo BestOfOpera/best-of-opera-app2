@@ -492,9 +492,18 @@ def generate_overlay(project, custom_prompt: Optional[str] = None, brand_config=
         - Texto médio (5 palavras): 5.75s
         - Texto longo (8 palavras): 6.8s
         - Texto longo (10+ palavras): 7.5-8.0s (clamp)
+
+        Sprint 2A P2-PathA-1: Path A (BO) usa range 5-8s, distinto do Path B
+        (RC, 4-6s settled Sprint 1 R4/R5). Alinhamento 4-6 vira débito Sprint 2B+
+        (decisão editorial sobre cadência específica do BO pendente).
         """
         palavras = len(text.split())
         duracao = (palavras * 0.35) + 4.0
+        if duracao < 5.0 or duracao > 8.0:
+            logger.warning(
+                f"[BO Clamp PathA] Duração {duracao:.2f}s fora do range editorial 5-8s "
+                f"(palavras={palavras}): ajustando via clamp"
+            )
         return max(5.0, min(8.0, duracao))
 
     if parsed and vid_duration > 0:

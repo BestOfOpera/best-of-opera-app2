@@ -1,4 +1,8 @@
+import logging
+
 from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
+
+logger = logging.getLogger(__name__)
 
 
 def _field(label: str, value) -> str:
@@ -35,11 +39,22 @@ BRAND INSTRUCTIONS (follow these as PRIMARY rules)
 """
 
     # Research data for richer, more specific hooks
+    # Sprint 2A P4-005: abordagem conservadora (decisão 3) — log antes de truncar,
+    # manter limite de 3000 chars como defesa (Princípio 4).
     research_block = ""
     research_data = getattr(project, "research_data", None)
     if research_data:
         import json
-        research_str = json.dumps(research_data, ensure_ascii=False)[:3000] if isinstance(research_data, dict) else str(research_data)[:3000]
+        if isinstance(research_data, dict):
+            research_full = json.dumps(research_data, ensure_ascii=False)
+        else:
+            research_full = str(research_data)
+        if len(research_full) > 3000:
+            logger.warning(
+                f"[Hook Research Truncate] research_data excede 3000 chars "
+                f"({len(research_full)} chars): '{research_full[:80]}...'"
+            )
+        research_str = research_full[:3000]
         research_block = f"""
 ═══════════════════════════════
 RESEARCH DATA (use for specific, factual hooks)

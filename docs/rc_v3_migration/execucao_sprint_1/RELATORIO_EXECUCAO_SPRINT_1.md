@@ -160,6 +160,16 @@ do R4 na observabilidade.
 **Verificação global:** `grep "min(7.0" claude_service.py` retornou **0** matches após este commit
 — toda família de clamps 4-7 foi erradicada.
 
+**Teste manual descritivo (D2, Sprint 2A):** dentro do bloco de compressão temporal de
+`_process_overlay_rc`, forçar cenário onde `dur_por_legenda` sai fora do range editorial
+[4.0, 6.0]. Exemplo: preview com 3 legendas e duração de vídeo 25s → `dur_por_legenda_raw`
+= 25/3 ≈ 8.33s, acima do teto 6.0. Esperado no log: `[RC Clamp TempComp] Duração/legenda
+8.33s fora do range editorial 4-6s, ajustando`. Confirmar que overlay final tem
+`dur_por_legenda = 6.0s` (clamp aplicado) e que a soma das durações cobre apenas parte do
+vídeo (resto respeita o ceiling narrativo, não é distribuído artificialmente). Cenário
+distinto de R4 (que opera em `_calcular_duracao_leitura` na geração individual de cada
+legenda, não na redistribuição temporal global).
+
 ---
 
 ### R7 — check stop_reason em 6 callsites (abordagem X)
@@ -187,7 +197,7 @@ do R4 na observabilidade.
 
 **Validações:**
 - `grep "message.content[0].text"`: 6 ocorrências, todas precedidas pelo bloco `raise`
-- `grep "stop_reason"`: 21 matches (vs 0 antes)
+- `grep "stop_reason"`: 20 matches (vs 0 antes) — decomposição: 2 docstring + 6 checks + 6 warnings + 6 raises. Nota D3 (Sprint 2A): declaração original de 21 era imprecisa por ±1; auditoria Sprint 1 confirmou contagem real = 20.
 - `grep "LLMTruncatedResponseError"`: 1 classe + 6 raises = 7 matches
 
 **Centralização via wrapper unificado (Abordagem Y)**: conforme nota do operador, é

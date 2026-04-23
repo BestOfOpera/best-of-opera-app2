@@ -330,7 +330,7 @@ def _run_migrations():
                 'Reels Classics', 'RC', 'reels-classics', TRUE, 'pt',
                 :idiomas_alvo, 'pt',
                 :overlay_style, :lyrics_style, :traducao_style,
-                66, 33, 43, 100, 1080, 1920,
+                114, 38, 43, 100, 1080, 1920,
                 'reels-classics', '#0a0a0a', '#c0a060',
                 :font_name
             WHERE NOT EXISTS (
@@ -360,14 +360,16 @@ def _run_migrations():
         })
         logger.info("Migration: backfill Reels Classics font e estilos OK")
 
-        # Backfill: corrigir overlay_max_chars do RC (Content Bible v3.4: 66/33)
+        # Backfill: corrigir overlay_max_chars_linha do RC (Sprint 1 P1-Trans + Sprint 2A Ed-MIG1)
+        # Valor editorialmente correto pós-Sprint 1: 38 chars/linha (routers/translation.py:189,
+        # claude_service.py:_enforce_line_breaks_rc default). Guard idempotente por valor destino.
+        # `overlay_max_chars` (total) é responsabilidade da Ed-MIG2 para manter escopo separado.
         conn.execute(text("""
             UPDATE editor_perfis SET
-                overlay_max_chars = 66,
-                overlay_max_chars_linha = 33
-            WHERE sigla = 'RC' AND overlay_max_chars = 70
+                overlay_max_chars_linha = 38
+            WHERE sigla = 'RC' AND overlay_max_chars_linha != 38
         """))
-        logger.info("Migration: backfill overlay_max_chars RC = 66/33 OK")
+        logger.info("Migration: backfill overlay_max_chars_linha RC = 38 OK (Sprint 2A Ed-MIG1)")
 
     # Migration: corrigir overlay_style do RC (Brand Definition v1.0 / SPEC-008)
     try:
@@ -733,11 +735,13 @@ def _run_migrations():
                   AND (overlay_style->>'gancho_fontsize')::int != 56
             """), {"overlay_style": rc_overlay_v8})
             logger.info("Migration v8/v9: RC fontsizes 56/52/48 (gancho/corpo/cta) OK")
-            # RC usa 3 linhas × 33 chars = 99 chars total (não 66 que é BO 2×33)
+            # RC usa 3 linhas × 38 chars = 114 chars total (Sprint 1 P1-Trans + Sprint 2A Ed-MIG2).
+            # BO usa 2 linhas × 35 = 70 (INSERT inicial linha 166). Idempotente por valor destino.
             conn.execute(text("""
-                UPDATE editor_perfis SET overlay_max_chars = 99
-                WHERE sigla = 'RC' AND overlay_max_chars != 99
+                UPDATE editor_perfis SET overlay_max_chars = 114
+                WHERE sigla = 'RC' AND overlay_max_chars != 114
             """))
+            logger.info("Migration: backfill overlay_max_chars RC = 114 OK (Sprint 2A Ed-MIG2)")
     except Exception as e:
         logger.warning(f"Migration v8/v9 RC: {e}")
 

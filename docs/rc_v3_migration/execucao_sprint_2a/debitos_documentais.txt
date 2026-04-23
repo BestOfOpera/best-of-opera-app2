@@ -1,0 +1,3 @@
+| D1 | app-redator/backend/services/translate_service.py:533 | Docstring "RC: aplica re-wrap pós-tradução (≤33 chars/linha)" desatualizado vs realidade (38) | docs |
+| D2 | docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md (seção R5 @ linha 148) | R5 sem seção "Teste manual descritivo" dedicada (herda de R4) | docs |
+| D3 | docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md:190 | Declara "21 matches de stop_reason"; contagem real é 20 (2 docstring + 6 checks + 6 warnings + 6 raises) | docs |

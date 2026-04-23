@@ -530,7 +530,7 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
                            protected_names: list[str] | None = None) -> list:
     """Translate the text field of each overlay subtitle.
     Para RC, usa CTA fixo traduzido ao invés de tradução automática.
-    RC: aplica re-wrap pós-tradução (≤33 chars/linha).
+    RC: aplica re-wrap pós-tradução (≤38 chars/linha; idiomas verbosos ganham margem via lang).
     BO/outros: valida limite total de caracteres (default 70).
     protected_names: nomes próprios (artist, work, composer) a preservar na tradução."""
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
@@ -734,6 +734,33 @@ Prefer concrete, specific, oral language instead."""
     identity = (brand_config or {}).get("identity_prompt_redator", "")
     tom = (brand_config or {}).get("tom_de_voz_redator", "")
 
+    # Sprint 2A P4-007a/b/c: abordagem conservadora (decisão 3) — log antes de truncar
+    # contexto da marca/research no prompt de tradução. Mantém limites como defesa (Princípio 4).
+    if identity and len(identity) > 500:
+        _translate_logger.warning(
+            f"[Translate Context Truncate] identity excede 500 chars "
+            f"({len(identity)} chars): '{identity[:80]}...'"
+        )
+    identity_str = identity[:500] if identity else "Poetic, evocative, respectful of classical music tradition."
+
+    if tom and len(tom) > 300:
+        _translate_logger.warning(
+            f"[Translate Context Truncate] tom excede 300 chars "
+            f"({len(tom)} chars): '{tom[:80]}...'"
+        )
+    tom_str = tom[:300] if tom else "Elegant, emotional, culturally informed."
+
+    if research_data:
+        research_raw = str(research_data)
+        if len(research_raw) > 1500:
+            _translate_logger.warning(
+                f"[Translate Context Truncate] research_data excede 1500 chars "
+                f"({len(research_raw)} chars): '{research_raw[:80]}...'"
+            )
+        research_str = research_raw[:1500]
+    else:
+        research_str = "Classical music performance."
+
     prompt = f"""You are a professional translator specializing in classical music content for social media.
 
 CORE PRINCIPLE:
@@ -743,10 +770,10 @@ If PT sounds like whispering at a concert, {lang_name} must sound like whisperin
 The linguistic path may be completely different; the effect on the reader must be the same.
 
 BRAND VOICE:
-{identity[:500] if identity else "Poetic, evocative, respectful of classical music tradition."}
+{identity_str}
 
 TONE:
-{tom[:300] if tom else "Elegant, emotional, culturally informed."}
+{tom_str}
 
 TASK:
 Translate the following content from Portuguese to {lang_name}.
@@ -755,7 +782,7 @@ The overlay tells a narrative story that connects with the post — maintain nar
 {names_instruction}
 
 MUSICAL CONTEXT:
-{str(research_data)[:1500] if research_data else "Classical music performance."}
+{research_str}
 
 {overlay_rules}
 

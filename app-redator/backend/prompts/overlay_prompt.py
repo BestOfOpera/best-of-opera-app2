@@ -1,4 +1,8 @@
+import logging
+
 from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
+
+logger = logging.getLogger(__name__)
 
 
 def _field(label: str, value) -> str:
@@ -74,6 +78,13 @@ def _extract_narrative(post_text: str, max_chars: int = 500) -> str:
         narrative_lines.append(line)
     narrative = "\n".join(narrative_lines).strip()
     if len(narrative) > max_chars:
+        # Sprint 2A BO-001: log antes de truncar (Princípio 4 defense-in-depth).
+        # Abordagem conservadora (decisão 3 operador): mantém truncamento como defesa,
+        # preservação editorial via LLM (remediação PROMPT 8) fica como débito Sprint 2B+.
+        logger.warning(
+            f"[BO Narrative Truncate] Narrativa fonte excede max_chars={max_chars} "
+            f"({len(narrative)} chars): '{narrative[:80]}...'"
+        )
         narrative = narrative[:max_chars].rsplit(" ", 1)[0] + "..."
     return narrative
 

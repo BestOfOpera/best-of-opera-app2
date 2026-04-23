@@ -10,6 +10,9 @@ MUDANÇAS v2 → v3:
 1. Estratégias A/B/C nomeadas e obrigatoriamente declaradas
 2. Exemplos bons/ruins de diversidade
 """
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def build_rc_automation_prompt(
@@ -61,8 +64,16 @@ def build_rc_automation_prompt(
         obra_ref = f"{work} (de {album_opera})"
 
     # Truncar descrição para contexto (evita inflar o prompt; o essencial — header + início do P1 — cabe).
+    # Sprint 2A P4-001: abordagem conservadora (decisão 3) — log antes de truncar,
+    # manter truncamento como defesa (Princípio 4). Pendente Sprint 2B+: revisar
+    # se contexto atualmente cortado (pós-500 chars) contém informação relevante
+    # ao prompt de automação ou é redundante com header/P1.
     post_clean = (post_text or "").strip()
     if len(post_clean) > 500:
+        logger.warning(
+            f"[RC Automation Post Truncate] post_text excede 500 chars "
+            f"({len(post_clean)} chars): '{post_clean[:80]}...'"
+        )
         post_summary = post_clean[:500].rstrip() + "..."
     else:
         post_summary = post_clean
