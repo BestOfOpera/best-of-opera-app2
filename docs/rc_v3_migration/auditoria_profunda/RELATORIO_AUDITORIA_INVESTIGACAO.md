@@ -9,7 +9,21 @@
 
 ## Sumário executivo
 
-*A ser escrito no final, após conclusão das 5 frentes. Veredito binário aqui.*
+**Veredito:** ⛔ **REPROVADO**
+
+Auditoria de 5 frentes executada read-only sobre `claude/investigacao-profunda-20260422-1730` @ b3dc20d. Frentes A (integridade), B (amostragem 15/33 findings), C (varredura T1-T14) **aprovaram o relatório** — estrutura íntegra, 15/15 findings confirmados path:linha sem alucinação, evidências categóricas reproduzíveis dentro de ≤10% de delta.
+
+Frentes D (armadilhas) e E (coerência macro) **identificaram 2 bloqueadores críticos + 2 findings novos menores**:
+
+- **B1 (crítico):** R7 declara "10 callsites LLM" cobertos pela remediação "em `_call_claude_api_with_retry`", mas `grep` independente localiza **6 SDK callsites** distintos de `client.messages.create` em `claude_service.py` (linhas 96, 171, 237, 337, 358, 666). Apenas o último é coberto pela remediação declarada. Operador que aplique literalmente fica com **5 sites vulneráveis** após Sprint 1.
+
+- **B2 (crítico):** Sumário executivo do relatório declara **34 findings / 19 CRÍTICOS / 12 ALTOS / 3 MÉDIOS**, mas contagem linha a linha da tabela §4.2 retorna **33 findings / 12 CRÍTICOS / 14 ALTOS / 7 MÉDIOS**. Inconsistência de 58% na contagem de CRÍTICOS entre sumário e tabela — operador que dimensiona sprint pelo sumário super-estima esforço.
+
+- **R-audit-01, R-audit-02 (menores):** 2 findings de severidade MÉDIA descobertos pela auditoria em `_sanitize_rc` e `_sanitize_post` (remoções editoriais não catalogadas). Não afetam Sprint 1.
+
+**Os 2 bloqueadores são corrigíveis sem re-investigação** — B1 é correção de texto em 2 parágrafos, B2 é recontagem aritmética. Recomendação: operador abre sessão de refinamento para aplicar as correções (1-2h) OU aceita divergência com registro formal. **Decisão é do operador, não da auditoria.**
+
+O trabalho do PROMPT 8 tem valor substancial (taxonomia T1-T14, 33 findings path:linha verificados, Fase 3 vs realidade factual) — não existe fundamento para descartar o relatório inteiro.
 
 ---
 
@@ -227,4 +241,134 @@ Ambos fora do Sprint 1.
 
 ---
 
-*(Frente E e veredito final serão escritos em execução subsequente)*
+## Frente E — Coerência macro
+
+Detalhes em [coerencia_macro.md](coerencia_macro.md).
+
+| Check | Resultado |
+|-------|-----------|
+| E.1 Sumário bate com tabela | ⚠️ **BLOQUEADOR** — 34/19/12/3 declarado vs 33/12/14/7 real |
+| E.2 Achado central #5 (150-200 pts) reprodutível | ✅ OK — 148-183 para projetos típicos |
+| E.3 "Fase 3 vs realidade" factual contra git | ✅ OK — P1 parcial confirmado, P5/P6 SHAs batem |
+| E.4 Sprint 1 justificável | ✅ OK (ressalva: ~20 linhas subestimado se R7 corrigido em 6 sites) |
+
+### E.1 — Sumário vs tabela (bloqueador detalhado)
+
+| Métrica | Sumário declara | Tabela real | Delta |
+|---------|------------------|-------------|-------|
+| Total findings | 34 | 33 | -1 |
+| CRÍTICAS | 19 | 12 | **-7 (-37%)** |
+| ALTAS | 12 | 14 | +2 |
+| MÉDIAS | 3 | 7 | **+4 (+133%)** |
+
+**Impacto:** operador que dimensiona sprint por "19 críticos" planeja 58% a mais de CRÍTICOS do que existem. Severidade da inconsistência: o número de CRÍTICOS no sumário virou input de governança para planejamento de 2 sprints.
+
+## ⚠️ FRENTE E REPROVADA
+
+---
+
+## Veredito final
+
+### Decisão binária
+
+# ⛔ REPROVADO
+
+### Resumo por Frente
+
+| Frente | Resultado |
+|--------|-----------|
+| A Integridade | ✅ APROVADA |
+| B Amostragem (15/33) | ✅ APROVADA (15/15 CONFIRMADO) |
+| C Varredura T1-T14 | ✅ APROVADA (12/12 reproduzível ≤10%) |
+| D Armadilhas | ⚠️ **REPROVADA** (D4 + D6) |
+| E Coerência macro | ⚠️ **REPROVADA** (E.1) |
+
+### Bloqueadores
+
+#### B1 — R7 escopo subdimensionado (Frente D)
+
+**Onde:** §2.7 remediação E + §4.7 vs realidade em `app-redator/backend/services/claude_service.py`
+
+**Evidência:**
+```bash
+grep -rn "client.messages.create" --include="*.py" app-redator/
+```
+Retorna 6 SDK callsites distintos:
+- Linha 96 (wrapper `_call_claude` 84-107) — ❌ não coberto
+- Linha 171 (direto metadata detection) — ❌ não coberto
+- Linha 237 (direto) — ❌ não coberto
+- Linha 337 (direto detect_metadata_from_text_rc) — ❌ não coberto
+- Linha 358 (direto) — ❌ não coberto
+- Linha 666 (wrapper `_call_claude_api_with_retry` 659-683) — ✅ coberto
+
+Cada retorna `message.content[0].text.strip()` sem check `stop_reason` (grep `stop_reason` retorna 0 matches no arquivo inteiro).
+
+**Impacto:** operador aplica remediação declarada ("em `_call_claude_api_with_retry`"), pensa ter corrigido R7, mas **5 SDK callsites permanecem vulneráveis**. Configura armadilha 10 do CLAUDE.md ("declarar corrigido sem verificação end-to-end").
+
+**Ação corretiva sugerida:**
+- Re-escrever §2.7 E e §4.7 para prescrever patch em TODOS os 6 SDK callsites OU refatorar os 5 sites restantes para usar `_call_claude_api_with_retry`
+- Atualizar "10 callsites" no texto — na prática são 6 SDK sites / ~16 invocações business-level (incluindo `translate_service.py:910` não referenciado)
+- Revisar estimativa Sprint 1 de ~20 linhas → ~28-50 linhas
+
+#### B2 — Sumário executivo vs tabela consolidada (Frente E)
+
+**Onde:** `RELATORIO_INVESTIGACAO_PROFUNDA.md` linhas 15-18 (sumário) vs linhas 362-396 (tabela)
+
+**Evidência:**
+- Sumário declara "34 findings / 19 CRÍTICOS / 12 ALTOS / 3 MÉDIOS"
+- Tabela conta 33 linhas / 12 CRÍTICAS / 14 ALTAS / 7 MÉDIAS (contagem linha a linha em [coerencia_macro.md](coerencia_macro.md))
+
+**Impacto:** inconsistência de 7 CRÍTICAS entre sumário e tabela (58% de inflação no sumário). Operador planejando Sprint 1 pelo sumário dimensionaria esforço super-estimado. Integridade documental comprometida — dois números autoritativos diferentes para o mesmo fato.
+
+**Ação corretiva sugerida:**
+- Recontar a tabela linha a linha e atualizar sumário para 33/12/14/7 OU
+- Se intenção era 34/19/12/3, identificar o finding ausente e preencher a tabela + re-categorizar severidades incorretas
+- Aplicar auditoria manual de severidade em cada finding para fundamentar a nova distribuição
+
+#### B3 (menor) — Findings novos descobertos pela auditoria
+
+- **R-audit-01 (MÉDIA):** `_sanitize_rc` em claude_service.py:783-786 usa regex para remover palavras estruturais (GANCHO|CORPO|CLÍMAX|FECHAMENTO|CTA|CONSTRUÇÃO|DESENVOLVIMENTO). Edge case: ocorrência legítima dessas palavras no texto editorial é removida silenciosamente.
+- **R-audit-02 (MÉDIA/BAIXA):** `_sanitize_post` em claude_service.py:578-585 descarta linhas inteiras que casem com `_ENGAGEMENT_BAIT_PATTERNS`. Se padrões são amplos, conteúdo legítimo vira vítima.
+
+**Impacto:** ambos MÉDIA, **não afetam Sprint 1** mas deveriam ser catalogados na tabela §4.2 para completude.
+
+**Ação corretiva sugerida:** adicionar R-audit-01 e R-audit-02 à tabela consolidada; operador decide se entram em sprint posterior.
+
+### Findings novos descobertos pela auditoria
+
+Listados em B3 acima.
+
+### Recomendação ao operador
+
+O relatório PROMPT 8 **tem valor substancial**: a taxonomia T1-T14, a amostragem de 33 findings (15/15 confirmados path:linha), a varredura categórica (reproduzível), a Frente 3 vs realidade (factual contra git), e a priorização Sprint 1 são sólidos. Não existe fundamento para descartar o trabalho inteiro.
+
+Os bloqueadores são **corrigíveis sem re-investigação**:
+- B1 (R7) é correção de TEXTO em 2 lugares do relatório (§2.7 E + §4.7) + recontagem de "10 callsites" → 6 SDK sites
+- B2 (sumário vs tabela) é correção aritmética — recontar a tabela e substituir no sumário, ou revalidar severidades
+- B3 (2 findings novos) é ADIÇÃO de 2 linhas à tabela §4.2
+
+**Caminho sugerido:**
+1. **Operador abre sessão de refinamento** específica para corrigir B1+B2+B3 no relatório (estimativa: 1-2h)
+2. Após correções, re-auditoria rápida (foco em B1/B2 resolvidos) — **NÃO** precisa re-rodar Frentes A/B/C inteiras
+3. Com APROVADO pós-correção, operador avança para PROMPT 10A com base confiável
+
+**Alternativa:** aceitar divergência com registro formal (como foi feito no refactor do sentinel com E2E ausente — CLAUDE.md armadilha 10/11) e executar Sprint 1 com conhecimento explícito de que:
+- R7 precisa patch em 6 sites (não 1) — estimativa LOC real ~35-45, não ~20
+- Contagem de CRÍTICOS real = 12, não 19
+
+A **decisão entre refinamento vs divergência registrada é do operador**.
+
+### Metadados
+
+| Item | Valor |
+|------|-------|
+| Comandos Bash executados | ~22 |
+| Arquivos do relatório lidos | 8 chunks (linhas 11-41, 224-250, 355-410, 461-488, 488-565, 566-595, 362-396) |
+| Arquivos de código lidos | 11 |
+| Arquivos de evidência PROMPT 8 validados | 12 (todos os T-categoria) |
+| Findings auditados individualmente | 15/33 (45% cobertura) |
+| Greps executados (Frente C) | 14 + 6 (D4 adicionais) |
+| Evidências salvas em | `docs/rc_v3_migration/auditoria_profunda/` (~8 arquivos + 12 count files) |
+| Duração estimada | ~90 min total execução (sem contar exploração Fase 1) |
+| Commits incrementais | 5 (setup + 4 frentes + final) |
+
