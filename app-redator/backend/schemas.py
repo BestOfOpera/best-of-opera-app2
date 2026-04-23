@@ -113,6 +113,7 @@ class ProjectOut(BaseModel):
     brand_slug: str
     status: str
     overlay_json: Optional[list] = None
+    overlay_audit: Optional[dict] = None
     post_text: Optional[str] = None
     youtube_title: Optional[str] = None
     youtube_tags: Optional[str] = None

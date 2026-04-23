@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Check, RefreshCw, Trash2, Plus, Loader2, ChevronUp, ChevronDown, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import { redatorApi, type Project } from "@/lib/api/redator"
+import { redatorApi, sanitizeOverlay, type Project, type OverlayEntry } from "@/lib/api/redator"
 import { toast } from "sonner"
 
 function parseTimestamp(ts: string): number {
@@ -26,7 +26,7 @@ function formatTimestamp(secs: number): string {
 export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
   const router = useRouter()
   const [project, setProject] = useState<Project | null>(null)
-  const [overlay, setOverlay] = useState<{ timestamp: string; text: string; _is_cta?: boolean; end?: string; type?: string }[]>([])
+  const [overlay, setOverlay] = useState<OverlayEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -44,7 +44,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
   useEffect(() => {
     redatorApi.getProject(projectId).then((p) => {
       setProject(p)
-      setOverlay(p.overlay_json || [])
+      setOverlay(sanitizeOverlay(p.overlay_json))
     }).finally(() => setLoading(false))
   }, [projectId])
 
@@ -58,11 +58,11 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
         await redatorApi.generateOverlayRC(projectId)
         const p = await redatorApi.getProject(projectId)
         setProject(p)
-        setOverlay(p.overlay_json || [])
+        setOverlay(sanitizeOverlay(p.overlay_json))
       } else {
         const p = await redatorApi.regenerateOverlay(projectId, customPrompt || undefined)
         setProject(p)
-        setOverlay(p.overlay_json || [])
+        setOverlay(sanitizeOverlay(p.overlay_json))
       }
       setCustomPrompt("")
       setShowPrompt(false)
@@ -80,7 +80,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
         instruction: regenerateInstruction,
         brand_slug: project?.brand_slug || "",
       })
-      setOverlay(result.overlay_json)
+      setOverlay(sanitizeOverlay(result.overlay_json))
       setRegeneratingIndex(-1)
       setRegenerateInstruction("")
       toast.success("Legenda regenerada")
@@ -98,11 +98,11 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
         await redatorApi.generateOverlayRC(projectId)
         const p = await redatorApi.getProject(projectId)
         setProject(p)
-        setOverlay(p.overlay_json || [])
+        setOverlay(sanitizeOverlay(p.overlay_json))
       } else {
         const p = await redatorApi.regenerateOverlay(projectId, globalInstruction)
         setProject(p)
-        setOverlay(p.overlay_json || [])
+        setOverlay(sanitizeOverlay(p.overlay_json))
       }
       setGlobalInstruction("")
       toast.success("Overlay reformulado")
@@ -247,7 +247,7 @@ export function RedatorApproveOverlay({ projectId }: { projectId: number }) {
                     />
                     {(() => {
                       if (isRC) {
-                        const longest = Math.max(...(entry.text.split("\n").map((l: string) => l.length)), 0)
+                        const longest = Math.max(...((entry.text || "").split("\n").map((l: string) => l.length)), 0)
                         const over = longest > 33
                         return (
                           <span className={`text-[10px] tabular-nums w-14 text-right pt-2 ${over ? "text-destructive font-medium" : "text-muted-foreground"}`}>

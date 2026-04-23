@@ -1,0 +1,6 @@
+overlay_audit type: typing.Optional[dict]
+overlay_audit default: None
+CASO 1 ok: overlay_audit populado → serializa dict
+CASO 2 ok: overlay_audit=None default → serializa null
+CASO 3 ok: from_attributes → overlay_audit herdado do ORM
+COMMIT_4_SMOKE: PASS

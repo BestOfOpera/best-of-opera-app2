@@ -97,3 +97,255 @@ PROMPT 2 sugeriu mensagens em inglês (padrão convencional commits em inglês).
 - Se regressão crítica: rollback seguindo seção "Rollback plan" do RELATORIO_EXECUCAO.md (cada commit é revert-isolado)
 
 **Risco assumido pelo operador.** Este registro serve como trilha de auditoria caso haja necessidade de post-mortem futuro.
+
+---
+
+## 2026-04-22 · Refactor `overlay-sentinel-restructure` (PROMPT 6B)
+
+Refactor estrutural que desfaz a decisão "sentinel no array" do P4 em favor de campo `overlay_audit` separado. Motivado pelo `RELATORIO_INVESTIGACAO_REGRESSAO.md` (Bloco A) que identificou essa decisão como causa-raiz da tela "Ocorreu um erro inesperado" no portal.
+
+**Branch:** `refactor/overlay-sentinel-restructure` a partir de `main` @ `90add64`.
+
+### Decisões técnicas fixadas (PROMPT 6B, seção 4 do plano revisado)
+
+- **D1 — Shape do retorno de `_process_overlay_rc`:** tupla `(legendas: list, audit: dict)` — pythônica, callsite já usa `overlay_json = _process_overlay_rc(...)`, mudança para `legendas, audit = …` é mínima.
+- **D2 — Schema do `overlay_audit`:** dict livre persistido como `Mapped[Optional[str]] = mapped_column(JSON, nullable=True)`, mesmo padrão de `research_data`, `hooks_json`, `automation_json`.
+- **D3 — Testes:** infraestrutura de testes automatizados é inexistente no repo; criação de `pytest`/`vitest` está fora do escopo. Validação por: (a) script E2E sintético `scripts/e2e_shape_compat.py`, (b) smoke manual via Python REPL após cada commit backend, (c) `npx tsc --noEmit` + `npm run lint && npm run build` no portal, (d) staging Railway antes do merge.
+- **D4 — Migration de dados legados:** SQL one-shot que **descarta** o sentinel do array `overlay_json` sem popular `overlay_audit` — `cortes_aplicados` histórico não tem valor editorial. `overlay_audit` fica NULL para projetos antigos.
+- **D5 — Coluna em `Translation`:** não adicionar. `translate_service` nunca persistiu sentinel em traduções (item-por-item rebuild com só `timestamp` + `text`). `overlay_audit` só faz sentido no projeto raiz.
+- **D6 — `generation.py:regenerate-overlay-entry`:** consumer #9 (não listado no catálogo original do PROMPT 6B; achado por grep nesta sessão). Vai no Commit 3 junto com os outros consumers. Cuidado extra: além de filtro, faz **re-persistência** do `raw_overlay` completo (linha 258 atual) — após refactor, persistência fica trivial pois `project.overlay_json` é sempre lista limpa.
+
+### Divergências entre catálogo do PROMPT 6B e código real (registrar para auditoria)
+
+1. **9 consumers, não 8.** Grep revelou `routers/generation.py:187-190` (regenerate-overlay-entry) como consumer não listado. Introduzido pelo commit `d8b6d27` da Fase 3 (hardening posterior ao P4).
+2. **Projeto NÃO usa Alembic.** Migrations auto-aplicadas em `main.py:_run_migrations()` no startup (padrão idempotente com `ALTER TABLE ADD COLUMN`). Commit 1 segue esse padrão, não Alembic.
+3. **Zero infra de testes no repo.** Sem `tests/`, sem `pytest.ini`, sem jest/vitest. `package.json` do portal não tem `type-check` nem `test`. Plano de validação ajustado em D3.
+4. **Linhas do catálogo divergem do código em ±1 linha** em alguns pontos (ex: `rc_automation_prompt.py` catálogo :50, real :51). Não-material.
+
+### Commit 1 — `refactor(db): adiciona coluna overlay_audit`
+
+**Arquivos:**
+- `app-redator/backend/models.py:53` — adicionada linha `overlay_audit: Mapped[Optional[str]] = mapped_column(JSON, nullable=True)` logo após `overlay_json`
+- `app-redator/backend/main.py:67-69` — adicionado bloco idempotente `if "overlay_audit" not in cols: ALTER TABLE projects ADD COLUMN overlay_audit JSON` (marcado como v17)
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_1.log` — validado:
+- coluna `overlay_audit` criada com tipo `JSON`
+- total 42 colunas em `projects`
+- idempotência 3x (não falha ao re-executar)
+- roundtrip de dados: gravar dict em `overlay_audit` e recuperar intacto
+
+**Não tocou:** `Translation` model, `schemas.py` (vai no Commit 4), nenhum consumer (vai no Commit 3).
+
+### Commit 2 — `refactor(claude_service): _process_overlay_rc retorna (legendas, audit)`
+
+**Arquivos:**
+- `app-redator/backend/services/claude_service.py:932-943` — assinatura muda para `tuple[list, dict]`; docstring documenta contrato explícito.
+- `app-redator/backend/services/claude_service.py:1035-1047` — sentinel `_is_audit_meta` removido do array; audit virou dict local construído no mesmo bloco de quando `response` traz campos de auditoria. Log mantido, só ajustado (`audit_item` → `audit`).
+- `app-redator/backend/services/claude_service.py:1051` — `return overlay_json, audit` (antes `return overlay_json`).
+- `app-redator/backend/services/claude_service.py:1223-1229` — `generate_overlay_rc` desempacota tupla e persiste em dois campos: `project.overlay_json = legendas`, `project.overlay_audit = audit or None`. Preserva retorno de `list` (assinatura pública do wrapper não muda).
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_2.log` — 3 casos:
+- Caso 1: response com campos de auditoria → tupla `(list, dict)`, lista homogênea (todos itens têm `text` + `timestamp`), audit populado.
+- Caso 2: response sem campos de auditoria → audit `{}` (para wrapper armazenar NULL).
+- Caso 3: serialização JSON de `legendas` não contém a string `_is_audit_meta` em lugar nenhum.
+
+**Nota sobre contagem de legendas no smoke test Caso 1:** input tem 5 legendas, output tem 4. Diferença é pré-existente — `_enforce_line_breaks_rc` ou sanitização descartou uma (não relacionado ao refactor; mesma lógica antes e depois).
+
+**Consumers em seguida:** `_validate_overlay_rc` ainda tem filtro interno de `_is_audit_meta` (linhas 1051-1055) — vai virar no-op nesta versão porque o sentinel nunca mais está na lista, mas só removido formalmente no Commit 3. Idem para os outros 8 consumers.
+
+### Commit 3 — `refactor(consumers): remove filtros de _is_audit_meta (9 pontos)`
+
+**Arquivos tocados (7 arquivos, 9 pontos de filtro):**
+- `app-redator/backend/services/claude_service.py:~1053` — `_validate_overlay_rc` mantém filtro de `_is_cta` apenas (docstring ajustada)
+- `app-redator/backend/prompts/rc_post_prompt.py:~54` — `build_rc_post_prompt` loop de `overlay_textos`: removido `leg.get("_is_audit_meta")` do OR, comentário atualizado
+- `app-redator/backend/prompts/rc_automation_prompt.py:~51` — idem no loop de `overlay_temas`
+- `app-redator/backend/services/srt_service.py:18-21` — removidas 3 linhas (comentário, filtro list-comp) e docstring ajustada; agora `overlay_json = overlay_json or []`
+- `app-redator/backend/services/translate_service.py:540` — `translate_overlay_json`: list-comp trocada por `overlay_json = overlay_json or []`; comentário removido
+- `app-redator/backend/services/translate_service.py:817` — `validate_translation`: OR simplificado para só `_is_cta`
+- `app-redator/backend/services/translate_service.py:846-852` — `translate_one_claude`: docstring e filtro
+- `app-redator/backend/services/translate_service.py:955-960` — `translate_project_parallel`: docstring e filtro
+- `app-redator/backend/routers/generation.py:187-190, 258-260` — **consumer #9, NÃO listado no catálogo do PROMPT 6B**. Era caso delicado: filtrava para obter `overlay` mas persistia `raw_overlay` com sentinel preservado. Pós-refactor: `project.overlay_json` já é lista limpa, `raw_overlay` deixa de existir, variável única `overlay`, persistência trivial (`project.overlay_json = overlay`). Mutação in-place continua correta pois não há mais dois nomes para a mesma lista.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_3.log` — 9 subcasos:
+- C1: `_validate_overlay_rc` não quebra com lista homogênea (warnings pré-existentes sobre #legendas baixo são esperados pelo teste mínimo)
+- C2-C3: loops de `rc_post_prompt` e `rc_automation_prompt` filtram só CTA; 4 narrativas de 5 total
+- C4: `generate_srt` produz 20 linhas SRT corretas
+- C5-C8: `translate_service` source inspecionado; zero menções a `_is_audit_meta`
+- C9a: `generation.py` source inspecionado; zero menções a `_is_audit_meta` **e** zero a `raw_overlay`
+- C9b: fluxo de `regenerate-overlay-entry` simulado — índice 2 mutado in-place, outras legendas (gancho, CTA) intactas
+
+**Grep confirma:** `grep -rn "_is_audit_meta" --include="*.py" .` retorna zero resultados em todo o código Python após este commit.
+
+**Ponto de atenção para Commit 4:** o endpoint GET `/api/projects/{id}` ainda não expõe `overlay_audit`. Frontend atual ainda não conhece o campo. Fluxo segue quebrado para projetos antigos (banco ainda tem sentinel no array) — não é problema deste commit; projetos novos gerados pós-Commit 2 já têm lista limpa.
+
+### Commit 4 — `refactor(api): ProjectOut expõe overlay_audit`
+
+**Arquivo tocado:**
+- `app-redator/backend/schemas.py:116` — adicionado campo `overlay_audit: Optional[dict] = None` logo após `overlay_json` no `ProjectOut`. Default None para compatibilidade com projetos antigos que não têm o campo populado.
+
+**NÃO tocado:** `TranslationOut` (decisão D5: traduções nunca persistiram sentinel; `overlay_audit` é metadata em PT sem sentido em outras línguas). `ProjectIn`, `ProjectUpdate`, `ApproveOverlayRequest` — `overlay_audit` é somente-saída; é preenchido pelo backend em `generate_overlay_rc`, operador não submete dict de auditoria direto.
+
+**Handler `get_project` (`routers/projects.py:226-231`) não foi alterado.** FastAPI serializa automaticamente o campo do ORM via `model_config = {"from_attributes": True}` (validado pelo Caso 3 do smoke). O endpoint passa a devolver `overlay_audit` como parte da response sem mudança de código — só de schema.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_4.log` — 3 casos:
+- Caso 1: `overlay_audit` populado → `model_dump` serializa dict corretamente.
+- Caso 2: `overlay_audit` não passado → default `None` → serializa `null`.
+- Caso 3: `model_validate(MockProject(), from_attributes=True)` → herda campo do ORM (prova que FastAPI `response_model=ProjectOut` vai funcionar sem tocar no handler).
+
+### Commit 5 — `refactor(portal): types TS + approve-overlay.tsx adaptados ao novo shape`
+
+**Arquivos tocados:**
+- `app-portal/lib/api/redator.ts`:
+  - Novos types nomeados `OverlayEntry` e `OverlayAudit` (antes: tipo inline repetido 7x no arquivo).
+  - Nova função `sanitizeOverlay(raw: unknown): OverlayEntry[]` com type predicate (sem `any`).
+  - `Project.overlay_audit: OverlayAudit | null` adicionado.
+  - 7 ocorrências do tipo inline substituídas por `OverlayEntry[]`.
+- `app-portal/components/redator/approve-overlay.tsx`:
+  - Importa `sanitizeOverlay`, `OverlayEntry`.
+  - `useState<OverlayEntry[]>` (antes: inline).
+  - **6 pontos de entrada de dados do backend** agora usam `sanitizeOverlay(…)`: useEffect inicial, `handleRegenerate` (2x), `handleRegenerateEntry`, `handleRegenerateAll` (2x).
+  - Linha 250 (onde acontecia o crash original reportado no Bloco A): `(entry.text || "").split("\n")` — fallback defensivo custo-zero.
+- `app-portal/components/redator/export-page.tsx`:
+  - Importa `sanitizeOverlay`.
+  - `setEditOverlay([...exportData.overlay_json!])` → `setEditOverlay(sanitizeOverlay(exportData.overlay_json))`.
+  - `exportData.overlay_json.map(...)` → `sanitizeOverlay(exportData.overlay_json).map(...)` (view readonly).
+
+**Por que o filtro defensivo `sanitizeOverlay` no frontend mesmo depois do Commit 2 garantir lista limpa:** projetos RC gerados pré-Commit 2 continuam com `_is_audit_meta` dentro de `overlay_json` no banco até o SQL do Commit 7 rodar em produção. `sanitizeOverlay` é transitório — vira no-op após esse deploy. Mantido como segurança (custo zero, elimina risco de regressão visual residual).
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_5.log` — detalhado:
+- `npx tsc --noEmit`: EXIT=0, zero erros TS.
+- `npm run lint`: 137 errors + 77 warnings totais (idêntico ao pré-refactor). Nos 3 arquivos tocados: zero novos erros, -1 erro em `redator.ts` (removi `any` via type predicate).
+- `npm run build`: falhou AMBIENTALMENTE por impossibilidade de baixar Google Fonts (sandbox sem egress para `fonts.google.com`). Compilação TS/Turbopack e coleta de rotas passaram. Validação de build completo será feita em staging Railway.
+
+**Para staging (próximos passos, fora do escopo desta sessão):**
+1. Merge só após auditoria independente (PROMPT 6B_AUDIT) aprovar.
+2. Em Railway dashboard, apontar `main` environment temporariamente para `refactor/overlay-sentinel-restructure`.
+3. Criar projeto RC novo e abrir `/redator/projeto/{id}/overlay` — tela deve renderizar sem erro.
+4. Abrir um projeto RC pré-existente (#355 ou similar) — o `sanitizeOverlay` no frontend filtra o sentinel antigo; tela deve renderizar também.
+5. Executar `scripts/migrate_overlay_sentinel.sql` (Commit 7) no banco.
+6. Confirmar que projetos antigos agora têm `overlay_json` sem sentinel.
+
+### Commit 6 — `refactor(editor): remove filtro morto em importar.py:253-256`
+
+**Histórico do filtro (git blame):**
+- Origem: commit `^ef10797` (jmancini800, 2026-04-09) — antes da Fase 3, **não** foi introduzido para lidar com o sentinel.
+- Objetivo editorial original: filtrar legendas sem texto vindas do redator.
+- Efeito colateral feliz pós-Fase 3: absorvia o sentinel `_is_audit_meta` porque sentinel não tem `text`.
+
+**Decisão editorial 3 do PROMPT 6B (luz verde explícita):** remover. Shape garantido pelo backend do redator após `refactor/overlay-sentinel-restructure`. Validação editorial anti-corrupção vive no redator, não no editor. Editor consome como é.
+
+**Arquivo tocado:**
+- `app-editor/backend/app/routes/importar.py:247-265` — removida list-comprehension `segmentos_validos = [s for s in segmentos if s.get("text","").strip() or s.get("_is_cta")]` e o check-and-skip `if not segmentos_validos`. `segmentos` passa direto para `db.add(Overlay(..., segmentos_original=segmentos))`. Mantido:
+  - Check inicial de overlay vazio (linha 249) — sem mudança semântica.
+  - Log info com contagem e textos (ajustado para usar `segmentos` direto).
+  - Loop de diagnóstico RC para warnings de quebra de linha (linhas 263-270) — já usava `segmentos` cru, sem mudança.
+  - Novo comentário explicativo referenciando o refactor.
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_6.log`:
+- Parse AST do arquivo — OK.
+- Função `importar_do_redator` ainda presente.
+- `_is_audit_meta` e `segmentos_validos` ausentes do arquivo.
+- Simulação do fluxo com overlay limpo: 3 legendas → 3 textos logados.
+- Check de overlay vazio continua disparando warning+continue.
+
+**Trade-off registrado:** se o redator um dia devolver overlay malformado (itens sem `text`), o editor vai gravar esses itens em `Overlay.segmentos_original`. Antes do refactor, o filtro mascararia isso em silêncio. Agora o problema vira visível — o que é o comportamento correto segundo o Princípio Editorial 2 ("nunca cortar silenciosamente"). Se acontecer, é bug do redator a ser investigado, não algo para o editor compensar.
+
+### Commit 7 — `feat(db): script SQL de migração de dados legados`
+
+**Arquivo criado:**
+- `scripts/migrate_overlay_sentinel.sql` — script one-shot, 6 statements executáveis.
+
+**Conteúdo:**
+1. **SELECT pré-validação**: conta projetos RC com sentinel no array.
+2. **SELECT amostra**: lista até 20 projetos afetados (id, artist, work, array_len_antes) para inspeção manual.
+3. **UPDATE** (única operação mutadora): remove items com `_is_audit_meta=true` do array `overlay_json`. Uso de `jsonb_agg` sobre `jsonb_array_elements` filtrado. `COALESCE(..., '[]'::jsonb)` para evitar `overlay_json = NULL` se por algum motivo todas as legendas virem como sentinel (defesa impossível mas custo zero). `WHERE brand_slug = 'reels-classics'` explicitamente — **não toca em projetos de outras marcas**.
+4. **SELECT pós-validação global**: `COUNT(*)` em toda a tabela (sem filtro de brand_slug) de projetos ainda com sentinel. Esperado: 0. Detecta vazamento para outras marcas.
+5. **SELECT pós-validação escopo**: confirma que `overlay_audit` continua NULL para projetos RC (decisão D4: não popular).
+6. **SELECT por marca**: smoke de escopo — projetos BO e outros não tocados.
+
+**Não executar nesta sessão.** Script commitado apenas. Execução em produção é manual, supervisionada pelo operador, SOMENTE após merge + deploy + staging validado.
+
+Modelo de execução recomendada (documentado no header do SQL):
+```
+BEGIN;
+\i scripts/migrate_overlay_sentinel.sql
+-- revisar output dos SELECTs antes de COMMIT
+COMMIT;  -- ou ROLLBACK;
+```
+
+**Smoke test:** `docs/rc_v3_migration/smoke_test_results/commit_7.log`:
+- `sqlparse`: 6 statements executáveis parseados (5 SELECTs + 1 UPDATE, 0 outros).
+- Tokenização OK em todos (contagens 64 a 211 tokens).
+- UPDATE escopo confirmado: `WHERE brand_slug = 'reels-classics'`.
+- Invariantes de segurança: sem DROP, DELETE, TRUNCATE, ALTER TABLE.
+- Decisão D4 confirmada: UPDATE NÃO seta `overlay_audit`.
+- Pós-validação global presente (checa qualquer marca ainda com sentinel).
+
+**Limitação do smoke:** não foi possível executar o SQL contra Postgres real (sandbox sem acesso à Railway; SQLite não suporta `jsonb_agg`). Validação real em staging Railway é obrigatória.
+
+---
+
+## 2026-04-22 · Refactor concluído (commits 1-7 pushados)
+
+**Branch:** `refactor/overlay-sentinel-restructure`
+**Commits:**
+| # | SHA | Título |
+|---|---|---|
+| 1 | `2c8daa0` | refactor(db): adiciona coluna overlay_audit |
+| 2 | `73f5ebe` | refactor(claude_service): _process_overlay_rc retorna (legendas, audit) |
+| 3 | `8f98eb7` | refactor(consumers): remove filtros de _is_audit_meta (9 pontos) |
+| 4 | `f0b8d1e` | refactor(api): ProjectOut expõe overlay_audit |
+| 5 | `93673d7` | refactor(portal): types TS + approve-overlay.tsx |
+| 6 | `a5228e0` | refactor(editor): remove filtro morto em importar.py |
+| 7 | (a criar) | feat(db): script SQL de migração de dados legados |
+
+**Próximos passos (fora desta sessão):**
+1. Auditoria independente via PROMPT 6B_AUDIT em sessão Claude Code fresh.
+2. Se auditoria aprovar: validação em staging Railway com 1 projeto RC novo + 1 projeto RC legado + stress test com 2 projetos adicionais.
+3. Se staging passar: merge em main (aprovação explícita do operador) → deploy automático → execução supervisionada de `scripts/migrate_overlay_sentinel.sql`.
+4. Pós-migração: confirmar via SQL que `SELECT COUNT(*) FROM projects WHERE overlay_json::text LIKE '%_is_audit_meta%'` = 0.
+
+---
+
+## Divergência vs D3(a) — aceita conscientemente
+
+Decisão editorial D3(a) exigia `scripts/e2e_shape_compat.py` como substituto de infraestrutura de testes ausente. Script não foi criado na sessão de execução. Auditor Claude independente detectou e apresentou como bloqueador formal com duas opções (criar script OU aceitar divergência com coverage redundante documentado).
+
+Operador escolheu aceitar a ausência pelos seguintes motivos:
+
+- Auditor reconstituiu o bug original do projeto #355 em ambiente Node e confirmou imunidade em cenário legado e novo
+- 7 smoke logs per-commit cobrem caminho específico de cada mudança
+- `tsc --noEmit` EXIT=0 valida contratos TypeScript
+- Grep final paranoico retorna apenas 2 matches justificados
+- Cobertura cruzada por técnicas independentes oferece mais garantia do que script E2E único
+
+Referência: commit de auditoria `f41bb51` em `claude/audit-overlay-refactor-6O5ph`, relatório em `docs/rc_v3_migration/RELATORIO_AUDITORIA_REFACTOR.md`.
+
+Contrapartida assumida: próximo refactor de shape do overlay (se houver) deve criar o script E2E **antes** de iniciar, não depois.
+
+---
+
+## Fechamento — Refactor overlay-sentinel-restructure em produção
+
+**Data/hora do merge:** 2026-04-22 17:42:49 UTC
+
+**Commit de merge em `main`:** `52e9858` — "Merge refactor overlay-sentinel-restructure — resolve regressão visual RC pós-Fase 3" (8 commits da branch integrados via `--no-ff`, topologia de bubble preservada)
+
+**Deploy Railway:** ✅ concluído com sucesso após o push (confirmado pelo operador no painel Railway). Ambos os serviços (`app-redator` backend + `app-portal` frontend) deployaram sem erro. Coluna `overlay_audit` criada automaticamente via `_run_migrations()` v17 no startup do redator.
+
+**Migration SQL de dados legados: NÃO EXECUTADA — decisão consciente do operador.**
+
+- Script `scripts/migrate_overlay_sentinel.sql` foi desenvolvido, auditado (syntactic parse OK, escopo `WHERE brand_slug = 'reels-classics'` estrito, D4 respeitada) e **preservado no repo** para uso futuro se necessário.
+- Motivo da decisão: projetos RC pré-refactor no banco de produção eram **testes descartáveis** da Fase 3, não conteúdo editorial que precisasse ser recuperado. Valor editorial de limpar o sentinel do array em projetos legados é zero.
+- Fases 3 e 4 do PROMPT 7 puladas integralmente em consequência.
+- Consequência residual esperada: se algum projeto RC legado ainda existir no banco com sentinel no array, será filtrado em runtime pela função `sanitizeOverlay` no frontend (`app-portal/lib/api/redator.ts`), que foi mantida exatamente como defense-in-depth transitória/permanente para essa classe de dados. Nenhuma tela de erro, nenhuma regressão visual.
+
+**Branches preservadas como histórico auditável:**
+
+- `refactor/overlay-sentinel-restructure` — execução do refactor (7 commits atômicos + 1 commit de divergência)
+- `claude/audit-overlay-refactor-6O5ph` — auditoria independente (veredito REPROVADO → APROVADO com ressalva após Opção B do operador)
+- `claude/investigate-overlay-regression-Csutr` — investigação original do Bloco A que diagnosticou os 4 elos da causa-raiz
+
+Nenhuma dessas branches precisa ser deletada. Servem como trilha auditável completa do ciclo: **diagnóstico → refactor → auditoria → merge**.
+
+**Estado final da Fase 3 RC v3/v3.1:** 100% das remediações em produção. Bug do projeto #355 resolvido estruturalmente; nunca mais poderá aparecer com o shape novo do backend (`overlay_json` é lista homogênea, `overlay_audit` é campo separado), e o frontend tem defesa residual via `sanitizeOverlay` contra qualquer dado legado remanescente.

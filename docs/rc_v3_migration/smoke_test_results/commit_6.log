@@ -1,0 +1,6 @@
+AST parsed: 17 top-level nodes
+função importar_do_redator presente: OK
+filtros mortos removidos: OK (_is_audit_meta e segmentos_validos ausentes)
+fluxo novo OK: 3 segs → 3 textos logados
+overlay vazio continua disparando o warning+continue: OK (linha 249)
+COMMIT_6_SMOKE: PASS

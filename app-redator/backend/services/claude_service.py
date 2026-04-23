@@ -929,8 +929,16 @@ def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: i
     return "\n".join(novas_linhas)
 
 
-def _process_overlay_rc(response: dict, project) -> list:
-    """Converte output do LLM em overlay_json compatível com o editor.
+def _process_overlay_rc(response: dict, project) -> tuple[list, dict]:
+    """Converte output do LLM em (legendas, audit).
+
+    legendas: lista homogênea de legendas consumíveis por editor/portal/tradução.
+        Shape de cada item: {text, timestamp, type, _is_cta}.
+    audit: dict com metadados editoriais v3.1 (fio_unico_identificado,
+        pontes_planejadas, verificacoes). Pode ser {} se o response não trouxer
+        nenhum campo de auditoria. Persistido em project.overlay_audit (campo
+        separado), NUNCA como item do array legendas.
+
     Calcula timestamps deterministicamente. Aplica sanitização."""
     legendas = response.get("legendas", [])
 
@@ -1024,31 +1032,28 @@ def _process_overlay_rc(response: dict, project) -> list:
 
             _rc_logger.info(f"[RC Timestamps] CTA posicionado em {cta_mins:02d}:{cta_secs:02d} (duração vídeo: {duracao_video:.0f}s, CTA: {cta_duracao:.0f}s)")
 
-    # Anexar metadados de auditoria v3.1 como sentinel no final da lista.
-    # Decisão 3 do PROMPT 2 (Opção A): apenas persistir — sem UI, sem log estruturado.
-    # Shape preservada como lista (não dict) para compatibilidade com ~14 consumidores
-    # que iteram overlay_json. Consumidores que precisam filtrar devem checar _is_audit_meta.
+    # Metadados de auditoria v3.1 em dict separado (persistido em
+    # project.overlay_audit, campo dedicado — NÃO anexado ao array legendas).
+    audit: dict = {}
     audit_fields = ("fio_unico_identificado", "pontes_planejadas", "verificacoes")
     if any(field in response for field in audit_fields):
-        audit_item = {
-            "_is_audit_meta": True,
+        audit = {
             "fio_unico_identificado": response.get("fio_unico_identificado", ""),
             "pontes_planejadas": response.get("pontes_planejadas", []),
             "verificacoes": response.get("verificacoes", {}),
         }
-        overlay_json.append(audit_item)
-        cortes = audit_item["verificacoes"].get("cortes_aplicados", [])
-        _rc_logger.info(f"[RC Overlay v3.1] Auditoria persistida: fio='{audit_item['fio_unico_identificado'][:60]}', {len(audit_item['pontes_planejadas'])} pontes, {len(cortes)} cortes")
+        cortes = audit["verificacoes"].get("cortes_aplicados", [])
+        _rc_logger.info(f"[RC Overlay v3.1] Auditoria persistida: fio='{audit['fio_unico_identificado'][:60]}', {len(audit['pontes_planejadas'])} pontes, {len(cortes)} cortes")
 
-    return overlay_json
+    return overlay_json, audit
 
 
 def _validate_overlay_rc(overlay_json: list):
     """Valida qualidade do overlay e loga warnings. Não bloqueia.
-    Filtra o sentinel _is_audit_meta (metadados v3.1) e _is_cta (CTA fixo)."""
+    Filtra o CTA fixo (não tem conteúdo editorial para validar)."""
     narrativas = [
         item for item in overlay_json
-        if not item.get("_is_cta") and not item.get("_is_audit_meta")
+        if not item.get("_is_cta")
     ]
 
     # 1. Verificar overflow residual
@@ -1215,11 +1220,12 @@ def generate_overlay_rc(project, brand_config=None) -> list:
     _rc_logger.info(f"[RC Overlay] Prompt: {len(prompt)} chars (~{len(prompt)//4} tokens)")
 
     response = _call_claude_json(prompt, max_tokens=4096, temperature=0.85)
-    overlay_json = _process_overlay_rc(response, project)
+    overlay_json, audit = _process_overlay_rc(response, project)
     _validate_overlay_rc(overlay_json)
     _rc_logger.info(f"[RC Overlay] Completo, {len(overlay_json)} legendas")
 
     project.overlay_json = overlay_json
+    project.overlay_audit = audit or None
     return overlay_json
 
 
