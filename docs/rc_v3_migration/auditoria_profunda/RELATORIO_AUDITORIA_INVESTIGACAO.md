@@ -132,4 +132,51 @@ Cada finding recebeu: (1) leitura real via `Read` na path:linha citada, (2) comp
 
 ---
 
-*(Frentes C, D, E e veredito final serão escritos em execução subsequente)*
+## Frente C — Varredura categórica T1-T14 independente
+
+Re-execução dos 12 greps do PROMPT 8 §2.4.2 + comparação contra evidências originais. Detalhes em [comparacao_contagens.md](comparacao_contagens.md) e arquivos de contagem em [greps_reaudit/](greps_reaudit/).
+
+### C.1 — Tabela comparativa
+
+| Categoria | PROMPT 8 | Auditoria | Delta % | Status |
+|-----------|----------|-----------|---------|--------|
+| T1 Python | 73 | 73 | 0% | ✅ |
+| T1 TS/TSX | 9 | 9 | 0% | ✅ |
+| T3 textwrap | 0 | 0 | — | ✅ zero legítimo |
+| T5 len condicional | 14 | 14 | 0% | ✅ |
+| T6 max_tokens | 17 | 17 | 0% | ✅ |
+| T7 maxLength | 11 | 11 | 0% | ✅ |
+| T8 ellipsis | 30 | 32 | +6.7% | ✅ <10% |
+| T9 VARCHAR | 119 | 119 | 0% | ✅ |
+| T10 Pydantic | 0 | 0 | — | ✅ zero legítimo |
+| T13 reticências | 187 | 188 | +0.5% | ✅ |
+| T14 regex | 0 | 0 | — | ✅ zero legítimo |
+| funcs_suspeitas | 6 | 6 | 0% | ✅ |
+
+**Delta máximo: 6.7% (T8). Nenhuma categoria excede threshold de 10%.**
+
+### C.2 — Armadilha detectada no meu próprio grep
+
+Primeira execução T1 TS/TSX retornou 25 matches (vs 9 PROMPT 8). Delta aparente +178% era artefato de eu não ter excluído `node_modules/`. Após re-execução com `--exclude-dir=node_modules`, contagem bate exata. **PROMPT 8 aplicou exclusão corretamente.**
+
+### C.3 — Validação dos 3 arquivos empty (t3, t10, t14)
+
+Hipótese binária: "zero matches legítimo" ou "grep não executado". Re-execução independente retorna **zero matches em todos os três** → arquivos empty são legítimos, PROMPT 8 correto em não ter matches para reportar.
+
+### C.4 — R7 10 callsites verificados
+
+Grep independente em `claude_service.py` confirma **exatamente 10 callsites LLM** (5 diretos + 5 via `_call_claude_json` wrapper) e **zero ocorrências de `stop_reason`** no arquivo inteiro. R7 é 100% correto.
+
+### C.5 — Ausência de t2, t4, t11, t12
+
+Consistente com o próprio PROMPT 9 §3.3 C.1, que só lista 12 greps (não 14). T2/T4/T11/T12 são categorias da taxonomia conceitual mas estão *subsumidas* em outros greps (T2 em T1-py/T1-ts, T11 em T9 VARCHAR + funcs, T12 em funcs_suspeitas). Não é gap de evidência.
+
+### Veredito da Frente C
+
+## ✅ FRENTE C APROVADA
+
+12/12 categorias reproduzíveis dentro do threshold. 3 empty files confirmados zero legítimos. R7 verificado exato. Nenhuma evidência mentirosa detectada.
+
+---
+
+*(Frentes D, E e veredito final serão escritos em execução subsequente)*
