@@ -615,19 +615,19 @@ export default function MarcaConfigPage() {
                         <div className="grid grid-cols-2 lg:grid-cols-5 gap-5 md:col-span-2 p-5 bg-muted/20 rounded-xl border border-border/30">
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Overlay Max</Label>
-                                <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                                <Input type="number" value={formData.overlay_max_chars || 50} onChange={e => handleChange("overlay_max_chars", parseInt(e.target.value))} title={formData.overlay_max_chars ? undefined : "Padrão UI: 50 (não persistido no backend)"} className="bg-background h-8 text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Overlay/Linha</Label>
-                                <Input type="number" value={formData.overlay_max_chars_linha || 25} onChange={e => handleChange("overlay_max_chars_linha", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                                <Input type="number" value={formData.overlay_max_chars_linha || 25} onChange={e => handleChange("overlay_max_chars_linha", parseInt(e.target.value))} title={formData.overlay_max_chars_linha ? undefined : "Padrão UI: 25 (não persistido no backend)"} className="bg-background h-8 text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Lyrics Max</Label>
-                                <Input type="number" value={formData.lyrics_max_chars || 40} onChange={e => handleChange("lyrics_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                                <Input type="number" value={formData.lyrics_max_chars || 40} onChange={e => handleChange("lyrics_max_chars", parseInt(e.target.value))} title={formData.lyrics_max_chars ? undefined : "Padrão UI: 40 (não persistido no backend)"} className="bg-background h-8 text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Trad Max</Label>
-                                <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} className="bg-background h-8 text-xs" />
+                                <Input type="number" value={formData.traducao_max_chars || 60} onChange={e => handleChange("traducao_max_chars", parseInt(e.target.value))} title={formData.traducao_max_chars ? undefined : "Padrão UI: 60 (não persistido no backend)"} className="bg-background h-8 text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Intervalo Overlay</Label>
