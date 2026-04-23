@@ -941,13 +941,29 @@ def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: i
         else:
             if linha_atual:
                 novas_linhas.append(linha_atual)
+            # R3: BO trunca sem log historicamente (pior que RC pré-refactor).
+            # Patch mínimo: registrar o descarte antes do break.
+            # Não refatora contrato (BO tem semântica de pós-tradução com N legendas
+            # fixas — preservação via legenda adicional é editorialmente incoerente
+            # aqui; débito Sprint 2: regeneração via LLM com prompt mais restritivo).
             if len(novas_linhas) >= max_linhas:
+                resto = " ".join(palavras[idx:])
+                logger.warning(
+                    f"[BO LineBreak] Texto truncado, sobrou "
+                    f"{len(palavras) - idx} palavras: '{resto[:50]}...'"
+                )
                 break
             linha_atual = palavra
 
     if linha_atual and len(novas_linhas) < max_linhas:
         novas_linhas.append(linha_atual)
 
+    # R3: slice defensivo com log quando efetivamente corta.
+    if len(novas_linhas) > max_linhas:
+        logger.warning(
+            f"[BO LineBreak] Slice defensivo cortando {len(novas_linhas) - max_linhas} "
+            f"linhas extras (max_linhas={max_linhas}): texto={texto[:60]!r}..."
+        )
     novas_linhas = novas_linhas[:max_linhas]
     return "\n".join(novas_linhas)
 
