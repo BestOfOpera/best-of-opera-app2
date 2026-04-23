@@ -186,7 +186,7 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
                 elif not orig_entry.get("_is_cta"):
                     if is_rc:
                         tipo = orig_entry.get("type", "corpo")
-                        t_text, _resto_r1b = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                        t_text, _resto_r1b = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
                         if _resto_r1b:
                             # R1-b: tradução tem N legendas fixas espelhando overlay PT.
                             # Criar legenda adicional em outro idioma é incoerente.
