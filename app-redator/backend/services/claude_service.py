@@ -22,6 +22,19 @@ from backend.prompts.youtube_prompt import (
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, timeout=120.0)
 MODEL = "claude-sonnet-4-6"
 
+
+class LLMTruncatedResponseError(RuntimeError):
+    """LLM retornou resposta com stop_reason diferente de 'end_turn'.
+
+    R7 (Sprint 1, abordagem X): levantada pelos 6 callsites SDK de
+    client.messages.create em claude_service.py quando message.stop_reason
+    indica truncamento (max_tokens, tool_use, etc). Evita que saída parcial
+    seja consumida silenciosamente como completa. Caller pode capturar e
+    regenerar (débito Sprint 2) ou deixar propagar como erro visível —
+    melhor que truncamento silencioso (Princípio 1 + Princípio 4).
+    """
+
+
 # Common Portuguese words for post-generation leak detection
 _PT_COMMON_WORDS = {"e", "de", "do", "da", "que", "com", "para", "uma", "um", "os", "as"}
 
@@ -94,6 +107,14 @@ def _call_claude(prompt: str, system: str | None = None, temperature: float = 0.
             if system:
                 kwargs["system"] = system
             message = client.messages.create(**kwargs)
+            # R7 X: detectar truncamento antes de consumir saída parcial.
+            if message.stop_reason != "end_turn":
+                logger.warning(
+                    f"[LLM stop_reason] _call_claude: stop_reason={message.stop_reason}, model={MODEL}"
+                )
+                raise LLMTruncatedResponseError(
+                    f"_call_claude: stop_reason={message.stop_reason}"
+                )
             return message.content[0].text.strip()
         except Exception as e:
             error_str = str(e).lower()
@@ -173,6 +194,14 @@ Return the JSON object and nothing else."""
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
+    # R7 X: detectar truncamento antes de consumir saída parcial.
+    if message.stop_reason != "end_turn":
+        logger.warning(
+            f"[LLM stop_reason] detect_metadata_from_text: stop_reason={message.stop_reason}, model={MODEL}"
+        )
+        raise LLMTruncatedResponseError(
+            f"detect_metadata_from_text: stop_reason={message.stop_reason}"
+        )
     raw = message.content[0].text.strip()
     return json.loads(_strip_json_fences(raw))
 
@@ -239,6 +268,14 @@ Return the JSON object and nothing else."""
         max_tokens=1024,
         messages=[{"role": "user", "content": content}],
     )
+    # R7 X: detectar truncamento antes de consumir saída parcial.
+    if message.stop_reason != "end_turn":
+        logger.warning(
+            f"[LLM stop_reason] detect_metadata: stop_reason={message.stop_reason}, model={MODEL}"
+        )
+        raise LLMTruncatedResponseError(
+            f"detect_metadata: stop_reason={message.stop_reason}"
+        )
     raw = message.content[0].text.strip()
     return json.loads(_strip_json_fences(raw))
 
@@ -339,6 +376,14 @@ def detect_metadata_from_text_rc(youtube_url: str, title: str, description: str)
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
+    # R7 X: detectar truncamento antes de consumir saída parcial.
+    if message.stop_reason != "end_turn":
+        logger.warning(
+            f"[LLM stop_reason] detect_metadata_from_text_rc: stop_reason={message.stop_reason}, model={MODEL}"
+        )
+        raise LLMTruncatedResponseError(
+            f"detect_metadata_from_text_rc: stop_reason={message.stop_reason}"
+        )
     raw = message.content[0].text.strip()
     return json.loads(_strip_json_fences(raw))
 
@@ -360,6 +405,14 @@ def detect_metadata_rc(youtube_url: str, screenshot_base64: Optional[str] = None
         max_tokens=1024,
         messages=[{"role": "user", "content": content}],
     )
+    # R7 X: detectar truncamento antes de consumir saída parcial.
+    if message.stop_reason != "end_turn":
+        logger.warning(
+            f"[LLM stop_reason] detect_metadata_rc: stop_reason={message.stop_reason}, model={MODEL}"
+        )
+        raise LLMTruncatedResponseError(
+            f"detect_metadata_rc: stop_reason={message.stop_reason}"
+        )
     raw = message.content[0].text.strip()
     return json.loads(_strip_json_fences(raw))
 
@@ -667,6 +720,16 @@ def _call_claude_api_with_retry(system: str, prompt: str, max_tokens: int, tempe
                 model=MODEL, max_tokens=max_tokens, temperature=temperature,
                 system=system, messages=[{"role": "user", "content": prompt}],
             )
+            # R7 X: detectar truncamento antes de consumir saída parcial.
+            # Cobre tradução via cascata: translate_service.py:907
+            # → _call_claude_json → _call_claude_api_with_retry (aqui).
+            if message.stop_reason != "end_turn":
+                _rc_logger.warning(
+                    f"[LLM stop_reason] _call_claude_api_with_retry: stop_reason={message.stop_reason}, model={MODEL}"
+                )
+                raise LLMTruncatedResponseError(
+                    f"_call_claude_api_with_retry: stop_reason={message.stop_reason}"
+                )
             raw = message.content[0].text.strip()
             elapsed = _time.time() - start
             _rc_logger.info(f"[RC _call_claude_api] Resposta: {len(raw)} chars em {elapsed:.1f}s")
