@@ -665,9 +665,121 @@ Relatório completo, organizado e auditável ✓
 
 ---
 
+## Reforço obrigatório (§6 do PROMPT)
+
+As 5 frentes terminaram sem bloqueadores. Protocolo exige re-validação cirúrgica antes de aprovar.
+
+### Reforço B — Re-validação de 3 findings aleatórios
+
+**R4+R5 (re-check clamp):**
+```
+grep -n "min(6\.0\|min(7\.0" claude_service.py
+→ 1094: min(6.0, dur_raw) [R4]
+→ 1149: min(6.0, dur_por_legenda) [R5]
+```
+`min(7.0)` = 0, `min(6.0)` = 2 ✓ (segunda passada confirma)
+
+**R7 (deep-check de 3 callsites reais lidos na íntegra):**
+
+Callsite 109 (`_call_claude`, linhas 100-120):
+```python
+message = client.messages.create(**kwargs)
+# R7 X: detectar truncamento antes de consumir saída parcial.
+if message.stop_reason != "end_turn":
+    logger.warning(f"[LLM stop_reason] _call_claude: stop_reason={...}, model={MODEL}")
+    raise LLMTruncatedResponseError(f"_call_claude: stop_reason={...}")
+return message.content[0].text.strip()
+```
+Padrão check+log+raise presente, ordem correta (check antes do consume), mensagem identifica função. ✓
+
+Callsite 374 (`detect_metadata_from_text_rc`):
+```python
+message = client.messages.create(...)
+if message.stop_reason != "end_turn":
+    logger.warning(f"[LLM stop_reason] detect_metadata_from_text_rc: ...")
+    raise LLMTruncatedResponseError(f"detect_metadata_from_text_rc: ...")
+raw = message.content[0].text.strip()
+```
+Padrão idêntico. ✓
+
+Callsite 403 (`detect_metadata_rc`, multimodal):
+```python
+message = client.messages.create(model=MODEL, ..., messages=[{..., "content": content}])
+# R7 X: detectar truncamento antes de consumir saída parcial.
+if message.stop_reason != "end_turn":
+    logger.warning(f"[LLM stop_reason] detect_metadata_rc: ...")
+    raise LLMTruncatedResponseError(f"detect_metadata_rc: ...")
+```
+**Mesmo padrão aplicado em callsite multimodal** (content = list) — confirma que a abordagem X funciona para todos os callsites, não só os simples. ✓
+
+**P1-Trans (re-check):**
+```
+grep -n "\b33\b" translation.py generation.py
+→ (vazio)
+```
+Zero literais 33 nos routers ✓
+
+### Reforço C — Re-validação de 2 greps
+
+**Re-grep 1:** `git diff main..HEAD | grep "def _sanitize_"` → zero matches (ambas funções intocadas) ✓
+
+**Re-grep 2:** `git diff --name-only main..HEAD | grep -cE "^(app-editor|app-curadoria|app-portal|shared)/"` → **0 arquivos** ✓
+
+### Reforço D — Item adicional não checado originalmente
+
+**Re-contagem de raises:**
+```
+grep -c "raise LLMTruncatedResponseError" claude_service.py → 6
+```
+Exatamente 6 raises, coerente com 6 callsites SDK ✓
+
+**Análise adicional:** cada uma das 6 mensagens de raise identifica a função de origem pelo nome:
+- `"_call_claude: stop_reason={...}"`
+- `"detect_metadata_from_text: stop_reason={...}"`
+- `"detect_metadata: stop_reason={...}"`
+- `"detect_metadata_from_text_rc: stop_reason={...}"`
+- `"detect_metadata_rc: stop_reason={...}"`
+- `"_call_claude_api_with_retry: stop_reason={...}"`
+
+Quando a exception propagar em produção, o traceback + mensagem identificam **univocamente** qual callsite disparou — observabilidade de alta qualidade. ✓
+
+### Reforço E — Validar 1 afirmação aleatória do relatório
+
+**Afirmação do relatório executor (linha 190):**
+> `grep "stop_reason"`: 21 matches (vs 0 antes)
+
+**Re-execução:**
+```
+grep -n "stop_reason" claude_service.py | wc -l → 20
+```
+
+**Discrepância documental de 1 match.** Análise: o relatório executor declarou 21, eu conto 20. Decomposição dos 20 atuais:
+- 2 na docstring da classe (linhas 27, 30)
+- 6 checks `if message.stop_reason != "end_turn"` (linhas 111, 198, 272, 380, 409, 726)
+- 6 warnings (linhas 113, 200, 274, 382, 411, 728)
+- 6 raise messages (linhas 116, 203, 277, 385, 414, 731)
+
+Total **20 = 2 + 6 + 6 + 6**. A contagem do executor pode ter incluído 1 instância extra em contexto de comentário/mensagem de commit não mais presente no diff final, ou simplesmente erro de contagem de ±1.
+
+**Classificação:** discrepância documental menor (±5% do declarado), **não afeta funcionalidade**. O importante é que 6/6 callsites foram cobertos corretamente (já validado em 4 passadas independentes na auditoria). Sugestão: atualizar relatório para "20 matches" se for importante para precisão futura.
+
+### Conclusão do reforço
+
+Após 4 passadas adicionais independentes:
+- Zero novos bloqueadores descobertos
+- 1 discrepância documental menor (21 vs 20 em stop_reason) — **não-bloqueador**
+- Observações documentais já catalogadas:
+  1. Docstring `translate_service.py:533` desatualizado pós-P1-Trans
+  2. R5 sem teste manual dedicado (herda do R4)
+  3. Contagem stop_reason 21 vs 20 no relatório executor
+
+Todas observações são **débitos documentais**, não afetam segurança ou funcionalidade de produção.
+
+---
+
 ## Veredito final
 
-(Pendente — emite-se apenas após todas as 5 frentes + reforço obrigatório + confirmação do operador.)
+(Pendente — pausa final antes de emitir decisão binária, conforme plano.)
 
 ---
 
