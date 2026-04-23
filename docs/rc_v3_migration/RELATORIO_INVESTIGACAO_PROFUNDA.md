@@ -8,6 +8,28 @@
 
 ---
 
+> **⚠️ Aviso de leitura — atualizado pela auditoria PROMPT 9 + reconciliação pós-refactor**
+>
+> Este relatório tem 3 bloqueadores documentais identificados pela auditoria
+> independente na branch `claude/audit-investigacao-profunda-20260422-1858`:
+>
+> - **Sumário** declara 34/19/12/3 (total/CRÍTICA/ALTA/MÉDIA); contagem real da
+>   tabela §4.2 é **33/12/14/7**
+> - **R7 (§2.7 E)** cobre **6 callsites** em `claude_service.py` linhas
+>   96, 171, 237, 337, 358, 666 (o 7º callsite `translate_service.py:910`
+>   foi refatorado pelo overlay-sentinel para usar o helper `_call_claude_json`
+>   e converge para callsite #6)
+> - **2 findings adicionais** descobertos pela auditoria: R-audit-01 e R-audit-02
+>   em `_sanitize_rc`/`_sanitize_post`, severidade MÉDIA, não no Sprint 1
+>
+> **Path:linha de alguns findings foi atualizado pós-refactor** (R4: 960→968,
+> R5: 1009→1017). Consultar
+> `docs/rc_v3_migration/execucao_sprint_1/RECONCILIACAO_PATHS.md` (commit `6e169ad`)
+> e `docs/rc_v3_migration/auditoria_profunda/RELATORIO_AUDITORIA_INVESTIGACAO.md`
+> para mapeamento corrigido antes de qualquer uso operacional deste relatório.
+
+---
+
 ## Sumário executivo
 
 **Escopo coberto.** 6 apps (app-redator, app-editor, app-portal, app-curadoria, shared, testes) × 2 marcas (RC, BO) × 14 categorias de truncamento (T1-T14) × 6 etapas do pipeline (research → hooks → overlay → post → automation → tradução). Varredura com ~25 greps, 8 arquivos lidos em profundidade, 15 arquivos de evidência em `evidencias_profunda/`.
