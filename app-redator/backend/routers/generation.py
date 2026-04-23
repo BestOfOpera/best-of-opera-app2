@@ -245,7 +245,15 @@ RESPONDA COM APENAS O NOVO TEXTO (nada mais). Inclua \\n para quebras de linha."
 
     if is_rc:
         tipo = entry.get("type", entry.get("tipo", "corpo"))
-        new_text = _enforce_line_breaks_rc(new_text, tipo)
+        new_text, _resto_r1b = _enforce_line_breaks_rc(new_text, tipo)
+        if _resto_r1b:
+            # R1-b: regeneração individual — operador está iterando UMA entrada.
+            # Criar legenda adicional desbalancearia o overlay.
+            # Débito Sprint 2: regeneração via LLM com prompt mais restritivo.
+            logger.warning(
+                f"[RC LineBreak Regen] Resto descartado em regenerar legenda "
+                f"(entry_index={entry_index}, tipo={tipo}): '{_resto_r1b[:80]}...'"
+            )
 
     old_text = entry.get("text", entry.get("texto", ""))
     overlay[entry_index]["text"] = new_text
