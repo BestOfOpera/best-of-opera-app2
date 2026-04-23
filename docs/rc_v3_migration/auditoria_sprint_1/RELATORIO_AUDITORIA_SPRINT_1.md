@@ -359,7 +359,97 @@ Linha 199 (hardcode 35 BO) **intocada**.
 
 ## Frente C — Escopo violado
 
-(Pendente.)
+### C.1 R-audit-01 (`_sanitize_rc`) intocado
+
+**Comando:**
+```
+grep -n "def _sanitize_rc" claude_service.py → 831:def _sanitize_rc(texto: str) -> str:
+git diff main..HEAD -- claude_service.py | grep -A 3 "def _sanitize_rc" → (vazio)
+```
+Função existe em linha 831 e **não aparece em nenhum hunk do diff**. Intocada ✓
+
+### C.2 R-audit-02 (`_sanitize_post`) intocado
+
+**Comando:**
+```
+grep -n "def _sanitize_post" claude_service.py → 627:def _sanitize_post(text: str) -> str:
+git diff main..HEAD -- claude_service.py | grep -A 3 "def _sanitize_post" → (vazio)
+```
+Função existe em linha 627 e **não aparece em nenhum hunk do diff**. Intocada ✓
+
+### C.3 Hardcodes 35 (BO) preservados
+
+**Em `translation.py`:**
+```
+grep -n "\b35\b" translation.py
+→ 199:                        t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
+```
+Linha 199 (BO hardcode 35) **não faz parte do hunk P1-Trans** (hunk só altera linha 189). Preservado ✓
+
+**Em `translate_service.py`:**
+```
+grep -n "\b35\b" translate_service.py
+→ 701:  "- If subtitle > 35 characters: split into 2 lines with \\n\n"  [prompt literal BO]
+→ 1015: t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)  [BO callsite]
+```
+Ambas ocorrências **fora dos 2 hunks do diff** (hunks limitados a linhas 555-568 e 996-1010, ambos callsites R1-b). Hardcodes 35 BO preservados para Sprint 2 ✓
+
+### C.4 Observação documental (não-bloqueador)
+
+**Docstring desatualizado em `translate_service.py:533`:**
+```
+grep -n "\b33\b" translate_service.py
+→ 533:    RC: aplica re-wrap pós-tradução (≤33 chars/linha).
+```
+
+Este **docstring pré-existente** diz "≤33 chars/linha" enquanto o código da função (callsite em 558) agora usa `38` após P1-Trans. O executor **não tocou este docstring** — o patch P1-Trans foi cirúrgico, alterando apenas a linha direcionada (translation.py:189).
+
+**Classificação:** observação documental, **não** violação de escopo nem bloqueador de merge. Sugestão: registrar como débito Sprint 2 (atualizar docstrings expostos pela migração 33→38).
+
+### C.5 Ausência de código fora de `app-redator/`
+
+**Comando:**
+```
+git diff --name-only main..HEAD | grep -E "^(app-editor|app-curadoria|app-portal|shared)/"
+→ NENHUM ARQUIVO FORA DO SCOPE
+```
+Zero arquivos fora do escopo declarado ✓
+
+### C.6 Ausência de alterações em DB / migrations / testes / infra
+
+**Comandos:**
+```
+git diff main..HEAD -- "*.sql" "*migration*" "*/migrations/*" "*/alembic/*"  → (vazio)
+git diff main..HEAD -- "*test*" "*tests/*" "pytest*" "conftest*"              → (vazio)
+```
+Nenhuma alteração em schema DB, migrations, testes ou infraestrutura de CI ✓
+
+### C.7 Diff por arquivo limitado ao escopo R1-b/P1-Trans
+
+**`generation.py`:** único hunk em linhas 245-252 (adaptação R1-b do callsite 248). Zero hunks fora do escopo ✓
+
+**`translate_service.py`:** exatamente 2 hunks:
+- 555-568 (callsite R1-b em 558)
+- 996-1010 (callsite R1-b em 1006)
+
+Zero hunks em `_call_claude_json`, na cascata LLM, ou no hardcode 35 BO em 1015 ✓
+
+**`translation.py`:** único hunk em linhas 186-199 combinando:
+- P1-Trans (troca 33→38 em 189)
+- R1-b (adaptação para tuple + warning log)
+
+Linha 199 (hardcode 35 BO) **intocada** dentro do mesmo hunk ✓
+
+### Veredito Frente C
+
+**APROVADA** ✓
+
+- ❌ Arquivo fora de escopo tocado? **NÃO**
+- ❌ R-audit-01 ou R-audit-02 tocados? **NÃO**
+- ❌ Hardcodes 35 BO alterados? **NÃO**
+- ❌ Schema/migrations/testes alterados? **NÃO**
+
+**Observação registrada (não-bloqueador):** docstring `translate_service.py:533` desatualizado pós-P1-Trans. Débito documental sugerido para Sprint 2.
 
 ---
 
