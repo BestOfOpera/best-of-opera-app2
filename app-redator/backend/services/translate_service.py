@@ -555,7 +555,14 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
             if is_rc:
                 # RC v3.1: re-wrap com limite de 38 chars/linha (margens por idioma aplicadas dentro da função)
                 tipo = entry.get("type", "corpo")
-                translated_text = _enforce_line_breaks_rc(translated_text, tipo, 38, lang=target_lang)
+                translated_text, _resto_r1b = _enforce_line_breaks_rc(translated_text, tipo, 38, lang=target_lang)
+                if _resto_r1b:
+                    # R1-b: tradução tem N legendas fixas espelhando overlay PT.
+                    # Débito Sprint 2: regeneração via LLM com prompt mais restritivo.
+                    _translate_logger.warning(
+                        f"[RC LineBreak Trans] Resto descartado em translate_overlay_json "
+                        f"(i={i}, lang={target_lang}, tipo={tipo}): '{_resto_r1b[:80]}...'"
+                    )
             elif max_chars and len(translated_text) > max_chars:
                 # BO/outros: re-wrap em 2 linhas em vez de truncar
                 max_linha = max_chars // 2
@@ -996,7 +1003,14 @@ def translate_project_parallel(
                 if not orig_entry.get("_is_cta"):
                     if is_rc:
                         tipo = orig_entry.get("type", "corpo")
-                        t_text = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
+                        t_text, _resto_r1b = _enforce_line_breaks_rc(t_text, tipo, 38, lang=lang)
+                        if _resto_r1b:
+                            # R1-b: tradução tem N legendas fixas espelhando overlay PT.
+                            # Débito Sprint 2: regeneração via LLM com prompt mais restritivo.
+                            _translate_logger.warning(
+                                f"[RC LineBreak Trans] Resto descartado em translate_one_claude "
+                                f"(i={i}, lang={lang}, tipo={tipo}): '{_resto_r1b[:80]}...'"
+                            )
                     elif len(t_text) > 70:
                         t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
 

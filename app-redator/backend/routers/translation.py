@@ -186,7 +186,15 @@ def retranslate_language(project_id: int, lang: str, db: Session = Depends(get_d
                 elif not orig_entry.get("_is_cta"):
                     if is_rc:
                         tipo = orig_entry.get("type", "corpo")
-                        t_text = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                        t_text, _resto_r1b = _enforce_line_breaks_rc(t_text, tipo, 33, lang=lang)
+                        if _resto_r1b:
+                            # R1-b: tradução tem N legendas fixas espelhando overlay PT.
+                            # Criar legenda adicional em outro idioma é incoerente.
+                            # Débito Sprint 2: regeneração via LLM com prompt mais restritivo.
+                            logger.warning(
+                                f"[RC LineBreak Trans] Resto descartado em regenerar tradução "
+                                f"(i={i}, lang={lang}, tipo={tipo}): '{_resto_r1b[:80]}...'"
+                            )
                     elif len(t_text) > 70:
                         t_text = _enforce_line_breaks_bo(t_text, max_chars_linha=35, max_linhas=2)
                 item = {"timestamp": orig_entry.get("timestamp", ""), "text": t_text}

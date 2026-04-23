@@ -816,13 +816,23 @@ def _calc_duracao_video(cut_start: str, cut_end: str) -> float:
     return max(0, to_sec(cut_end) - to_sec(cut_start))
 
 
-def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> str:
+def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, lang: str = "pt") -> tuple[str, str]:
     """Garante que cada linha do texto tem no máximo max_chars_linha caracteres.
     Se o LLM não gerou \\n, adiciona word-wrap inteligente.
     Limite base v3.1: 38 chars/linha. Idiomas verbosos ganham margem:
-    DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41). PT/EN: 38 exato."""
+    DE/PL +5 (teto 43), FR/IT/ES +3 (teto 41). PT/EN: 38 exato.
+
+    Retorna (texto_cortado_em_max_linhas, resto_nao_descartado_ou_vazio).
+    R1-b (Sprint 1): quando o texto excede max_linhas × max_chars_linha, as
+    palavras restantes voltam em `resto` para o caller. _process_overlay_rc
+    (claude_service.py:~957) reformula o resto como legenda adicional
+    (Princípio 1 pleno). Callsites de tradução (translate_service.py,
+    translation.py) e regeneração individual (generation.py) logam+descartam
+    porque overlay PT tem N legendas fixas — preservação via legenda adicional
+    em outro idioma é editorialmente incoerente (débito Sprint 2: regeneração
+    via LLM com prompt mais restritivo)."""
     if tipo == "cta":
-        return texto  # CTA é fixo, não tocar
+        return texto, ""  # CTA é fixo, não tocar
 
     # Fix palavras coladas após pontuação (ex: "fim.Começo" → "fim. Começo")
     # Fix palavras coladas após pontuação (inclui vírgula/ponto-e-vírgula/dois-pontos)
@@ -842,7 +852,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
     # Verificar se TODAS as linhas já estão OK
     todas_ok = all(len(l.strip()) <= max_chars_linha for l in linhas)
     if todas_ok and len(linhas) <= max_linhas:
-        return texto  # Já está bom, não mexer
+        return texto, ""  # Já está bom, não mexer
 
     # Precisa re-wrap: juntar tudo e quebrar novamente
     texto_junto = " ".join(l.strip() for l in linhas)
@@ -851,6 +861,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
     linha_atual = ""
     palavras = texto_junto.split()
     truncado = False
+    resto = ""
 
     for idx, palavra in enumerate(palavras):
         teste = (linha_atual + " " + palavra).strip()
@@ -865,10 +876,15 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
         else:
             if linha_atual:
                 novas_linhas.append(linha_atual)
-            # Se já atingiu max de linhas, truncar e avisar
+            # R1-b: ao atingir max_linhas, capturar `resto` e devolver ao caller.
+            # O caller decide: criar legenda adicional (_process_overlay_rc em 957)
+            # ou logar+descartar (tradução/regeneração individual).
             if len(novas_linhas) >= max_linhas:
                 resto = " ".join(palavras[idx:])
-                _rc_logger.warning(f"[RC LineBreak] Texto truncado: sobrou '{resto[:50]}...'")
+                _rc_logger.warning(
+                    f"[RC LineBreak] Excedeu max_linhas={max_linhas}×max_chars_linha={max_chars_linha}, "
+                    f"devolvendo {len(palavras) - idx} palavras em resto: '{resto[:50]}...'"
+                )
                 truncado = True
                 break
             linha_atual = palavra
@@ -884,7 +900,7 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
     if resultado != texto:
         _rc_logger.info(f"[RC LineBreak] Reformatado: {len(texto)}c → {len(resultado)}c, {len(novas_linhas)} linhas")
 
-    return resultado
+    return resultado, resto
 
 
 def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
@@ -954,37 +970,55 @@ def _process_overlay_rc(response: dict, project) -> tuple[list, dict]:
         tipo = leg.get("tipo", "corpo")
 
         texto = _sanitize_rc(texto)
-        texto = _enforce_line_breaks_rc(texto, tipo)
 
-        if not texto:
-            continue
+        # R1-b: preservar conteúdo excedente via legendas adicionais (continuations).
+        # Cada iteração reformula `pendente` em uma legenda (texto_cortado) e
+        # devolve o resto para a próxima iteração até esgotar ou atingir o limite.
+        textos_preservados: list[str] = []
+        pendente = texto
+        MAX_CONTINUACOES = 5
+        for _ in range(MAX_CONTINUACOES):
+            if not pendente:
+                break
+            t, pendente = _enforce_line_breaks_rc(pendente, tipo)
+            if t:
+                textos_preservados.append(t)
+        if pendente:
+            _rc_logger.warning(
+                f"[RC LineBreak] MAX_CONTINUACOES={MAX_CONTINUACOES} atingido, "
+                f"resto final perdido: '{pendente[:80]}...'"
+            )
 
-        # Calcular duração desta legenda
-        if tipo == "cta":
-            dur = cta_duracao
-        else:
-            palavras = len(texto.split())
-            dur = palavras / 2.5  # ~2.5 palavras/segundo
-            dur = max(4.0, min(7.0, round(dur, 1)))
+        for texto in textos_preservados:
+            if not texto:
+                continue
 
-        # Ajustar se estourar o tempo narrativo
-        if tipo != "cta" and tempo_narrativo > 0 and timestamp_sec + dur > tempo_narrativo:
-            dur = max(4.0, tempo_narrativo - timestamp_sec)
+            # Calcular duração desta legenda
+            if tipo == "cta":
+                dur = cta_duracao
+            else:
+                palavras = len(texto.split())
+                dur = palavras / 2.5  # ~2.5 palavras/segundo
+                dur = max(4.0, min(7.0, round(dur, 1)))
 
-        # Formatar timestamp MM:SS
-        mins = int(timestamp_sec // 60)
-        secs = int(timestamp_sec % 60)
-        ts = f"{mins:02d}:{secs:02d}"
+            # Ajustar se estourar o tempo narrativo
+            if tipo != "cta" and tempo_narrativo > 0 and timestamp_sec + dur > tempo_narrativo:
+                dur = max(4.0, tempo_narrativo - timestamp_sec)
 
-        overlay_json.append({
-            "text": texto,
-            "timestamp": ts,
-            "type": "gancho" if tipo == "gancho" else ("cta" if tipo == "cta" else "corpo"),
-            "_is_cta": tipo == "cta",
-        })
+            # Formatar timestamp MM:SS
+            mins = int(timestamp_sec // 60)
+            secs = int(timestamp_sec % 60)
+            ts = f"{mins:02d}:{secs:02d}"
 
-        # Gap ZERO
-        timestamp_sec += dur
+            overlay_json.append({
+                "text": texto,
+                "timestamp": ts,
+                "type": "gancho" if tipo == "gancho" else ("cta" if tipo == "cta" else "corpo"),
+                "_is_cta": tipo == "cta",
+            })
+
+            # Gap ZERO
+            timestamp_sec += dur
 
     # ═══ CAP DE TIMESTAMPS CONTRA DURAÇÃO DO VÍDEO ═══
     if overlay_json and duracao_video > 0:
