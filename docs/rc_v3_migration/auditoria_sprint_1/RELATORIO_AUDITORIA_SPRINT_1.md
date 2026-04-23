@@ -1,17 +1,29 @@
 # Relatório de Auditoria — Execução Sprint 1
 
 **Data de início:** 2026-04-23T02:18Z
+**Data de emissão do veredito:** 2026-04-23 (mesmo dia)
 **Auditor:** Sessão Claude Code fresh (PROMPT 10A_AUDIT)
 **Branch auditada:** `claude/execucao-sprint-1-20260423-0137` @ `d49493f`
 **Branch de auditoria:** `claude/audit-execucao-sprint-1-20260423-0218`
 **Base comparativa:** `main` @ `6e169ad`
-**Status:** EM EXECUÇÃO (Frente A concluída; B–E pendentes)
+**Status:** CONCLUÍDA — veredito emitido
+**Veredito binário:** **APROVADO para merge em `main`**
 
 ---
 
 ## Sumário executivo
 
-(A ser escrito após Frente E — placeholder.)
+**A execução do Sprint 1 está APROVADA para merge em `main` e deploy Railway.**
+
+As 5 frentes de auditoria (Integridade, Findings, Escopo, Regressão, Coerência) + 1 rodada obrigatória de Reforço terminaram com **zero bloqueadores**. Todos os 7 findings prioritários (R1, R2, R3, R4, R5, R7, P1-Trans) foram patcheados corretamente nos arquivos e funções declarados. A validação usou **contexto semântico** em vez de números de linha literais, porque os patches deslocaram o código (documentado pelo próprio executor em R4/R5) — mas cada padrão editorial foi reconstruído e confirmado por leitura direta do código e re-greps independentes.
+
+**Nenhuma violação de escopo foi detectada.** `_sanitize_rc`, `_sanitize_post`, hardcodes 35 BO em `translation.py:199` e `translate_service.py:1015`, assim como `app-editor/`, `app-curadoria/`, `app-portal/` e `shared/` — todos **intocados**. A cascata de tradução (`_call_claude_json` → `_call_claude_api_with_retry` → SDK) está intacta, e o check R7 em `stop_reason` cobre tradução via wrapper compartilhado.
+
+**Nenhuma regressão potencial foi identificada.** O loop R1-b tem 3 camadas de proteção (hard cap `MAX_CONTINUACOES=5`, exit antecipado `if not pendente: break`, safety log). A classe `LLMTruncatedResponseError(RuntimeError)` é instanciável, propaga corretamente, e não há handler inadvertido. Zero imports novos adicionados. Os 4 princípios editoriais (Nunca silencioso, Editor não analisa chars, Operador não vê JSON, Limite gera alerta) foram honrados em cada mudança.
+
+**3 observações documentais menores** foram registradas como débitos Sprint 2 (ver tabela consolidada abaixo) — nenhuma afeta funcionalidade ou segurança. O relatório de execução é factual e completo (304 linhas, 16 seções, 7/7 findings cobertos, 8 débitos Sprint 2 catalogados, conflito nominal `_call_claude_json` vs `_call_claude_api_with_retry` documentado em 2 locais).
+
+**Recomendação:** operador pode autorizar o merge de `claude/execucao-sprint-1-20260423-0137` em `main` e o deploy automático via Railway. Monitorar 48h de estabilização observando os novos pontos de log (`[RC LineBreak]`, `[RC LineBreak Trans]`, `[RC LineBreak Regen]`, `[BO LineBreak]`, `[RC Clamp]`, `[RC Clamp TempComp]`, `[LLM stop_reason]`) antes de iniciar Sprint 2.
 
 ---
 
@@ -779,7 +791,67 @@ Todas observações são **débitos documentais**, não afetam segurança ou fun
 
 ## Veredito final
 
-(Pendente — pausa final antes de emitir decisão binária, conforme plano.)
+### Decisão binária
+
+# ✅ APROVADO para merge em `main`
+
+**Autorizado pelo operador em 2026-04-23** após revisão do sumário pré-veredito e das 3 observações documentais registradas.
+
+### Justificativa sintética
+
+- **5 frentes APROVADAS** (A, B, C, D, E)
+- **Reforço obrigatório** (4 passadas adicionais) confirmatório, zero novos bloqueadores
+- **7/7 findings** CONFIRMADOS semanticamente com evidência comando+output
+- **Zero violações de escopo**
+- **Zero regressões potenciais**
+- **Princípios editoriais 1-4** todos honrados
+
+### Bloqueadores encontrados
+
+**Nenhum.**
+
+### Débitos documentais Sprint 2 (não-bloqueadores, registrados para tracking)
+
+Conforme decisão do operador em 2026-04-23, estas 3 observações **não bloqueiam o merge**, mas ficam registradas para refinamento posterior:
+
+| # | Débito | Onde | Impacto |
+|---|---|---|---|
+| D1 | Docstring `"RC: aplica re-wrap pós-tradução (≤33 chars/linha)"` desatualizado pós-P1-Trans (comportamento real usa 38) | `app-redator/backend/services/translate_service.py:533` | Zero impacto funcional. Comentário em docstring confunde futuro leitor. |
+| D2 | Seção "Teste manual descritivo" ausente para R5 | `docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md` (seção R5 em linha 148) | Zero impacto funcional. R5 é sibling cirúrgico de R4 e herda o mesmo padrão de teste — executor declarou explicitamente "mesma alteração de R4 aplicada ao clamp duplicado". |
+| D3 | Contagem declarada de matches `stop_reason` (21) diverge em ±1 da real (20) | `docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md:190` | Zero impacto funcional. Decomposição validada: 2 (docstring) + 6 (checks) + 6 (warnings) + 6 (raises) = 20. |
+
+Os 3 débitos são de natureza documental e podem ser agrupados ao Sprint 2 sob o item "correções documentais pós-P1-Trans".
+
+### Ação corretiva sugerida
+
+**Nenhuma ação corretiva necessária antes do merge.** Operador pode prosseguir com:
+
+1. `git checkout main && git merge claude/execucao-sprint-1-20260423-0137`
+2. `git push origin main` (Railway auto-deploy)
+3. Monitorar 48h de estabilização
+4. Abrir Sprint 2 (PROMPT 10B) após estabilidade confirmada
+
+### Protocolo de rollback (caso necessário em produção)
+
+Se os logs de produção mostrarem comportamento inesperado nas primeiras horas:
+- `[RC LineBreak] MAX_CONTINUACOES atingido` frequente → investigar inputs patológicos ou ajustar `MAX_CONTINUACOES`
+- `[LLM stop_reason]` com `max_tokens` → débito Sprint 2 (retry automático) pode virar prioritário
+- `[RC Clamp] Duração X.XXs fora do range editorial` → revisar lógica de estimativa de palavras/segundo
+
+Reversão seletiva por commit é possível via `git revert <sha>` (todos os 9 commits são atômicos por finding).
+
+---
+
+## Metadados finais
+
+- **Branch de auditoria:** `claude/audit-execucao-sprint-1-20260423-0218`
+- **Commits incrementais:** 7 (1 por frente + reforço + veredito)
+- **Total de comandos Bash executados na auditoria:** ~40
+- **Arquivos lidos:** 5 (4 arquivos Python + relatório de execução)
+- **Duração total:** ~40 minutos
+- **Linhas do relatório de auditoria:** este próprio arquivo
+- **Working tree do executor:** INTOCADO (`.claude/settings.local.json` e `docs/EXPLORACAO-BO-2026-04-22.md` permanecem como estavam antes da auditoria)
+- **Main branch:** INTOCADO (nenhum commit, merge ou push para main nesta sessão)
 
 ---
 
