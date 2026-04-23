@@ -398,3 +398,78 @@ Observação neutra: o Sprint 2B poderia ter atualizado as referências de linha
 **Observação não-bloqueadora**: numerações de linhas em REANALISE_P3_PROB.md ficaram desatualizadas pós R-audit-01 (drift de +10 linhas). Débito documental menor para limpar pós-merge.
 
 ---
+
+## Frente E — Coerência do relatório
+
+Arquivo: [RELATORIO_EXECUCAO_SPRINT_2B.md](../execucao_sprint_2b/RELATORIO_EXECUCAO_SPRINT_2B.md) (348 linhas, 12 seções `^## `).
+
+### E.1 — 11 IDs mencionados
+
+| ID | Menções |
+|---|---|
+| R-audit-01 | 6 |
+| R6 | 6 |
+| C1 | 5 |
+| P4-008 | 5 |
+| P1-UI1 | 5 |
+| P1-UI2 | 3 |
+| T9-spam | 7 |
+| OB-1 | 5 |
+| R-audit-02 | 6 |
+| P2-PathA-2 | 5 |
+| P3-Prob | 8 |
+
+Todos ≥3. ✓
+
+### E.2 — Débitos catalogados
+
+Padrão `Débito|DÉBITO|débito|sprint futuro`: **21 menções**. Esperado ≥7. ✓
+
+### E.3 — Descoberta arqueológica P2-PathA-1 em BO
+
+Padrão `P2-PathA-1.*BO|arqueológic|Sprint 2A.*classif`: **4 menções**. ✓ Registrada com SHA `f6b1da6` (commit Sprint 2A que tocou `generate_overlay` BO).
+
+### E.4 — Transferidos com razão + destino
+
+Ambos R-audit-02 e P2-PathA-2 documentados **na seção "Transferidos para sessão paralela BO (2)"** com:
+
+- **Path** (`claude_service.py:636-652` e `:545`)
+- **Justificativa concreta** (cadeia de callers, dispatch frontend `if (isRC)`)
+- **Destino** (sessão paralela BO)
+- R-audit-02 em particular tem investigação extra documentada: "endpoints `/api/projects/{id}/generate` e `/regenerate-post` são chamados apenas no branch `else` do `if (isRC)` em `approve-post.tsx:42` e `new-project.tsx:328`. Zero callers RC."
+
+✓
+
+### E.5 — Testes manuais descritivos
+
+Padrão `Teste manual|cenário|Scenario`: **7 menções** (esperado ≥7, um por finding patcheado). ✓
+
+### E.6 — Filtragem BO documentada
+
+Padrão `filtragem BO|filtragem bo|Filtrag`: **5 menções**. Seção dedicada "Filtragem BO aplicada" com subseções "Incluídos (7)" e "Transferidos (2)". ✓
+
+### E.7 — 8 decisões editoriais mencionadas
+
+**5 decisões formalmente tabeladas** em "Decisões do operador aplicadas":
+
+1. (PAUSA #1 B1) — Audit Sprint 2A lido via `git show` sem materializar.
+2. (PAUSA #1 B2) — P2-PathA-2 → transferir para sessão paralela BO.
+3. (PAUSA #1 B3) — R-audit-02 → transferir para sessão paralela BO.
+4. (PAUSA #2) — Aprovação agrupamentos 1-6 + T9-spam investigação inline.
+5. (PAUSA #2) — P3-Prob default parcimônia (0 APLICAR).
+
+**3 decisões aplicadas via práticas observáveis** mas não em linha única da tabela:
+
+6. **Agrupamento P1-UI1+UI2 em 1 commit** — visível em commit `80730b4` (patcha ambos `.tsx` simultaneamente), mencionado em "Agrupamentos em commits".
+7. **R6 vs C1 separados** — visível em commits `679a433` (R6 em `shared/`) e `79e5907` (C1 em `app-curadoria/`), mencionado em "Filtragem BO — Incluídos" por criticidade/domínio distintos.
+8. **T9-spam em app-layer (sem schema)** — mencionado no bullet da Decisão 4 ("patch em `_validar_campos` com `logger.warning [T9 AntiSpam Overflow]`") e em "Débito 5 DB" ("schema preservado").
+
+Todas 8 observáveis no documento, mas 3 estão distribuídas em seções diferentes em vez de consolidadas em linha de tabela. Não-bloqueador — o conteúdo está lá.
+
+### Veredito Frente E
+
+**APROVADA** — 11 IDs presentes, 21 débitos, 4 menções arqueológicas, transferidos com razão+destino, 7 testes manuais, 5 menções filtragem BO, 8 decisões (5 tabeladas + 3 em práticas observáveis).
+
+**Observação não-bloqueadora**: 3 das 8 decisões editoriais (agrupamento P1-UI1+UI2, R6 vs C1, T9-spam app-layer) são aplicadas via práticas observáveis mas não destacadas em linha explícita na tabela "Decisões do operador". Coerência documental menor — débito de clarificação pós-merge.
+
+---
