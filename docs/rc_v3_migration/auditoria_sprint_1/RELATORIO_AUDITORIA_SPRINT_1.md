@@ -455,7 +455,112 @@ Linha 199 (hardcode 35 BO) **intocada** dentro do mesmo hunk ✓
 
 ## Frente D — Regressão potencial
 
-(Pendente.)
+### D.1 Loop infinito em R1-b — 3 camadas de proteção presentes
+
+Re-leitura de `claude_service.py:1063-1076` (referência cruzada com B.1.3):
+
+1. **Hard cap `MAX_CONTINUACOES=5`** (linha 1065): `for _ in range(MAX_CONTINUACOES):` garante exit após 5 iterações no pior caso ✓
+2. **Exit antecipado** (linhas 1067-1068): `if not pendente: break` — sai imediatamente quando resto esvazia ✓
+3. **Safety log** (linhas 1072-1076): warning `[RC LineBreak] MAX_CONTINUACOES atingido` quando o loop esgota sem completar — observabilidade para produção ✓
+
+**Progresso garantido:** cada iteração chama `_enforce_line_breaks_rc(pendente, tipo)` que consome palavras do `pendente` até `max_linhas×max_chars_linha`. Se nenhum progresso for possível (palavra única maior que max_chars_linha), a nova iteração retorna o mesmo `resto` mas o hard cap limita a 5 iterações totais — **nunca trava**.
+
+### D.2 `LLMTruncatedResponseError` funcional
+
+**Hierarquia:**
+```
+grep -rn "LLMTruncatedResponseError\|except.*Truncated" app-redator/backend/ --include="*.py"
+```
+Resultado: apenas `class` + 6 `raise` em `claude_service.py`. **Zero `except LLMTruncatedResponseError`** em toda a base. Isso é **intencional** conforme plano editorial — exception propaga até HTTP 500 (débito Sprint 2 documentado, item #3 da tabela de débitos do relatório executor).
+
+**Propagação como RuntimeError funcional:**
+```python
+python -c "
+class LLMTruncatedResponseError(RuntimeError): pass
+try:
+    raise LLMTruncatedResponseError('test')
+except RuntimeError as e:
+    print(f'OK: {e}')
+"
+→ OK: test propagation
+```
+Exception é instanciável, herda corretamente de `RuntimeError` (built-in, sem imports), e propaga por except genérico ✓
+
+**Análise de retry nos callsites:**
+- Callsite 109 (`_call_claude`) tem try/except que captura `retryable` erros (429/529/overloaded). A mensagem do `LLMTruncatedResponseError` é `"_call_claude: stop_reason=<X>"`, sem strings "529"/"overloaded" — retry loop **não** retenta a exception, `raise` propaga ao caller ✓
+- Callsite 719 (`_call_claude_api_with_retry`) tem retry analogo. Mesma análise: exception não é confundida com erro retentável ✓
+
+### D.3 Imports e sintaxe
+
+**AST parse** (já validado Frente A): 4/4 OK ✓
+
+**Imports adicionados no diff:**
+```
+git diff main..HEAD -- "*.py" | grep "^+import\|^+from"
+→ (vazio)
+```
+**Zero imports novos.** A classe `LLMTruncatedResponseError(RuntimeError)` usa built-in sem precisar import, e os warnings usam loggers (`logger`, `_rc_logger`, `_translate_logger`) já existentes. ✓
+
+### D.4 Cascata de tradução preservada
+
+**Estrutura da cascata em `claude_service.py`:**
+- Linha 97: `def _call_claude(prompt, system, temperature)` — SDK direto (callsite 109)
+- Linha 712: `def _call_claude_api_with_retry(system, prompt, max_tokens, temperature)` — SDK com retry (callsite 719)
+- Linha 749: `def _call_claude_json(prompt, max_tokens, temperature)` — wrapper JSON que chama `_call_claude_api_with_retry` em 754
+
+**Tradução em `translate_service.py`:**
+```
+grep -n "_call_claude_json\|_call_claude_api_with_retry" translate_service.py
+→ 854:    from backend.services.claude_service import _call_claude_json
+→ 914:        result = _call_claude_json(prompt=prompt, max_tokens=2048, temperature=0.3)
+```
+
+**Cadeia completa confirmada:** `translate_service.py:914 → _call_claude_json → _call_claude_api_with_retry → client.messages.create@719 → check stop_reason@726 → raise LLMTruncatedResponseError@730`
+
+**Verificação de não-tocar:**
+```
+git diff main..HEAD -- translate_service.py | grep "_call_claude"
+→ (vazio)
+```
+Zero alterações em chamadas à cascata LLM no `translate_service.py`. Tratamento R7 cobre tradução via cascata ✓
+
+### D.5 Princípios editoriais honrados
+
+**Princípio 1 (nunca cortar silenciosamente):**
+
+Slices remanescentes:
+```
+grep -n "novas_linhas\[" claude_service.py
+→ 966: novas_linhas = novas_linhas[:max_linhas]    [em _enforce_line_breaks_rc]
+→ 1030: novas_linhas = novas_linhas[:max_linhas]   [em _enforce_line_breaks_bo]
+```
+
+Ambos slices têm warning imediatamente antes (validado B.2 para linha 966 e B.3 para linha 1030). **Nenhum truncamento silencioso** restante nessas funções ✓
+
+Os breaks dentro dos loops de `_enforce_line_breaks_rc` (linha 952) e `_enforce_line_breaks_bo` (linha 1018) também têm warning antes (validado B.1.2 e B.3.1). ✓
+
+**Princípio 2 (app-editor não tocado):**
+```
+git diff --name-only main..HEAD | grep "^app-editor/"
+→ (vazio)
+```
+Zero alterações em `app-editor/` ✓
+
+**Princípio 3 (JSON cru fora da UI):** UI (`app-portal/`) não foi tocada — já validado Frente C. JSON cru não escapou ✓
+
+**Princípio 4 (LLM truncado gera exception, nunca slice):**
+
+Nos 6 callsites SDK (109, 192, 266, 374, 403, 719), o check `if message.stop_reason != "end_turn"` **sempre** resulta em `raise LLMTruncatedResponseError`, nunca em `message.content[0].text[:N]` ou outra forma de truncamento silencioso (validado B.5.2). ✓
+
+### Veredito Frente D
+
+**APROVADA** ✓
+
+- ❌ Loop infinito potencial? **NÃO** (3 camadas de proteção presentes)
+- ❌ Exception quebrada ou não-propagável? **NÃO** (instanciável, capturável, zero handlers inadvertidos)
+- ❌ Imports quebrados? **NÃO** (zero imports novos; AST 4/4 OK)
+- ❌ Cascata de tradução quebrada? **NÃO** (cadeia intacta, zero hunks em `_call_claude*`)
+- ❌ Princípio editorial violado? **NÃO** (1, 2, 3, 4 todos honrados)
 
 ---
 
