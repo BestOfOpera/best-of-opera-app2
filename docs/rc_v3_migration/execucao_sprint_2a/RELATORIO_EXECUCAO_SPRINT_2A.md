@@ -145,7 +145,7 @@ Executados **7 CRÍTICAS remanescentes + 11 ALTAS remanescentes + 3 débitos doc
 
 - **Commit:** `e27c5bd`
 - **Path:** `app-editor/backend/app/services/legendas.py:134`
-- **Patch:** warning `[EDITOR Legenda Slice]` antes do slice silencioso `linhas = linhas[:max_linhas]`. Opção A aprovada (decisão 4 operador).
+- **Patch:** warning `[EDITOR Legenda Slice]` antes do slice silencioso `linhas = linhas[:max_linhas]`. Opção A aprovada (decisão 7 operador).
 - **LOC:** 12 inserções
 - **Observação:** função é **dead code** (grep global confirma zero callers externos/internos). Warning é guard defense-in-depth para uso futuro eventual.
 - **Princípio honrado:** 1 + 4
