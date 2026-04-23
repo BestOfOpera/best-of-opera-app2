@@ -195,10 +195,23 @@ def regenerate_overlay_entry(
 
     research_data = project.research_data or ""
     research_str = ""
+    # Sprint 2A P4-006a/b: abordagem conservadora (decisão 3) — log antes de truncar,
+    # manter limite de 2000 chars como defesa (Princípio 4).
     if isinstance(research_data, dict):
         import json as _json
-        research_str = _json.dumps(research_data, ensure_ascii=False)[:2000]
+        research_full = _json.dumps(research_data, ensure_ascii=False)
+        if len(research_full) > 2000:
+            logger.warning(
+                f"[Regen Research Truncate] research_data dict excede 2000 chars "
+                f"({len(research_full)} chars): '{research_full[:80]}...'"
+            )
+        research_str = research_full[:2000]
     elif isinstance(research_data, str):
+        if len(research_data) > 2000:
+            logger.warning(
+                f"[Regen Research Truncate] research_data str excede 2000 chars "
+                f"({len(research_data)} chars): '{research_data[:80]}...'"
+            )
         research_str = research_data[:2000]
 
     overlay_context = ""
