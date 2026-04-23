@@ -114,6 +114,11 @@ download_semaphore = asyncio.Semaphore(2)
 def sanitize_filename(s: str) -> str:
     s = re.sub(r'[<>:"/\\|?*]', '', s)
     s = s.strip('. ')
+    if len(s) > 200:
+        logger.warning(
+            f"[Curadoria Filename Truncate] Filename excede 200 chars ({len(s)}c): "
+            f"{s[:80]!r}... — truncando para compatibilidade filesystem/R2"
+        )
     return s[:200] if s else 'video'
 
 
