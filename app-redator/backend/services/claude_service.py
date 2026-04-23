@@ -892,7 +892,14 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
     if not truncado and linha_atual:
         novas_linhas.append(linha_atual)
 
-    # Garantir max_linhas
+    # R2: slice defensivo — no fluxo normal de R1-b o loop já cortou em max_linhas
+    # via `break`, então este slice só atua se alguma palavra entrou sem o check.
+    # Mantemos o slice (defense-in-depth) mas logamos quando efetivamente corta.
+    if len(novas_linhas) > max_linhas:
+        _rc_logger.warning(
+            f"[RC LineBreak] Slice defensivo cortando {len(novas_linhas) - max_linhas} "
+            f"linhas extras (max_linhas={max_linhas}): texto={texto[:60]!r}..."
+        )
     novas_linhas = novas_linhas[:max_linhas]
 
     resultado = "\n".join(novas_linhas)
