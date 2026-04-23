@@ -530,7 +530,7 @@ def translate_overlay_json(overlay_json: list, target_lang: str,
                            protected_names: list[str] | None = None) -> list:
     """Translate the text field of each overlay subtitle.
     Para RC, usa CTA fixo traduzido ao invés de tradução automática.
-    RC: aplica re-wrap pós-tradução (≤33 chars/linha).
+    RC: aplica re-wrap pós-tradução (≤38 chars/linha; idiomas verbosos ganham margem via lang).
     BO/outros: valida limite total de caracteres (default 70).
     protected_names: nomes próprios (artist, work, composer) a preservar na tradução."""
     from backend.services.claude_service import _enforce_line_breaks_rc, _enforce_line_breaks_bo
