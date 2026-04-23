@@ -128,7 +128,182 @@ Integridade do entregável confirmada. Prosseguindo para Frente B.
 
 ## Frente B — Validação finding por finding (20 alvos únicos)
 
-*A preencher na próxima etapa.*
+### B.1 — Ed-MIG1 + Ed-MIG2 (commit `e74a8ef`)
+
+**Arquivo:** `app-editor/backend/app/main.py`
+
+| Check | Resultado |
+|---|---|
+| INSERT RC (linha 333) tem `114, 38` | `333: 114, 38, 43, 100, 1080, 1920,` ✓ |
+| Ed-MIG1 UPDATE tem `overlay_max_chars_linha = 38` | `369: overlay_max_chars_linha = 38` ✓ |
+| Ed-MIG2 UPDATE tem `overlay_max_chars = 114` | `741: UPDATE editor_perfis SET overlay_max_chars = 114` ✓ |
+| Valores antigos RC (66, 99, 33) ausentes | 0 matches ✓ |
+| BO INSERT (linha 166) preserva `70, 35` | `70, 35, 10, 43, 100, 1080, 1920,` ✓ |
+| BO DEFAULT no schema (linhas 59-60) preserva 70/35 | `DEFAULT 70`, `DEFAULT 35` ✓ |
+| Guard idempotente `WHERE != valor destino` | ambas migrations ✓ |
+
+**Veredito Ed-MIG1+MIG2:** CONFIRMADO. BO intocado (débito novo pipeline BO transferido como esperado).
+
+### B.2 — P1-Ed4 cascata (commit `f200274`, cobre P1-Ed3/Ed5/Ed6)
+
+**Arquivo:** `app-editor/backend/app/services/legendas.py`
+
+| Check | Resultado |
+|---|---|
+| Função `_truncar_texto` existe | linha 260 ✓ |
+| Callsites internos usam a função | 5 callsites (linhas 221, 254, 256, 683, 700) ✓ |
+| Prefix `[EDITOR Truncate]` presente dentro da função | linha 274 ✓ |
+| Nenhum callsite removido ou comentado no diff | 0 linhas `-.*_truncar_texto` ✓ |
+| Assinatura preservada `(texto: str, max_chars: int) -> str` | linha 260 ✓ |
+
+**Veredito P1-Ed4/Ed3/Ed5/Ed6 (cascata):** CONFIRMADO. Decisão 8 honrada — patch único na função base cobre 4 findings.
+
+### B.3 — P1-Ed1 + P1-Ed2 (commit `e27c5bd`)
+
+**Arquivo:** `app-editor/backend/app/services/legendas.py`
+
+| Check | Resultado |
+|---|---|
+| Função `quebrar_texto_overlay` existe | linha 109 ✓ |
+| Prefix `[EDITOR OverlayBreak]` em `quebrar_texto_overlay` | linha 121 ✓ |
+| Função `_formatar_texto_legenda` **ainda existe** (D7 Opção A) | linha 143 ✓ |
+| Prefix `[EDITOR Legenda Slice]` em `_formatar_texto_legenda` | linha 180 ✓ |
+
+**Veredito P1-Ed1+Ed2:** CONFIRMADO. Decisão 7 honrada — Opção A (warning, não remoção).
+
+### B.4 — BO-001 (commit `6804d49`, CONSERVADOR — D5 crítico)
+
+**Arquivo:** `app-redator/backend/prompts/overlay_prompt.py`
+
+| Check | Resultado |
+|---|---|
+| `import logging` + `logger = logging.getLogger(__name__)` presentes | linhas 1, 5 ✓ |
+| Truncamento `narrative[:max_chars].rsplit(" ", 1)[0] + "..."` **PRESERVADO** | linha 88 ✓ |
+| Warning `[BO Narrative Truncate]` **antes** do truncamento | linha 85 (truncamento linha 88) ✓ |
+| Função `_extract_narrative` assinatura preservada | linha 78: `def _extract_narrative(post_text: str, max_chars: int = 500) -> str:` ✓ |
+
+**Veredito BO-001:** CONFIRMADO. **Decisão 5 (conservadorismo) honrada** — truncamento NÃO removido, apenas logger adicionado antes.
+
+### B.5 — P4-001 (commit `1b95fd2`, conservador)
+
+**Arquivo:** `app-redator/backend/prompts/rc_automation_prompt.py`
+
+| Check | Resultado |
+|---|---|
+| `import logging` | linha 13 ✓ |
+| Truncamento `post_clean[:500].rstrip() + "..."` preservado | linha 77 ✓ |
+| Warning `[RC Automation Post Truncate]` antes | linha 74 ✓ |
+
+**Veredito P4-001:** CONFIRMADO.
+
+### B.6 — P4-005 (commit `28cd1a6`, conservador)
+
+**Arquivo:** `app-redator/backend/prompts/hook_prompt.py`
+
+| Check | Resultado |
+|---|---|
+| `import logging` | linha 1 ✓ |
+| Truncamento `research_full[:3000]` preservado | linha 57 ✓ |
+| Warning `[Hook Research Truncate]` antes | linha 54 ✓ |
+
+**Veredito P4-005:** CONFIRMADO.
+
+### B.7 — P4-006a + P4-006b (commit `52c5437`, conservador)
+
+**Arquivo:** `app-redator/backend/routers/generation.py`
+
+| Check | Resultado |
+|---|---|
+| Truncamento P4-006a `research_full[:2000]` (dict) | linha 208 ✓ |
+| Warning `[Regen Research Truncate] research_data dict excede 2000 chars` | linha 205 ✓ |
+| Truncamento P4-006b `research_data[:2000]` (str) | linha 215 ✓ |
+| Warning `[Regen Research Truncate] research_data str excede 2000 chars` | linha 212 ✓ |
+
+**Veredito P4-006a+b:** CONFIRMADO (2 truncamentos + 2 warnings distintos).
+
+### B.8 — P4-007a + P4-007b + P4-007c (commit `a2da8bc`, conservador)
+
+**Arquivo:** `app-redator/backend/services/translate_service.py`
+
+| Check | Resultado |
+|---|---|
+| Truncamento P4-007a `identity[:500]` | linha 744 ✓ |
+| Warning `[Translate Context Truncate] identity excede 500 chars` | linha 741 ✓ |
+| Truncamento P4-007b `tom[:300]` | linha 751 ✓ |
+| Warning `[Translate Context Truncate] tom excede 300 chars` | linha 748 ✓ |
+| Truncamento P4-007c `research_raw[:1500]` | linha 761 (visto em sed ±5) ✓ |
+| Warning `[Translate Context Truncate] research_data excede 1500 chars` | linha 757 ✓ |
+
+**Veredito P4-007a+b+c:** CONFIRMADO (3 truncamentos + 3 warnings). Varredura global confirma `[Translate Context Truncate]`: 3 matches.
+
+### B.9 — P2-PathA-1 (commit `f6b1da6`, CONSERVADOR — D6 crítico)
+
+**Arquivo:** `app-redator/backend/services/claude_service.py`
+
+| Check | Resultado |
+|---|---|
+| Clamp BO **mantido em 5-8s** (`max(5.0, min(8.0, duracao))`) | linha 507 ✓ |
+| Warning `[BO Clamp PathA]` antes do clamp | linha 504 ✓ |
+| Clamps R4+R5 Sprint 1 (`max(4.0, min(6.0`) intocados | linhas 1103, 1158 ✓ |
+| Clamp BO NÃO mudou para 4-6 | 0 matches em linhas BO ✓ |
+
+**Veredito P2-PathA-1:** CONFIRMADO. **Decisão 6 (conservadorismo) honrada** — clamp 5-8 preservado; alinhamento 4-6 transferido como débito Sprint 2B+.
+
+### B.10 — P1-Doc ≡ D1 (commit `49274a6`)
+
+**Arquivo:** `app-redator/backend/services/translate_service.py`
+
+| Check | Resultado |
+|---|---|
+| Docstring com `≤38 chars/linha` | linha 533 ✓ |
+| Referências adicionais a "38 chars" | linhas 556, 662 ✓ |
+| Valores antigos `≤33` ou `até 33` ausentes | 0 matches ✓ |
+| Commit toca apenas translate_service.py (2 linhas) | `git show --stat`: `app-redator/backend/services/translate_service.py | 2 +-` ✓ |
+
+**Veredito P1-Doc/D1:** CONFIRMADO. Decisão 4 honrada — 1 commit cobrindo ambos (sobreposição explícita).
+
+### B.11 — D2 + D3 (commit `c4e73ba`, docs Sprint 1)
+
+**Arquivo:** `docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md`
+
+| Check | Resultado |
+|---|---|
+| Commit toca apenas `RELATORIO_EXECUCAO_SPRINT_1.md` | `git show --stat`: 1 arquivo, +12 linhas ✓ |
+| D2: seção R5 com "Teste manual descritivo (D2, Sprint 2A)" | cenário dedicado: 3 legendas, 25s, `dur_por_legenda_raw = 8.33s`, clamp 6.0s ✓ |
+| D3: contagem corrigida para 20 matches | linha 200: `grep "stop_reason": 20 matches (vs 0 antes)` ✓ |
+| D3: nota explicativa presente | "Nota D3 (Sprint 2A): declaração original de 21 era imprecisa por ±1; auditoria Sprint 1 confirmou contagem real = 20" ✓ |
+
+**Veredito D2+D3:** CONFIRMADO.
+
+### B.12 — Varredura global dos 9 logger prefixes
+
+```
+[EDITOR Truncate]              : 1 match  (legendas.py:274)
+[EDITOR OverlayBreak]          : 1 match  (legendas.py:121)
+[EDITOR Legenda Slice]         : 1 match  (legendas.py:180)
+[BO Narrative Truncate]        : 1 match  (overlay_prompt.py:85)
+[RC Automation Post Truncate]  : 1 match  (rc_automation_prompt.py:74)
+[Hook Research Truncate]       : 1 match  (hook_prompt.py:54)
+[Regen Research Truncate]      : 2 matches (generation.py:205, 212)
+[Translate Context Truncate]   : 3 matches (translate_service.py:741, 748, 757)
+[BO Clamp PathA]               : 1 match  (claude_service.py:504)
+```
+
+**Resultado:** 9/9 prefixes presentes com ≥1 match. Total: 12 pontos de observabilidade instrumentados.
+
+### Estatísticas Frente B
+
+| Status | Contagem |
+|---|---|
+| CONFIRMADOS | **20/20** (todos os alvos únicos) |
+| DISCREPÂNCIAS | 0 |
+| NÃO-REPRODUZÍVEIS | 0 |
+| Decisões honradas | D1, D3, D4, D5, D6, D7, D8 (todas aplicáveis) |
+| Violações críticas | 0 |
+
+### Veredito Frente B — **APROVADA**
+
+Todos os 20 alvos únicos (+ D1 sobreposição) CONFIRMADOS. Decisões 5 (BO-001 conservador), 6 (P2-PathA-1 5-8s), 7 (P1-Ed2 Opção A) e 8 (P1-Ed4 cascata) honradas sem exceção.
 
 ---
 
