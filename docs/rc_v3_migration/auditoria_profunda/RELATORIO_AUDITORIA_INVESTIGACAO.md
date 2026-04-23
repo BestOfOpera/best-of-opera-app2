@@ -179,4 +179,52 @@ Consistente com o próprio PROMPT 9 §3.3 C.1, que só lista 12 greps (não 14).
 
 ---
 
-*(Frentes D, E e veredito final serão escritos em execução subsequente)*
+## Frente D — Teste de 6 armadilhas
+
+Detalhes completos em [armadilhas_D1_a_D6.md](armadilhas_D1_a_D6.md).
+
+| Armadilha | Resultado |
+|-----------|-----------|
+| D1 Alucinação path:linha | ✅ OK (0/15) |
+| D2 Severidade inflada | ✅ OK (0 claras) |
+| D3 Severidade subestimada | ✅ OK (0 claras) |
+| D4 Finding óbvio omitido | ⚠️ **BLOQUEADOR** (R7 escopo subdimensionado + 2 _sanitize findings novos MÉDIA) |
+| D5 Cobertura de apps | ✅ OK |
+| D6 Remediação incoerente | ⚠️ **BLOQUEADOR** (R7 cobre 1/6 SDK callsites) |
+
+### D.1 — Achado central da Frente D: R7 escopo subdimensionado
+
+`grep -rn "client.messages.create" --include="*.py" app-redator/` retorna **6 SDK callsites distintos** em `claude_service.py`:
+
+| Linha | Tipo | Coberto pela remediação §2.7 E? |
+|-------|------|----------------------------------|
+| 96 | wrapper `_call_claude` | ❌ |
+| 171 | direto (metadata detection) | ❌ |
+| 237 | direto | ❌ |
+| 337 | direto (detect_metadata_from_text_rc) | ❌ |
+| 358 | direto | ❌ |
+| 666 | wrapper `_call_claude_api_with_retry` | ✅ |
+
+Cada um retorna `message.content[0].text.strip()` sem check `stop_reason`. **Apenas 1 de 6 está no escopo da remediação declarada.**
+
+Business-level: `_call_claude` é invocado 6× (generation.py:240 + 5 em claude_service.py). `_call_claude_json` é invocado 6× (5 em claude_service.py + **translate_service.py:910**, que R7 não referencia). Total ~16 invocações LLM reais, não 10 como R7 declara.
+
+Se operador aplica literalmente a remediação (§2.7 E), fica com bug residual em 5 SDK sites — **armadilha 10 do CLAUDE.md** (declarar corrigido sem output final mudar).
+
+### D.2 — Findings novos descobertos pela auditoria
+
+- **R-audit-01 (MÉDIA):** `_sanitize_rc` em claude_service.py:783-786 remove via `re.sub(r'\b(GANCHO|CORPO|CLÍMAX|FECHAMENTO|CTA|CONSTRUÇÃO|DESENVOLVIMENTO)\b', '')`. Palavra legítima casa com padrão → remoção silenciosa.
+- **R-audit-02 (BAIXA):** `_sanitize_post` em claude_service.py:578-585 descarta linhas que casem com `_ENGAGEMENT_BAIT_PATTERNS`.
+
+Ambos fora do Sprint 1.
+
+### Veredito da Frente D
+
+## ⚠️ FRENTE D REPROVADA
+
+**Bloqueador B1 crítico:** R7 remediação incoerente (cobre 1/6 SDK callsites).
+**Bloqueador B2 menor:** 2 findings novos de severidade MÉDIA (não afeta Sprint 1).
+
+---
+
+*(Frente E e veredito final serão escritos em execução subsequente)*
