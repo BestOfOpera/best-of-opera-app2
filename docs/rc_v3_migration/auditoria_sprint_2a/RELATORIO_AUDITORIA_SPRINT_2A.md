@@ -503,4 +503,93 @@ Zero regressão arquitetural detectada. Cascata funcional, SQL idempotente, BO-0
 
 ## Frente E — Coerência do relatório de execução
 
-*A preencher.*
+### E.1 — 21 IDs mencionados
+
+| ID | Matches | ID | Matches | ID | Matches |
+|---|---|---|---|---|---|
+| Ed-MIG1 | 13 | P1-Ed1 | 4 | P4-006a | 4 |
+| Ed-MIG2 | 10 | P1-Ed2 | 4 | P4-006b | 3 |
+| P1-Ed3 | 3 | P2-PathA-1 | 6 | P4-007a | 4 |
+| P1-Ed4 | 5 | P4-001 | 4 | P4-007b | 3 |
+| P1-Ed5 | 4 | P4-005 | 4 | P4-007c | 3 |
+| P1-Ed6 | 4 | BO-001 | 7 | D1 | 10 |
+| P1-Doc | 10 | | | D2 | 7 |
+| | | | | D3 | 6 |
+
+**Total:** 21/21 IDs mencionados (todos com ≥3 matches). ✓
+
+### E.2 — Débitos catalogados
+
+Grep `débito|Débito|DÉBITO|Sprint 2B`: **26 matches** (≥8 esperado). Inclui:
+- P3-Prob migrado para Sprint 2B
+- Alinhamento 4-6 Path A como débito Sprint 2B+
+- Preservação editorial via LLM (BO-001 completo) como débito Sprint 2B+
+- OB-3 como débito Sprint 3+
+- 7 MÉDIAS (R6, P1-UI1/2, P2-PathA-2, P4-008, C1, T9-spam) para Sprint 2B
+- R-audit-01, R-audit-02 para Sprint 2B
+- Hardcodes 35 em `translation.py:199` e `translate_service.py:1042` para Sprint 2B
+
+### E.3 — Decisões documentadas
+
+**Observação:** o relatório usa **numeração interna** (1-5 + 2 "extras") que difere da numeração do prompt (1-8). Mapeamento:
+
+| Prompt | Relatório | Documentado |
+|---|---|---|
+| D1 (Ed-MIG substituir) | extra | ✓ linha 45+ |
+| D2 (P3-Prob migrado) | "Decisão de escopo na Fase 1" | ✓ linha 23 |
+| D3 (P4-00x conservador) | Decisão 3 | ✓ tabela |
+| D4 (P1-Doc ≡ D1) | Decisão 4 | ✓ tabela |
+| D5 (BO-001 conservador) | Decisão 1 | ✓ tabela |
+| D6 (P2-PathA-1 conservador) | Decisão 2 | ✓ tabela |
+| D7 (P1-Ed2 Opção A) | texto "Opção A aprovada" (linha 148) | ✓ |
+| D8 (cascata P1-Ed4) | seção P1-Ed4 (linha 106+) | ✓ |
+
+**Observação não-bloqueadora E.3a:** linha 148 do relatório referencia "(decisão 4 operador)" no contexto de P1-Ed2 Opção A — possível erro de referência (decisão 4 no relatório é P1-Doc, não Opção A). Documentação imprecisa mas essência clara; não afeta execução ou deploy.
+
+Todas as 8 decisões substantivas documentadas com explicação do patch correspondente.
+
+### E.4 — Sobreposição P1-Doc ≡ D1 explicitada
+
+Matches:
+- Linha 21: "Total de alvos distintos de código/doc: 20 (P1-Doc ≡ D1 resolvido em commit único por decisão 4 do operador)"
+- Linha 27: "3 débitos documentais: D1 (=P1-Doc, 1 commit), D2 (R5 teste manual), D3 (contagem 21→20)"
+- Linha 55: "D1/P1-Doc — docstring translate_service.py:533 (33→38)"
+- Linha 62: "Sobreposição: P1-Doc (tabela §4.2, ALTA) ≡ D1 (auditoria Sprint 1, débito). Resolvido em commit único (decisão 4)."
+
+Documentação explícita ✓.
+
+### E.5 — Cascata P1-Ed4 documentada
+
+Matches:
+- Linha 25: "P1-Ed3 (cascade), P1-Ed4, P1-Ed5 (cascade), P1-Ed6 (cascade)"
+- Linha 106: "P1-Ed4 — logger.warning em _truncar_texto (cascata P1-Ed5 + P1-Ed6)"
+- Linha 113-116: seção dedicada explicando cascata técnica
+- Linha 129: "Callers cobertos em cascade: overlay_prompt.py:90 (default max_chars=500) e :128"
+
+Cascata documentada ✓.
+
+### E.6 — P3-Prob migrado (não patcheado)
+
+Matches:
+- Linha 23: "Decisão de escopo na Fase 1: P3-Prob (ALTA, algoritmo greedy wrap em claude_service.py:819-887) migrou para Sprint 2B por tocar função `_enforce_line_breaks_rc` que Sprint 1 refatorou"
+- Linha 228: "P3-Prob — algoritmo greedy wrap sem balanceamento (7 regras §3.5) | Decisão operador Fase 1 (migrar para Sprint 2B)"
+- Linha 273: "11/11 ALTAS remanescentes patcheadas (12 − P3-Prob para Sprint 2B)"
+- Linha 276: "Zero toque em Sprint 2B (MÉDIAS, R-audit-01/02, P3-Prob)"
+
+P3-Prob registrado como migrado (não patcheado) ✓.
+
+### E.7 — Débito novo pipeline BO (38 × 2 = 76)
+
+Grep `76 chars|2 linhas.*38|nunca cortar.*BO|novo pipeline BO|próxim.*pipeline`: **0 matches**.
+
+**Observação não-bloqueadora E.7a:** o débito "novo pipeline BO (38 chars × 2 linhas = 76 total, princípio 'nunca cortar')" **não está registrado** no relatório de execução Sprint 2A. Conforme §1.5 do prompt de auditoria, esta é decisão **pós-execução** do operador — o executor não tinha como registrá-la em `d76755f` (commitado antes da declaração). Débito deve ser catalogado no próximo artefato de planejamento Sprint 2B ou em SPEC dedicado.
+
+### Veredito Frente E — **APROVADA**
+
+21/21 IDs mencionados, 26 débitos catalogados, 8 decisões substantivas documentadas, sobreposição explícita, cascata explicada, P3-Prob registrado como migrado.
+
+**Observações não-bloqueadoras:**
+- E.3a: imprecisão documental na linha 148 (referência "decisão 4" ao invés de "Opção A P1-Ed2")
+- E.7a: débito novo pipeline BO não registrado (decisão pós-execução — esperado)
+
+Nenhuma das observações afeta deploy, qualidade dos patches ou estabilidade em produção.
