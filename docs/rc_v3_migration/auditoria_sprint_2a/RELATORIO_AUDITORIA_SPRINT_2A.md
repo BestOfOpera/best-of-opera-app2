@@ -410,7 +410,94 @@ Sprint 2B intocado (R-audit-01, R-audit-02, P3-Prob), Sprint 1 resolvido intocad
 
 ## Frente D — Regressão potencial
 
-*A preencher.*
+### D.1 — Cascata P1-Ed4 tecnicamente funcional
+
+**Callers de `_truncar_texto`:**
+- **Internos (legendas.py):** 5 callsites em linhas 221, 254, 256, 683, 700 — todos recebem automaticamente o warning via cascata
+- **Externos:**
+  - `app-editor/backend/app/main.py:880` — apenas **comentário** ("trunca linhas >35 chars com '...' via _truncar_texto()"), não chamada
+  - `app-editor/backend/tests/verify_fix.py` — **arquivo de teste isolado com cópia local** de `_truncar_texto` (definida no topo, linha 1). Não importa de `legendas.py`. Não foi tocado pelo Sprint 2A. Cópia local permanece desatualizada (sem logger), mas isso é dívida pré-existente de arquivos de teste ad-hoc — **não afeta produção**.
+
+**Assinatura preservada:** `def _truncar_texto(texto: str, max_chars: int) -> str:` — entrada+retorno inalterados. Callers externos recebem novo comportamento (warning + mesmo retorno) transparentemente.
+
+**Veredito D.1:** Cascata tecnicamente funcional. ✓
+
+### D.2 — Ed-MIG1/MIG2 idempotente e não quebra DB
+
+**INSERT RC (linha 323-333):** ordem de colunas e valores correspondem 1-para-1:
+
+| Coluna no INSERT | Valor em SELECT | Check |
+|---|---|---|
+| `overlay_max_chars` (posição 11) | `114` (posição 11) | ✓ |
+| `overlay_max_chars_linha` (posição 12) | `38` (posição 12) | ✓ |
+
+Restante das colunas (lyrics_max_chars=43, traducao_max_chars=100, video=1080×1920) preservado.
+
+**Ed-MIG1 UPDATE:** `WHERE sigla = 'RC' AND overlay_max_chars_linha != 38` — guard idempotente ✓
+
+**Ed-MIG2 UPDATE:** `WHERE sigla = 'RC' AND overlay_max_chars != 114` — guard idempotente ✓
+
+**Escopo separado:** Ed-MIG1 cuida apenas de chars/linha; Ed-MIG2 cuida apenas do total. Zero risco de sobreposição.
+
+**Veredito D.2:** SQL válido + idempotente. ✓
+
+### D.3 — BO-001 módulo não quebrou
+
+**Imports (linhas 1-5):**
+```python
+import logging
+from backend.prompts.hook_helper import build_hook_text, build_language_reinforcement
+logger = logging.getLogger(__name__)
+```
+
+`logging` novo + hook_helper preservado. ✓
+
+**Função `_extract_narrative`** (linha 49): assinatura `def _extract_narrative(post_text: str, max_chars: int = 500) -> str:` preservada.
+
+**Callers internos:**
+- `overlay_prompt.py:98` — `highlights = _extract_narrative(post_text)` (max_chars default 500)
+- `overlay_prompt.py:136` — `narrative = _extract_narrative(post_text, max_chars=300)`
+
+Ambos recebem retorno `str` truncada (comportamento inalterado + warning extra). Zero necessidade de adaptação de callers.
+
+**Veredito D.3:** módulo intacto, assinatura preservada. ✓
+
+### D.4 — 9 logger prefixes emitem corretamente
+
+Varredura global (vide Frente B.12): 9/9 prefixes presentes com ≥1 match, total de 12 pontos de observabilidade instrumentados. Casing en-US consistente (zero matches para variantes PT `[Quebra|Corte|Resumo]`).
+
+**Veredito D.4:** observabilidade pós-deploy garantida. ✓
+
+### D.5 — Princípio 2 honrado (editor não analisa chars)
+
+`app-editor/backend/app/services/legendas.py` recebeu 3 warnings novos, todos descrevendo estado **que já acontecia** (não introduzem nova análise char):
+
+- `[EDITOR OverlayBreak]` em `quebrar_texto_overlay`: "Texto sem quebras com N chars" — warning **antes** da quebra pré-existente
+- `[EDITOR Legenda Slice]` em `_formatar_texto_legenda`: "Cortando N linhas extras" — warning **antes** do slice pré-existente
+- `[EDITOR Truncate]` em `_truncar_texto`: "Texto excede max_chars" — warning **antes** do truncamento pré-existente
+
+Os warnings expõem estado interno (observabilidade), não decidem editorialmente. Exceção controlada ao Princípio 2 justificada (o que já era hardcoded continua sendo, apenas agora é visível).
+
+**Veredito D.5:** Princípio 2 honrado. ✓
+
+### D.6 — Deploy Railway confirmado
+
+```
+HEAD main: 8c7dbe9a58f82c3a81b11e756f67968e6df0d350 merge: Sprint 2A execution (7 CRÍTICAS + 11 ALTAS + 3 débitos)
+```
+
+Artefatos presentes em main:
+- `INVENTARIO_SPRINT_2A.md` (8148 bytes) ✓
+- `RECONCILIACAO_SPRINT_2A.md` (16650 bytes) ✓
+- `RELATORIO_EXECUCAO_SPRINT_2A.md` (23769 bytes) ✓
+
+**Veredito D.6:** main íntegro e deployável. ✓
+
+### Veredito Frente D — **APROVADA**
+
+Zero regressão arquitetural detectada. Cascata funcional, SQL idempotente, BO-001 módulo intacto, logger pós-deploy garantido, Princípio 2 honrado, main íntegro.
+
+**Observação não-bloqueadora:** `app-editor/backend/tests/verify_fix.py` tem cópia local desatualizada de `_truncar_texto` sem logger. É dívida pré-existente de arquivos de teste ad-hoc, não afeta produção, fora do escopo do Sprint 2A.
 
 ---
 
