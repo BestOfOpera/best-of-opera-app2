@@ -109,9 +109,18 @@ def seg_to_ms(value) -> int:
 def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str:
     """Quebra texto em 2 linhas equilibradas se exceder max_chars.
     Encontra o ponto de quebra mais próximo do meio, sem cortar palavras.
-    Usa \\N (line break do ASS) para separar."""
+    Usa \\N (line break do ASS) para separar.
+
+    Sprint 2A P1-Ed1 — observabilidade: função não trunca (só quebra com \\N),
+    mas é safety net para texto vindo sem quebras do redator. Warning sinaliza
+    upstream que não formatou corretamente.
+    """
     if len(texto) <= max_chars:
         return texto
+    logger.warning(
+        f"[EDITOR OverlayBreak] Texto sem quebras com {len(texto)} chars "
+        f"(max_chars={max_chars}), aplicando word-wrap automático: '{texto[:60]}...'"
+    )
     palavras = texto.split()
     if len(palavras) <= 1:
         return texto
@@ -133,7 +142,12 @@ def quebrar_texto_overlay(texto: str, max_chars: int = OVERLAY_MAX_CHARS) -> str
 
 def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2) -> str:
     """Quebra texto longo em linhas de até max_chars, máximo max_linhas.
-    Usa \\N como separador de linha (padrão ASS)."""
+    Usa \\N como separador de linha (padrão ASS).
+
+    Sprint 2A P1-Ed2 — função é dead code atualmente (grep global confirma zero
+    callers externos/internos). Warning adicionado por consistência com o padrão
+    Sprint 1 (Opção A aprovada); guard defense-in-depth para uso futuro eventual.
+    """
     if not texto:
         return texto
 
@@ -160,7 +174,12 @@ def _formatar_texto_legenda(texto: str, max_chars: int = 40, max_linhas: int = 2
     if linha_atual:
         linhas.append(linha_atual)
 
-    # Limitar a max_linhas
+    # Limitar a max_linhas (P1-Ed2 warning antes do slice silencioso)
+    if len(linhas) > max_linhas:
+        logger.warning(
+            f"[EDITOR Legenda Slice] Cortando {len(linhas) - max_linhas} linhas extras "
+            f"(max_linhas={max_linhas}, max_chars={max_chars}): '{texto_limpo[:60]}...'"
+        )
     linhas = linhas[:max_linhas]
 
     return "\\N".join(linhas)
