@@ -309,7 +309,102 @@ Todos os 20 alvos únicos (+ D1 sobreposição) CONFIRMADOS. Decisões 5 (BO-001
 
 ## Frente C — Verificação de escopo violado
 
-*A preencher.*
+### C.1 — Sprint 2B (findings não resolvidos)
+
+| Área proibida | Check | Resultado |
+|---|---|---|
+| `_sanitize_rc` (R-audit-01) | `git diff ... \| grep -A 5 "def _sanitize_rc"` | 0 hunks ✓ |
+| `_sanitize_post` (R-audit-02) | `git diff ... \| grep -A 5 "def _sanitize_post"` | 0 hunks ✓ |
+| `_enforce_line_breaks_rc` (P3-Prob migrado) | `git diff ... \| grep -A 5 "def _enforce_line_breaks_rc"` | 0 hunks ✓ |
+| `_enforce_line_breaks_bo` (débito novo pipeline BO) | `grep -n "def _enforce_line_breaks_bo"` | função presente linha 985, intocada ✓ |
+
+### C.2 — Pastas proibidas
+
+```bash
+git diff --name-only ac6b94a..d76755f | grep -E "^(app-portal|app-curadoria|shared)/"
+```
+
+Output: 0 linhas ✓
+
+### C.3 — Schema DB
+
+```bash
+git diff ac6b94a..d76755f | grep -iE "ALTER TABLE|CREATE TABLE|DROP TABLE"
+```
+
+Output: 0 linhas ✓ (apenas UPDATE via Ed-MIG1/MIG2 — conforme permitido).
+
+### C.4 — Testes automatizados
+
+```bash
+git diff --name-only ac6b94a..d76755f | grep -E "test_|_test\.|tests/"
+```
+
+Output: 0 linhas ✓ (débito registrado pelo executor).
+
+### C.5 — BO intocado além do declarado
+
+```bash
+git diff ac6b94a..d76755f -- app-editor/backend/app/main.py | grep -E "^\+.*(= 70|= 35)"
+```
+
+Output: 1 match — mas é **comentário explicativo** (não código):
+```
++            # BO usa 2 linhas × 35 = 70 (INSERT inicial linha 166). Idempotente por valor destino.
+```
+
+Confirmação adicional: INSERT BO (linha 166) preserva literal `70, 35` e schema DEFAULTs (linhas 59-60) preservam `DEFAULT 70`, `DEFAULT 35`. **BO realmente intocado.** ✓
+
+### C.6 — Auditoria Sprint 1 intocada
+
+```bash
+git diff --name-only ac6b94a..d76755f -- docs/rc_v3_migration/auditoria_sprint_1/
+```
+
+Output: 0 linhas ✓ (apenas `RELATORIO_EXECUCAO_SPRINT_1.md` em `execucao_sprint_1/` recebeu D2/D3, permitido).
+
+### C.7 — Sprint 1 já resolvido (translation.py)
+
+```bash
+git diff --name-only ac6b94a..d76755f -- app-redator/backend/routers/translation.py
+```
+
+Output: 0 linhas ✓ (R1-R5, R7, P1-Trans intocados).
+
+### C.8 — Diff claude_service.py coerente com P2-PathA-1
+
+Inspecionei diff completo: **9 insertions totais, todas em `_calcular_duracao_leitura` (linhas 492-507)**:
+- Docstring atualizada explicando Sprint 2A P2-PathA-1
+- Bloco `if duracao < 5.0 or duracao > 8.0` com `logger.warning [BO Clamp PathA]` ANTES do `return max(5.0, min(8.0, duracao))`
+
+Zero alteração em `_sanitize_rc` (linha 840), `_sanitize_post` (linha 636), `_enforce_line_breaks_rc` (linha 891), `_enforce_line_breaks_bo` (linha 985). ✓
+
+### C.9 — Lista final de 16 arquivos tocados
+
+```
+app-editor/backend/app/main.py                          (Ed-MIG1/MIG2)
+app-editor/backend/app/services/legendas.py             (P1-Ed1/2/3/4/5/6)
+app-redator/backend/prompts/hook_prompt.py              (P4-005)
+app-redator/backend/prompts/overlay_prompt.py           (BO-001)
+app-redator/backend/prompts/rc_automation_prompt.py     (P4-001)
+app-redator/backend/routers/generation.py               (P4-006a+b)
+app-redator/backend/services/claude_service.py          (P2-PathA-1)
+app-redator/backend/services/translate_service.py       (P4-007a+b+c + P1-Doc/D1)
+docs/rc_v3_migration/execucao_sprint_1/RELATORIO_EXECUCAO_SPRINT_1.md  (D2/D3)
+docs/rc_v3_migration/execucao_sprint_2a/INVENTARIO_SPRINT_2A.md        (docs Sprint 2A)
+docs/rc_v3_migration/execucao_sprint_2a/RECONCILIACAO_SPRINT_2A.md     (docs)
+docs/rc_v3_migration/execucao_sprint_2a/RELATORIO_EXECUCAO_SPRINT_2A.md (docs)
+docs/rc_v3_migration/execucao_sprint_2a/altas_remanescentes.txt        (auxiliar)
+docs/rc_v3_migration/execucao_sprint_2a/criticas_remanescentes.txt     (auxiliar)
+docs/rc_v3_migration/execucao_sprint_2a/debitos_documentais.txt        (auxiliar)
+docs/rc_v3_migration/execucao_sprint_2a/tabela_4_2_bruta.txt           (auxiliar)
+```
+
+Todos os 16 arquivos mapeiam 1-para-1 em alvos declarados ou artefatos esperados. Zero arquivo "bônus".
+
+### Veredito Frente C — **APROVADA**
+
+Sprint 2B intocado (R-audit-01, R-audit-02, P3-Prob), Sprint 1 resolvido intocado, pastas proibidas intocadas, schema DB intocado, testes não criados, BO intocado além do declarado, auditoria Sprint 1 intocada.
 
 ---
 
