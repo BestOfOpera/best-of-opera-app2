@@ -1077,7 +1077,13 @@ def _process_overlay_rc(response: dict, project) -> tuple[list, dict]:
                 _rc_logger.info(f"[RC Timestamps] Comprimindo: narrativas terminam em {fim_narrativo:.0f}s, CTA deveria começar em {cta_inicio_ideal:.0f}s")
 
                 dur_por_legenda = cta_inicio_ideal / len(narrativas)
-                dur_por_legenda = max(4.0, min(7.0, dur_por_legenda))
+                # R5: clamp editorial 4.0-6.0s (era 4.0-7.0) — mesmo racional de R4.
+                if dur_por_legenda < 4.0 or dur_por_legenda > 6.0:
+                    _rc_logger.warning(
+                        f"[RC Clamp TempComp] Duração/legenda {dur_por_legenda:.2f}s fora do "
+                        f"range editorial 4-6s, ajustando (compressão temporal)"
+                    )
+                dur_por_legenda = max(4.0, min(6.0, dur_por_legenda))
 
                 ts = 0.0
                 for item in narrativas:
