@@ -473,3 +473,67 @@ Todas 8 observáveis no documento, mas 3 estão distribuídas em seções difere
 **Observação não-bloqueadora**: 3 das 8 decisões editoriais (agrupamento P1-UI1+UI2, R6 vs C1, T9-spam app-layer) são aplicadas via práticas observáveis mas não destacadas em linha explícita na tabela "Decisões do operador". Coerência documental menor — débito de clarificação pós-merge.
 
 ---
+
+## Reforço obrigatório (5 pontos executados)
+
+Com zero bloqueador nas 5 frentes, aplicar reforço conforme §6 do PROMPT.
+
+### R1 — Reler R6: callers de `sanitize_name`
+
+Grep global por `sanitize_name\b` fora de `storage_service.py`: **zero matches diretos**. A função é usada **internamente** por outras funções de `storage_service.py` (ex: `project_base`), que por sua vez são chamadas pelos módulos (`curadoria.py`, `pipeline.py`, `edicoes.py`, `reports.py`, etc).
+
+**Implicação**: warning é encapsulado — só dispara em nome raro >200 chars. Ruído baixo. Não gera log storm em uso comum.
+
+### R2 — Greps adjacentes Frente C
+
+- `_process_overlay_rc` (Sprint 1 core RC): `git diff main..HEAD | grep -A 3 "_process_overlay_rc"` → zero hunks. Função central do RC intocada.
+- `admin_perfil.py` total: **apenas 1 hunk** em `@@ -212,6 +212,14 @@ def _validar_campos`. Nada além de T9-spam.
+
+### R3 — Item adicional Frente D: callers de `_sanitize_rc` (ruído potencial R-audit-01)
+
+```
+./app-redator/backend/services/claude_service.py:840:def _sanitize_rc(texto: str) -> str:
+./app-redator/backend/services/claude_service.py:1077: texto = _sanitize_rc(texto)  ← path overlay RC
+./app-redator/backend/services/claude_service.py:1397: post_text = _sanitize_rc(post_text)  ← path post RC
+./app-redator/backend/services/translate_service.py:359: (comentário apenas)
+```
+
+2 callsites reais (overlay + post). Warning `[Sanitize RC Strip]` só dispara se marcadores estruturais detectados — evento excepcional. Volume esperado em Railway: baixo (texto editorial RC normalmente sem marcadores vazados).
+
+### R4 — Validação P3-Prob Regra 6 (aleatória)
+
+REANALISE_P3_PROB classificou Regra 6 como OBSOLETA/DÉBITO por: "flag `_needs_editorial_review` não existe, implementar requer Python + Next.js + possivelmente schema".
+
+**Validação cruzada código**:
+
+```
+grep -rn "_needs_editorial_review" --include="*.py" --include="*.tsx" .
+→ zero matches
+```
+
+✓ **Confirmação concreta**: a flag realmente não existe em nenhum lugar do código. A classificação OBSOLETA é **defensável por evidência direta** — implementá-la exigiria:
+- criar campo novo em `overlay_audit` ou schema;
+- expor via API;
+- renderizar na UI em `approve-overlay.tsx`.
+
+Isso viola §7 do escopo cirúrgico. Classificação correta.
+
+### R5 — Conferir afirmação relatório: "AST parse OK em todos os 5 arquivos Python tocados"
+
+Re-execução:
+
+```
+app-curadoria/backend/services/download.py: OK
+app-editor/backend/app/routes/admin_perfil.py: OK
+app-redator/backend/prompts/rc_automation_prompt.py: OK
+app-redator/backend/services/claude_service.py: OK
+shared/storage_service.py: OK
+```
+
+5/5 OK ✓. Afirmação do relatório **verdadeira**.
+
+### Veredito Reforço
+
+Zero bloqueador detectado após reforço. As 2 observações não-bloqueadoras já registradas (drift de linhas no REANALISE, 3 decisões em práticas observáveis) permanecem como débitos documentais menores, sem impacto em correção do código.
+
+---
