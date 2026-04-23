@@ -307,3 +307,94 @@ git diff main..HEAD -- 'app-editor/**/*.py' 'app-redator/**/*.py' 'app-curadoria
 **APROVADA** — escopo 100% respeitado. Transferidos BO intocados, P3-Prob com 0 APLICAR real, schema DB intacto, Sprint 1/2A preservados, zero teste novo, audit 2A não materializado.
 
 ---
+
+## Frente D — Regressão potencial
+
+### D.1 — Sprint 1 prefixes preservados
+
+```
+grep -rn "\[RC LineBreak\]|\[RC Clamp\]|\[LLM stop_reason\]" --include="*.py" app-redator/
+→ 16 matches em 4 arquivos:
+  - claude_service.py: 12
+  - translation.py: 1
+  - generation.py: 1
+  - translate_service.py: 2
+```
+
+`[LLM stop_reason]` em 6 callsites distintos (linhas 113, 200, 274, 382, 411, 737 de `claude_service.py` + outros arquivos) — cobertura Sprint 1 completa ✓.
+
+### D.2 — Sprint 2A prefixes preservados
+
+```
+grep -rn "\[EDITOR Truncate\]|\[EDITOR OverlayBreak\]|\[EDITOR Legenda Slice\]|\[BO Narrative Truncate\]|\[RC Automation Post Truncate\]|\[Hook Research Truncate\]|\[Regen Research Truncate\]|\[Translate Context Truncate\]|\[BO Clamp PathA\]" --include="*.py"
+→ 12 matches em 7 arquivos:
+  - translate_service.py: 3
+  - generation.py: 2
+  - claude_service.py: 1
+  - hook_prompt.py: 1
+  - overlay_prompt.py: 1
+  - rc_automation_prompt.py: 1
+  - legendas.py: 3
+```
+
+Cada um dos 9 prefixes Sprint 2A tem ≥1 match ✓.
+
+### D.3 — 5 novos prefixes Sprint 2B únicos (zero colisão)
+
+```
+grep -rn "\[Sanitize RC Strip\]|\[Shared Name Truncate\]|\[Curadoria Filename Truncate\]|\[RC Automation Overlay Temas\]|\[T9 AntiSpam Overflow\]" --include="*.py"
+→ 5 matches em 5 arquivos (1 cada)
+```
+
+Zero duplicação. Zero colisão com Sprint 1/2A (strings distintas).
+
+### D.4 — Funções patcheadas mantêm assinatura
+
+Confirmado em Frente B via leitura direta das funções:
+
+- `_sanitize_rc(texto: str) -> str` — inalterada.
+- `sanitize_name(s: str) -> str` — inalterada.
+- `sanitize_filename(s: str) -> str` — inalterada.
+- `_validar_campos(data: dict) -> None` — inalterada (adiciona branch, não muda entrada/saída).
+- `build_rc_automation_prompt(...)` — chamada e parâmetros inalterados (warning é local à função).
+
+### D.5 — Reanálise P3-Prob defensável
+
+Leitura integral de [REANALISE_P3_PROB.md](../execucao_sprint_2b/REANALISE_P3_PROB.md) (199 linhas):
+
+- **Cada uma das 7 regras** tem: texto original citado, análise concreta, decisão (ii/iii), justificativa.
+- **Totais declarados**: (i) APLICAR: 0; (ii) JÁ RESOLVIDA: 3 (regras 1, 5, 7); (iii) OBSOLETA/DÉBITO: 4 (regras 2, 3, 4, 6).
+- **Justificativas citam estrutura R1-b concretamente**: "R1-b + MAX_CONTINUACOES=5 preserva texto via legendas extras" (Regra 1), "loop em `_process_overlay_rc:1074-1085` faz exatamente isso" (Regra 5), "Sprint 1 R1-b + R2 transformaram os dois pontos de truncamento silencioso..." (Regra 7).
+- **Débitos OBSOLETA/DÉBITO bem argumentados**: cada um explica por que é qualidade estética ou expansão arquitetural fora do escopo cirúrgico (ex: Regra 6 viola §7 por requerer schema change + Next.js).
+- **Guardrail do operador respeitado**: "Se contagem total aproximar-se de Sprint 2A (21 itens), reavaliar escopo" — Sprint 2B fechou em ~10 commits (bem abaixo).
+
+**Validação cruzada código**: R1-b citado em "linhas 951-961" do `_enforce_line_breaks_rc` aponta conceitualmente para o código atual em linhas 964-971 (drift de +10 linhas porque REANALISE foi escrito em `25fe412` às 15:54, antes do commit `539a9b0` às 16:00 adicionar +10 linhas de R-audit-01 acima). **Drift puramente numérico, referências conceituais corretas** — `_rc_logger.warning [RC LineBreak]` existe, `resto = " ".join(palavras[idx:])` existe, `truncado = True; break` existe. MAX_CONTINUACOES=5 confirmado em `_process_overlay_rc:1084`. Loop iterativo com `_enforce_line_breaks_rc(pendente, tipo)` em `:1088`.
+
+Observação neutra: o Sprint 2B poderia ter atualizado as referências de linha no REANALISE após aplicar R-audit-01, mas como o documento é **analítico** (não uma spec executável) e as referências são defensáveis pelo conteúdo conceitual, não é bloqueador. Débito documental menor: atualizar numerações pós-merge.
+
+### D.6 — Princípios editoriais honrados
+
+- **Princípio 1 (nunca cortar silenciosamente)**:
+  - R-audit-01: warning antes do `re.sub` destrutivo ✓
+  - R6: warning antes de `s[:200]` ✓
+  - C1: warning antes de `s[:200]` ✓
+  - P4-008: warning antes de `overlay_temas[:5]` ✓
+  - Todo corte novo tem visibilidade.
+
+- **Princípio 2 (editor não analisa chars)**:
+  - T9-spam usa `len(_ast)` **apenas para validação** (não análise semântica de conteúdo) — é check de tamanho para proteção DB, análogo às validações `_hex_valido` e `_idiomas_validos` vizinhas. Compatível com princípio.
+
+- **Princípio 3 (operador nunca vê JSON cru)**:
+  - P1-UI1/UI2: `title=` é HTML attribute padrão. Zero novo state, fetch ou componente. Contrato visual 100% preservado. Tooltip é explicação textual, não dump técnico.
+
+- **Princípio 4 (limites externos geram alerta + regeneração)**:
+  - P4-008: warning + slice `[:5]` preservado — defense-in-depth. ✓
+  - T9-spam: warning antes do DB commit — operador avisado antes da rejeição. ✓
+
+### Veredito Frente D
+
+**APROVADA** — Sprint 1/2A prefixes preservados (16+12=28 matches), 5 novos prefixes únicos, assinaturas estáveis, reanálise P3-Prob defensável com citações conceituais corretas (drift de linhas explicado), princípios 1-4 honrados.
+
+**Observação não-bloqueadora**: numerações de linhas em REANALISE_P3_PROB.md ficaram desatualizadas pós R-audit-01 (drift de +10 linhas). Débito documental menor para limpar pós-merge.
+
+---
