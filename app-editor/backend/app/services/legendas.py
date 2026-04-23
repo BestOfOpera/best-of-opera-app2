@@ -241,25 +241,36 @@ def _formatar_overlay(texto: str, max_por_linha: int = 30, pre_formatted: bool =
 def _truncar_texto(texto: str, max_chars: int) -> str:
     """Trunca texto que excede max_chars, cortando no último espaço.
     Garante que nenhuma palavra seja cortada ao meio.
-    Adiciona '...' no final."""
+    Adiciona '...' no final.
+
+    Sprint 2A P1-Ed4 — adiciona observabilidade. Comportamento preservado
+    (defense-in-depth, Princípio 4): cortes continuam, mas cada truncamento
+    é logado. Sprint 2A P1-Ed5/P1-Ed6 resolvidos em cascata via este warning
+    interno (callers em :653 e :670 já têm warning post-hoc).
+    """
     if len(texto) <= max_chars:
         return texto
-    
+
+    logger.warning(
+        f"[EDITOR Truncate] Texto excede max_chars={max_chars} "
+        f"({len(texto)} chars): '{texto[:60]}...'"
+    )
+
     # Limite efetivo para o texto antes dos pontos
     limite = max_chars - 3
     if limite <= 0:
         return "..."
-    
+
     # Pega o trecho até o limite
     cortado = texto[:limite]
-    
+
     # Tenta encontrar o último espaço ANTES do limite
     ultimo_espaco = cortado.rfind(" ")
-    
+
     if ultimo_espaco != -1:
         # Trunca no espaço encontrado
         return cortado[:ultimo_espaco].rstrip() + "..."
-    
+
     # Em caso de palavra única maior que o limite, trunca no limite (fallback)
     return cortado.rstrip() + "..."
 
