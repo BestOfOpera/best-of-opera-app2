@@ -96,4 +96,40 @@ Nenhum critério de reprovação disparado. Integridade estrutural do entregáve
 
 ---
 
-*(Frentes B, C, D, E e veredito final serão escritos em execução subsequente)*
+## Frente B — Amostragem estratificada de 15 findings
+
+**Amostra:** 15/33 findings (cobertura 45%). Detalhes em [amostra_auditada.md](amostra_auditada.md) e [validacao_findings.md](validacao_findings.md).
+
+**Composição:** Sprint 1 inteiro (R1-R5, R7, P1-Trans = 7) + 2 CRÍTICAS adicionais (Ed-MIG1, P1-Ed5) + 3 ALTAS (P1-Doc, P2-PathA-1, P3-Prob) + 3 MÉDIAS (P1-UI1, C1, T9-spam).
+
+### B.1 — Protocolo de validação (5 subchecks × 15 findings)
+
+Cada finding recebeu: (1) leitura real via `Read` na path:linha citada, (2) comparação com descrição, (3) checklist 4/4 de severidade, (4) validação categoria T, (5) teste de aplicabilidade da remediação.
+
+### B.2 — Estatísticas
+
+| Status | Contagem | Limite de reprovação |
+|--------|----------|----------------------|
+| CONFIRMADO | **15/15** | — |
+| DISCREPÂNCIA path:linha | **0** | > 2 = REPROVADO |
+| NÃO-REPRODUZÍVEL | **0** | qualquer = REPROVADO |
+| Severidade inflada clara | **0** | > 2 = REPROVADO |
+| Severidade subestimada clara | **0** | > 2 = REPROVADO |
+| Categoria T incorreta | **0** | — |
+| Remediação inaplicável | **0** | > 3 = REPROVADO |
+
+### B.3 — Observações menores (não bloqueadores)
+
+1. R1 e P1-Ed5 possuem `logger.warning` — relatório não menciona o log mas T1 é correto.
+2. R4/R5 são ALTA na tabela mas o Sprint 1 trata como "críticos por priorização" — prática legítima, não inflação.
+3. P1-UI1 defaults 50/25/40/60 criam cadeia completa de bug com Ed-MIG1 (que reverte DB para 33 mesmo depois de P1).
+
+### Veredito da Frente B
+
+## ✅ FRENTE B APROVADA
+
+15/15 CONFIRMADO. Zero alucinação de path:linha. Zero inflação ou subestimação clara de severidade. Categorias T1-T14 batem com mecanismo real em todos os 15 casos. Remediações aplicáveis.
+
+---
+
+*(Frentes C, D, E e veredito final serão escritos em execução subsequente)*
