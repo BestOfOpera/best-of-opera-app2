@@ -852,6 +852,16 @@ def _sanitize_rc(texto: str) -> str:
 
     # Remove metadados vazados
     texto = re.sub(r'\d+px', '', texto)
+    _marcadores_estruturais = re.findall(
+        r'\b(GANCHO|CORPO|CLÍMAX|FECHAMENTO|CTA|CONSTRUÇÃO|DESENVOLVIMENTO)\b',
+        texto, flags=re.IGNORECASE
+    )
+    if _marcadores_estruturais:
+        _rc_logger.warning(
+            f"[Sanitize RC Strip] Removendo {len(_marcadores_estruturais)} marcador(es) "
+            f"estrutural(is) do texto RC: {_marcadores_estruturais}. "
+            f"Texto antes: {texto[:80]!r}..."
+        )
     texto = re.sub(
         r'\b(GANCHO|CORPO|CLÍMAX|FECHAMENTO|CTA|CONSTRUÇÃO|DESENVOLVIMENTO)\b\s*',
         '', texto, flags=re.IGNORECASE

@@ -61,6 +61,11 @@ def sanitize_name(s: str) -> str:
     """Remove caracteres problemáticos para uso como nome de pasta no R2/filesystem."""
     s = re.sub(r'[<>:"/\\|?*]', '', s)
     s = s.strip('. ')
+    if len(s) > 200:
+        logger.warning(
+            f"[Shared Name Truncate] Nome excede 200 chars ({len(s)}c): "
+            f"{s[:80]!r}... — truncando conservadoramente para compatibilidade R2/filesystem"
+        )
     return s[:200] if s else 'unknown'
 
 

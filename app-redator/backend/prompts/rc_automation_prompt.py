@@ -57,6 +57,12 @@ def build_rc_automation_prompt(
         tipo = leg.get("tipo", leg.get("type", "corpo"))
         if tipo != "cta" and texto:
             overlay_temas.append(texto)
+    if len(overlay_temas) > 5:
+        logger.warning(
+            f"[RC Automation Overlay Temas] Overlay tem {len(overlay_temas)} "
+            f"tema(s) não-CTA, usando apenas primeiros 5 no prompt ManyChat. "
+            f"Temas descartados: {overlay_temas[5:]}"
+        )
     overlay_resumo = " | ".join(overlay_temas[:5])
 
     obra_ref = work
