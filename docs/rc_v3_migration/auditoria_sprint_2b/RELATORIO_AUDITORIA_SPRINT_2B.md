@@ -207,3 +207,103 @@ Grep global de 5 novos prefixes em `.py|.tsx` (ignorando docs):
 **APROVADA** — 8/8 CONFIRMADOS, zero discrepâncias, zero violações.
 
 ---
+
+## Frente C — Escopo violado (verificação negativa)
+
+### C.1 — Código BO intocado
+
+Grep de funções BO-específicas no diff global:
+
+```
+git diff main..HEAD | grep -E "^(\+\+\+|---).*_bo|^[+-]def .*_bo|^[+-]def _enforce_line_breaks_bo|^[+-]def _sanitize_bo|^[+-]def generate_post\b|^[+-]def generate_overlay\b"
+→ zero output
+```
+
+✓ Zero hunks em código BO. Confirmado.
+
+### C.2 — R-audit-02 (`_sanitize_post`) intocado — **transferido BO**
+
+`git diff main..HEAD -- app-redator/backend/services/claude_service.py | grep -A 3 "_sanitize_post"` → zero output.
+
+✓ Função `_sanitize_post` em `claude_service.py:636-652` **NÃO foi tocada**. Transferência para sessão paralela BO respeitada.
+
+### C.3 — P2-PathA-2 (`min(12.0` em `generate_overlay`) intocado — **transferido BO**
+
+`git diff main..HEAD -- app-redator/backend/services/claude_service.py | grep -B 2 -A 3 "min(12.0"` → zero output.
+
+✓ Clamp em `generate_overlay:545` **NÃO foi tocado**. Transferência BO respeitada.
+
+### C.4 — P3-Prob (`_enforce_line_breaks_rc`) intocado — **0 APLICAR real**
+
+`git diff main..HEAD -- app-redator/backend/services/claude_service.py | grep -A 3 "_enforce_line_breaks_rc"` → zero output.
+
+✓ Reanálise P3-Prob com 0 APLICAR é **verdade executada**, não apenas declarada. Função `_enforce_line_breaks_rc` permanece como estava em `main`.
+
+**Confirmação dupla**: `git diff main..HEAD -- claude_service.py | grep "^@@"` retornou **exatamente 1 hunk** — `@@ -852,6 +852,16 @@ def _sanitize_rc(texto: str) -> str:` (R-audit-01). Diff total: 21 linhas (1 único hunk de 10 linhas adicionadas).
+
+### C.5 — Sprint 1 preservado
+
+`git diff main..HEAD -- app-redator/backend/routers/translation.py` → zero output.
+
+✓ Sprint 1 findings (R1-R7, P1-Trans) não retocados.
+
+### C.6 — Sprint 2A preservado
+
+Arquivos-chave do Sprint 2A sem hunks novos:
+
+- `app-editor/backend/app/services/legendas.py` (P1-Ed*) → zero.
+- `app-redator/backend/prompts/overlay_prompt.py` (BO-001) → zero.
+- `app-redator/backend/services/generation.py` (P4-006) → zero.
+- `app-redator/backend/services/translate_service.py` (P4-007) → zero.
+
+✓ Sprint 2A findings não retocados.
+
+### C.7 — Schema DB intocado
+
+Dupla verificação:
+
+```
+git diff main..HEAD -- '*.py' '*.tsx' '*.sql' | grep -iE "^\+.*(ALTER TABLE|CREATE TABLE|DROP TABLE|ADD COLUMN|DROP COLUMN)"
+→ zero output
+
+git diff main..HEAD -- 'app-editor/**/*.py' 'app-redator/**/*.py' 'app-curadoria/**/*.py' 'shared/**/*.py' 'app-portal/**/*.tsx' | grep -E "^\+" | grep -iE "ALTER TABLE|CREATE TABLE|DROP TABLE|ADD COLUMN|DROP COLUMN"
+→ zero output
+```
+
+✓ Schema DB **totalmente intocado** em código. Os matches iniciais no grep global vieram apenas de **menções em documentação** (commit msg de T9-spam explicando `main.py:77` + RELATORIO_EXECUCAO descrevendo proibição §7 + este próprio relatório de auditoria). Zero SQL DDL adicionado.
+
+### C.8 — Pastas fora de escopo intocadas
+
+`git diff --name-only main..HEAD | grep -vE "^(app-redator|app-curadoria|app-editor|app-portal|shared|docs)/"` → zero output.
+
+✓ Todos 14 arquivos tocados estão dentro de pastas conhecidas.
+
+### C.9 — Zero testes automatizados criados
+
+`git diff --name-only main..HEAD | grep -E "test_|_test\.|/tests/"` → zero output.
+
+✓ Proibição §7 (zero infra nova, zero teste automatizado) respeitada.
+
+### C.10 — Audit Sprint 2A NÃO materializado (B1)
+
+`git diff --name-only main..HEAD | grep "auditoria_sprint_2a"` → zero output.
+
+✓ Decisão editorial B1 respeitada: audit Sprint 2A lido via `git show` (pipe para `/tmp/`), não materializado no filesystem working tree. Zero risco de commit acidental.
+
+### C.11 — Auditoria Sprint 1 intocada
+
+`git diff --name-only main..HEAD | grep "auditoria_sprint_1"` → zero output.
+
+✓ `RELATORIO_AUDITORIA_SPRINT_1.md` intocado.
+
+### C.12 — Auditoria profunda intocada
+
+`git diff --name-only main..HEAD | grep "auditoria_profunda"` → zero output.
+
+✓ Artefatos PROMPT 9 intocados.
+
+### Veredito Frente C
+
+**APROVADA** — escopo 100% respeitado. Transferidos BO intocados, P3-Prob com 0 APLICAR real, schema DB intacto, Sprint 1/2A preservados, zero teste novo, audit 2A não materializado.
+
+---
