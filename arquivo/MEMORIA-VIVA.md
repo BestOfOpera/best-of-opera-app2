@@ -1,5 +1,17 @@
 # Memória Viva — Best of Opera App2
 
+## Sessão 2026-04-24 — SPEC-011: Fase 0 Fundações BO Pipeline V2
+
+- Branch dedicada: `f0/bo-v2-fundacoes` (derivada de `main`), 9 commits — aguardando auditoria independente antes de merge
+- Commits: `49a3cb2` (migration v18 projects), `ee76d07` (perfil bo-v2 app-editor), `0986a67` (migration translations), `e8810b0` (BO_ANTIPADROES.json + loader), `603bd44` (bo_ctas.py), `d8b1598` (verify_web_search.py), `30933ff` (feature flag), `6ac72bc` (docs env vars Railway), + commit 9 desta atualização de docs
+- 14 colunas novas em `projects` + 3 em `translations` — todas `NULL`/FALSE por default, zero impacto em v1
+- Perfil `best-of-opera-v2` no app-editor com `overlay_max_chars=76, overlay_max_chars_linha=38, overlay_interval_secs=NULL`
+- **Decisão arquitetural:** Opção B no app-editor (perfil separado em vez de UPDATE in-place) — BO v1 intocado, rollback trivial
+- **Decisão arquitetural:** Ramo A para web_search — `web_search_20250305` confirmada funcional via `scripts/verify_web_search.py` (`web_search_requests=1`); `USE_ANTHROPIC_WEB_SEARCH=true` na Railway
+- Pipeline V1 (BO e RC) em produção intocado. V2 dormindo atrás de `PIPELINE_V2_ENABLED=false` até Fase 5.3
+- ⚠️ BLOCKER pré-merge: 2 env vars devem ser declaradas manualmente na Railway (`docs/fase0-env-vars.md`)
+- Próximo passo: auditoria independente em sessão CC nova antes de abrir PR para `main`
+
 ## Sessão 2026-03-22 — SPEC-005b: corrigir fallbacks brand_slug → Best of Opera
 
 - 4 fallbacks `or "best-of-opera"` removidos de `generation.py` → HTTPException 400

@@ -67,6 +67,52 @@ def _run_migrations():
         # v17 — RC overlay audit metadata (refactor overlay-sentinel-restructure)
         if "overlay_audit" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN overlay_audit JSON"))
+        # v18 — BO Pipeline V2 columns (feature flag + Gate 0 classification + timestamps de aprovação)
+        if "pipeline_version" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN pipeline_version VARCHAR(10) NOT NULL DEFAULT 'v1'"))
+            conn.execute(text("UPDATE projects SET pipeline_version = 'v1' WHERE pipeline_version IS NULL"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_projects_pipeline_version ON projects (pipeline_version)"))
+        if "hook_escolhido_json" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN hook_escolhido_json JSON"))
+        if "dim_1_detectada" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN dim_1_detectada VARCHAR(50)"))
+        if "dim_2_detectada" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN dim_2_detectada VARCHAR(50)"))
+        if "dim_2_subtipo_detectada" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN dim_2_subtipo_detectada VARCHAR(50)"))
+        if "dim_3_pai_detectada" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN dim_3_pai_detectada VARCHAR(50)"))
+        if "dim_3_sub_detectada" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN dim_3_sub_detectada VARCHAR(50)"))
+        if "video_duration_seconds" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN video_duration_seconds REAL"))
+        if "operator_notes" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN operator_notes TEXT"))
+        if "research_approved_at" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN research_approved_at TIMESTAMP"))
+        if "overlay_approved_at" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN overlay_approved_at TIMESTAMP"))
+        if "post_approved_at" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN post_approved_at TIMESTAMP"))
+        if "youtube_tags_list" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN youtube_tags_list JSON"))
+        if "youtube_approved_at" not in cols:
+            conn.execute(text("ALTER TABLE projects ADD COLUMN youtube_approved_at TIMESTAMP"))
+
+        # v18 (cont.) — translations: verificacoes + detecção de stale após edição em PT
+        if "translations" in insp.get_table_names():
+            trans_cols = [c["name"] for c in insp.get_columns("translations")]
+            if "verificacoes_json" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN verificacoes_json JSON"))
+            if "is_stale" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN is_stale BOOLEAN DEFAULT FALSE NOT NULL"))
+            if "stale_reason" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN stale_reason VARCHAR(200)"))
+            # Índice parcial em Postgres; fallback para índice full em SQLite (não suporta WHERE em CREATE INDEX)
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_translations_stale ON translations(is_stale) WHERE is_stale = TRUE"))
+            except Exception:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_translations_stale ON translations(is_stale)"))
 
 
 _run_migrations()

@@ -73,6 +73,15 @@ class ProjectUpdate(BaseModel):
     instrument_formation: Optional[str] = None
     orchestra: Optional[str] = None
     conductor: Optional[str] = None
+    # BO Pipeline V2
+    hook_escolhido_json: Optional[dict] = None
+    dim_1_detectada: Optional[str] = None
+    dim_2_detectada: Optional[str] = None
+    dim_2_subtipo_detectada: Optional[str] = None
+    dim_3_pai_detectada: Optional[str] = None
+    dim_3_sub_detectada: Optional[str] = None
+    operator_notes: Optional[str] = None
+    youtube_tags_list: Optional[list] = None
 
 
 class TranslationOut(BaseModel):
@@ -83,6 +92,10 @@ class TranslationOut(BaseModel):
     post_text: Optional[str] = None
     youtube_title: Optional[str] = None
     youtube_tags: Optional[str] = None
+    # BO Pipeline V2
+    verificacoes_json: Optional[dict] = None
+    is_stale: bool = False
+    stale_reason: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -131,6 +144,21 @@ class ProjectOut(BaseModel):
     conductor: Optional[str] = None
     scheduled_date: Optional[datetime.date] = None
     r2_folder: Optional[str] = None
+    # BO Pipeline V2 — feature flag + Gate 0 + timestamps de aprovação
+    pipeline_version: str = "v1"
+    hook_escolhido_json: Optional[dict] = None
+    dim_1_detectada: Optional[str] = None
+    dim_2_detectada: Optional[str] = None
+    dim_2_subtipo_detectada: Optional[str] = None
+    dim_3_pai_detectada: Optional[str] = None
+    dim_3_sub_detectada: Optional[str] = None
+    video_duration_seconds: Optional[float] = None
+    operator_notes: Optional[str] = None
+    research_approved_at: Optional[datetime.datetime] = None
+    overlay_approved_at: Optional[datetime.datetime] = None
+    post_approved_at: Optional[datetime.datetime] = None
+    youtube_tags_list: Optional[list] = None
+    youtube_approved_at: Optional[datetime.datetime] = None
     translations: List[TranslationOut] = []
     warnings: List[str] = []
 

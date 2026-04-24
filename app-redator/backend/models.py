@@ -1,7 +1,7 @@
 from __future__ import annotations
 import datetime
 from typing import Optional
-from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Text, Boolean, DateTime, Float, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -78,6 +78,22 @@ class Project(Base):
     # R2 reference
     r2_folder: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 
+    # BO Pipeline V2 — feature flag + Gate 0 classification + timestamps de aprovação
+    pipeline_version: Mapped[str] = mapped_column(String(10), nullable=False, default="v1")
+    hook_escolhido_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    dim_1_detectada: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    dim_2_detectada: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    dim_2_subtipo_detectada: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    dim_3_pai_detectada: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    dim_3_sub_detectada: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    video_duration_seconds: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    operator_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    research_approved_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    overlay_approved_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    post_approved_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    youtube_tags_list: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    youtube_approved_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+
     translations: Mapped[list["Translation"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )
@@ -94,5 +110,10 @@ class Translation(Base):
     post_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     youtube_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     youtube_tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # BO Pipeline V2 — bloco `verificacoes` do prompt de tradução + detecção de stale após edição em PT
+    verificacoes_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    is_stale: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stale_reason: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="translations")

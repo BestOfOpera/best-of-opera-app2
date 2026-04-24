@@ -8,13 +8,28 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Project
 from backend.schemas import ProjectCreate, ProjectUpdate, ProjectOut, R2AvailableItem
+from backend.utils.timestamp import parse_timestamp_to_seconds
+from backend.config import PIPELINE_V2_ENABLED
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+MIN_BO_V2_DURATION_SECONDS = 28.0
+
+
+def _resolve_pipeline_version(brand_slug: str) -> str:
+    """Deriva pipeline_version do novo projeto a partir do brand_slug + feature flag.
+    Default seguro: v1. V2 só ativa para BO quando PIPELINE_V2_ENABLED=true no ambiente."""
+    if brand_slug == "best-of-opera" and PIPELINE_V2_ENABLED:
+        return "v2"
+    return "v1"
 
 
 @router.post("", response_model=ProjectOut)
 def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
-    project = Project(**data.model_dump(), status="input_complete")
+    payload = data.model_dump()
+    payload["status"] = "input_complete"
+    payload["pipeline_version"] = _resolve_pipeline_version(data.brand_slug)
+    project = Project(**payload)
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -238,7 +253,30 @@ def update_project(
     project = db.get(Project, project_id)
     if not project:
         raise HTTPException(404, "Project not found")
-    for key, value in data.model_dump(exclude_unset=True).items():
+
+    updates = data.model_dump(exclude_unset=True)
+
+    # Popular video_duration_seconds quando cuts são atualizados. Em BO v2,
+    # bloquear duração < 28s (mínimo do pipeline conforme achado V-I-07).
+    effective_start = updates.get("cut_start", project.cut_start)
+    effective_end = updates.get("cut_end", project.cut_end)
+    if ("cut_start" in updates or "cut_end" in updates) and effective_start and effective_end:
+        try:
+            duration = parse_timestamp_to_seconds(effective_end) - parse_timestamp_to_seconds(effective_start)
+        except ValueError as exc:
+            raise HTTPException(400, f"Timestamp inválido em cut_start/cut_end: {exc}")
+        is_bo_v2 = (
+            project.brand_slug == "best-of-opera"
+            and project.pipeline_version == "v2"
+        )
+        if is_bo_v2 and duration < MIN_BO_V2_DURATION_SECONDS:
+            raise HTTPException(
+                400,
+                f"Corte de {duration:.1f}s é menor que o mínimo {MIN_BO_V2_DURATION_SECONDS:.0f}s do pipeline BO v2",
+            )
+        updates["video_duration_seconds"] = duration
+
+    for key, value in updates.items():
         setattr(project, key, value)
     db.commit()
     db.refresh(project)
