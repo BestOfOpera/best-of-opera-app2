@@ -92,6 +92,10 @@ class TranslationOut(BaseModel):
     post_text: Optional[str] = None
     youtube_title: Optional[str] = None
     youtube_tags: Optional[str] = None
+    # BO Pipeline V2
+    verificacoes_json: Optional[dict] = None
+    is_stale: bool = False
+    stale_reason: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

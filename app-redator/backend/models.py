@@ -111,4 +111,9 @@ class Translation(Base):
     youtube_title: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     youtube_tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
+    # BO Pipeline V2 — bloco `verificacoes` do prompt de tradução + detecção de stale após edição em PT
+    verificacoes_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    is_stale: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stale_reason: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
     project: Mapped["Project"] = relationship(back_populates="translations")

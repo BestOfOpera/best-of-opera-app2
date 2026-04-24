@@ -99,6 +99,21 @@ def _run_migrations():
         if "youtube_approved_at" not in cols:
             conn.execute(text("ALTER TABLE projects ADD COLUMN youtube_approved_at TIMESTAMP"))
 
+        # v18 (cont.) — translations: verificacoes + detecção de stale após edição em PT
+        if "translations" in insp.get_table_names():
+            trans_cols = [c["name"] for c in insp.get_columns("translations")]
+            if "verificacoes_json" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN verificacoes_json JSON"))
+            if "is_stale" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN is_stale BOOLEAN DEFAULT FALSE NOT NULL"))
+            if "stale_reason" not in trans_cols:
+                conn.execute(text("ALTER TABLE translations ADD COLUMN stale_reason VARCHAR(200)"))
+            # Índice parcial em Postgres; fallback para índice full em SQLite (não suporta WHERE em CREATE INDEX)
+            try:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_translations_stale ON translations(is_stale) WHERE is_stale = TRUE"))
+            except Exception:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_translations_stale ON translations(is_stale)"))
+
 
 _run_migrations()
 
