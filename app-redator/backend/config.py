@@ -26,6 +26,10 @@ def _resolve_editor_url() -> str:
 EDITOR_API_URL = _resolve_editor_url()
 BRAND_SLUG = os.getenv("BRAND_SLUG")  # sem default — None se não configurado
 
+# BO Pipeline V2 — flags ficam OFF por padrão; operador flipa explicitamente em Railway na Fase 5.3
+PIPELINE_V2_ENABLED = os.getenv("PIPELINE_V2_ENABLED", "false").lower() == "true"
+USE_ANTHROPIC_WEB_SEARCH = os.getenv("USE_ANTHROPIC_WEB_SEARCH", "true").lower() == "true"
+
 _brand_config_cache: dict = {}
 _CACHE_TTL = 300
 

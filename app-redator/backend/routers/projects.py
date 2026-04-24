@@ -9,15 +9,27 @@ from backend.database import get_db
 from backend.models import Project
 from backend.schemas import ProjectCreate, ProjectUpdate, ProjectOut, R2AvailableItem
 from backend.utils.timestamp import parse_timestamp_to_seconds
+from backend.config import PIPELINE_V2_ENABLED
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 MIN_BO_V2_DURATION_SECONDS = 28.0
 
 
+def _resolve_pipeline_version(brand_slug: str) -> str:
+    """Deriva pipeline_version do novo projeto a partir do brand_slug + feature flag.
+    Default seguro: v1. V2 só ativa para BO quando PIPELINE_V2_ENABLED=true no ambiente."""
+    if brand_slug == "best-of-opera" and PIPELINE_V2_ENABLED:
+        return "v2"
+    return "v1"
+
+
 @router.post("", response_model=ProjectOut)
 def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
-    project = Project(**data.model_dump(), status="input_complete")
+    payload = data.model_dump()
+    payload["status"] = "input_complete"
+    payload["pipeline_version"] = _resolve_pipeline_version(data.brand_slug)
+    project = Project(**payload)
     db.add(project)
     db.commit()
     db.refresh(project)
