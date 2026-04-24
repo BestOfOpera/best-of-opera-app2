@@ -189,6 +189,50 @@ def _run_migrations():
         })
         logger.info("Migration: seed editor_perfis Best of Opera OK (idempotente)")
 
+        # Seed: perfil best-of-opera-v2 — overlay 76/38 + interval dinâmico (BO Pipeline V2).
+        # Copia o perfil BO existente e sobrescreve apenas overlay_max_chars/linha/interval.
+        # Zero risco para BO v1: perfil novo e isolado, lookup só acontece quando
+        # pipeline_version='v2' (Fase 1+). Rollback: DELETE WHERE slug='best-of-opera-v2'.
+        conn.execute(text("""
+            INSERT INTO editor_perfis (
+                nome, sigla, slug, ativo, editorial_lang,
+                idiomas_alvo, idioma_preview,
+                overlay_style, lyrics_style, traducao_style,
+                overlay_max_chars, overlay_max_chars_linha, overlay_interval_secs,
+                lyrics_max_chars, traducao_max_chars,
+                video_width, video_height,
+                r2_prefix, cor_primaria, cor_secundaria,
+                hashtags_fixas, categorias_hook,
+                curadoria_categories, elite_hits, power_names, voice_keywords,
+                institutional_channels, category_specialty, scoring_weights, curadoria_filters,
+                font_name, font_file_r2_key, logo_url,
+                identity_prompt, tom_de_voz, sem_lyrics_default,
+                hook_categories_redator, identity_prompt_redator, tom_de_voz_redator,
+                custom_post_structure, brand_opening_line, hashtag_count, overlay_cta,
+                anti_spam_terms, playlist_id, escopo_conteudo
+            )
+            SELECT
+                'Best of Opera (V2)', 'BOV2', 'best-of-opera-v2', TRUE, editorial_lang,
+                idiomas_alvo, idioma_preview,
+                overlay_style, lyrics_style, traducao_style,
+                76, 38, NULL,
+                lyrics_max_chars, traducao_max_chars,
+                video_width, video_height,
+                r2_prefix, cor_primaria, cor_secundaria,
+                hashtags_fixas, categorias_hook,
+                curadoria_categories, elite_hits, power_names, voice_keywords,
+                institutional_channels, category_specialty, scoring_weights, curadoria_filters,
+                font_name, font_file_r2_key, logo_url,
+                identity_prompt, tom_de_voz, sem_lyrics_default,
+                hook_categories_redator, identity_prompt_redator, tom_de_voz_redator,
+                custom_post_structure, brand_opening_line, hashtag_count, overlay_cta,
+                anti_spam_terms, playlist_id, escopo_conteudo
+            FROM editor_perfis
+            WHERE slug = 'best-of-opera'
+              AND NOT EXISTS (SELECT 1 FROM editor_perfis WHERE slug = 'best-of-opera-v2')
+        """))
+        logger.info("Migration: seed editor_perfis Best of Opera V2 OK (idempotente)")
+
         # Backfill: popular campos de curadoria no BO existente (se ainda NULL)
         conn.execute(text("""
             UPDATE editor_perfis SET
