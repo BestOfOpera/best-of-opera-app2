@@ -1078,3 +1078,46 @@ def translate_project_parallel(
                 results[lang] = None
 
     return results
+
+
+# ============================================================================
+# DISPATCHER BO V2 vs RC/v1 (Tarefa 1.7 da Fase 1)
+# ============================================================================
+# Adicionado no FIM do arquivo, ZERO mudança em código RC/v1 acima.
+#
+# Decisão sync-first (consistente com translate_project_parallel sync e
+# bo_translate_service_v2 sync): dispatcher é sync, espelha assinatura
+# de translate_project_parallel para drop-in no caller.
+#
+# Valor canônico de brand_slug é 'best-of-opera' (NÃO 'bo') — confirmado
+# em routers/projects.py:22 e main.py:39 (default da migration).
+# ============================================================================
+
+def translate_project_dispatched(
+    project,
+    overlay_json: list,
+    post_text: str,
+    *args,
+    **kwargs,
+):
+    """Dispatcher BO V2 vs RC/v1. NÃO altera comportamento de RC ou BO v1.
+
+    - brand_slug='best-of-opera' + pipeline_version='v2'
+      → translate_project_bo_v2(project.id) — pipeline novo, ignora args extras
+    - todo o resto (RC, BO v1)
+      → translate_project_parallel(project, overlay_json, post_text, ...) — legado
+
+    Sync porque translate_project_parallel é sync (translate_service.py:975
+    confirmado em diagnóstico Diag 4 da Fase 1).
+
+    Para BO v2, a assinatura espelha o legado para drop-in transparente no
+    caller; bo_v2 ignora overlay_json/post_text (carrega tudo de project.id).
+    """
+    if (
+        project is not None
+        and getattr(project, "brand_slug", None) == "best-of-opera"
+        and getattr(project, "pipeline_version", None) == "v2"
+    ):
+        from backend.services.bo.bo_translate_service_v2 import translate_project_bo_v2
+        return translate_project_bo_v2(project.id)
+    return translate_project_parallel(project, overlay_json, post_text, *args, **kwargs)
