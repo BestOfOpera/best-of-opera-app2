@@ -993,8 +993,17 @@ def _enforce_line_breaks_rc(texto: str, tipo: str, max_chars_linha: int = 38, la
 
 
 def _enforce_line_breaks_bo(texto: str, max_chars_linha: int = 35, max_linhas: int = 2) -> str:
-    """Re-wrap texto BO pós-tradução em max 2 linhas de 35 chars.
-    Usa mesma lógica de _enforce_line_breaks_rc, adaptada para BO."""
+    """
+    DEPRECATED — v2 — mantida apenas para retrocompat de projetos BO v1.
+
+    Código v2 usa `validate_overlay_schema` em
+    app-redator/backend/services/bo/bo_overlay_service.py. Esta função NÃO
+    deve ser estendida ou modificada; remover quando todos os projetos BO v1
+    em produção forem migrados para v2 ou arquivados (Fase 6 — deprecation).
+
+    Re-wrap texto BO pós-tradução em max 2 linhas de 35 chars.
+    Usa mesma lógica de _enforce_line_breaks_rc, adaptada para BO.
+    """
     if not texto:
         return texto
 
