@@ -139,11 +139,18 @@ def anthropic_response(mock_anthropic):
 
 @pytest.fixture
 def in_memory_db():
-    """Cria um banco SQLite in-memory para testes que precisam persistir Project/Translation."""
+    """Cria um banco SQLite in-memory para testes que precisam persistir Project/Translation.
+
+    Importante: importar `backend.models` ANTES de `create_all` para registrar
+    as tabelas Project/Translation no Base.metadata. Sem esse import, o Base
+    está vazio e `create_all` não cria nada.
+    """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
     from backend.database import Base
+    # Side-effect import: registra Project + Translation no Base.metadata
+    from backend import models  # noqa: F401
 
     engine = create_engine("sqlite:///:memory:", echo=False, future=True)
     Base.metadata.create_all(engine)
