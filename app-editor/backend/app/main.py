@@ -858,6 +858,42 @@ def _run_migrations():
     except Exception as e:
         logger.warning(f"Migration v13 RC inter_line_gap: {e}")
 
+    # Migration v14: RC — gap_from_image 0→-20 (aproximar lyrics do vídeo)
+    # Compensa o "buffer" de ~28px causado pela superestimação de text_height
+    # (fontsize*1.3) na fórmula de lyrics_marginv em legendas.py. Resultado medido
+    # com Poppins Bold Italic 58 + outline 3: gap visual vídeo→amarelo cai de 28px
+    # para 8px. Guard idempotente: só executa se gap_from_image == 0 (estado pós-v12).
+    # Apenas lyrics_style é afetado (legendas.py lê gap_from_image de estilos["lyrics"]).
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style = (lyrics_style::jsonb || '{"gap_from_image": -20}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'gap_from_image') = '0'
+            """))
+            logger.info(f"Migration v14: RC gap_from_image 0→-20 ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v14 RC gap_from_image: {e}")
+
+    # Migration v15: RC — inter_line_gap -25→-22 (calibração final do gap amarelo→branco)
+    # Combinada com o fix de event.layer=1 em legendas.py (Decisão §13), produz gap
+    # visual de ~12px entre lyrics e tradução. Sem o fix de layer, a v13 (-25) era
+    # no-op visual por causa do collision detection do libass — o valor -22 é o
+    # ponto calibrado empiricamente DEPOIS do fix. Guard idempotente: só executa
+    # se inter_line_gap == -25 (estado pós-v13). Apenas lyrics_style é afetado.
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(text("""
+                UPDATE editor_perfis SET
+                    lyrics_style = (lyrics_style::jsonb || '{"inter_line_gap": -22}'::jsonb)::json
+                WHERE sigla = 'RC'
+                  AND (lyrics_style->>'inter_line_gap') = '-25'
+            """))
+            logger.info(f"Migration v15: RC inter_line_gap -25→-22 ({result.rowcount} linha(s))")
+    except Exception as e:
+        logger.warning(f"Migration v15 RC inter_line_gap: {e}")
+
     # Verificação de perfil RC no startup
     try:
         with engine.begin() as conn:

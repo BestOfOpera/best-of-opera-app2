@@ -694,6 +694,10 @@ def gerar_ass(
             texto_trad = trad_seg.get("traducao", "")
             if texto_trad:
                 event_trad = pysubs2.SSAEvent()
+                # Layer 1 desativa o collision detection do libass entre tradução e lyrics
+                # (que está em Layer 0). Sem isso, qualquer inter_line_gap < ~-15 é
+                # ignorado pelo libass, que força ~40px de gap mínimo. Ver DECISIONS §13.
+                event_trad.layer = 1
                 event_trad.start = event.start
                 event_trad.end = event.end
                 texto_trad_original = texto_trad

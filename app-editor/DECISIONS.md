@@ -198,3 +198,67 @@ editorial no topo.
 **Distinção de `sem_legendas` (existente):**
 - `sem_lyrics=True`: mantém overlay, omite lyrics+tradução (ASS com 1 track)
 - `sem_legendas=True`: remove TODAS as legendas (sem ASS, apenas scale+pad)
+
+## 13. Fix collision detection libass + calibração final do posicionamento RC (2026-04-26)
+
+**Problema:** Após as migrations v12 (`gap_from_image: 4→0`, `inter_line_gap: 2→-10`) e v13 (`inter_line_gap: -10→-25`), o gap visual entre lyrics e tradução continuava grande (~40px medidos) — e qualquer valor mais agressivo de `inter_line_gap` simplesmente não produzia efeito. Adicionalmente, o gap entre a base do vídeo e o topo do lyrics permanecia visível (~28px), apesar de `gap_from_image=0`.
+
+**Causa raiz #1 — collision detection do libass (bug oculto):** em `legendas.py`, os SSAEvent de Lyrics e Tradução eram criados sem setar `event.layer`, ambos caindo em Layer 0 (default do pysubs2). Quando duas legendas em mesma layer ficam próximas, o libass aplica **collision avoidance automático** e força ~40px de gap mínimo, ignorando o `marginv` calculado.
+
+Validação empírica (FFmpeg + libass real + Poppins Bold Italic 58):
+
+| `traducao_marginv` | Mesma layer (atual) | Layers separadas |
+|---|---|---|
+| 1280 | y=1357 (clipado) | y=1303 (responde) |
+| 1314 | y=1357 (clipado) | y=1326 (responde) |
+| 1329 | y=1357 (clipado) | y=1341 (responde) |
+| 1370 | y=1382 (responde) | y=1382 (responde) |
+
+Conclusão: na configuração atual (`lyrics_marginv≈581`), qualquer `traducao_marginv < 1370` é clipado para y=1357, tornando v12/v13 no-ops visuais.
+
+**Causa raiz #2 — superestimação de text_height:** a fórmula `text_height = int(fontsize_lyrics * 1.3) = 75` (com fontsize=58) é maior que a altura visual real do glyph Poppins renderizado (~50px). Sobra um buffer de ~28px entre a base do vídeo e o topo visual do lyrics, mesmo com `gap_from_image=0`.
+
+**Solução em três frentes:**
+
+### Frente A — Fix de layer (`legendas.py`)
+Setar `event_trad.layer = 1` no SSAEvent da tradução. Lyrics permanece em Layer 0 (default). Layers diferentes desativam o collision detection. Single-line change.
+
+### Frente B — Migration v14: `gap_from_image: 0 → -20`
+Compensa o buffer de ~28px da text_height superestimada. Cada −1 em `gap_from_image` reduz 1px no gap visual vídeo→amarelo. Resultado: gap cai de 28px para 8px.
+
+### Frente C — Migration v15: `inter_line_gap: -25 → -22`
+Recalibração feita DEPOIS do fix de layer (com a layer corrigida, valores respondem linearmente). Resultado: gap amarelo→branco de 12px.
+
+### Configuração unificada de estilo (já no banco desde v6/v7, confirmada)
+Lyrics e Tradução têm atributos visuais idênticos. Diferem apenas em `primarycolor` (amarelo `#FFFF00` × branco `#FFFFFF`) e `alignment` (2 × 8). O `alignment` é diferente por necessidade matemática — lyrics ancora pelo bottom (referência base), tradução pelo top (posiciona-se em relação ao lyrics via `traducao_marginv = frame_h − lyrics_marginv + inter_line_gap`).
+
+| Atributo | Lyrics | Tradução |
+|---|---|---|
+| fontname | Poppins | Poppins |
+| fontsize | 58 | 58 |
+| outline / outlinecolor | 3 / `#000000` | 3 / `#000000` |
+| bold / italic | True / True | True / True |
+| primarycolor | `#FFFF00` | `#FFFFFF` |
+| alignment | 2 (bottom-center) | 8 (top-center) |
+| layer (no event) | 0 (default) | **1** (fix Frente A) |
+
+### Posicionamento final medido (vídeo 16:9 → image_top_px=656, frame 1080×1920)
+
+```
+gap_from_image  = -20    (v14)
+inter_line_gap  = -22    (v15)
+
+text_height       = 75
+lyrics_marginv    = 656 - (-20) - 75 = 601
+traducao_marginv  = 1920 - 601 + (-22) = 1297
+```
+
+| Métrica | Valor medido |
+|---|---|
+| Gap vídeo (y=1264) → topo do amarelo | **8 px** |
+| Gap baseline do amarelo → topo do branco | **12 px** |
+| Altura visual do amarelo | ~26 px |
+| Altura visual do branco | ~25 px |
+
+### Limitação conhecida (pré-existente, não introduzida por esta mudança)
+Com lyrics em **2 linhas** (`\N`), o texto cresce para cima por causa de alignment=2 e invade o vídeo em ~30px. Isto já acontecia antes das mudanças desta decisão — para o caso típico do RC (lyrics curtos, 1 linha), a configuração funciona cleanly. Tratar em iteração futura adicionando lógica de "se 2 linhas, comprimir text_height" na fórmula.
